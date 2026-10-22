@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sonic 2 HD</title>
+  <style>
+    :root { color-scheme: dark; }
+    html, body { margin: 0; height: 100%; background: #000; color: #ddd; font: 14px/1.5 system-ui, sans-serif; overflow: hidden; }
+    #stage { position: fixed; inset: 0; display: grid; place-items: center; }
+    canvas { width: min(100vw, calc(100vh * 16 / 9)); aspect-ratio: 16 / 9; background: #000; display: block; outline: none; }
+    #panel { position: fixed; inset: 0; display: grid; place-items: center; background: #000c; }
+    #panel[hidden] { display: none; }
+    .card { max-width: 32rem; padding: 1.5rem 2rem; border: 1px solid #333; border-radius: 8px; background: #111; }
+    .card h1 { margin: 0 0 .5rem; font-size: 1.4rem; color: #fff; }
+    .buttons { display: flex; gap: .75rem; flex-wrap: wrap; margin: 1rem 0 .5rem; }
+    label.button { padding: .5rem 1rem; border-radius: 6px; background: #1f5fd1; color: #fff; cursor: pointer; }
+    label.button input { display: none; }
+    #status { min-height: 1.5em; color: #9ab; }
+    #hud { position: fixed; top: 6px; left: 8px; font: 12px ui-monospace, monospace; color: #8f8; text-shadow: 0 0 3px #000; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <div id="stage"><canvas id="game" tabindex="0"></canvas></div>
+  <div id="hud"></div>
+  <div id="panel">
+    <div class="card">
+      <h1>Sonic 2 HD</h1>
+      <p>The game data is not included. Download the 2.0.1012-rc2 demo from sonic2hd.com, then choose the zip or
+        its extracted folder. The files stay in your browser.</p>
+      <div class="buttons">
+        <label class="button">Choose zip<input id="zip" type="file" accept=".zip"></label>
+        <label class="button">Choose folder<input id="folder" type="file" webkitdirectory multiple></label>
+      </div>
+      <div id="status">Loading runtime…</div>
+    </div>
+  </div>
+  <script type="module" src="main.js"></script>
+</body>
+</html>

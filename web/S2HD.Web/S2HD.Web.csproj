@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+
+  <!-- Browser build: the game and engine compiled to WebAssembly, rendering through WebGL2 -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>S2HD.Web</AssemblyName>
+    <RootNamespace>S2HD</RootNamespace>
+    <!-- Same version as the desktop game (shown on the title screen) -->
+    <Version>2.0.1012.10521</Version>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- Same warning suppressions as the desktop game and engine (decompiled code) -->
+    <NoWarn>$(NoWarn);CS0649;CS0169;CS0414;CS0219;CS0168;CA1416</NoWarn>
+    <!-- The engine finds object types and resources by reflection; trimming would remove them -->
+    <PublishTrimmed>false</PublishTrimmed>
+    <RepoRoot>$(MSBuildThisFileDirectory)../../</RepoRoot>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Game code shared with the desktop build; web/Program.cs replaces the desktop entry point -->
+    <Compile Include="$(RepoRoot)S2HD/**/*.cs" Exclude="$(RepoRoot)S2HD/Program.cs" Link="Game/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="$(RepoRoot)SONICORCA/**/*.cs" Link="Game/SONICORCA/%(RecursiveDir)%(Filename)%(Extension)" />
+    <!-- GL backend shared with the desktop build, compiled against the WebGL implementation of GL in Platform/ -->
+    <Compile Include="$(RepoRoot)engine/SonicOrca.SDL2/SonicOrca.SDL2/GL*.cs;$(RepoRoot)engine/SonicOrca.SDL2/SonicOrca.SDL2/IGLWindow.cs" Link="SharedGL/%(Filename)%(Extension)" />
+    <!-- Shaders are written to the in-memory file system at startup -->
+    <EmbeddedResource Include="$(RepoRoot)assets/shaders/**/*" LogicalName="shaders/%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="$(RepoRoot)engine/SonicOrca.Common/SonicOrca.Common.csproj" />
+    <ProjectReference Include="$(RepoRoot)engine/SonicOrca.Resources/SonicOrca.Resources.csproj" />
+    <ProjectReference Include="$(RepoRoot)engine/SonicOrca/SonicOrca.csproj" />
+    <ProjectReference Include="$(RepoRoot)engine/SonicOrca.Drawing/SonicOrca.Drawing.csproj" />
+    <!-- Enum and type definitions for the shared GL backend; GL calls themselves go to WebGL -->
+    <PackageReference Include="OpenTK.Graphics" Version="4.9.4" />
+  </ItemGroup>
+
+  <!-- Builds also produce a servable folder (the SDK otherwise only copies wwwroot on publish) -->
+  <Target Name="CopyStaticFilesOnBuild" AfterTargets="Build">
+    <ItemGroup>
+      <S2HDStaticFile Include="wwwroot/**" />
+    </ItemGroup>
+    <Copy SourceFiles="@(S2HDStaticFile)" DestinationFiles="@(S2HDStaticFile->'$(OutDir)wwwroot/%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>
