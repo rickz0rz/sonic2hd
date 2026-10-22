@@ -34,9 +34,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Engine and shim projects build separately -->
-    <Compile Remove="engine\**;shims\**" />
-    <None Remove="engine\**;shims\**" />
+    <!-- Engine and shim projects build separately; publish\ holds release output -->
+    <Compile Remove="engine\**;shims\**;publish\**" />
+    <None Remove="engine\**;shims\**;publish\**" />
   </ItemGroup>
 
   <ItemGroup Condition=" Exists('$(GameDir)') ">
