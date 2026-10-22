@@ -74,11 +74,11 @@ internal class GLGraphicsContext : IGraphicsContext
 					break;
 				case BlendMode.Alpha:
 					GL.Enable(EnableCap.Blend);
-					GL.BlendFunc(BlendingFactorSrc.SrcAlpha, BlendingFactorDest.OneMinusSrcAlpha);
+					GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
 					break;
 				case BlendMode.Additive:
 					GL.Enable(EnableCap.Blend);
-					GL.BlendFunc(BlendingFactorSrc.SrcAlpha, BlendingFactorDest.One);
+					GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.One);
 					break;
 				}
 			}
@@ -94,7 +94,7 @@ internal class GLGraphicsContext : IGraphicsContext
 		}
 		set
 		{
-			GL.PolygonMode(MaterialFace.FrontAndBack, (OpenTK.Graphics.OpenGL.PolygonMode)(6912 + value));
+			GL.PolygonMode(TriangleFace.FrontAndBack, (OpenTK.Graphics.OpenGL.PolygonMode)(6912 + value));
 		}
 	}
 

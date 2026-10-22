@@ -6,9 +6,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
 using OpenTK;
-using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
-using OpenTK.Platform;
 using SDL2;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
@@ -241,12 +239,15 @@ public class SDL2WindowContext : WindowContext
 		}
 	}
 
+	// SDL owns the GL context; OpenTK only needs SDL's loader to resolve GL entry points
+	private sealed class SDL2BindingsContext : IBindingsContext
+	{
+		public IntPtr GetProcAddress(string procName) => SDL.SDL_GL_GetProcAddress(procName);
+	}
+
 	private void SetOpenTKOpenGLHandle(IntPtr glHandle, IntPtr windowHandle)
 	{
-		Toolkit.Init();
-		Utilities.CreateWindowsWindowInfo(windowHandle);
-		ContextHandle ch = new ContextHandle(_glContext);
-		((IGraphicsContextInternal)new GraphicsContext(ch, (string proc) => SDL.SDL_GL_GetProcAddress(proc), () => ch)).Implementation.LoadAll();
+		GL.LoadBindings(new SDL2BindingsContext());
 	}
 
 	private IntPtr GetWindowHWND(IntPtr window)

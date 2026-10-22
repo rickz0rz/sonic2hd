@@ -36,7 +36,7 @@ internal class GLShaderProgram : IShaderProgram, IDisposable
 				GL.AttachShader(num, shader.Id);
 			}
 			GL.LinkProgram(num);
-			GL.GetProgram(num, ProgramParameter.LinkStatus, out var @params);
+			GL.GetProgram(num, GetProgramParameterName.LinkStatus, out var @params);
 			if (@params != 1)
 			{
 				throw new Exception(GL.GetProgramInfoLog(num));
