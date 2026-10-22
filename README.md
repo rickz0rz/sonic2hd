@@ -17,8 +17,9 @@ non-profit fan project, not affiliated with SEGA or Sonic Team.
 
 ## Game files
 
-Game data is **not** in this repository. Builds copy `data/` and `credits.film` (and `SDL2.dll` on Windows) from
-the original 2.0.1012-rc2 release, by default from `~/Downloads/S2HD_2.0.1012-rc2/S2HD_2.0.1012-rc2/`.
+Game data is **not** in this repository. Download the 2.0.1012-rc2 demo build from
+[sonic2hd.com](https://sonic2hd.com) and extract it. Builds copy `data/` and `credits.film` (and `SDL2.dll` on
+Windows) from it, by default from `~/Downloads/S2HD_2.0.1012-rc2/S2HD_2.0.1012-rc2/`.
 Point elsewhere with `-p:GameDir=/path/to/S2HD_2.0.1012-rc2/` (keep the trailing slash).
 
 ## Windows
