@@ -37,7 +37,7 @@ public static class Program
     get
     {
       // ~/Library/Application Support on macOS; Documents on Windows (unchanged from the original)
-      Environment.SpecialFolder folder = OperatingSystem.IsMacOS() ? Environment.SpecialFolder.ApplicationData : Environment.SpecialFolder.Personal;
+      Environment.SpecialFolder folder = OperatingSystem.IsMacOS() ? Environment.SpecialFolder.LocalApplicationData : Environment.SpecialFolder.Personal;
       return Path.Combine(Environment.GetFolderPath(folder), "SonicOrca");
     }
   }

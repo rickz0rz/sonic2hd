@@ -24,6 +24,8 @@
     <RuntimeIdentifier Condition=" '$(RuntimeIdentifier)' == '' ">win-x64</RuntimeIdentifier>
     <SelfContained>false</SelfContained>
     <ApplicationVersion>2.0.1012.10521</ApplicationVersion>
+    <!-- Original S2HD icon, extracted from the 2.0.1012-rc2 executable -->
+    <ApplicationIcon>assets\S2HD.ico</ApplicationIcon>
     <!-- CS0649: [ResourcePath] fields are populated by the engine via reflection -->
     <NoWarn>$(NoWarn);CS0649</NoWarn>
     <!-- Original game install providing native binaries and assets (override with -p:GameDir=...) -->
@@ -36,8 +38,9 @@
     <None Remove="engine\**;publish\**" />
   </ItemGroup>
 
+  <!-- Game assets from the original install -->
   <ItemGroup Condition=" Exists('$(GameDir)') ">
-    <None Include="$(GameDir)SDL2.dll;$(GameDir)credits.film" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+    <None Include="$(GameDir)credits.film" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
     <None Include="$(GameDir)data\**\*" Link="data\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
   </ItemGroup>
 
@@ -46,11 +49,14 @@
     <None Include="assets\shaders\**\*" Link="shaders\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
-  <!-- FFmpeg 7.1 shared libraries for credits film playback (fetch with tools\get-ffmpeg.ps1) -->
-  <ItemGroup>
+  <!-- Windows native libraries: SDL2 from the original install, FFmpeg 7.1 from tools\get-ffmpeg.ps1.
+       macOS builds get theirs from tools/macos/build-app.sh instead.
+       (Checked here rather than in a property: items are evaluated after publish profiles set the RID.) -->
+  <ItemGroup Condition=" $(RuntimeIdentifier.StartsWith('win')) ">
+    <None Include="$(GameDir)SDL2.dll" Link="SDL2.dll" CopyToOutputDirectory="PreserveNewest" Visible="false" Condition=" Exists('$(GameDir)SDL2.dll') " />
     <None Include="lib\ffmpeg\*" Link="ffmpeg\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
   </ItemGroup>
-  <Target Name="WarnMissingFFmpeg" BeforeTargets="Build" Condition=" !Exists('lib\ffmpeg\avcodec-61.dll') ">
+  <Target Name="WarnMissingFFmpeg" BeforeTargets="Build" Condition=" $(RuntimeIdentifier.StartsWith('win')) And !Exists('lib\ffmpeg\avcodec-61.dll') ">
     <Warning Text="FFmpeg 7.1 libraries not found in lib\ffmpeg; video playback will fail. Run tools\get-ffmpeg.ps1." />
   </Target>
 

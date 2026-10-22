@@ -26,6 +26,9 @@ public class SDL2WindowContext : WindowContext
 
 		[DllImport("user32.dll")]
 		public static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+
+		[DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+		public static extern IntPtr GetModuleHandle(string lpModuleName);
 	}
 
 	public const int DEFAULT_HICON_RESOURCE_ID = 32512;
@@ -242,7 +245,7 @@ public class SDL2WindowContext : WindowContext
 		{
 			return;
 		}
-		IntPtr intPtr = User32.LoadIcon(Marshal.GetHINSTANCE(Assembly.GetEntryAssembly().ManifestModule), new IntPtr(32512));
+		IntPtr intPtr = User32.LoadIcon(User32.GetModuleHandle(null), new IntPtr(32512));
 		if (intPtr != IntPtr.Zero)
 		{
 			User32.SendMessage(GetWindowHWND(_windowHandle), 128u, new IntPtr(0), intPtr);

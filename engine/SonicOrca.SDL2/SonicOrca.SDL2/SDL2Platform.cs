@@ -43,6 +43,11 @@ public class SDL2Platform : IPlatform, IDisposable
 
 	public int TotalMemory => SDL.SDL_GetSystemRAM();
 
+	static SDL2Platform()
+	{
+		SDL2NativeLibrary.Register();
+	}
+
 	private SDL2Platform()
 	{
 	}
