@@ -215,13 +215,12 @@ label_21:
     int width1 = bounds1.Width;
     Rectanglei rectanglei1 = new Rectanglei(x1, y1, width1, 64 /*0x40*/);
     Rectanglei rectanglei2;
-    ref Rectanglei local = ref rectanglei2;
     Rectanglei bounds2 = this.Bounds;
     int x2 = bounds2.X;
     int y2 = num;
     bounds2 = this.Bounds;
     int width2 = bounds2.Width;
-    local = new Rectanglei(x2, y2, width2, 64 /*0x40*/);
+    rectanglei2 = new Rectanglei(x2, y2, width2, 64 /*0x40*/);
     for (int index = 0; index < this._items.Length; ++index)
     {
       IMenuItem menuItem = this._items[index];

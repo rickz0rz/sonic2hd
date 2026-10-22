@@ -54,7 +54,6 @@ public class SonicInstance : Character
     vector2_1 = !this.IsSpinball ? new Vector2(offset.X, offset.Y - 16.0) : new Vector2(offset.X, offset.Y - 4.0);
     Vector2 vector2_2 = vector2_1;
     Rectangle destination;
-    ref Rectangle local = ref destination;
     double x = vector2_2.X - (double) (currentFrame.Source.Width / 2);
     double y1 = vector2_2.Y;
     Rectanglei source = currentFrame.Source;
@@ -64,7 +63,7 @@ public class SonicInstance : Character
     double width = (double) source.Width;
     source = currentFrame.Source;
     double height = (double) source.Height;
-    local = new Rectangle(x, y2, width, height);
+    destination = new Rectangle(x, y2, width, height);
     characterRenderer.Filter = viewOptions.Filter;
     characterRenderer.FilterAmount = viewOptions.FilterAmount;
     characterRenderer.Brightness = viewOptions.Shadows ? 0.0f : this.Brightness;

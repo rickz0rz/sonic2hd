@@ -102,13 +102,12 @@ public class TailsInstance : Character
     {
       SonicOrca.Graphics.Animation.Frame currentFrame = this._tailAnimationInstance.CurrentFrame;
       offset = (Vector2) currentFrame.Offset;
-      ref Rectangle local = ref destination;
       double x = offset.X - (double) (currentFrame.Source.Width / 2);
       double y = offset.Y - (double) (currentFrame.Source.Height / 2);
       double width = (double) currentFrame.Source.Width;
       source = currentFrame.Source;
       double height = (double) source.Height;
-      local = new Rectangle(x, y, width, height);
+      destination = new Rectangle(x, y, width, height);
       if (this.Animation.Index == 10)
       {
         double angle = Math.Atan2(this.Velocity.Y, this.Velocity.X);
@@ -121,7 +120,6 @@ public class TailsInstance : Character
     }
     SonicOrca.Graphics.Animation.Frame currentFrame1 = this.Animation.CurrentFrame;
     offset = (Vector2) currentFrame1.Offset;
-    ref Rectangle local1 = ref destination;
     double x1 = offset.X;
     source = currentFrame1.Source;
     double num1 = (double) (source.Width / 2);
@@ -134,7 +132,7 @@ public class TailsInstance : Character
     double width1 = (double) source.Width;
     source = currentFrame1.Source;
     double height1 = (double) source.Height;
-    local1 = new Rectangle(x2, y2, width1, height1);
+    destination = new Rectangle(x2, y2, width1, height1);
     characterRenderer.RenderTexture(this.Animation.AnimationGroup.Textures[1], this.Animation.AnimationGroup.Textures[0], propertyDouble1, propertyDouble2, propertyDouble3, (Rectangle) currentFrame1.Source, destination, this.IsFacingRight, this.IsFacingLeft && this.Animation.Index == 16 /*0x10*/);
     if (this._headAnimationInstance.Index == -1)
       return;
