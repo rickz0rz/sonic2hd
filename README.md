@@ -54,3 +54,17 @@ copy `publish\S2HD-macos-kit.zip` to the Mac, unzip it and run `./build-app.sh`.
 
 `sonicorca.log` and `sonicorca.cfg` live in `Documents\SonicOrca` on Windows and
 `~/Library/Application Support/SonicOrca` on macOS. Screenshots (F10) are saved there too.
+
+Vsync is off by default (windowed play is composited without tearing, and the frame timer paces more evenly on
+slow GPUs). To turn it on, for example in exclusive fullscreen, add this to `sonicorca.cfg`:
+
+```ini
+[graphics]
+vsync=1
+```
+
+## Profiling
+
+Set the environment variable `S2HD_PROFILE=1` before launching. The game then logs a frame-time summary every
+300 frames (update, CPU draw, GPU wait, swap and pacing wait), notes shader compiles and slow texture uploads, and
+writes one row per frame to `profile.csv` next to the log.

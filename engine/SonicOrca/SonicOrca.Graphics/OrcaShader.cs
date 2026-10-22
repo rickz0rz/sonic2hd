@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using SonicOrca.Core.Debugging;
 
 namespace SonicOrca.Graphics;
 
@@ -10,8 +11,11 @@ public static class OrcaShader
 {
 	public static ManagedShaderProgram CreateFromFile(IGraphicsContext context, string path)
 	{
+		long start = FrameProfiler.Timestamp();
 		Parse(ParseShaderFileWithIncludes(path), out var vertexOuput, out var fragmentOutput);
-		return new ManagedShaderProgram(context, vertexOuput, fragmentOutput);
+		ManagedShaderProgram program = new ManagedShaderProgram(context, vertexOuput, fragmentOutput);
+		FrameProfiler.Note("Shader " + path, start);
+		return program;
 	}
 
 	public static ManagedShaderProgram Create(IGraphicsContext context, string input)

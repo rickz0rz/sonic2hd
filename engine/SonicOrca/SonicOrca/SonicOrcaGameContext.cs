@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using SonicOrca.Audio;
 using SonicOrca.Core;
+using SonicOrca.Core.Debugging;
 using SonicOrca.Core.Network;
 using SonicOrca.Graphics;
 using SonicOrca.Input;
@@ -139,6 +140,9 @@ public abstract class SonicOrcaGameContext : IDisposable
 	{
 		Window.HideCursorIfIdle = true;
 		_renderer = CreateRenderer();
+		Stopwatch stopwatch = Stopwatch.StartNew();
+		_renderer.Prewarm();
+		Trace.WriteLine($"Prewarmed renderers in {stopwatch.ElapsedMilliseconds} ms");
 	}
 
 	public virtual void Dispose()
@@ -163,6 +167,7 @@ public abstract class SonicOrcaGameContext : IDisposable
 			_stopwatch = new Stopwatch();
 		}
 		_stopwatch.Start();
+		FrameProfiler.BeginFrame();
 		if (_catchup)
 		{
 			UpdateCatchup();
@@ -171,12 +176,16 @@ public abstract class SonicOrcaGameContext : IDisposable
 		{
 			Update();
 		}
+		FrameProfiler.Mark(FrameProfiler.Segment.Update);
 		if (_dirty)
 		{
 			Draw(_renderer);
 		}
 		MeasureFrameRate();
-		if (!IsMaxPerformance)
+		// With vsync on a 60 Hz display the swap already waited for the refresh. Still fall back to the timer when
+		// a frame finished implausibly fast, e.g. drivers that stop blocking while the window is minimised.
+		bool pacedByVSync = Window.IsPacedByVSync && _stopwatch.ElapsedTicks >= Stopwatch.Frequency / 75;
+		if (!IsMaxPerformance && !pacedByVSync)
 		{
 			while (_stopwatch.ElapsedTicks <= Stopwatch.Frequency / 60)
 			{
@@ -186,6 +195,8 @@ public abstract class SonicOrcaGameContext : IDisposable
 				}
 			}
 		}
+		FrameProfiler.Mark(FrameProfiler.Segment.Wait);
+		FrameProfiler.EndFrame();
 		_stopwatch.Reset();
 	}
 

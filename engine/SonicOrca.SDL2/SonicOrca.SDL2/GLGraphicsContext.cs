@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using OpenTK.Graphics.OpenGL;
+using SonicOrca.Core.Debugging;
 using SonicOrca.Graphics;
 
 namespace SonicOrca.SDL2;
@@ -107,7 +108,10 @@ internal class GLGraphicsContext : IGraphicsContext
 
 	public IShader CreateShader(SonicOrca.Graphics.ShaderType type, string sourceCode)
 	{
-		return new GLShader(type, sourceCode);
+		long start = FrameProfiler.Timestamp();
+		GLShader shader = new GLShader(type, sourceCode);
+		FrameProfiler.Note("Compile " + type + " shader", start);
+		return shader;
 	}
 
 	public IShaderProgram CreateShaderProgram(params IShader[] shaders)
@@ -117,7 +121,10 @@ internal class GLGraphicsContext : IGraphicsContext
 
 	public IShaderProgram CreateShaderProgram(IEnumerable<IShader> shaders)
 	{
-		return new GLShaderProgram(this, shaders.Select((IShader x) => (GLShader)x));
+		long start = FrameProfiler.Timestamp();
+		GLShaderProgram program = new GLShaderProgram(this, shaders.Select((IShader x) => (GLShader)x));
+		FrameProfiler.Note("Link shader program", start);
+		return program;
 	}
 
 	public VertexBuffer CreateVertexBuffer(params int[] vectorCounts)
@@ -144,7 +151,10 @@ internal class GLGraphicsContext : IGraphicsContext
 	{
 		if (Thread.CurrentThread == _videoAdapter.ContextThread)
 		{
-			return new GLTexture(this, width, height, channels, pixels, toCompress);
+			long start = FrameProfiler.Timestamp();
+			GLTexture created = new GLTexture(this, width, height, channels, pixels, toCompress);
+			FrameProfiler.Note($"Create {width}x{height} texture", start, 2.0);
+			return created;
 		}
 		GLTexture texture = null;
 		AutoResetEvent autoResetEvent = new AutoResetEvent(initialState: false);
@@ -195,7 +205,10 @@ internal class GLGraphicsContext : IGraphicsContext
 
 	public IFramebuffer CreateFrameBuffer(int width, int height, int numTextures = 1)
 	{
-		return new GLFramebuffer(this, width, height, numTextures);
+		long start = FrameProfiler.Timestamp();
+		GLFramebuffer framebuffer = new GLFramebuffer(this, width, height, numTextures);
+		FrameProfiler.Note($"Create {width}x{height} framebuffer", start);
+		return framebuffer;
 	}
 
 	public void RenderToBackBuffer()

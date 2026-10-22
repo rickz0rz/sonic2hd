@@ -94,6 +94,14 @@ public abstract class Renderer : IDisposable
 		textureMappings[3].Y = y;
 	}
 
+	/// <summary>
+	/// Creates the specialised renderers up front. They are otherwise created on first use, and compiling their
+	/// shaders mid-game causes visible hitches on slow GPUs (over 80 ms on Intel HD 4000).
+	/// </summary>
+	public virtual void Prewarm()
+	{
+	}
+
 	public abstract I2dRenderer Get2dRenderer();
 
 	public abstract IFontRenderer GetFontRenderer();

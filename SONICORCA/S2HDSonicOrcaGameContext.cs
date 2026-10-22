@@ -54,8 +54,11 @@ internal class S2HDSonicOrcaGameContext(IPlatform platform) : SonicOrcaGameConte
     this.CommandLineArguments = new CommandLineArguments((IEnumerable<string>) Program.CommandLineArguments);
     this.Configuration = Program.Configuration;
     this.UserDataDirectory = Program.UserDataDirectory;
+    SonicOrca.Core.Debugging.FrameProfiler.Initialise(this.UserDataDirectory);
     this._canvas = this.Window.GraphicsContext.CreateFrameBuffer(1920, 1080);
     SonicOrcaGameContext.IsMaxPerformance = this.Configuration.GetPropertyBoolean("graphics", "max_performance");
+    if (this.Configuration.GetPropertyBoolean("graphics", "vsync"))
+      this.Window.VSync = true;
     this.Audio.Volume = this.Configuration.GetPropertyDouble("audio", "volume", 1.0);
     this.Audio.MusicVolume = this.Configuration.GetPropertyDouble("audio", "music_volume", 0.2);
     this.Audio.SoundVolume = this.Configuration.GetPropertyDouble("audio", "sound_volume", 1.0);
@@ -83,6 +86,7 @@ internal class S2HDSonicOrcaGameContext(IPlatform platform) : SonicOrcaGameConte
   public override void Dispose()
   {
     this._rootGameState.Dispose();
+    SonicOrca.Core.Debugging.FrameProfiler.Shutdown();
     base.Dispose();
   }
 

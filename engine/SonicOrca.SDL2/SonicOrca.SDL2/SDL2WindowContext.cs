@@ -8,6 +8,7 @@ using System.Threading;
 using OpenTK;
 using OpenTK.Graphics.OpenGL;
 using SDL2;
+using SonicOrca.Core.Debugging;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
 
@@ -44,6 +45,9 @@ public class SDL2WindowContext : WindowContext
 	private IntPtr _windowHandle;
 
 	private IntPtr _glContext;
+
+	// Signalled when the GPU finishes the previous frame; bounds how far the CPU may run ahead
+	private IntPtr _previousFrameFence;
 
 	private Vector2i _clientSize;
 
@@ -209,7 +213,6 @@ public class SDL2WindowContext : WindowContext
 		SDL.SDL_GL_SetAttribute(SDL.SDL_GLattr.SDL_GL_CONTEXT_PROFILE_MASK, (int)SDL.SDL_GLprofile.SDL_GL_CONTEXT_PROFILE_CORE);
 		SDL.SDL_GL_SetAttribute(SDL.SDL_GLattr.SDL_GL_CONTEXT_FLAGS, (int)SDL.SDL_GLcontext.SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
 		SDL.SDL_GL_SetAttribute(SDL.SDL_GLattr.SDL_GL_MULTISAMPLESAMPLES, 1);
-		SDL.SDL_GL_SetSwapInterval(1);
 		SDL.SDL_GetDesktopDisplayMode(0, out var mode);
 		int num = 1920;
 		int num2 = 1080;
@@ -233,6 +236,8 @@ public class SDL2WindowContext : WindowContext
 			throw SDL2Exception.FromError("Unable to create OpenGL context.");
 		}
 		SetOpenTKOpenGLHandle();
+		_refreshRate = mode.refresh_rate;
+		ApplySwapInterval();
 		ContextThread = Thread.CurrentThread;
 		_glGraphicsContext = new GLGraphicsContext(this);
 		ShowWindowWithBlackBackground();
@@ -341,11 +346,67 @@ public class SDL2WindowContext : WindowContext
 
 	public override void EndRender()
 	{
+		FrameProfiler.Mark(FrameProfiler.Segment.Draw);
+		// The original called GL.Finish() here, which serialised CPU and GPU work. Waiting for the previous
+		// frame instead lets the GPU render one frame while the CPU builds the next, without queueing more.
 		if (!SonicOrcaGameContext.IsMaxPerformance)
 		{
-			GL.Finish();
+			WaitForPreviousFrame();
 		}
+		FrameProfiler.Mark(FrameProfiler.Segment.GpuFinish);
 		SDL.SDL_GL_SwapWindow(_windowHandle);
+		_previousFrameFence = GL.FenceSync(SyncCondition.SyncGpuCommandsComplete, WaitSyncFlags.None);
+		FrameProfiler.Mark(FrameProfiler.Segment.Swap);
+	}
+
+	public override bool VSync
+	{
+		get => _vsync;
+		set
+		{
+			_vsync = value;
+			ApplySwapInterval();
+		}
+	}
+
+	public override bool IsPacedByVSync => _pacedByVSync;
+
+	private bool _vsync;
+
+	private bool _pacedByVSync;
+
+	private int _refreshRate;
+
+	private void ApplySwapInterval()
+	{
+		// The original requested vsync before creating the context, which has no effect, leaving it to the driver.
+		// When enabled, prefer adaptive vsync (a late frame tears instead of waiting a whole extra refresh).
+		if (!_vsync)
+		{
+			SDL.SDL_GL_SetSwapInterval(0);
+		}
+		else if (SDL.SDL_GL_SetSwapInterval(-1) != 0)
+		{
+			SDL.SDL_GL_SetSwapInterval(1);
+		}
+		int interval = SDL.SDL_GL_GetSwapInterval();
+		// The game logic runs once per frame, so vsync can only replace the timer when the display runs at 60 Hz
+		_pacedByVSync = interval != 0 && _refreshRate >= 59 && _refreshRate <= 61;
+		Trace.WriteLine($"Display refresh {_refreshRate} Hz, swap interval {interval}, {(_pacedByVSync ? "paced by vsync" : "paced by timer")}");
+	}
+
+	private void WaitForPreviousFrame()
+	{
+		if (_previousFrameFence == IntPtr.Zero)
+		{
+			return;
+		}
+		const long OneSecondNs = 1_000_000_000;
+		while (GL.ClientWaitSync(_previousFrameFence, ClientWaitSyncFlags.SyncFlushCommandsBit, OneSecondNs) == WaitSyncStatus.TimeoutExpired)
+		{
+		}
+		GL.DeleteSync(_previousFrameFence);
+		_previousFrameFence = IntPtr.Zero;
 	}
 
 	public void Dispatch(Action action)

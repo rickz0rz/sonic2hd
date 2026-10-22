@@ -10,6 +10,22 @@ public class TheRenderer : Renderer
 	{
 	}
 
+	public override void Prewarm()
+	{
+		Get2dRenderer();
+		GetFontRenderer();
+		GetTileRenderer();
+		GetObjectRenderer();
+		GetCharacterRenderer();
+		GetWaterRenderer();
+		GetHeatRenderer();
+		GetNonLayerRenderer();
+		GetMaskRenderer();
+		// Not exposed through IRendererFactory: used by level rendering and the options menu
+		WaterfallRenderer.FromRenderer(this);
+		GaussianBlurRenderer.FromRenderer(this);
+	}
+
 	public override I2dRenderer Get2dRenderer()
 	{
 		return SimpleRenderer.FromRenderer(this);
