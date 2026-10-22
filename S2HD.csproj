@@ -10,8 +10,18 @@
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
-    <!-- Assembly attributes are kept in AssemblyInfo.cs -->
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <!-- Assembly attributes are kept in AssemblyInfo.cs;
+         only let the SDK generate the TargetFramework/SupportedOSPlatform attributes -->
+    <GenerateAssemblyTitleAttribute>false</GenerateAssemblyTitleAttribute>
+    <GenerateAssemblyDescriptionAttribute>false</GenerateAssemblyDescriptionAttribute>
+    <GenerateAssemblyConfigurationAttribute>false</GenerateAssemblyConfigurationAttribute>
+    <GenerateAssemblyCompanyAttribute>false</GenerateAssemblyCompanyAttribute>
+    <GenerateAssemblyProductAttribute>false</GenerateAssemblyProductAttribute>
+    <GenerateAssemblyCopyrightAttribute>false</GenerateAssemblyCopyrightAttribute>
+    <GenerateAssemblyVersionAttribute>false</GenerateAssemblyVersionAttribute>
+    <GenerateAssemblyFileVersionAttribute>false</GenerateAssemblyFileVersionAttribute>
+    <GenerateAssemblyInformationalVersionAttribute>false</GenerateAssemblyInformationalVersionAttribute>
+    <GenerateAssemblyTrademarkAttribute>false</GenerateAssemblyTrademarkAttribute>
     <!-- The native SDL2/FFmpeg binaries are x64-only -->
     <PlatformTarget>x64</PlatformTarget>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
@@ -24,9 +34,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Shim projects build separately -->
-    <Compile Remove="shims\**" />
-    <None Remove="shims\**" />
+    <!-- Engine and shim projects build separately -->
+    <Compile Remove="engine\**;shims\**" />
+    <None Remove="engine\**;shims\**" />
   </ItemGroup>
 
   <ItemGroup Condition=" Exists('$(GameDir)') ">
@@ -44,17 +54,12 @@
   </Target>
 
   <ItemGroup>
-    <Reference Include="SonicOrca" HintPath="lib\SonicOrca.dll" />
-    <Reference Include="SonicOrca.Common" HintPath="lib\SonicOrca.Common.dll" />
-    <Reference Include="SonicOrca.Drawing" HintPath="lib\SonicOrca.Drawing.dll" />
-    <Reference Include="SonicOrca.Resources" HintPath="lib\SonicOrca.Resources.dll" />
-    <Reference Include="SonicOrca.SDL2" HintPath="lib\SonicOrca.SDL2.dll" />
-    <!-- Transitive dependencies of the SonicOrca engine assemblies -->
-    <Reference Include="Accord" HintPath="lib\Accord.dll" />
-    <Reference Include="OpenTK" HintPath="lib\OpenTK.dll" />
-    <Reference Include="SDL2-CS" HintPath="lib\SDL2-CS.dll" />
-    <!-- Replaces Accord's C++/CLI Accord.Video.FFMPEG.x64.dll, which cannot load on .NET 10 -->
-    <ProjectReference Include="shims\Accord.Video.FFMPEG.x64\Accord.Video.FFMPEG.x64.csproj" />
+    <!-- Decompiled SonicOrca engine -->
+    <ProjectReference Include="engine\SonicOrca.Common\SonicOrca.Common.csproj" />
+    <ProjectReference Include="engine\SonicOrca.Resources\SonicOrca.Resources.csproj" />
+    <ProjectReference Include="engine\SonicOrca\SonicOrca.csproj" />
+    <ProjectReference Include="engine\SonicOrca.Drawing\SonicOrca.Drawing.csproj" />
+    <ProjectReference Include="engine\SonicOrca.SDL2\SonicOrca.SDL2.csproj" />
   </ItemGroup>
 
 </Project>

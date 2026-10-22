@@ -1,0 +1,69 @@
+using System.Threading.Tasks;
+
+namespace SonicOrca.Core.Network;
+
+public class NetworkManager
+{
+	public const int DefaultPort = 7237;
+
+	private Task _joiningServer;
+
+	internal NetworkGameServer Server { get; private set; }
+
+	internal NetworkGameClient Client { get; private set; }
+
+	public bool NetworkPlay { get; private set; }
+
+	public bool Hosting { get; private set; }
+
+	public bool AllConnected { get; private set; }
+
+	public void Host(int port = 7237)
+	{
+		Server = new NetworkGameServer(null, 7237);
+		NetworkPlay = true;
+		Hosting = true;
+	}
+
+	public void Join(string serverHost, int port = 7237)
+	{
+		Client = new NetworkGameClient(null);
+		_joiningServer = Client.InitiateHandshake(serverHost, port);
+		NetworkPlay = true;
+	}
+
+	public void Update()
+	{
+		if (!NetworkPlay)
+		{
+			return;
+		}
+		if (AllConnected)
+		{
+			if (Hosting)
+			{
+				Server.Update();
+			}
+			else
+			{
+				Client.Update();
+			}
+		}
+		else if (Hosting)
+		{
+			if (Server.NetworkPlayers.Count > 0)
+			{
+				Server.AllowClientsToConnect = false;
+				AllConnected = true;
+			}
+		}
+		else if (_joiningServer.IsCompleted)
+		{
+			if (_joiningServer.IsFaulted)
+			{
+				throw _joiningServer.Exception.InnerException;
+			}
+			AllConnected = true;
+		}
+	}
+}

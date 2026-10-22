@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>SonicOrca</AssemblyName>
+    <UseWindowsForms>true</UseWindowsForms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SonicOrca.Common\SonicOrca.Common.csproj" />
+    <ProjectReference Include="..\SonicOrca.Resources\SonicOrca.Resources.csproj" />
+    <ProjectReference Include="..\..\shims\Accord.Video.FFMPEG.x64\Accord.Video.FFMPEG.x64.csproj" />
+    <Reference Include="Accord" HintPath="$(LibDir)Accord.dll" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>SonicOrca.SDL2</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SonicOrca\SonicOrca.csproj" />
+    <ProjectReference Include="..\SonicOrca.Common\SonicOrca.Common.csproj" />
+    <ProjectReference Include="..\SonicOrca.Resources\SonicOrca.Resources.csproj" />
+    <Reference Include="OpenTK" HintPath="$(LibDir)OpenTK.dll" />
+    <Reference Include="SDL2-CS" HintPath="$(LibDir)SDL2-CS.dll" />
+  </ItemGroup>
+
+</Project>

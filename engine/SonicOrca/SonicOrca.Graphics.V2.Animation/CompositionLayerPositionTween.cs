@@ -1,0 +1,33 @@
+using System.Collections.Generic;
+
+namespace SonicOrca.Graphics.V2.Animation;
+
+public class CompositionLayerPositionTween : CompositionLayerTween
+{
+	public CompositionLayerPositionTween(uint startFrame, uint endFrame, KeyValuePair<double, double> startEndValuesX, KeyValuePair<double, double> startEndValuesY, KeyValuePair<double, double> startEndValuesZ)
+		: base(startFrame, endFrame)
+	{
+		StartValues["X"] = startEndValuesX.Key;
+		StartValues["Y"] = startEndValuesY.Key;
+		StartValues["Z"] = startEndValuesZ.Key;
+		EndValues["X"] = startEndValuesX.Value;
+		EndValues["Y"] = startEndValuesY.Value;
+		EndValues["Z"] = startEndValuesZ.Value;
+		TweenType = Type.POSITION;
+		ValueKeys.Add("X");
+		ValueKeys.Add("Y");
+		ValueKeys.Add("Z");
+	}
+
+	public CompositionLayerPositionTween(uint startFrame, uint endFrame, KeyValuePair<double, double> startEndValuesX, KeyValuePair<double, double> startEndValuesY)
+		: base(startFrame, endFrame)
+	{
+		StartValues["X"] = startEndValuesX.Key;
+		StartValues["Y"] = startEndValuesY.Key;
+		EndValues["X"] = startEndValuesX.Value;
+		EndValues["Y"] = startEndValuesY.Value;
+		TweenType = Type.POSITION;
+		ValueKeys.Add("X");
+		ValueKeys.Add("Y");
+	}
+}
