@@ -275,7 +275,7 @@ internal class S2HDSonicOrcaGameContext(IPlatform platform) : SonicOrcaGameConte
     this.Renderer.DeativateRenderer();
     this.Console.Draw(this.Renderer);
     this.Renderer.DeativateRenderer();
-    if (SonicOrcaGameContext.Singleton.Input.Pressed.Keyboard[67])
+    if (SonicOrcaGameContext.Singleton.Input.Pressed.Keyboard[67] || SonicOrca.Core.Debugging.FrameProfiler.IsCaptureFrame(this.DrawCount))
       ScreenshotRenderer.GrabScreenshot(this.UserDataDirectory);
     if (!this.ForceHD)
       return;

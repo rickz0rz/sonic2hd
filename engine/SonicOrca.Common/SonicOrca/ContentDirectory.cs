@@ -8,12 +8,21 @@ namespace SonicOrca;
 /// </summary>
 public static class ContentDirectory
 {
-	private static readonly Lazy<string> _path = new Lazy<string>(Resolve);
+	private static string _path;
 
 	/// <summary>
-	/// <c>Contents/Resources</c> when running from a macOS app bundle; otherwise the executable's directory.
+	/// <c>Contents/Resources</c> when running from a macOS app bundle; otherwise the executable's directory,
+	/// unless a host has set it with <see cref="Override"/>.
 	/// </summary>
-	public static string Path => _path.Value;
+	public static string Path => _path ??= Resolve();
+
+	/// <summary>
+	/// Sets the content location explicitly, e.g. the web build's in-memory file system.
+	/// </summary>
+	public static void Override(string path)
+	{
+		_path = path;
+	}
 
 	public static string Combine(string relativePath) => System.IO.Path.Combine(Path, relativePath);
 

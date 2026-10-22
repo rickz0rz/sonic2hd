@@ -7,7 +7,6 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
-using OpenTK.Graphics.OpenGL;
 using SonicOrca.Core;
 using SonicOrca.Core.Collision;
 using SonicOrca.Drawing.Renderers;
@@ -252,31 +251,33 @@ public class LevelRenderer : ILevelRenderer, IDisposable
 		}
 	}
 
+	// Stencil state goes through IGraphicsContext (not OpenTK directly) so the web build can implement it with WebGL
+
 	private void InitialiseShadowRendering()
 	{
-		GL.StencilMask(255);
-		GL.StencilOp(StencilOp.Keep, StencilOp.Replace, StencilOp.Replace);
+		_graphicsContext.SetStencilWriteMask(255);
+		_graphicsContext.SetStencilOperation(StencilOperation.Keep, StencilOperation.Replace, StencilOperation.Replace);
 	}
 
 	private void BeginShadowStenciling(bool shadowsEnabled)
 	{
 		if (shadowsEnabled)
 		{
-			GL.Enable(EnableCap.StencilTest);
-			GL.Clear(ClearBufferMask.StencilBufferBit);
-			GL.StencilFunc(StencilFunction.Always, 1, 255);
-			GL.StencilOp(StencilOp.Keep, StencilOp.Replace, StencilOp.Replace);
+			_graphicsContext.SetStencilTest(enabled: true);
+			_graphicsContext.ClearStencil();
+			_graphicsContext.SetStencilFunction(SonicOrca.Graphics.StencilFunction.Always, 1, 255);
+			_graphicsContext.SetStencilOperation(StencilOperation.Keep, StencilOperation.Replace, StencilOperation.Replace);
 		}
 		else
 		{
-			GL.Disable(EnableCap.StencilTest);
+			_graphicsContext.SetStencilTest(enabled: false);
 		}
 	}
 
 	private void DrawShadows(Renderer renderer, I2dRenderer g, ITileRenderer tr, Viewport viewport, LayerViewOptions viewOptions, RenderingLayer rlayer)
 	{
-		GL.StencilFunc(StencilFunction.Equal, 1, 255);
-		GL.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Zero);
+		_graphicsContext.SetStencilFunction(SonicOrca.Graphics.StencilFunction.Equal, 1, 255);
+		_graphicsContext.SetStencilOperation(StencilOperation.Keep, StencilOperation.Keep, StencilOperation.Zero);
 		viewOptions.Shadows = true;
 		ShadowRenderer.IsShadowing = true;
 		Matrix4 modelMatrix = tr.ModelMatrix;

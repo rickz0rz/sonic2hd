@@ -48,7 +48,7 @@ vec4 applyNightFilter(in vec4 colour, in float amount)
 vec4 applyDarkFilter(in vec4 colour, in float amount)
 {
 	float desatuateAmount = 0.5;
-	float lightness = 0;
+	float lightness = 0.0;
 	
 	// Get luma value
 	float luma = (colour.r * 0.21) + (colour.g * 0.71) + (colour.b * 0.07);

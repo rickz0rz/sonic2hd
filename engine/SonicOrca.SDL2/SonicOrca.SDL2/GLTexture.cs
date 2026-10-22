@@ -58,13 +58,14 @@ internal class GLTexture : ITexture, IDisposable, ILoadedResource
 				_wrapping = value;
 				TextureWrapMode param = value switch
 				{
-					TextureWrapping.Clamp => TextureWrapMode.Clamp, 
+					TextureWrapping.Clamp => TextureWrapMode.ClampToEdge, 
 					TextureWrapping.RepeatMirrored => TextureWrapMode.MirroredRepeat, 
 					_ => TextureWrapMode.Repeat, 
 				};
+				TextureWrapMode paramT = value == TextureWrapping.RepeatHorizontal ? TextureWrapMode.ClampToEdge : param;
 				GL.BindTexture(TextureTarget.Texture2D, _glId);
 				GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)param);
-				GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)param);
+				GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)paramT);
 			}
 		}
 	}
@@ -90,8 +91,9 @@ internal class GLTexture : ITexture, IDisposable, ILoadedResource
 		GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, 9729);
 		GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, 9729);
 		_wrapping = TextureWrapping.Clamp;
-		GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, 10496);
-		GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, 10496);
+		// GL_CLAMP (10496) in the original is invalid in core profiles and WebGL, which silently left textures repeating
+		GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
+		GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
 		_context.Textures.Add(this);
 	}
 

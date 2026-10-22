@@ -48,6 +48,18 @@ public interface IGraphicsContext
 
 	void ClearBuffer();
 
+	// Stencil test (used to mask level shadows)
+
+	void SetStencilTest(bool enabled);
+
+	void ClearStencil();
+
+	void SetStencilFunction(StencilFunction function, int reference, int mask);
+
+	void SetStencilOperation(StencilOperation stencilFail, StencilOperation depthFail, StencilOperation pass);
+
+	void SetStencilWriteMask(int mask);
+
 	void ClearDepthBuffer();
 
 	void ClearColourBuffer(int index);

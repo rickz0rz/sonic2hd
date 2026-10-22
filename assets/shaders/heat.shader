@@ -15,7 +15,7 @@
 	uniform mat4 ProjectionMatrix;
 	uniform sampler2D InputTexture;
 	uniform sampler2D InputDistortionTexture;
-	uniform float InputDistortionAmount = 0.01;
+	uniform float InputDistortionAmount; // set by HeatRenderer
 
 @vertex_input:
 	layout (location = 0) in vec2 VertexPosition;
@@ -46,8 +46,8 @@
 	{
 		// Get distortion amount
 		vec4 distortionTexel = texture(InputDistortionTexture, FragmentDistortionTextureMapping);
-		distortionTexel.x = ((distortionTexel.r * 2) - 1);
-		distortionTexel.y = ((distortionTexel.g * 2) - 1);
+		distortionTexel.x = ((distortionTexel.r * 2.0) - 1.0);
+		distortionTexel.y = ((distortionTexel.g * 2.0) - 1.0);
 		distortionTexel.xy *= distortionTexel.a * InputDistortionAmount;
 
 		// Apply distortion

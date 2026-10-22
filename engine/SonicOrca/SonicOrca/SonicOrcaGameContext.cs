@@ -149,6 +149,19 @@ public abstract class SonicOrcaGameContext : IDisposable
 	{
 	}
 
+	/// <summary>
+	/// Set by hosts that pace frames themselves (e.g. a browser's requestAnimationFrame); skips the frame timer.
+	/// </summary>
+	public bool ExternalPacing { get; set; }
+
+	/// <summary>
+	/// Runs one update and draw, for hosts that cannot block in <see cref="Run"/>.
+	/// </summary>
+	public void Step()
+	{
+		MainLoopIteration();
+	}
+
 	public void Run()
 	{
 		ResetCatchup();
@@ -185,7 +198,7 @@ public abstract class SonicOrcaGameContext : IDisposable
 		// With vsync on a 60 Hz display the swap already waited for the refresh. Still fall back to the timer when
 		// a frame finished implausibly fast, e.g. drivers that stop blocking while the window is minimised.
 		bool pacedByVSync = Window.IsPacedByVSync && _stopwatch.ElapsedTicks >= Stopwatch.Frequency / 75;
-		if (!IsMaxPerformance && !pacedByVSync)
+		if (!IsMaxPerformance && !pacedByVSync && !ExternalPacing)
 		{
 			while (_stopwatch.ElapsedTicks <= Stopwatch.Frequency / 60)
 			{

@@ -14,8 +14,8 @@
 @uniform:
 	uniform mat4 ProjectionMatrix;
 	uniform sampler2D InputTexture;
-	uniform float InputWeight[5] = float[](0.2270270270, 0.1945945946, 0.1216216216, 0.0540540541, 0.0162162162);
-	uniform int InputAxis = 0;
+	const float InputWeight[5] = float[](0.2270270270, 0.1945945946, 0.1216216216, 0.0540540541, 0.0162162162);
+	uniform int InputAxis;
 
 @vertex_input:
 	layout (location = 0) in vec2 VertexPosition;

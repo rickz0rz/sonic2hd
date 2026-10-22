@@ -89,8 +89,8 @@
 	vec4 alphaBlend(in vec4 below, in vec4 above)
 	{
 		vec4 result;
-		result.a = above.a + below.a * (1 - above.a);
-		result.rgb = ((above.rgb * above.a) + (below.rgb * below.a * (1 - above.a))) / result.a;
+		result.a = above.a + below.a * (1.0 - above.a);
+		result.rgb = ((above.rgb * above.a) + (below.rgb * below.a * (1.0 - above.a))) / result.a;
 		return result;
 	}
 
@@ -117,9 +117,9 @@
 
 		// Alpha blend body over skin
 		OutputColour = applyFilter(alphaBlend(skinColour, bodyColour), InputFilter, InputFilterAmount);
-		OutputColour = OutputColour*(1-AlphaGrayscale)+vec4(0,0,0,OutputColour.a*0.4f)*AlphaGrayscale;
+		OutputColour = OutputColour*(1.0-AlphaGrayscale)+vec4(0,0,0,OutputColour.a*0.4f)*AlphaGrayscale;
 
-		if (InputBrightness < 0) {
+		if (InputBrightness < 0.0) {
 			OutputColour = alphaBlend(OutputColour, vec4(0, 0, 0, -InputBrightness * OutputColour.a));
 		} else {
 			OutputColour = alphaBlend(OutputColour, vec4(1, 0.5, 0,  InputBrightness * OutputColour.a));

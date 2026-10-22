@@ -10,6 +10,7 @@ using SonicOrca.Input;
 using SonicOrca.Resources;
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 #nullable disable
 namespace S2HD;
@@ -28,17 +29,6 @@ internal class DemoGameState : IGameState, IDisposable
     this._demoResourceKey = demoResourceKey;
   }
 
-  private byte[] GetDemoData(string resourceKey)
-  {
-    ResourceTree resourceTree = this._gameContext.ResourceTree;
-    using (ResourceSession resourceSession = new ResourceSession(resourceTree))
-    {
-      resourceSession.PushDependency(resourceKey);
-      resourceSession.LoadAsync(serial: true).Wait();
-      return resourceTree.GetLoadedResource<InputRecordingResource>(resourceKey).Data;
-    }
-  }
-
   private void StartLevel(LevelPrepareSettings prepareSettings)
   {
     this._prepareSettings = prepareSettings;
@@ -49,7 +39,18 @@ internal class DemoGameState : IGameState, IDisposable
 
   public IEnumerable<UpdateResult> Update()
   {
-    byte[] demoData = this.GetDemoData(this._demoResourceKey);
+    byte[] demoData;
+    ResourceTree resourceTree = this._gameContext.ResourceTree;
+    using (ResourceSession resourceSession = new ResourceSession(resourceTree))
+    {
+      resourceSession.PushDependency(this._demoResourceKey);
+      // Poll across frames instead of blocking with Wait(), which single-threaded runtimes (WebAssembly) forbid
+      Task loading = resourceSession.LoadAsync(serial: true);
+      while (!loading.IsCompleted)
+        yield return UpdateResult.Next();
+      loading.GetAwaiter().GetResult();
+      demoData = resourceTree.GetLoadedResource<InputRecordingResource>(this._demoResourceKey).Data;
+    }
     this.StartLevel(new LevelPrepareSettings()
     {
       Act = 1,

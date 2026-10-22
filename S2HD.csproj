@@ -33,9 +33,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Engine projects build separately; publish\ holds release output -->
-    <Compile Remove="engine\**;publish\**" />
-    <None Remove="engine\**;publish\**" />
+    <!-- Engine, tool and web projects build separately; publish\ holds release output -->
+    <Compile Remove="engine\**;publish\**;tools\**;web\**" />
+    <None Remove="engine\**;publish\**;tools\**;web\**" />
   </ItemGroup>
 
   <!-- Game assets from the original install -->

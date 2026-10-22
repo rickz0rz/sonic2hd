@@ -94,7 +94,7 @@
 		if (AlphaGrayscale == 0.0) {
 			OutputColour = result;
 		} else {
-			OutputColour = result * (1 - AlphaGrayscale) + vec4(0+ShadowColour.r, 0 + ShadowColour.g, 0 + ShadowColour.b, result.a* ShadowColour.a /** 0.4f*/) * AlphaGrayscale;//result.a * 0.5
+			OutputColour = result * (1.0 - AlphaGrayscale) + vec4(ShadowColour.r, ShadowColour.g, ShadowColour.b, result.a* ShadowColour.a /** 0.4f*/) * AlphaGrayscale;//result.a * 0.5
 			if (OutputColour.a < 0.01)
 				discard;
 		}

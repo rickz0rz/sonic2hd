@@ -35,7 +35,7 @@
 @vertex:
 	void main()
 	{
-		float distance = 1 / length(InputLightSource - VertexPosition) * 10;
+		float distance = 1.0 / length(InputLightSource - VertexPosition) * 10.0;
 		float light = clamp(distance, 0.25, 1.0);
 		// float light = distance;
 

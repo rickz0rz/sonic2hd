@@ -11,7 +11,7 @@ public sealed class Resource : IDisposable
 {
 	private readonly Lockable<List<Resource>> _childResources = new Lockable<List<Resource>>(new List<Resource>());
 
-	private readonly Semaphore _loadSemaphore = new Semaphore(1, 1);
+	private readonly SemaphoreSlim _loadSemaphore = new SemaphoreSlim(1, 1);
 
 	private readonly string _fullKeyPath;
 
@@ -50,19 +50,21 @@ public sealed class Resource : IDisposable
 
 	public async Task LoadAsync(ResourceSession session, CancellationToken ct = default(CancellationToken), int level = 0)
 	{
-		_loadSemaphore.WaitOne();
-		if (LoadedResource == null)
+		// Waits asynchronously: the lock is held across awaits, and blocking a thread on it deadlocks
+		// single-threaded runtimes (WebAssembly). Released in finally so a failed load cannot lock the resource.
+		await _loadSemaphore.WaitAsync(ct);
+		try
 		{
-			ResourceType resourceType = ResourceType.FromIdentifier(Identifier);
-			if (resourceType == null)
+			if (LoadedResource == null)
 			{
-				throw new ResourceException($"No registered resource type, {Identifier}");
-			}
-			using (Stream uncompressedStream = Source.ReadUncompressed())
-			{
-				ResourceLoadArgs loadArguments = new ResourceLoadArgs(session.ResourceTree, this, uncompressedStream);
-				try
+				ResourceType resourceType = ResourceType.FromIdentifier(Identifier);
+				if (resourceType == null)
 				{
+					throw new ResourceException($"No registered resource type, {Identifier}");
+				}
+				using (Stream uncompressedStream = Source.ReadUncompressed())
+				{
+					ResourceLoadArgs loadArguments = new ResourceLoadArgs(session.ResourceTree, this, uncompressedStream);
 					LoadedResource = await resourceType.LoadAsync(loadArguments, ct);
 					if (Environment.Is64BitProcess)
 					{
@@ -70,25 +72,25 @@ public sealed class Resource : IDisposable
 					}
 					else
 					{
+						// One at a time in 32-bit processes (including WebAssembly), as the original did with Wait()
 						foreach (Resource dependency in loadArguments.Dependencies)
 						{
-							LoadChildResourceAsync(session, dependency, level, ct).Wait();
+							await LoadChildResourceAsync(session, dependency, level, ct);
 						}
 					}
 				}
-				catch (Exception)
-				{
-					throw;
-				}
+				DependencyCount = 1;
+				LoadedResourceCount++;
 			}
-			DependencyCount = 1;
-			LoadedResourceCount++;
+			else
+			{
+				DependencyCount++;
+			}
 		}
-		else
+		finally
 		{
-			DependencyCount++;
+			_loadSemaphore.Release();
 		}
-		_loadSemaphore.Release();
 	}
 
 	private async Task LoadChildResourceAsync(ResourceSession session, Resource resource, int level, CancellationToken ct = default(CancellationToken))
@@ -107,7 +109,7 @@ public sealed class Resource : IDisposable
 
 	public void Unload(int level = 0)
 	{
-		_loadSemaphore.WaitOne();
+		_loadSemaphore.Wait();
 		if (LoadedResource != null)
 		{
 			if (DependencyCount == 1)

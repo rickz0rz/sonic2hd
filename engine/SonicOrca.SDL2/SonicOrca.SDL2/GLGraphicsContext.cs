@@ -10,7 +10,7 @@ namespace SonicOrca.SDL2;
 
 internal class GLGraphicsContext : IGraphicsContext
 {
-	private readonly SDL2WindowContext _videoAdapter;
+	private readonly IGLWindow _videoAdapter;
 
 	private BlendMode _blendMode;
 
@@ -101,7 +101,7 @@ internal class GLGraphicsContext : IGraphicsContext
 
 	public IFramebuffer CurrentFramebuffer { get; internal set; }
 
-	public GLGraphicsContext(SDL2WindowContext videoAdapter)
+	public GLGraphicsContext(IGLWindow videoAdapter)
 	{
 		_videoAdapter = videoAdapter;
 	}
@@ -230,6 +230,48 @@ internal class GLGraphicsContext : IGraphicsContext
 	public void ClearDepthBuffer()
 	{
 		GL.Clear(ClearBufferMask.DepthBufferBit);
+	}
+
+	public void SetStencilTest(bool enabled)
+	{
+		if (enabled)
+		{
+			GL.Enable(EnableCap.StencilTest);
+		}
+		else
+		{
+			GL.Disable(EnableCap.StencilTest);
+		}
+	}
+
+	public void ClearStencil()
+	{
+		GL.Clear(ClearBufferMask.StencilBufferBit);
+	}
+
+	public void SetStencilFunction(SonicOrca.Graphics.StencilFunction function, int reference, int mask)
+	{
+		GL.StencilFunc(function == SonicOrca.Graphics.StencilFunction.Equal ? OpenTK.Graphics.OpenGL.StencilFunction.Equal : OpenTK.Graphics.OpenGL.StencilFunction.Always, reference, mask);
+	}
+
+	public void SetStencilOperation(StencilOperation stencilFail, StencilOperation depthFail, StencilOperation pass)
+	{
+		GL.StencilOp(ToGL(stencilFail), ToGL(depthFail), ToGL(pass));
+	}
+
+	public void SetStencilWriteMask(int mask)
+	{
+		GL.StencilMask(mask);
+	}
+
+	private static StencilOp ToGL(StencilOperation operation)
+	{
+		return operation switch
+		{
+			StencilOperation.Zero => StencilOp.Zero,
+			StencilOperation.Replace => StencilOp.Replace,
+			_ => StencilOp.Keep,
+		};
 	}
 
 	public void ClearColourBuffer(int index)

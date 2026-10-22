@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using OpenTK.Graphics.OpenGL;
 using SonicOrca.Core;
 using SonicOrca.Extensions;
 using SonicOrca.Geometry;
@@ -94,8 +93,8 @@ internal class WaterRenderer : IWaterRenderer, IRenderer, IDisposable
 	public void Render(Rectanglei regionToFilter)
 	{
 		IFramebuffer currentFramebuffer = _graphicsContext.CurrentFramebuffer;
-		WaterManager.waveTexture.Wrapping = TextureWrapping.Repeat;
-		GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, 33071);
+		// Was Repeat followed by a raw GL call clamping T on whichever texture happened to be bound
+		WaterManager.waveTexture.Wrapping = TextureWrapping.RepeatHorizontal;
 		int num = (int)(WaterManager.viewportWaterLevel - 80f);
 		if (num < 0)
 		{

@@ -8,6 +8,11 @@ public class ScreenshotRenderer
 {
 	public static void GrabScreenshot(string directory)
 	{
+		// Desktop only: reads pixels through OpenTK, and a browser has nowhere useful to save the file
+		if (OperatingSystem.IsBrowser())
+		{
+			return;
+		}
 		int width = 1920;
 		int height = 1080;
 		byte[] pixels = new byte[width * height * 3];

@@ -61,7 +61,7 @@
 		vec4 bodyColour = texture(InputTextureBody, FragmentTextureMapping);
 
 		// Alpha blend body over skin, colour is black and semi-transparent
-		vec4 resultColour = vec4(0, 0, 0, skinBaseT.a + bodyColour.a * (1 - skinBaseT.a));
+		vec4 resultColour = vec4(0, 0, 0, skinBaseT.a + bodyColour.a * (1.0 - skinBaseT.a));
 		resultColour.a *= 0.75;
 		
 		OutputColour = resultColour;

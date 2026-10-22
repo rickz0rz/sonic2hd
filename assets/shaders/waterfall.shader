@@ -15,7 +15,7 @@
 	uniform mat4 ProjectionMatrix;
 	uniform sampler2D InputTexture;
 	uniform sampler2D InputDistortionTexture;
-	uniform float InputDistortionAmount = 0.01;
+	uniform float InputDistortionAmount; // set by WaterfallRenderer
 	uniform vec2 InputNonDistortionRadius;
 
 @vertex_input:
@@ -51,19 +51,19 @@
 	{
 		// Get distortion amount, normalised
 		vec4 distortionTexel = texture(InputDistortionTexture, FragmentDistortionTextureMapping);
-		distortionTexel.x = 0;
-		distortionTexel.y = (distortionTexel.y * 2) - 1;
+		distortionTexel.x = 0.0;
+		distortionTexel.y = (distortionTexel.y * 2.0) - 1.0;
 		distortionTexel.y *= InputDistortionAmount;
 
 		float multiplier = 1.0;
 		if (FragmentNormalisation.x < 0.5)
-			multiplier *= clamp(FragmentNormalisation.x / InputNonDistortionRadius.x, 0, 1);
+			multiplier *= clamp(FragmentNormalisation.x / InputNonDistortionRadius.x, 0.0, 1.0);
 		else
-			multiplier *= clamp((1 - FragmentNormalisation.x) / InputNonDistortionRadius.x, 0, 1);
+			multiplier *= clamp((1.0 - FragmentNormalisation.x) / InputNonDistortionRadius.x, 0.0, 1.0);
 		if (FragmentNormalisation.y < 0.5)
-			multiplier *= clamp(FragmentNormalisation.y / InputNonDistortionRadius.y, 0, 1);
+			multiplier *= clamp(FragmentNormalisation.y / InputNonDistortionRadius.y, 0.0, 1.0);
 		else
-			multiplier *= clamp((1 - FragmentNormalisation.y) / InputNonDistortionRadius.y, 0, 1);
+			multiplier *= clamp((1.0 - FragmentNormalisation.y) / InputNonDistortionRadius.y, 0.0, 1.0);
 
 
 		distortionTexel.xy *= multiplier;

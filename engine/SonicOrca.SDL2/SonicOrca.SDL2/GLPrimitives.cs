@@ -43,9 +43,21 @@ internal static class GLPrimitives
 		{
 			return;
 		}
-		// Element buffer bindings are vertex array state, so bind it to the current VAO for every draw
-		EnsureQuadIndices(quads);
-		GL.DrawElementsBaseVertex(OpenTK.Graphics.OpenGL.PrimitiveType.Triangles, quads * 6, DrawElementsType.UnsignedInt, IntPtr.Zero, first);
+		if (first % 4 != 0)
+		{
+			// Not aligned to the index pattern; rare, so draw each quad as a fan
+			for (int i = 0; i < quads; i++)
+			{
+				GL.DrawArrays(OpenTK.Graphics.OpenGL.PrimitiveType.TriangleFan, first + i * 4, 4);
+			}
+			return;
+		}
+		// Quad n uses vertices 4n..4n+3, so starting at vertex `first` means starting at quad first / 4 in the
+		// index buffer. (Avoids DrawElementsBaseVertex, which WebGL2 lacks.) Element buffer bindings are vertex
+		// array state, so bind it to the current VAO for every draw.
+		int firstQuad = first / 4;
+		EnsureQuadIndices(firstQuad + quads);
+		GL.DrawElements(OpenTK.Graphics.OpenGL.PrimitiveType.Triangles, quads * 6, DrawElementsType.UnsignedInt, (IntPtr)(firstQuad * 6 * sizeof(uint)));
 	}
 
 	private static void EnsureQuadIndices(int quads)

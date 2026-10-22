@@ -14,7 +14,7 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.SDL2;
 
-public class SDL2WindowContext : WindowContext
+public class SDL2WindowContext : WindowContext, IGLWindow
 {
 	private static class User32
 	{

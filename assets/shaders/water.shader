@@ -127,7 +127,7 @@
 
     vec4 causticsImage(vec2 fragCoord) 
     {
-        vec2 iResolution = vec2( 19/5, 10/5);
+        vec2 iResolution = vec2(3.0, 2.0);
         float time = iGlobalTime * .5 + 23.0;
         // uv should be the 0-1 uv of texture...
         vec2 uv = fragCoord.xy / iResolution.xy;
@@ -178,19 +178,19 @@
 	vec3 overlay(vec3 a, vec3 b)
 	{
 	 float midgray=0.5;
-	  float midA = (a.x+a.y+a.z)/3;
+	  float midA = (a.x+a.y+a.z)/3.0;
      
 	  vec3 c;
-	  if(midA<midgray) c.x=2*a.x*b.x; else c.x=(1-2*(1-a.x)*(1-b.x));
-	  if(midA<midgray) c.y=2*a.y*b.y; else c.y=(1-2*(1-a.y)*(1-b.y));
-	  if(midA<midgray) c.z=2*a.z*b.z; else c.z=(1-2*(1-a.z)*(1-b.z));
+	  if(midA<midgray) c.x=2.0*a.x*b.x; else c.x=(1.0-2.0*(1.0-a.x)*(1.0-b.x));
+	  if(midA<midgray) c.y=2.0*a.y*b.y; else c.y=(1.0-2.0*(1.0-a.y)*(1.0-b.y));
+	  if(midA<midgray) c.z=2.0*a.z*b.z; else c.z=(1.0-2.0*(1.0-a.z)*(1.0-b.z));
 	  return c;
 	}
     void main()
     {
 		float waveTextureWidth = 256.0;
-		float waveTextureHeight = 106.0*1;
-        float xoffset =0* 0.5*sin(InputWavePhase + (FragmentTextureMapping.y * PI * 2 * InputNumWaves)) * (InputWaveSize / 1920.0);
+		float waveTextureHeight = 106.0;
+        float xoffset =0.0* 0.5*sin(InputWavePhase + (FragmentTextureMapping.y * PI * 2.0 * InputNumWaves)) * (InputWaveSize / 1920.0);
 		
         // Get texture colour
 
@@ -207,40 +207,40 @@
 		
 
 
-		float waveTexelCoordinatesY=(1+0.065 - (InputWaterLevel+FragmentTextureMapping.y)) * 1080.0 / waveTextureHeight;
+		float waveTexelCoordinatesY=(1.0+0.065 - (InputWaterLevel+FragmentTextureMapping.y)) * 1080.0 / waveTextureHeight;
 		
         vec4 waveTexel = texture(WaveTexture, vec2((InputPositionX + FragmentTextureMapping.x * 1920.0) / waveTextureWidth, waveTexelCoordinatesY));
 
-		float topOfWaterHeight = 0;
-        float waveBlendHeight = 0;
+		float topOfWaterHeight = 0.0;
+        float waveBlendHeight = 0.0;
         vec4 transform;
 
 		//CPZ
         {
             waterBlendFactor = 0.5f;
-            float waveHeight = 20 / 1080.0f;
-            waveBlendHeight = sin(20 * (InputPositionX / 1920.0f + FragmentTextureMapping.x));//
-            topOfWaterHeight = -waveHeight + waveBlendHeight *waveHeight *sin(iGlobalTime * 4);
+            float waveHeight = 20.0 / 1080.0;
+            waveBlendHeight = sin(20.0 * (InputPositionX / 1920.0 + FragmentTextureMapping.x));//
+            topOfWaterHeight = -waveHeight + waveBlendHeight *waveHeight *sin(iGlobalTime * 4.0);
         }
-		vec4 k =mainImageTransform((uv+0*FragmentTextureMapping.xy + vec2(InputPositionX / 1920.0f, InputPositionY / 1080.0f)) *1000);
+		vec4 k =mainImageTransform((uv+0.0*FragmentTextureMapping.xy + vec2(InputPositionX / 1920.0, InputPositionY / 1080.0)) *1000.0);
         vec3 b=k.xyz;//caustics
-	  	b=vec3(b.x+b.y+b.z)/10;
+	  	b=vec3(b.x+b.y+b.z)/10.0;
 		texel.xyz=texel.xyz+b;
-      	vec4 mixColorA = vec4(0, 0, 64/255.0, 1);//* waterBlendFactor + (1 - waterBlendFactor) * texel;
-		vec4 mixColorB = vec4(255/255.0, 0, 255/255.0, 1)* waterBlendFactor + (1 - waterBlendFactor) * texel;
-		vec4 mixColorC = vec4(255/255.0, 162/255.0, 223/255.0, 1)* waterBlendFactor + (1 - waterBlendFactor) * texel;
-		float mixFactor=(texel.x+texel.y+texel.z)/3;
+      	vec4 mixColorA = vec4(0, 0, 64.0/255.0, 1);//* waterBlendFactor + (1.0 - waterBlendFactor) * texel;
+		vec4 mixColorB = vec4(255.0/255.0, 0, 255.0/255.0, 1)* waterBlendFactor + (1.0 - waterBlendFactor) * texel;
+		vec4 mixColorC = vec4(255.0/255.0, 162.0/255.0, 223.0/255.0, 1)* waterBlendFactor + (1.0 - waterBlendFactor) * texel;
+		float mixFactor=(texel.x+texel.y+texel.z)/3.0;
 		
 		if(mixFactor<0.6)
 		{
 			mixFactor=mixFactor/0.6;
-			transform =(1 - mixFactor) * mixColorA +  (mixFactor) * mixColorB;
+			transform =(1.0 - mixFactor) * mixColorA +  (mixFactor) * mixColorB;
 		}
 		else
 		{
 			mixFactor = mixFactor - 0.6;
 			mixFactor = mixFactor/0.4;
-			transform =(1 - mixFactor) * mixColorB +  (mixFactor) * mixColorC;
+			transform =(1.0 - mixFactor) * mixColorB +  (mixFactor) * mixColorC;
 		}
         //transform.xyz = transform.xyz * 1 + vec3(1,1,1) * ov(FragmentTextureMapping.xy*10);
       //  transform.xyz = transform.xyz * 1 + 0.25f * vec3(1, 1, 1) * causticsImage((FragmentTextureMapping.xy + vec2(InputPositionX / 1920.0f, InputPositionY / 1080.0f)) * 10).x;
@@ -249,19 +249,19 @@
 	
 	  //caustics to gradient
 	   /* mixFactor=b.x;
-		mixColorA = vec4(0, 0, 64/255.0, 1);
-		mixColorB = vec4(255/255.0, 0, 255/255.0, 1);
-		mixColorC = vec4(255/255.0, 162/255.0, 223/255.0, 1);
+		mixColorA = vec4(0, 0, 64.0/255.0, 1);
+		mixColorB = vec4(255.0/255.0, 0, 255.0/255.0, 1);
+		mixColorC = vec4(255.0/255.0, 162.0/255.0, 223.0/255.0, 1);
 		if(mixFactor<0.6)
 		{
 			mixFactor=mixFactor/0.6;
-			transform =(1 - mixFactor) * mixColorA +  (mixFactor) * mixColorB;
+			transform =(1.0 - mixFactor) * mixColorA +  (mixFactor) * mixColorB;
 		}
 		else
 		{
 			mixFactor = mixFactor - 0.6;
 			mixFactor = mixFactor/0.4;
-			transform =(1 - mixFactor) * mixColorB +  (mixFactor) * mixColorC;
+			transform =(1.0 - mixFactor) * mixColorB +  (mixFactor) * mixColorC;
 		}*/
 	  //b=transform.xyz;
 	  //caustics to gradient 
@@ -269,8 +269,8 @@
 			///OVERLAY
 			transform.xyz=overlay(a,b);
 			transform.w=waveTexel.w;
-			//transform.xyz = transform.xyz*(1-waveTexel.g) + waveTexel.g*mixColorC.xyz;
-	  	//	 OutputColour.xyz=vec3(255/255.0, 162/255.0, 223/255.0);
+			//transform.xyz = transform.xyz*(1.0-waveTexel.g) + waveTexel.g*mixColorC.xyz;
+	  	//	 OutputColour.xyz=vec3(255.0/255.0, 162.0/255.0, 223.0/255.0);
 		//	 OutputColour.w=waveTexel.w;
 		//return;
 	 
@@ -286,11 +286,11 @@
 	  
 
 		transform.w = waveTexel.w;
-		transform.xyz = transform.xyz*(1-waveTexel.g) + waveTexel.g*vec3(255/255.0, 162/255.0, 223/255.0);
-		transform.xyz = transform.xyz*(1-waveTexel.r)+ waveTexel.r*vec3(1,1,1);
+		transform.xyz = transform.xyz*(1.0-waveTexel.g) + waveTexel.g*vec3(255.0/255.0, 162.0/255.0, 223.0/255.0);
+		transform.xyz = transform.xyz*(1.0-waveTexel.r)+ waveTexel.r*vec3(1,1,1);
 
 		//transform.w=1;
-		if(waveTexelCoordinatesY<0) transform.w=0;
+		if(waveTexelCoordinatesY<0.0) transform.w=0.0;
 		/*if (topOfWaterHeight + InputWaterLevel>(1 - FragmentTextureMapping.y))
         {
             transform.w = 0;

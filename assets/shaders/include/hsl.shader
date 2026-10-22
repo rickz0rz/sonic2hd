@@ -22,7 +22,7 @@ vec4 rgbToHsl(in vec4 inputColour)
 	} else {
 		float d = rgb_max - rgb_min;
 		result.y = result.z > 0.5 ?
-			d / (2 - rgb_max - rgb_min) :
+			d / (2.0 - rgb_max - rgb_min) :
 			d / (rgb_max + rgb_min);
 		if (rgb_max == inputColour.r)
 			result.x = (inputColour.g - inputColour.b) / d + (inputColour.g < inputColour.b ? 6.0 : 0.0);
@@ -57,7 +57,7 @@ vec4 hslToRgb(in vec4 inputColour)
 		result.r = result.g = result.b = 1.0; // achromatic
 	} else {
 		float q = inputColour.z < 0.5 ?
-			inputColour.z * (1 + inputColour.y) :
+			inputColour.z * (1.0 + inputColour.y) :
 			inputColour.z + inputColour.y - (inputColour.z * inputColour.y);
 		float p = 2.0 * inputColour.z - q;
 		result.r = hueToRgb(p, q, inputColour.x + (1.0 / 3.0));

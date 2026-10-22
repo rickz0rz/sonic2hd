@@ -123,6 +123,15 @@ public static class FrameProfiler
 		}
 	}
 
+	private static readonly System.Collections.Generic.HashSet<int> CaptureFrames = new System.Collections.Generic.HashSet<int>(
+		(Environment.GetEnvironmentVariable("S2HD_CAPTURE_FRAMES") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse));
+
+	/// <summary>
+	/// True when a screenshot was requested for this draw (S2HD_CAPTURE_FRAMES=2400,4200), for checking rendering
+	/// without a visible window.
+	/// </summary>
+	public static bool IsCaptureFrame(int drawCount) => CaptureFrames.Count > 0 && CaptureFrames.Contains(drawCount);
+
 	public static long Timestamp() => Enabled ? Stopwatch.GetTimestamp() : 0;
 
 	/// <summary>
