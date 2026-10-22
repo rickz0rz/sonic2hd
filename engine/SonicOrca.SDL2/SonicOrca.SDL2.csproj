@@ -5,9 +5,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\SonicOrca\SonicOrca.csproj" />
-    <ProjectReference Include="..\SonicOrca.Common\SonicOrca.Common.csproj" />
-    <ProjectReference Include="..\SonicOrca.Resources\SonicOrca.Resources.csproj" />
+    <ProjectReference Include="../SonicOrca/SonicOrca.csproj" />
+    <ProjectReference Include="../SonicOrca.Common/SonicOrca.Common.csproj" />
+    <ProjectReference Include="../SonicOrca.Resources/SonicOrca.Resources.csproj" />
     <PackageReference Include="OpenTK.Graphics" Version="4.9.4" />
     <Reference Include="SDL2-CS" HintPath="$(LibDir)SDL2-CS.dll" />
   </ItemGroup>

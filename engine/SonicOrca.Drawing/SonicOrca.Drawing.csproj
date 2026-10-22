@@ -5,8 +5,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\SonicOrca\SonicOrca.csproj" />
-    <ProjectReference Include="..\SonicOrca.Resources\SonicOrca.Resources.csproj" />
+    <ProjectReference Include="../SonicOrca/SonicOrca.csproj" />
+    <ProjectReference Include="../SonicOrca.Resources/SonicOrca.Resources.csproj" />
     <PackageReference Include="OpenTK.Graphics" Version="4.9.4" />
   </ItemGroup>
 

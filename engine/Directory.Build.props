@@ -19,7 +19,7 @@
     <GenerateAssemblyFileVersionAttribute>false</GenerateAssemblyFileVersionAttribute>
     <GenerateAssemblyInformationalVersionAttribute>false</GenerateAssemblyInformationalVersionAttribute>
     <GenerateAssemblyTrademarkAttribute>false</GenerateAssemblyTrademarkAttribute>
-    <LibDir>$(MSBuildThisFileDirectory)..\lib\</LibDir>
+    <LibDir>$(MSBuildThisFileDirectory)../lib/</LibDir>
     <!-- Decompilation noise: unused/reflection-assigned fields and unused locals -->
     <NoWarn>$(NoWarn);CS0649;CS0169;CS0414;CS0219;CS0168</NoWarn>
   </PropertyGroup>

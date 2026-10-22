@@ -25,11 +25,11 @@
     <SelfContained>false</SelfContained>
     <ApplicationVersion>2.0.1012.10521</ApplicationVersion>
     <!-- Original S2HD icon, extracted from the 2.0.1012-rc2 executable -->
-    <ApplicationIcon>assets\S2HD.ico</ApplicationIcon>
+    <ApplicationIcon>assets/S2HD.ico</ApplicationIcon>
     <!-- CS0649: [ResourcePath] fields are populated by the engine via reflection -->
     <NoWarn>$(NoWarn);CS0649</NoWarn>
     <!-- Original game install providing native binaries and assets (override with -p:GameDir=...) -->
-    <GameDir Condition=" '$(GameDir)' == '' ">$(USERPROFILE)\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\</GameDir>
+    <GameDir Condition=" '$(GameDir)' == '' ">$([System.Environment]::GetFolderPath(SpecialFolder.UserProfile))/Downloads/S2HD_2.0.1012-rc2/S2HD_2.0.1012-rc2/</GameDir>
   </PropertyGroup>
 
   <ItemGroup>
@@ -41,12 +41,12 @@
   <!-- Game assets from the original install -->
   <ItemGroup Condition=" Exists('$(GameDir)') ">
     <None Include="$(GameDir)credits.film" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
-    <None Include="$(GameDir)data\**\*" Link="data\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+    <None Include="$(GameDir)data/**/*" Link="data/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
   </ItemGroup>
 
   <ItemGroup>
     <!-- Shaders are kept in the repo (patched for core-profile OpenGL); the engine loads them from shaders/ -->
-    <None Include="assets\shaders\**\*" Link="shaders\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="assets/shaders/**/*" Link="shaders/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!-- Windows native libraries: SDL2 from the original install, FFmpeg 7.1 from tools\get-ffmpeg.ps1.
@@ -54,21 +54,21 @@
        (Checked here rather than in a property: items are evaluated after publish profiles set the RID.) -->
   <ItemGroup Condition=" $(RuntimeIdentifier.StartsWith('win')) ">
     <None Include="$(GameDir)SDL2.dll" Link="SDL2.dll" CopyToOutputDirectory="PreserveNewest" Visible="false" Condition=" Exists('$(GameDir)SDL2.dll') " />
-    <None Include="lib\ffmpeg\*" Link="ffmpeg\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+    <None Include="lib/ffmpeg/*" Link="ffmpeg/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
   </ItemGroup>
-  <Target Name="WarnMissingFFmpeg" BeforeTargets="Build" Condition=" $(RuntimeIdentifier.StartsWith('win')) And !Exists('lib\ffmpeg\avcodec-61.dll') ">
+  <Target Name="WarnMissingFFmpeg" BeforeTargets="Build" Condition=" $(RuntimeIdentifier.StartsWith('win')) And !Exists('lib/ffmpeg/avcodec-61.dll') ">
     <Warning Text="FFmpeg 7.1 libraries not found in lib\ffmpeg; video playback will fail. Run tools\get-ffmpeg.ps1." />
   </Target>
 
   <ItemGroup>
     <!-- Decompiled SonicOrca engine -->
-    <ProjectReference Include="engine\SonicOrca.Common\SonicOrca.Common.csproj" />
-    <ProjectReference Include="engine\SonicOrca.Resources\SonicOrca.Resources.csproj" />
-    <ProjectReference Include="engine\SonicOrca\SonicOrca.csproj" />
-    <ProjectReference Include="engine\SonicOrca.Drawing\SonicOrca.Drawing.csproj" />
-    <ProjectReference Include="engine\SonicOrca.SDL2\SonicOrca.SDL2.csproj" />
+    <ProjectReference Include="engine/SonicOrca.Common/SonicOrca.Common.csproj" />
+    <ProjectReference Include="engine/SonicOrca.Resources/SonicOrca.Resources.csproj" />
+    <ProjectReference Include="engine/SonicOrca/SonicOrca.csproj" />
+    <ProjectReference Include="engine/SonicOrca.Drawing/SonicOrca.Drawing.csproj" />
+    <ProjectReference Include="engine/SonicOrca.SDL2/SonicOrca.SDL2.csproj" />
     <!-- Program uses SDL directly for the error message box -->
-    <Reference Include="SDL2-CS" HintPath="lib\SDL2-CS.dll" />
+    <Reference Include="SDL2-CS" HintPath="lib/SDL2-CS.dll" />
   </ItemGroup>
 
 </Project>

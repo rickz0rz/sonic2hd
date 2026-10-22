@@ -5,8 +5,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\SonicOrca.Common\SonicOrca.Common.csproj" />
-    <ProjectReference Include="..\SonicOrca.Resources\SonicOrca.Resources.csproj" />
+    <ProjectReference Include="../SonicOrca.Common/SonicOrca.Common.csproj" />
+    <ProjectReference Include="../SonicOrca.Resources/SonicOrca.Resources.csproj" />
     <!-- Video decoding for FilmBuffer (FFmpeg 7.1 native libraries are shipped in the ffmpeg folder) -->
     <PackageReference Include="FFMediaToolkit" Version="4.8.1" />
   </ItemGroup>
