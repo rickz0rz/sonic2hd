@@ -22,6 +22,9 @@ Game data is **not** in this repository. Download the 2.0.1012-rc2 demo build fr
 Windows) from it, by default from `~/Downloads/S2HD_2.0.1012-rc2/S2HD_2.0.1012-rc2/`.
 Point elsewhere with `-p:GameDir=/path/to/S2HD_2.0.1012-rc2/` (keep the trailing slash).
 
+You can also copy `data/` and `credits.film` into the root of the checkout. Git ignores them there.
+Then build with `-p:GameDir="$PWD/"` on macOS or `-p:GameDir="$PWD\"` in PowerShell.
+
 ## Windows
 
 Requires the .NET 10 SDK.

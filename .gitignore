@@ -4,3 +4,8 @@ obj/
 *.user
 lib/ffmpeg/
 publish/
+.DS_Store
+
+# Game files copied into the checkout (see README)
+/data/
+/credits.film

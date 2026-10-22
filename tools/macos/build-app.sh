@@ -142,7 +142,9 @@ sign_app() {
   log "Signing (ad-hoc)"
   # Files copied from Windows or downloaded may carry quarantine attributes
   xattr -cr "$APP"
-  find "$APP/Contents/MacOS" -name '*.dylib' -exec codesign --force --sign - {} \;
+  # Sign every file in MacOS, not only the dylibs. Newer codesign versions refuse to seal the bundle
+  # while Contents/MacOS holds unsigned files, such as the managed .dll files and the .json files.
+  find "$APP/Contents/MacOS" -type f ! -path "$APP/Contents/MacOS/S2HD" -exec codesign --force --sign - {} \;
   codesign --force --sign - "$APP/Contents/MacOS/S2HD"
   codesign --force --sign - "$APP"
   codesign --verify --deep --strict "$APP"
