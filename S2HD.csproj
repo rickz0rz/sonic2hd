@@ -12,7 +12,7 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <!-- Assembly attributes are kept in AssemblyInfo.cs -->
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <!-- Accord.Video.FFMPEG and the native SDL2/ffmpeg binaries are x64-only -->
+    <!-- The native SDL2/FFmpeg binaries are x64-only -->
     <PlatformTarget>x64</PlatformTarget>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>false</SelfContained>
@@ -23,11 +23,25 @@
     <GameDir Condition=" '$(GameDir)' == '' ">$(USERPROFILE)\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\</GameDir>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- Shim projects build separately -->
+    <Compile Remove="shims\**" />
+    <None Remove="shims\**" />
+  </ItemGroup>
+
   <ItemGroup Condition=" Exists('$(GameDir)') ">
-    <None Include="$(GameDir)SDL2.dll;$(GameDir)av*.dll;$(GameDir)postproc-*.dll;$(GameDir)sw*.dll;$(GameDir)credits.film" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+    <None Include="$(GameDir)SDL2.dll;$(GameDir)credits.film" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
     <None Include="$(GameDir)data\**\*" Link="data\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
     <None Include="$(GameDir)Shaders\**\*" Link="Shaders\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
   </ItemGroup>
+
+  <!-- FFmpeg 7.1 shared libraries for the Accord.Video.FFMPEG shim (fetch with tools\get-ffmpeg.ps1) -->
+  <ItemGroup>
+    <None Include="lib\ffmpeg\*" Link="ffmpeg\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+  <Target Name="WarnMissingFFmpeg" BeforeTargets="Build" Condition=" !Exists('lib\ffmpeg\avcodec-61.dll') ">
+    <Warning Text="FFmpeg 7.1 libraries not found in lib\ffmpeg; video playback will fail. Run tools\get-ffmpeg.ps1." />
+  </Target>
 
   <ItemGroup>
     <Reference Include="SonicOrca" HintPath="lib\SonicOrca.dll" />
@@ -37,10 +51,10 @@
     <Reference Include="SonicOrca.SDL2" HintPath="lib\SonicOrca.SDL2.dll" />
     <!-- Transitive dependencies of the SonicOrca engine assemblies -->
     <Reference Include="Accord" HintPath="lib\Accord.dll" />
-    <Reference Include="Accord.Video" HintPath="lib\Accord.Video.dll" />
-    <Reference Include="Accord.Video.FFMPEG.x64" HintPath="lib\Accord.Video.FFMPEG.x64.dll" />
     <Reference Include="OpenTK" HintPath="lib\OpenTK.dll" />
     <Reference Include="SDL2-CS" HintPath="lib\SDL2-CS.dll" />
+    <!-- Replaces Accord's C++/CLI Accord.Video.FFMPEG.x64.dll, which cannot load on .NET 10 -->
+    <ProjectReference Include="shims\Accord.Video.FFMPEG.x64\Accord.Video.FFMPEG.x64.csproj" />
   </ItemGroup>
 
 </Project>
