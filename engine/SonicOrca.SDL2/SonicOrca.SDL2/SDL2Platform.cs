@@ -43,9 +43,6 @@ public class SDL2Platform : IPlatform, IDisposable
 
 	public int TotalMemory => SDL.SDL_GetSystemRAM();
 
-	[DllImport("kernel32.dll")]
-	private static extern IntPtr LoadLibrary(string path);
-
 	private SDL2Platform()
 	{
 	}

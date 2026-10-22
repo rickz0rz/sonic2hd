@@ -64,7 +64,7 @@ internal class S2HDSonicOrcaGameContext(IPlatform platform) : SonicOrcaGameConte
     this.Settings.Apply();
     this.Window.WindowTitle = "Sonic 2 HD";
     this.Window.AspectRatio = new Vector2i(16 /*0x10*/, 9);
-    string directoryName = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
+    string directoryName = ContentDirectory.Path;
     this.LoadResourceFiles(Path.Combine(directoryName, "data"));
     if (bool.Parse(this.Configuration.GetProperty("general", "use_mods", "true")))
       this.LoadResourceFiles(Path.Combine(directoryName, "mods"));
@@ -272,7 +272,7 @@ internal class S2HDSonicOrcaGameContext(IPlatform platform) : SonicOrcaGameConte
     this.Console.Draw(this.Renderer);
     this.Renderer.DeativateRenderer();
     if (SonicOrcaGameContext.Singleton.Input.Pressed.Keyboard[67])
-      ScreenshotRenderer.GrabScreenshot();
+      ScreenshotRenderer.GrabScreenshot(this.UserDataDirectory);
     if (!this.ForceHD)
       return;
     this.Window.GraphicsContext.RenderToBackBuffer();

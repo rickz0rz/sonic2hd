@@ -1,9 +1,7 @@
 using System;
-using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using Microsoft.CSharp;
 
 namespace SonicOrca.Core;
 
@@ -18,18 +16,9 @@ internal static class ScriptImport
 				where x.Namespace == useNamespace
 				select x).ToArray();
 		}
-		IReadOnlyList<string> referenceAssemblyNames = new string[1] { "SonicOrca" };
-		CompilerParameters compilerParameters = new CompilerParameters((from x in AppDomain.CurrentDomain.GetAssemblies()
-			where referenceAssemblyNames.Contains(x.GetName().Name)
-			select x.Location).ToArray());
-		compilerParameters.GenerateInMemory = true;
-		CompilerResults compilerResults = new CSharpCodeProvider().CompileAssemblyFromSource(compilerParameters, sourceCode);
-		if (compilerResults.Errors.Count > 0)
-		{
-			throw new Exception("Compile errors:\n" + string.Join(Environment.NewLine, from x in compilerResults.Errors.OfType<CompilerError>()
-				select $"  Line {x.Line}, {x.ErrorText}"));
-		}
-		return compilerResults.CompiledAssembly.GetTypes();
+		// Runtime C# compilation (CodeDom) is not available on modern .NET. All shipped area and object
+		// resources use the "#use <namespace>" form, referencing types precompiled into the game assembly.
+		throw new NotSupportedException("Compiling script source at runtime is not supported; precompile the type and reference it with \"#use <namespace>\".");
 	}
 
 	private static string ReadToWhitespace(string input)

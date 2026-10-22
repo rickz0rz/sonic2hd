@@ -62,9 +62,9 @@
 		// Multiply texture colours together
 		vec4 TextureColour = vec4(1.0);
 		if (InputTextureCount > 0)
-			TextureColour *= texture2D(InputTexture[0], FragmentTextureMapping);
+			TextureColour *= texture(InputTexture[0], FragmentTextureMapping);
 		if (InputTextureCount > 1)
-			TextureColour *= texture2D(InputTexture[1], FragmentTextureMapping);
+			TextureColour *= texture(InputTexture[1], FragmentTextureMapping);
 
 		// Multiply texture colour with blending colour
 		OutputColour = FragmentColour * TextureColour + vec4(InputAdditiveColour.rgb, 0);

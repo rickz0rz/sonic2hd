@@ -1,23 +1,20 @@
 using System;
-using System.Drawing;
-using System.Drawing.Imaging;
+using System.IO;
 using OpenTK.Graphics.OpenGL;
 
 namespace SonicOrca.Drawing.Renderers;
 
 public class ScreenshotRenderer
 {
-	public static void GrabScreenshot()
+	public static void GrabScreenshot(string directory)
 	{
 		int width = 1920;
 		int height = 1080;
-		Bitmap bitmap = new Bitmap(width, height);
-		BitmapData bitmapData = bitmap.LockBits(new Rectangle(0, 0, width, height), ImageLockMode.WriteOnly, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
-		GL.ReadPixels(0, 0, width, height, OpenTK.Graphics.OpenGL.PixelFormat.Bgr, PixelType.UnsignedByte, bitmapData.Scan0);
-		bitmap.UnlockBits(bitmapData);
-		bitmap.RotateFlip(RotateFlipType.Rotate180FlipX);
-		string filename = "Sonic 2 HD " + DateTime.Now.Year + "-" + DateTime.Now.Month + "-" + DateTime.Now.Day + " " + DateTime.Now.Hour + "-" + DateTime.Now.Minute + "-" + DateTime.Now.Second + "-" + DateTime.Now.Millisecond + ".png";
-		bitmap.Save(filename, ImageFormat.Png);
-		bitmap.Dispose();
+		byte[] pixels = new byte[width * height * 3];
+		GL.PixelStore(PixelStoreParameter.PackAlignment, 1);
+		GL.ReadPixels(0, 0, width, height, PixelFormat.Rgb, PixelType.UnsignedByte, pixels);
+		DateTime now = DateTime.Now;
+		string filename = "Sonic 2 HD " + now.Year + "-" + now.Month + "-" + now.Day + " " + now.Hour + "-" + now.Minute + "-" + now.Second + "-" + now.Millisecond + ".png";
+		PngExport.Save(Path.Combine(directory, filename), pixels, width, height, alpha: false, bottomUp: true);
 	}
 }

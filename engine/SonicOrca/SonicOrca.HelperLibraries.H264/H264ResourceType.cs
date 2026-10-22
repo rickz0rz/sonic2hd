@@ -43,7 +43,7 @@ public class H264ResourceType : ResourceType
 
 	public override async Task<ILoadedResource> LoadAsync(ResourceLoadArgs e, CancellationToken ct = default(CancellationToken))
 	{
-		return await Task.Run((Func<ILoadedResource>)(() => new FilmBuffer(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) + "\\credits.film")
+		return await Task.Run((Func<ILoadedResource>)(() => new FilmBuffer(ContentDirectory.Combine("credits.film"))
 		{
 			Resource = e.Resource
 		}));

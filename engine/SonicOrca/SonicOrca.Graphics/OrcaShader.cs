@@ -24,7 +24,7 @@ public static class OrcaShader
 	{
 		if (!File.Exists(path))
 		{
-			path = Path.Combine(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location), path);
+			path = ContentDirectory.Combine(path);
 		}
 		StringBuilder stringBuilder = new StringBuilder();
 		StreamReader streamReader = new StreamReader(path);

@@ -200,6 +200,11 @@ public class SDL2WindowContext : WindowContext
 		{
 			throw SDL2Exception.FromError("Unable to initialise a video driver.");
 		}
+		// Core profile: the only kind macOS offers (up to 4.1), and it must be forward-compatible
+		SDL.SDL_GL_SetAttribute(SDL.SDL_GLattr.SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+		SDL.SDL_GL_SetAttribute(SDL.SDL_GLattr.SDL_GL_CONTEXT_MINOR_VERSION, 3);
+		SDL.SDL_GL_SetAttribute(SDL.SDL_GLattr.SDL_GL_CONTEXT_PROFILE_MASK, (int)SDL.SDL_GLprofile.SDL_GL_CONTEXT_PROFILE_CORE);
+		SDL.SDL_GL_SetAttribute(SDL.SDL_GLattr.SDL_GL_CONTEXT_FLAGS, (int)SDL.SDL_GLcontext.SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
 		SDL.SDL_GL_SetAttribute(SDL.SDL_GLattr.SDL_GL_MULTISAMPLESAMPLES, 1);
 		SDL.SDL_GL_SetSwapInterval(1);
 		SDL.SDL_GetDesktopDisplayMode(0, out var mode);
@@ -224,7 +229,7 @@ public class SDL2WindowContext : WindowContext
 		{
 			throw SDL2Exception.FromError("Unable to create OpenGL context.");
 		}
-		SetOpenTKOpenGLHandle(_glContext, GetWindowHWND(_windowHandle));
+		SetOpenTKOpenGLHandle();
 		ContextThread = Thread.CurrentThread;
 		_glGraphicsContext = new GLGraphicsContext(this);
 		ShowWindowWithBlackBackground();
@@ -232,6 +237,11 @@ public class SDL2WindowContext : WindowContext
 
 	private void SetIconToAssemblyResource()
 	{
+		// macOS takes the Dock icon from the app bundle
+		if (!OperatingSystem.IsWindows())
+		{
+			return;
+		}
 		IntPtr intPtr = User32.LoadIcon(Marshal.GetHINSTANCE(Assembly.GetEntryAssembly().ManifestModule), new IntPtr(32512));
 		if (intPtr != IntPtr.Zero)
 		{
@@ -245,7 +255,7 @@ public class SDL2WindowContext : WindowContext
 		public IntPtr GetProcAddress(string procName) => SDL.SDL_GL_GetProcAddress(procName);
 	}
 
-	private void SetOpenTKOpenGLHandle(IntPtr glHandle, IntPtr windowHandle)
+	private void SetOpenTKOpenGLHandle()
 	{
 		GL.LoadBindings(new SDL2BindingsContext());
 	}

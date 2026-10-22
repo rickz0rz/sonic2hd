@@ -2,14 +2,11 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows.Forms;
 using OpenTK.Graphics.OpenGL;
 using SonicOrca.Core;
 using SonicOrca.Core.Collision;
@@ -352,15 +349,12 @@ public class LevelRenderer : ILevelRenderer, IDisposable
 		{
 			return;
 		}
+		// The WinForms clipboard copy was dropped for portability; the image is still saved to the user data directory
 		try
 		{
-			using Bitmap bitmap = new Bitmap(width, height, width * 4, System.Drawing.Imaging.PixelFormat.Format32bppArgb, Marshal.UnsafeAddrOfPinnedArrayElement((Array)argbData, 0));
-			using MemoryStream memoryStream = new MemoryStream();
-			bitmap.Save(memoryStream, ImageFormat.Png);
-			File.WriteAllBytes(Path.Combine(_gameContext.UserDataDirectory, "copiedtiles.png"), memoryStream.ToArray());
-			DataObject dataObject = new DataObject();
-			((IDataObject)dataObject).SetData("PNG", false, (object)memoryStream);
-			Clipboard.SetDataObject(dataObject, copy: true);
+			string path = Path.Combine(_gameContext.UserDataDirectory, "copiedtiles.png");
+			PngExport.Save(path, argbData, width, height, alpha: true, bgr: true);
+			Trace.WriteLine("Saved level render to " + path);
 		}
 		catch (Exception)
 		{

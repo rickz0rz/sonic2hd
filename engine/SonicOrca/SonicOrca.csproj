@@ -2,14 +2,13 @@
 
   <PropertyGroup>
     <AssemblyName>SonicOrca</AssemblyName>
-    <UseWindowsForms>true</UseWindowsForms>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\SonicOrca.Common\SonicOrca.Common.csproj" />
     <ProjectReference Include="..\SonicOrca.Resources\SonicOrca.Resources.csproj" />
-    <ProjectReference Include="..\..\shims\Accord.Video.FFMPEG.x64\Accord.Video.FFMPEG.x64.csproj" />
-    <Reference Include="Accord" HintPath="$(LibDir)Accord.dll" />
+    <!-- Video decoding for FilmBuffer (FFmpeg 7.1 native libraries are shipped in the ffmpeg folder) -->
+    <PackageReference Include="FFMediaToolkit" Version="4.8.1" />
   </ItemGroup>
 
 </Project>

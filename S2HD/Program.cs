@@ -4,6 +4,7 @@
 // MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
 // Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
 
+using SDL2;
 using SonicOrca;
 using SonicOrca.SDL2;
 using System;
@@ -29,14 +30,16 @@ public static class Program
   [DllImport("user32.dll")]
   private static extern int SetForegroundWindow(IntPtr hWnd);
 
-  [DllImport("user32.dll")]
-  private static extern int MessageBox(IntPtr hwnd, string text, string caption, uint type);
-
   public static IniConfiguration Configuration { get; private set; }
 
   public static string UserDataDirectory
   {
-    get => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Personal), "SonicOrca");
+    get
+    {
+      // ~/Library/Application Support on macOS; Documents on Windows (unchanged from the original)
+      Environment.SpecialFolder folder = OperatingSystem.IsMacOS() ? Environment.SpecialFolder.ApplicationData : Environment.SpecialFolder.Personal;
+      return Path.Combine(Environment.GetFolderPath(folder), "SonicOrca");
+    }
   }
 
   private static string LogPath => Path.Combine(Program.UserDataDirectory, "sonicorca.log");
@@ -142,7 +145,7 @@ public static class Program
   {
     Process current = Process.GetCurrentProcess();
     Process process = ((IEnumerable<Process>) Process.GetProcessesByName(current.ProcessName)).Where<Process>((Func<Process, bool>) (x => x.Id != current.Id)).FirstOrDefault<Process>();
-    if (process == null)
+    if (process == null || !OperatingSystem.IsWindows())
       return;
     Program.SetForegroundWindow(process.MainWindowHandle);
   }
@@ -161,7 +164,7 @@ public static class Program
 
   public static void ShowErrorMessageBox(string text)
   {
-    Program.MessageBox(IntPtr.Zero, text, "SonicOrca", 48U /*0x30*/);
+    SDL.SDL_ShowSimpleMessageBox(SDL.SDL_MessageBoxFlags.SDL_MESSAGEBOX_WARNING, "SonicOrca", text, IntPtr.Zero);
   }
 
   private static void WriteLogHeader()

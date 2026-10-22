@@ -1,4 +1,4 @@
-# Downloads the FFmpeg 7.1 shared libraries required by FFMediaToolkit (via FFmpeg.AutoGen 7.1.1)
+# Downloads the FFmpeg 7.1 shared libraries required by FFMediaToolkit 4.8.1 (via FFmpeg.AutoGen 7.1.1) for credits film playback
 # into lib\ffmpeg, which the build copies to the output's ffmpeg\ folder.
 # Note: Gyan's "full" builds are GPL-licensed.
 param(

@@ -41,7 +41,7 @@ internal class FilterRenderer : IRenderer, IDisposable
 		_renderer = renderer;
 		renderer.RegisterRenderer(this);
 		_graphicsContext = renderer.Window.GraphicsContext;
-		OrcaShader.Parse(File.ReadAllText("shaders/greyscale_filter.shader"), out var vertexOuput, out var fragmentOutput);
+		OrcaShader.Parse(File.ReadAllText(ContentDirectory.Combine("shaders/greyscale_filter.shader")), out var vertexOuput, out var fragmentOutput);
 		_vertexShader = _graphicsContext.CreateShader(ShaderType.Vertex, vertexOuput);
 		_fragmentShader = _graphicsContext.CreateShader(ShaderType.Fragment, fragmentOutput);
 		_shaderProgram = _graphicsContext.CreateShaderProgram(_vertexShader, _fragmentShader);

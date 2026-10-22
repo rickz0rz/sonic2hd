@@ -8,20 +8,6 @@ namespace SonicOrca.SDL2;
 
 internal class GLVertexBuffer : VertexBuffer
 {
-	private static readonly IReadOnlyList<OpenTK.Graphics.OpenGL.PrimitiveType> BeginModesForPrimitiveTypes = new OpenTK.Graphics.OpenGL.PrimitiveType[10]
-	{
-		OpenTK.Graphics.OpenGL.PrimitiveType.Points,
-		OpenTK.Graphics.OpenGL.PrimitiveType.Lines,
-		OpenTK.Graphics.OpenGL.PrimitiveType.LineStrip,
-		OpenTK.Graphics.OpenGL.PrimitiveType.LineLoop,
-		OpenTK.Graphics.OpenGL.PrimitiveType.Triangles,
-		OpenTK.Graphics.OpenGL.PrimitiveType.TriangleStrip,
-		OpenTK.Graphics.OpenGL.PrimitiveType.TriangleFan,
-		OpenTK.Graphics.OpenGL.PrimitiveType.Quads,
-		OpenTK.Graphics.OpenGL.PrimitiveType.QuadStrip,
-		OpenTK.Graphics.OpenGL.PrimitiveType.Polygon
-	};
-
 	private readonly GLGraphicsContext _context;
 
 	private readonly int _numBuffers;
@@ -143,7 +129,7 @@ internal class GLVertexBuffer : VertexBuffer
 		if (!_noRender)
 		{
 			GL.BindVertexArray(_glId);
-			GL.DrawArrays(BeginModesForPrimitiveTypes[(int)type], 0, _numPoints);
+			GLPrimitives.Draw(type, 0, _numPoints);
 		}
 	}
 
@@ -152,7 +138,7 @@ internal class GLVertexBuffer : VertexBuffer
 		if (!_noRender)
 		{
 			GL.BindVertexArray(_glId);
-			GL.DrawArrays(BeginModesForPrimitiveTypes[(int)type], index, count);
+			GLPrimitives.Draw(type, index, count);
 		}
 	}
 }

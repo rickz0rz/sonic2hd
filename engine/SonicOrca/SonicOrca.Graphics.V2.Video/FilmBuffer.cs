@@ -1,27 +1,36 @@
 using System;
-using System.Drawing;
-using System.Drawing.Imaging;
-using System.Runtime.InteropServices;
-using Accord.Video.FFMPEG;
+using System.IO;
+using FFMediaToolkit;
+using FFMediaToolkit.Decoding;
+using FFMediaToolkit.Graphics;
 using SonicOrca.Resources;
 
 namespace SonicOrca.Graphics.V2.Video;
 
+// Originally backed by Accord.Video.FFMPEG (C++/CLI, Windows/.NET Framework only); now uses FFMediaToolkit
 public class FilmBuffer : IFilmBuffer, IDisposable, ILoadedResource
 {
-	private VideoFileReader _reader = new VideoFileReader();
+	private const string FFmpegDirectoryName = "ffmpeg";
+
+	private static readonly object FFmpegLoadLock = new object();
+
+	private static bool _ffmpegLoaded;
+
+	private MediaFile _file;
 
 	private int _width;
 
 	private int _height;
 
+	private double _frameRate = 1.0;
+
 	private double _currentFrame;
 
 	private double _numFrames;
 
-	private ImageConverter converter = new ImageConverter();
-
 	private byte[] _bytes;
+
+	private int _stride;
 
 	private string _path;
 
@@ -29,66 +38,83 @@ public class FilmBuffer : IFilmBuffer, IDisposable, ILoadedResource
 
 	public int Height => _height;
 
-	public double CurrentTime => _currentFrame / _reader.FrameRate.Value;
+	public double CurrentTime => _currentFrame / _frameRate;
 
-	public double Duration => _numFrames / _reader.FrameRate.Value;
+	public double Duration => _numFrames / _frameRate;
 
 	public Resource Resource { get; set; }
 
 	public void Dispose()
 	{
-		_reader.Close();
+		_file?.Dispose();
+		_file = null;
 	}
 
 	public void OnLoaded()
 	{
 		try
 		{
-			_reader.Open(_path);
+			EnsureFFmpegLoaded();
+			_file = MediaFile.Open(_path, new MediaOptions
+			{
+				StreamsToLoad = MediaMode.Video,
+				VideoPixelFormat = ImagePixelFormat.Bgr24,
+				// 0 = auto; libavcodec otherwise decodes single-threaded, too slow for 1080p60 on the game thread
+				DecoderThreads = 0
+			});
 		}
 		catch (Exception ex)
 		{
 			Console.WriteLine(ex.Message);
+			return;
 		}
-		_width = _reader.Width;
-		_height = _reader.Height;
-		_numFrames = _reader.FrameCount;
+		VideoStreamInfo info = _file.Video.Info;
+		_width = info.FrameSize.Width;
+		_height = info.FrameSize.Height;
+		_frameRate = info.RealFrameRate.den != 0 ? (double)info.RealFrameRate.num / info.RealFrameRate.den : info.AvgFrameRate;
+		_numFrames = info.NumberOfFrames ?? Math.Round(info.Duration.TotalSeconds * _frameRate);
 		_currentFrame = 0.0;
+		// BGR rows padded to 4 bytes, matching GL's default unpack alignment used by GLTexture.SetArgbData
+		_stride = (_width * 3 + 3) & ~3;
+		_bytes = new byte[_stride * _height];
 	}
 
 	public FilmBuffer(string path)
 	{
-		//IL_0001: Unknown result type (might be due to invalid IL or missing references)
-		//IL_000b: Expected Obj, but got Unknown
 		_path = path;
 	}
 
-	public void Decode()
+	public unsafe void Decode()
 	{
-		Bitmap bitmap = _reader.ReadVideoFrame();
-		if (bitmap != null)
+		if (_file == null)
 		{
-			_currentFrame++;
-			Rectangle rect = new Rectangle(0, 0, bitmap.Width, bitmap.Height);
-			BitmapData bitmapData = bitmap.LockBits(rect, ImageLockMode.ReadOnly, PixelFormat.Format24bppRgb);
-			IntPtr scan = bitmapData.Scan0;
-			int num = Math.Abs(bitmapData.Stride) * bitmap.Height;
-			if (_bytes == null)
-			{
-				_bytes = new byte[num];
-			}
-			else if (num != _bytes.Length)
-			{
-				_bytes = new byte[num];
-			}
-			Marshal.Copy(scan, _bytes, 0, num);
-			bitmap.UnlockBits(bitmapData);
+			return;
 		}
-		bitmap.Dispose();
+		// At end of stream the previous frame is kept, and time still advances so the film finishes
+		fixed (byte* buffer = _bytes)
+		{
+			_file.Video.TryGetNextFrame((IntPtr)buffer, _stride);
+		}
+		_currentFrame++;
 	}
 
 	public byte[] GetArgbData()
 	{
 		return _bytes;
+	}
+
+	private static void EnsureFFmpegLoaded()
+	{
+		lock (FFmpegLoadLock)
+		{
+			if (_ffmpegLoaded)
+			{
+				return;
+			}
+			string path = Path.Combine(AppContext.BaseDirectory, FFmpegDirectoryName);
+			FFmpegLoader.FFmpegPath = Directory.Exists(path) ? path : AppContext.BaseDirectory;
+			FFmpegLoader.LoadFFmpeg();
+			_ffmpegLoaded = true;
+		}
 	}
 }

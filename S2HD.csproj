@@ -2,16 +2,14 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
-    <!-- SonicOrca.Drawing depends on System.Drawing and System.Windows.Forms -->
-    <UseWindowsForms>true</UseWindowsForms>
+    <TargetFramework>net10.0</TargetFramework>
     <AssemblyName>S2HD</AssemblyName>
     <RootNamespace>S2HD</RootNamespace>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
     <!-- Assembly attributes are kept in AssemblyInfo.cs;
-         only let the SDK generate the TargetFramework/SupportedOSPlatform attributes -->
+         only let the SDK generate the TargetFramework attribute -->
     <GenerateAssemblyTitleAttribute>false</GenerateAssemblyTitleAttribute>
     <GenerateAssemblyDescriptionAttribute>false</GenerateAssemblyDescriptionAttribute>
     <GenerateAssemblyConfigurationAttribute>false</GenerateAssemblyConfigurationAttribute>
@@ -22,9 +20,8 @@
     <GenerateAssemblyFileVersionAttribute>false</GenerateAssemblyFileVersionAttribute>
     <GenerateAssemblyInformationalVersionAttribute>false</GenerateAssemblyInformationalVersionAttribute>
     <GenerateAssemblyTrademarkAttribute>false</GenerateAssemblyTrademarkAttribute>
-    <!-- The native SDL2/FFmpeg binaries are x64-only -->
-    <PlatformTarget>x64</PlatformTarget>
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <!-- Default to the Windows build for local development; publish profiles select other platforms -->
+    <RuntimeIdentifier Condition=" '$(RuntimeIdentifier)' == '' ">win-x64</RuntimeIdentifier>
     <SelfContained>false</SelfContained>
     <ApplicationVersion>2.0.1012.10521</ApplicationVersion>
     <!-- CS0649: [ResourcePath] fields are populated by the engine via reflection -->
@@ -34,18 +31,22 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Engine and shim projects build separately; publish\ holds release output -->
-    <Compile Remove="engine\**;shims\**;publish\**" />
-    <None Remove="engine\**;shims\**;publish\**" />
+    <!-- Engine projects build separately; publish\ holds release output -->
+    <Compile Remove="engine\**;publish\**" />
+    <None Remove="engine\**;publish\**" />
   </ItemGroup>
 
   <ItemGroup Condition=" Exists('$(GameDir)') ">
     <None Include="$(GameDir)SDL2.dll;$(GameDir)credits.film" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
     <None Include="$(GameDir)data\**\*" Link="data\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
-    <None Include="$(GameDir)Shaders\**\*" Link="Shaders\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
   </ItemGroup>
 
-  <!-- FFmpeg 7.1 shared libraries for the Accord.Video.FFMPEG shim (fetch with tools\get-ffmpeg.ps1) -->
+  <ItemGroup>
+    <!-- Shaders are kept in the repo (patched for core-profile OpenGL); the engine loads them from shaders/ -->
+    <None Include="assets\shaders\**\*" Link="shaders\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- FFmpeg 7.1 shared libraries for credits film playback (fetch with tools\get-ffmpeg.ps1) -->
   <ItemGroup>
     <None Include="lib\ffmpeg\*" Link="ffmpeg\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
   </ItemGroup>
@@ -60,6 +61,8 @@
     <ProjectReference Include="engine\SonicOrca\SonicOrca.csproj" />
     <ProjectReference Include="engine\SonicOrca.Drawing\SonicOrca.Drawing.csproj" />
     <ProjectReference Include="engine\SonicOrca.SDL2\SonicOrca.SDL2.csproj" />
+    <!-- Program uses SDL directly for the error message box -->
+    <Reference Include="SDL2-CS" HintPath="lib\SDL2-CS.dll" />
   </ItemGroup>
 
 </Project>
