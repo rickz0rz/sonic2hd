@@ -6,6 +6,9 @@ using System.Runtime.CompilerServices;
 
 namespace SonicOrca.Core.Extensions;
 
+/// <summary>
+/// Extension methods to read and write fields and properties through reflection.
+/// </summary>
 public static class ReflectionTypeExtensions
 {
 	public static Type GetUnderlyingType(this MemberInfo member)
@@ -22,10 +25,9 @@ public static class ReflectionTypeExtensions
 
 	public static bool IsAssignableToGenericType(this Type givenType, Type genericType)
 	{
-		Type[] interfaces = givenType.GetInterfaces();
-		foreach (Type type in interfaces)
+		foreach (Type interfaceType in givenType.GetInterfaces())
 		{
-			if (type.IsGenericType && type.GetGenericTypeDefinition() == genericType)
+			if (interfaceType.IsGenericType && interfaceType.GetGenericTypeDefinition() == genericType)
 			{
 				return true;
 			}
@@ -69,16 +71,16 @@ public static class ReflectionTypeExtensions
 
 	public static IEnumerable<MemberInfo> GetUnderlyingMembers(this Type type, BindingFlags bindingFlags)
 	{
-		IEnumerable<MemberInfo> first = type.GetFields(bindingFlags).Cast<MemberInfo>();
-		IEnumerable<MemberInfo> second = type.GetProperties(bindingFlags).Cast<MemberInfo>();
-		return first.Concat(second);
+		IEnumerable<MemberInfo> fields = type.GetFields(bindingFlags).Cast<MemberInfo>();
+		IEnumerable<MemberInfo> properties = type.GetProperties(bindingFlags).Cast<MemberInfo>();
+		return fields.Concat(properties);
 	}
 
 	public static bool IsAnonymous(this Type type)
 	{
 		if (type == null)
 		{
-			throw new ArgumentNullException("type");
+			throw new ArgumentNullException(nameof(type));
 		}
 		if (Attribute.IsDefined(type, typeof(CompilerGeneratedAttribute), inherit: false) && type.Name.Contains("AnonymousType") && (type.Name.StartsWith("<>") || type.Name.StartsWith("VB$")))
 		{

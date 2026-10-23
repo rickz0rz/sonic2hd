@@ -6,6 +6,9 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Audio;
 
+/// <summary>
+/// Loads a ".sampleinfo.xml" file into a <see cref="SampleInfo"/>. The file gives the sample path and an optional loop point.
+/// </summary>
 internal class SampleInfoResourceType : ResourceType
 {
 	public override string Name => "sample info";
@@ -28,9 +31,9 @@ internal class SampleInfoResourceType : ResourceType
 			string absolutePath = e.GetAbsolutePath(xmlDocument.SelectSingleNode("sampleinfo/sample").InnerText);
 			e.PushDependency(absolutePath);
 			int? loopSampleIndex = null;
-			if (xmlDocument.TryGetNodeInnerText("sampleinfo/loop", out var value))
+			if (xmlDocument.TryGetNodeInnerText("sampleinfo/loop", out string loopText))
 			{
-				loopSampleIndex = int.Parse(value);
+				loopSampleIndex = int.Parse(loopText);
 			}
 			return new SampleInfo(e.ResourceTree, absolutePath, loopSampleIndex)
 			{

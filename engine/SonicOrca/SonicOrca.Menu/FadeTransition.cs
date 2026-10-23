@@ -3,8 +3,15 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.Menu;
 
+/// <summary>
+/// A full screen colour overlay that fades in or out over a number of updates.
+/// </summary>
 public class FadeTransition
 {
+	private const double ScreenWidth = 1920.0;
+
+	private const double ScreenHeight = 1080.0;
+
 	private bool _decreasingOpacity;
 
 	public double Opacity { get; private set; }
@@ -40,6 +47,9 @@ public class FadeTransition
 		UpdatesRemaining = 0;
 	}
 
+	/// <summary>
+	/// Starts to fade the overlay out, so that the scene below becomes visible.
+	/// </summary>
 	public void BeginFadeIn()
 	{
 		_decreasingOpacity = true;
@@ -47,6 +57,9 @@ public class FadeTransition
 		Update();
 	}
 
+	/// <summary>
+	/// Starts to fade the overlay in, so that the scene below becomes hidden.
+	/// </summary>
 	public void BeginFadeOut()
 	{
 		_decreasingOpacity = false;
@@ -73,6 +86,6 @@ public class FadeTransition
 		Colour colour = Colour;
 		colour.Alpha = (byte)(Opacity * 255.0);
 		i2dRenderer.BlendMode = BlendMode.Alpha;
-		i2dRenderer.RenderQuad(colour, new Rectangle(0.0, 0.0, 1920.0, 1080.0));
+		i2dRenderer.RenderQuad(colour, new Rectangle(0.0, 0.0, ScreenWidth, ScreenHeight));
 	}
 }

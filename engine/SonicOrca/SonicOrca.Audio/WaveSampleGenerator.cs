@@ -2,6 +2,9 @@ using System;
 
 namespace SonicOrca.Audio;
 
+/// <summary>
+/// Sample generator that makes a sine, square, triangle or sawtooth wave.
+/// </summary>
 public class WaveSampleGenerator : SampleGenerator
 {
 	public enum WaveFunction
@@ -11,6 +14,11 @@ public class WaveSampleGenerator : SampleGenerator
 		Triangle,
 		Sawtooth
 	}
+
+	/// <summary>
+	/// The angle change for each sample at 1 Hz. The value is 2 pi divided by the 44100 Hz sample rate.
+	/// </summary>
+	private const double AngleStepPerHertz = 0.00014247585730565955;
 
 	private double _angle;
 
@@ -30,7 +38,7 @@ public class WaveSampleGenerator : SampleGenerator
 
 	protected override double GetNextSample()
 	{
-		_angle = MathX.WrapRadians(_angle + 0.00014247585730565955 * Frequency);
+		_angle = MathX.WrapRadians(_angle + AngleStepPerHertz * Frequency);
 		return Function switch
 		{
 			WaveFunction.Sine => Math.Sin(_angle) * Amplitude,

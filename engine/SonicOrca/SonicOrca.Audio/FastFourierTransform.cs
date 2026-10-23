@@ -3,6 +3,9 @@ using System.Linq;
 
 namespace SonicOrca.Audio;
 
+/// <summary>
+/// In-place radix-2 fast Fourier transform. The data length must be 2 to the power of m.
+/// </summary>
 public static class FastFourierTransform
 {
 	public static double HammingWindow(int n, int frameSize)
@@ -12,9 +15,9 @@ public static class FastFourierTransform
 
 	public static ComplexNumber[] TimeToFrequency(int m, double[] samples)
 	{
-		ComplexNumber[] array = samples.Select((double x) => new ComplexNumber(x, 0.0)).ToArray();
-		Apply(forward: true, m, array);
-		return array;
+		ComplexNumber[] data = samples.Select(x => new ComplexNumber(x, 0.0)).ToArray();
+		Apply(forward: true, m, data);
+		return data;
 	}
 
 	public static void TimeToFrequency(int m, ComplexNumber[] data)
@@ -27,71 +30,79 @@ public static class FastFourierTransform
 		Apply(forward: false, m, data);
 	}
 
+	/// <summary>
+	/// Applies the transform in place. The forward transform divides the result by the number of points.
+	/// </summary>
 	private static void Apply(bool forward, int m, ComplexNumber[] data)
 	{
-		int num = 1;
-		int num2 = 0;
-		int num3 = 1;
-		double num4 = -1.0;
-		double num5 = 0.0;
+		int pointCount = 1;
+		int j = 0;
+		int step = 1;
+		double cosine = -1.0;
+		double sine = 0.0;
 		for (int i = 0; i < m; i++)
 		{
-			num *= 2;
+			pointCount *= 2;
 		}
-		int num6 = num >> 1;
-		for (int i = 0; i < num - 1; i++)
+
+		// Put the data in bit-reversed order.
+		int halfPointCount = pointCount >> 1;
+		for (int i = 0; i < pointCount - 1; i++)
 		{
-			if (i < num2)
+			if (i < j)
 			{
 				double real = data[i].Real;
 				double imaginary = data[i].Imaginary;
-				data[i].Real = data[num2].Real;
-				data[i].Imaginary = data[num2].Imaginary;
-				data[num2].Real = real;
-				data[num2].Imaginary = imaginary;
+				data[i].Real = data[j].Real;
+				data[i].Imaginary = data[j].Imaginary;
+				data[j].Real = real;
+				data[j].Imaginary = imaginary;
 			}
-			int num7;
-			for (num7 = num6; num7 <= num2; num7 >>= 1)
+			int bit;
+			for (bit = halfPointCount; bit <= j; bit >>= 1)
 			{
-				num2 -= num7;
+				j -= bit;
 			}
-			num2 += num7;
+			j += bit;
 		}
-		for (int j = 0; j < m; j++)
+
+		// Butterfly passes.
+		for (int level = 0; level < m; level++)
 		{
-			int num8 = num3;
-			num3 <<= 1;
-			double num9 = 1.0;
-			double num10 = 0.0;
-			for (num2 = 0; num2 < num8; num2++)
+			int halfStep = step;
+			step <<= 1;
+			double twiddleReal = 1.0;
+			double twiddleImaginary = 0.0;
+			for (j = 0; j < halfStep; j++)
 			{
-				for (int i = num2; i < num; i += num3)
+				for (int i = j; i < pointCount; i += step)
 				{
-					int num11 = i + num8;
-					double num12 = num9 * data[num11].Real - num10 * data[num11].Imaginary;
-					double num13 = num9 * data[num11].Imaginary + num10 * data[num11].Real;
-					data[num11].Real = data[i].Real - num12;
-					data[num11].Imaginary = data[i].Imaginary - num13;
-					data[i].Real += num12;
-					data[i].Imaginary += num13;
+					int pair = i + halfStep;
+					double productReal = twiddleReal * data[pair].Real - twiddleImaginary * data[pair].Imaginary;
+					double productImaginary = twiddleReal * data[pair].Imaginary + twiddleImaginary * data[pair].Real;
+					data[pair].Real = data[i].Real - productReal;
+					data[pair].Imaginary = data[i].Imaginary - productImaginary;
+					data[i].Real += productReal;
+					data[i].Imaginary += productImaginary;
 				}
-				double num14 = num9 * num4 - num10 * num5;
-				num10 = num9 * num5 + num10 * num4;
-				num9 = num14;
+				double nextTwiddleReal = twiddleReal * cosine - twiddleImaginary * sine;
+				twiddleImaginary = twiddleReal * sine + twiddleImaginary * cosine;
+				twiddleReal = nextTwiddleReal;
 			}
-			num5 = Math.Sqrt((1.0 - num4) / 2.0);
+			sine = Math.Sqrt((1.0 - cosine) / 2.0);
 			if (forward)
 			{
-				num5 = 0.0 - num5;
+				sine = 0.0 - sine;
 			}
-			num4 = Math.Sqrt((1.0 + num4) / 2.0);
+			cosine = Math.Sqrt((1.0 + cosine) / 2.0);
 		}
+
 		if (forward)
 		{
-			for (int i = 0; i < num; i++)
+			for (int i = 0; i < pointCount; i++)
 			{
-				data[i].Real /= num;
-				data[i].Imaginary /= num;
+				data[i].Real /= pointCount;
+				data[i].Imaginary /= pointCount;
 			}
 		}
 	}

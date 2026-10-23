@@ -5,8 +5,13 @@ using SonicOrca.Extensions;
 
 namespace SonicOrca.Audio;
 
+/// <summary>
+/// A playing instance of a <see cref="Sample"/>. It can loop and it resamples the data to the output sample rate.
+/// </summary>
 public class SampleInstance : IDisposable, ISampleProvider
 {
+	private const int OutputSampleRate = 44100;
+
 	private readonly AudioContext _audioAdapter;
 
 	private readonly Sample _sample;
@@ -33,46 +38,30 @@ public class SampleInstance : IDisposable, ISampleProvider
 
 	public IReadOnlyList<byte> LastReadBytes => _lastReadBytes;
 
-	private int? LoopSampleIndex
-	{
-		get
-		{
-			return _loopSampleIndex;
-		}
-		set
-		{
-			if (_loopSampleIndex != value)
-			{
-				_loopSampleIndex = value;
-				CreateSampleInputStream();
-			}
-		}
-	}
-
 	public double CalculatedVolume
 	{
 		get
 		{
-			double num = Volume;
+			double volume = Volume;
 			if (Classification == SampleInstanceClassification.Sound)
 			{
-				num *= _audioAdapter.SoundVolume;
+				volume *= _audioAdapter.SoundVolume;
 			}
 			else if (Classification == SampleInstanceClassification.Music)
 			{
-				num *= _audioAdapter.MusicVolume;
+				volume *= _audioAdapter.MusicVolume;
 			}
-			return num * _audioAdapter.Volume;
+			return volume * _audioAdapter.Volume;
 		}
 	}
 
 	public SampleInstance(SonicOrcaGameContext context, SampleInfo sampleInfo)
-		: this(context.Audio, sampleInfo.Sample, sampleInfo.HasLoopPoint ? new int?(sampleInfo.LoopSampleIndex) : null)
+		: this(context.Audio, sampleInfo.Sample, sampleInfo.HasLoopPoint ? sampleInfo.LoopSampleIndex : null)
 	{
 	}
 
 	public SampleInstance(AudioContext audioAdapter, SampleInfo sampleInfo)
-		: this(audioAdapter, sampleInfo.Sample, sampleInfo.HasLoopPoint ? new int?(sampleInfo.LoopSampleIndex) : null)
+		: this(audioAdapter, sampleInfo.Sample, sampleInfo.HasLoopPoint ? sampleInfo.LoopSampleIndex : null)
 	{
 	}
 
@@ -94,9 +83,9 @@ public class SampleInstance : IDisposable, ISampleProvider
 	private void CreateSampleInputStream()
 	{
 		_sampleInputStream = new SampleStream(_sample, _loopSampleIndex);
-		if (_sample.SampleRate != 44100)
+		if (_sample.SampleRate != OutputSampleRate)
 		{
-			_sampleInputStream = new ResamplerStream(_sampleInputStream, _sample.SampleRate, 44100);
+			_sampleInputStream = new ResamplerStream(_sampleInputStream, _sample.SampleRate, OutputSampleRate);
 		}
 	}
 
@@ -140,12 +129,13 @@ public class SampleInstance : IDisposable, ISampleProvider
 	public int Read(byte[] buffer, int offset, int count)
 	{
 		SampleIndex = _sample.GetSampleIndex(_sampleInputStream.Position);
-		int num = _sampleInputStream.Read(buffer, offset, count);
-		if (num == 0)
+		int bytesRead = _sampleInputStream.Read(buffer, offset, count);
+		if (bytesRead == 0)
 		{
 			Playing = false;
 		}
-		_lastReadBytes = buffer.GetRange(0, num);
-		return num;
+		// This copies from index 0, not from the offset.
+		_lastReadBytes = buffer.GetRange(0, bytesRead);
+		return bytesRead;
 	}
 }

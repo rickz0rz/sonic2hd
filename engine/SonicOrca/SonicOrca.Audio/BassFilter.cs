@@ -4,37 +4,44 @@ using SonicOrca.Extensions;
 
 namespace SonicOrca.Audio;
 
+/// <summary>
+/// Low-pass filter for 16-bit stereo PCM. It removes high frequency bins with a Fourier transform on blocks of samples.
+/// </summary>
 internal class BassFilter
 {
+	private const int BlockSize = 512;
+
+	private const int FrequencyCutoffBin = 32;
+
 	public static void Apply(byte[] buffer)
 	{
-		Sample.PCMToSamples(buffer, out var leftSamples, out var rightSamples);
-		int num = 512;
-		for (int i = 0; i < leftSamples.Length; i += num)
+		Sample.PCMToSamples(buffer, out float[] leftSamples, out float[] rightSamples);
+		for (int i = 0; i < leftSamples.Length; i += BlockSize)
 		{
-			float[] range = leftSamples.GetRange(i, Math.Min(leftSamples.Length - i, num));
-			float[] range2 = rightSamples.GetRange(i, Math.Min(rightSamples.Length - i, num));
-			Apply(range);
-			Apply(range2);
-			Array.Copy(range, 0, leftSamples, i, range.Length);
-			Array.Copy(range2, 0, rightSamples, i, range2.Length);
+			float[] leftBlock = leftSamples.GetRange(i, Math.Min(leftSamples.Length - i, BlockSize));
+			float[] rightBlock = rightSamples.GetRange(i, Math.Min(rightSamples.Length - i, BlockSize));
+			Apply(leftBlock);
+			Apply(rightBlock);
+			Array.Copy(leftBlock, 0, leftSamples, i, leftBlock.Length);
+			Array.Copy(rightBlock, 0, rightSamples, i, rightBlock.Length);
 		}
+		// The right channel is not used here. The output has the left channel in the two channels.
 		Array.Copy(Sample.SamplesToPCM(leftSamples, leftSamples), buffer, buffer.Length);
 	}
 
 	private static void Apply(float[] samples)
 	{
 		int m = (int)Math.Log(samples.Length, 2.0);
-		ComplexNumber[] array = FastFourierTransform.TimeToFrequency(m, samples.Select((Func<float, double>)((float x) => x)).ToArray());
-		for (int num = 32; num < samples.Length; num++)
+		ComplexNumber[] frequencies = FastFourierTransform.TimeToFrequency(m, samples.Select(x => (double)x).ToArray());
+		for (int i = FrequencyCutoffBin; i < samples.Length; i++)
 		{
-			array[num].Real = 0.0;
-			array[num].Imaginary = 0.0;
+			frequencies[i].Real = 0.0;
+			frequencies[i].Imaginary = 0.0;
 		}
-		FastFourierTransform.FrequencyToTime(m, array);
-		for (int num2 = 0; num2 < samples.Length; num2++)
+		FastFourierTransform.FrequencyToTime(m, frequencies);
+		for (int i = 0; i < samples.Length; i++)
 		{
-			samples[num2] = (float)array[num2].Real;
+			samples[i] = (float)frequencies[i].Real;
 		}
 	}
 }

@@ -5,11 +5,27 @@ using csvorbis;
 
 namespace SonicOrca.HelperLibraries.OggVorbis;
 
+/// <summary>
+/// Read-only stream that decodes a full Ogg Vorbis stream into 16-bit PCM in memory. By default, the decoded data
+/// starts with a RIFF WAVE header.
+/// </summary>
 public class OggDecodeStream : Stream
 {
-	private Stream decodedStream;
+	private const int WavHeaderSize = 36;
 
-	private const int HEADER_SIZE = 36;
+	/// <summary>
+	/// The number of bytes that each read from the input stream requests.
+	/// </summary>
+	private const int InputChunkSize = 4096;
+
+	private const int ConvertBufferSize = 8192;
+
+	/// <summary>
+	/// The number of Vorbis header packets that follow the identification header.
+	/// </summary>
+	private const int SecondaryHeaderCount = 2;
+
+	private readonly Stream _decodedStream;
 
 	public override bool CanRead => true;
 
@@ -17,17 +33,17 @@ public class OggDecodeStream : Stream
 
 	public override bool CanWrite => false;
 
-	public override long Length => decodedStream.Length;
+	public override long Length => _decodedStream.Length;
 
 	public override long Position
 	{
 		get
 		{
-			return decodedStream.Position;
+			return _decodedStream.Position;
 		}
 		set
 		{
-			decodedStream.Position = value;
+			_decodedStream.Position = value;
 		}
 	}
 
@@ -35,9 +51,9 @@ public class OggDecodeStream : Stream
 	{
 		if (input == null)
 		{
-			throw new ArgumentNullException("input");
+			throw new ArgumentNullException(nameof(input));
 		}
-		decodedStream = DecodeStream(input, skipWavHeader);
+		_decodedStream = DecodeStream(input, skipWavHeader);
 	}
 
 	public OggDecodeStream(Stream input)
@@ -45,213 +61,189 @@ public class OggDecodeStream : Stream
 	{
 	}
 
+	/// <summary>
+	/// Decodes all logical bitstreams in the input. This follows the decoder example from the Vorbis library.
+	/// The log messages go to a string writer that nothing reads.
+	/// </summary>
 	private Stream DecodeStream(Stream input, bool skipWavHeader)
 	{
-		int num = 8192;
-		byte[] array = new byte[num];
-		TextWriter textWriter = new StringWriter();
-		Stream stream = new MemoryStream();
+		byte[] convertBuffer = new byte[ConvertBufferSize];
+		TextWriter log = new StringWriter();
+		Stream output = new MemoryStream();
 		if (!skipWavHeader)
 		{
-			stream.Seek(36L, SeekOrigin.Begin);
+			// Keep space for the header. The header is written when the data length is known.
+			output.Seek(WavHeaderSize, SeekOrigin.Begin);
 		}
 		SyncState syncState = new SyncState();
 		StreamState streamState = new StreamState();
 		Page page = new Page();
-		Packet op = new Packet();
+		Packet packet = new Packet();
 		Info info = new Info();
 		Comment comment = new Comment();
 		DspState dspState = new DspState();
 		Block block = new Block(dspState);
-		int num2 = 0;
+		int bytesRead = 0;
 		syncState.init();
 		while (true)
 		{
-			int num3 = 0;
-			int offset = syncState.buffer(4096);
-			byte[] data = syncState.data;
-			try
-			{
-				num2 = input.Read(data, offset, 4096);
-			}
-			catch (Exception value)
-			{
-				textWriter.WriteLine(value);
-			}
-			syncState.wrote(num2);
+			bool endOfStream = false;
+			ReadInput(input, syncState, log, ref bytesRead);
+			syncState.wrote(bytesRead);
 			if (syncState.pageout(page) != 1)
 			{
-				if (num2 < 4096)
+				if (bytesRead < InputChunkSize)
 				{
 					break;
 				}
-				textWriter.WriteLine("Input does not appear to be an Ogg bitstream.");
+				log.WriteLine("Input does not appear to be an Ogg bitstream.");
 			}
+
+			// Read the identification header.
 			streamState.init(page.serialno());
 			info.init();
 			comment.init();
 			if (streamState.pagein(page) < 0)
 			{
-				textWriter.WriteLine("Error reading first page of Ogg bitstream data.");
+				log.WriteLine("Error reading first page of Ogg bitstream data.");
 			}
-			if (streamState.packetout(op) != 1)
+			if (streamState.packetout(packet) != 1)
 			{
-				textWriter.WriteLine("Error reading initial header packet.");
+				log.WriteLine("Error reading initial header packet.");
 			}
-			if (info.synthesis_headerin(comment, op) < 0)
+			if (info.synthesis_headerin(comment, packet) < 0)
 			{
-				textWriter.WriteLine("This Ogg bitstream does not contain Vorbis audio data.");
+				log.WriteLine("This Ogg bitstream does not contain Vorbis audio data.");
 			}
-			int i = 0;
-			while (i < 2)
+
+			// Read the comment header and the codebook header.
+			int headerIndex = 0;
+			while (headerIndex < SecondaryHeaderCount)
 			{
-				while (i < 2)
+				while (headerIndex < SecondaryHeaderCount)
 				{
-					switch (syncState.pageout(page))
+					int pageResult = syncState.pageout(page);
+					if (pageResult == 0)
 					{
-						case 1:
-							streamState.pagein(page);
-							for (; i < 2; info.synthesis_headerin(comment, op), i++)
+						break;
+					}
+					if (pageResult == 1)
+					{
+						streamState.pagein(page);
+						while (headerIndex < SecondaryHeaderCount)
+						{
+							int packetResult = streamState.packetout(packet);
+							if (packetResult == 0)
 							{
-								switch (streamState.packetout(op))
-								{
-									case -1:
-										textWriter.WriteLine("Corrupt secondary header.  Exiting.");
-										continue;
-									default:
-										continue;
-									case 0:
-										break;
-								}
 								break;
 							}
-							continue;
-						default:
-							continue;
-						case 0:
-							break;
+							if (packetResult == -1)
+							{
+								log.WriteLine("Corrupt secondary header.  Exiting.");
+							}
+							info.synthesis_headerin(comment, packet);
+							headerIndex++;
+						}
 					}
-					break;
 				}
-				offset = syncState.buffer(4096);
-				data = syncState.data;
-				try
+				ReadInput(input, syncState, log, ref bytesRead);
+				if (bytesRead == 0 && headerIndex < SecondaryHeaderCount)
 				{
-					num2 = input.Read(data, offset, 4096);
+					log.WriteLine("End of file before finding all Vorbis headers!");
 				}
-				catch (Exception value2)
-				{
-					textWriter.WriteLine(value2);
-				}
-				if (num2 == 0 && i < 2)
-				{
-					textWriter.WriteLine("End of file before finding all Vorbis headers!");
-				}
-				syncState.wrote(num2);
+				syncState.wrote(bytesRead);
 			}
-			byte[][] user_comments = comment.user_comments;
-			for (int j = 0; j < comment.user_comments.Length && user_comments[j] != null; j++)
+
+			byte[][] userComments = comment.user_comments;
+			for (int j = 0; j < comment.user_comments.Length && userComments[j] != null; j++)
 			{
-				textWriter.WriteLine(comment.getComment(j));
+				log.WriteLine(comment.getComment(j));
 			}
-			textWriter.WriteLine("\nBitstream is " + info.channels + " channel, " + info.rate + "Hz");
-			textWriter.WriteLine("Encoded by: " + comment.getVendor() + "\n");
-			num = 4096 / info.channels;
+			log.WriteLine("\nBitstream is " + info.channels + " channel, " + info.rate + "Hz");
+			log.WriteLine("Encoded by: " + comment.getVendor() + "\n");
+
+			// Decode the audio packets.
+			int convertSize = InputChunkSize / info.channels;
 			dspState.synthesis_init(info);
 			block.init(dspState);
-			float[][][] array2 = new float[1][][];
-			int[] array3 = new int[info.channels];
-			while (num3 == 0)
+			float[][][] pcm = new float[1][][];
+			int[] pcmIndex = new int[info.channels];
+			while (!endOfStream)
 			{
-				while (num3 == 0)
+				while (!endOfStream)
 				{
-					switch (syncState.pageout(page))
+					int pageResult = syncState.pageout(page);
+					if (pageResult == 0)
 					{
-						case -1:
-							textWriter.WriteLine("Corrupt or missing data in bitstream; continuing...");
-							continue;
-						default:
-							streamState.pagein(page);
-							while (true)
-							{
-								switch (streamState.packetout(op))
-								{
-									case -1:
-										continue;
-									default:
-										{
-											if (block.synthesis(op) == 0)
-											{
-												dspState.synthesis_blockin(block);
-											}
-											int num4;
-											while ((num4 = dspState.synthesis_pcmout(array2, array3)) > 0)
-											{
-												float[][] array4 = array2[0];
-												bool flag = false;
-												int num5 = ((num4 < num) ? num4 : num);
-												for (i = 0; i < info.channels; i++)
-												{
-													int num6 = i * 2;
-													int num7 = array3[i];
-													for (int k = 0; k < num5; k++)
-													{
-														int num8 = (int)(array4[i][num7 + k] * 32767.0);
-														if (num8 > 32767)
-														{
-															num8 = 32767;
-															flag = true;
-														}
-														if (num8 < -32768)
-														{
-															num8 = -32768;
-															flag = true;
-														}
-														if (num8 < 0)
-														{
-															num8 |= 0x8000;
-														}
-														array[num6] = (byte)num8;
-														array[num6 + 1] = (byte)((uint)num8 >> 8);
-														num6 += 2 * info.channels;
-													}
-												}
-												stream.Write(array, 0, 2 * info.channels * num5);
-												dspState.synthesis_read(num5);
-											}
-											continue;
-										}
-									case 0:
-										break;
-								}
-								break;
-							}
-							if (page.eos() != 0)
-							{
-								num3 = 1;
-							}
-							continue;
-						case 0:
+						break;
+					}
+					if (pageResult == -1)
+					{
+						log.WriteLine("Corrupt or missing data in bitstream; continuing...");
+						continue;
+					}
+					streamState.pagein(page);
+					while (true)
+					{
+						int packetResult = streamState.packetout(packet);
+						if (packetResult == 0)
+						{
 							break;
+						}
+						if (packetResult == -1)
+						{
+							continue;
+						}
+						if (block.synthesis(packet) == 0)
+						{
+							dspState.synthesis_blockin(block);
+						}
+						int sampleCount;
+						while ((sampleCount = dspState.synthesis_pcmout(pcm, pcmIndex)) > 0)
+						{
+							float[][] channelPcm = pcm[0];
+							int frameCount = (sampleCount < convertSize) ? sampleCount : convertSize;
+							for (int channel = 0; channel < info.channels; channel++)
+							{
+								// Interleave the channels as 16-bit little-endian samples.
+								int position = channel * 2;
+								int start = pcmIndex[channel];
+								for (int k = 0; k < frameCount; k++)
+								{
+									int value = (int)(channelPcm[channel][start + k] * 32767.0);
+									if (value > 32767)
+									{
+										value = 32767;
+									}
+									if (value < -32768)
+									{
+										value = -32768;
+									}
+									if (value < 0)
+									{
+										value |= 0x8000;
+									}
+									convertBuffer[position] = (byte)value;
+									convertBuffer[position + 1] = (byte)((uint)value >> 8);
+									position += 2 * info.channels;
+								}
+							}
+							output.Write(convertBuffer, 0, 2 * info.channels * frameCount);
+							dspState.synthesis_read(frameCount);
+						}
 					}
-					break;
+					if (page.eos() != 0)
+					{
+						endOfStream = true;
+					}
 				}
-				if (num3 == 0)
+				if (!endOfStream)
 				{
-					offset = syncState.buffer(4096);
-					data = syncState.data;
-					try
+					ReadInput(input, syncState, log, ref bytesRead);
+					syncState.wrote(bytesRead);
+					if (bytesRead == 0)
 					{
-						num2 = input.Read(data, offset, 4096);
-					}
-					catch (Exception value3)
-					{
-						textWriter.WriteLine(value3);
-					}
-					syncState.wrote(num2);
-					if (num2 == 0)
-					{
-						num3 = 1;
+						endOfStream = true;
 					}
 				}
 			}
@@ -261,25 +253,43 @@ public class OggDecodeStream : Stream
 			info.clear();
 		}
 		syncState.clear();
-		textWriter.WriteLine("Done.");
-		stream.Seek(0L, SeekOrigin.Begin);
+		log.WriteLine("Done.");
+		output.Seek(0L, SeekOrigin.Begin);
 		if (!skipWavHeader)
 		{
-			WriteHeader(stream, (int)(stream.Length - 36), info.rate, 16, (ushort)info.channels);
-			stream.Seek(0L, SeekOrigin.Begin);
+			WriteHeader(output, (int)(output.Length - WavHeaderSize), info.rate, 16, (ushort)info.channels);
+			output.Seek(0L, SeekOrigin.Begin);
 		}
-		return stream;
+		return output;
+	}
+
+	/// <summary>
+	/// Reads the next chunk of the input into the sync buffer. If the read fails, the exception is logged and
+	/// <paramref name="bytesRead"/> keeps its last value.
+	/// </summary>
+	private static void ReadInput(Stream input, SyncState syncState, TextWriter log, ref int bytesRead)
+	{
+		int offset = syncState.buffer(InputChunkSize);
+		byte[] data = syncState.data;
+		try
+		{
+			bytesRead = input.Read(data, offset, InputChunkSize);
+		}
+		catch (Exception ex)
+		{
+			log.WriteLine(ex);
+		}
 	}
 
 	private void WriteHeader(Stream stream, int length, int audioSampleRate, ushort audioBitsPerSample, ushort audioChannels)
 	{
 		BinaryWriter binaryWriter = new BinaryWriter(stream);
 		binaryWriter.Write(new char[4] { 'R', 'I', 'F', 'F' });
-		int value = 36 + length;
-		binaryWriter.Write(value);
+		int riffChunkSize = WavHeaderSize + length;
+		binaryWriter.Write(riffChunkSize);
 		binaryWriter.Write(new char[8] { 'W', 'A', 'V', 'E', 'f', 'm', 't', ' ' });
-		binaryWriter.Write(16);
-		binaryWriter.Write((short)1);
+		binaryWriter.Write(16); // Format chunk size
+		binaryWriter.Write((short)1); // PCM audio format
 		binaryWriter.Write((short)audioChannels);
 		binaryWriter.Write(audioSampleRate);
 		binaryWriter.Write(audioSampleRate * (audioBitsPerSample * audioChannels / 8));
@@ -296,11 +306,12 @@ public class OggDecodeStream : Stream
 
 	public override int Read(byte[] buffer, int offset, int count)
 	{
-		return decodedStream.Read(buffer, offset, count);
+		return _decodedStream.Read(buffer, offset, count);
 	}
 
 	public override long Seek(long offset, SeekOrigin origin)
 	{
+		// This calls itself and causes a stack overflow. It is kept as it was.
 		return Seek(offset, origin);
 	}
 

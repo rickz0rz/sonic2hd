@@ -9,8 +9,14 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.HelperLibraries.Png;
 
+/// <summary>
+/// Loads a PNG file into a texture.
+/// </summary>
 public class PngResourceType : ResourceType
 {
+	/// <summary>
+	/// Decoded image data before it becomes a texture.
+	/// </summary>
 	private struct PixelData
 	{
 		public int Width { get; private set; }
@@ -31,6 +37,8 @@ public class PngResourceType : ResourceType
 		}
 	}
 
+	private const int BytesPerPixel = 4;
+
 	public override string Name => "png";
 
 	public override string DefaultExtension => ".png";
@@ -50,6 +58,9 @@ public class PngResourceType : ResourceType
 		return texture;
 	}
 
+	/// <summary>
+	/// Decodes the image with the managed PNG reader.
+	/// </summary>
 	private async Task<PixelData> GetSlowStream(Stream inputStream)
 	{
 		PngReader reader = null;
@@ -59,20 +70,22 @@ public class PngResourceType : ResourceType
 			int width = reader.ImgInfo.Cols;
 			int height = reader.ImgInfo.Rows;
 			int channels = reader.ImgInfo.Channels;
-			byte[] argb = new byte[width * height * 4];
+			// The buffer has space for 4 channels. The rows are packed with the real channel count of the image.
+			byte[] pixels = new byte[width * height * BytesPerPixel];
 			await Task.Run(() =>
 			{
-				for (int i = 0; i < height; i++)
+				for (int row = 0; row < height; row++)
 				{
-					ImageLine imageLine = reader.ReadRowByte(i);
-					Buffer.BlockCopy(imageLine.ScanlineB, 0, argb, i * width * imageLine.channels, width * imageLine.channels);
+					ImageLine imageLine = reader.ReadRowByte(row);
+					Buffer.BlockCopy(imageLine.ScanlineB, 0, pixels, row * width * imageLine.channels, width * imageLine.channels);
 				}
 			});
 			reader.End();
-			return new PixelData(width, height, channels, argb);
+			return new PixelData(width, height, channels, pixels);
 		}
 		finally
 		{
+			// On success, End is called a second time here.
 			if (reader != null)
 			{
 				reader.End();
@@ -86,21 +99,24 @@ public class PngResourceType : ResourceType
 	[DllImport("SonicOrcaFastUtil.dll")]
 	private static extern void EndReadPNG(IntPtr output);
 
+	/// <summary>
+	/// Decodes the image with the native SonicOrcaFastUtil library. Nothing calls this method at this time.
+	/// </summary>
 	private async Task<PixelData> GetFastStream(Stream inputStream)
 	{
-		byte[] array;
+		byte[] inputData;
 		using (MemoryStream ms = new MemoryStream())
 		{
 			await inputStream.CopyToAsync(ms);
-			array = ms.ToArray();
+			inputData = ms.ToArray();
 		}
-		if (BeginReadPNG(Marshal.UnsafeAddrOfPinnedArrayElement((Array)array, 0), array.Length, out var width, out var height, out var output) == 0)
+		if (BeginReadPNG(Marshal.UnsafeAddrOfPinnedArrayElement((Array)inputData, 0), inputData.Length, out int width, out int height, out IntPtr output) == 0)
 		{
 			throw new ResourceException("Unable to load PNG.");
 		}
-		byte[] array2 = new byte[width * height * 4];
-		Marshal.Copy(output, array2, 0, array2.Length);
+		byte[] pixels = new byte[width * height * BytesPerPixel];
+		Marshal.Copy(output, pixels, 0, pixels.Length);
 		EndReadPNG(output);
-		return new PixelData(width, height, 4, array2);
+		return new PixelData(width, height, BytesPerPixel, pixels);
 	}
 }

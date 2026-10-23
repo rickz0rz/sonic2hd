@@ -1,5 +1,8 @@
 namespace SonicOrca.Core.Sound;
 
+/// <summary>
+/// Resource key paths of the sound effects.
+/// </summary>
 public static class Sounds
 {
 	public const string BadnikExplosion = "SONICORCA/SOUND/BADNIKEXPLOSION";

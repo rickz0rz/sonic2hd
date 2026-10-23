@@ -2,6 +2,9 @@ using System.Collections.Generic;
 
 namespace SonicOrca.Audio;
 
+/// <summary>
+/// Base class for the platform audio output. It holds the volume settings, the mixer and the fire-and-forget sounds.
+/// </summary>
 public abstract class AudioContext
 {
 	private readonly List<SampleInstance> _fireAndForgetSoundInstances = new List<SampleInstance>();
@@ -32,7 +35,7 @@ public abstract class AudioContext
 
 	public virtual void Update()
 	{
-		_fireAndForgetSoundInstances.RemoveAll((SampleInstance x) => !x.Playing);
+		_fireAndForgetSoundInstances.RemoveAll(x => !x.Playing);
 	}
 
 	public void PlaySound(Sample sample)
@@ -44,9 +47,9 @@ public abstract class AudioContext
 
 	public void StopAll()
 	{
-		foreach (SampleInstance fireAndForgetSoundInstance in _fireAndForgetSoundInstances)
+		foreach (SampleInstance sampleInstance in _fireAndForgetSoundInstances)
 		{
-			fireAndForgetSoundInstance.Stop();
+			sampleInstance.Stop();
 		}
 	}
 }

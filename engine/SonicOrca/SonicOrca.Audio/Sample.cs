@@ -3,8 +3,21 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Audio;
 
+/// <summary>
+/// A loaded block of PCM audio data and its format. It also has helpers to convert 16-bit stereo PCM to float samples.
+/// </summary>
 public class Sample : ILoadedResource, IDisposable
 {
+	/// <summary>
+	/// The number of bytes in one stereo frame of 16-bit samples.
+	/// </summary>
+	private const int BytesPerStereoFrame = 4;
+
+	/// <summary>
+	/// The scale between a 16-bit sample and a float sample in the range -1 to 1.
+	/// </summary>
+	private const float SampleScale = 32767f;
+
 	private readonly byte[] _pcmData;
 
 	private readonly int _bitsPerSample;
@@ -53,31 +66,31 @@ public class Sample : ILoadedResource, IDisposable
 
 	public static int PCMToSamples(byte[] source, out float[] leftSamples, out float[] rightSamples)
 	{
-		leftSamples = new float[source.Length / 4];
-		rightSamples = new float[source.Length / 4];
-		int num = 0;
-		for (int i = 0; i < source.Length; i += 4)
+		leftSamples = new float[source.Length / BytesPerStereoFrame];
+		rightSamples = new float[source.Length / BytesPerStereoFrame];
+		int frameCount = 0;
+		for (int i = 0; i < source.Length; i += BytesPerStereoFrame)
 		{
-			leftSamples[num] = BitConverter.ToInt16(source, i) / 32767f;
-			rightSamples[num] = BitConverter.ToInt16(source, i + 2) / 32767f;
-			num++;
+			leftSamples[frameCount] = BitConverter.ToInt16(source, i) / SampleScale;
+			rightSamples[frameCount] = BitConverter.ToInt16(source, i + 2) / SampleScale;
+			frameCount++;
 		}
-		return num;
+		return frameCount;
 	}
 
 	public static byte[] SamplesToPCM(float[] leftSamples, float[] rightSamples)
 	{
-		byte[] array = new byte[leftSamples.Length * 4];
-		int num = 0;
+		byte[] pcmData = new byte[leftSamples.Length * BytesPerStereoFrame];
+		int position = 0;
 		for (int i = 0; i < leftSamples.Length; i++)
 		{
-			short num2 = (short)(leftSamples[i] * 32767f);
-			short num3 = (short)(rightSamples[i] * 32767f);
-			array[num++] = (byte)(num2 & 0xFF);
-			array[num++] = (byte)(num2 >> 8);
-			array[num++] = (byte)(num3 & 0xFF);
-			array[num++] = (byte)(num3 >> 8);
+			short left = (short)(leftSamples[i] * SampleScale);
+			short right = (short)(rightSamples[i] * SampleScale);
+			pcmData[position++] = (byte)(left & 0xFF);
+			pcmData[position++] = (byte)(left >> 8);
+			pcmData[position++] = (byte)(right & 0xFF);
+			pcmData[position++] = (byte)(right >> 8);
 		}
-		return array;
+		return pcmData;
 	}
 }

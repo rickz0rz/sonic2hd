@@ -4,8 +4,13 @@ using SonicOrca.Extensions;
 
 namespace SonicOrca.Input;
 
+/// <summary>
+/// The up or down state of each key, indexed by SDL scancode. The KEY_ constants are the SDL scancode values.
+/// </summary>
 public sealed class KeyboardState : IReadOnlyList<bool>, IReadOnlyCollection<bool>, IEnumerable<bool>, IEnumerable
 {
+	private const int KeyCount = 512;
+
 	public const int KEY_UNKNOWN = 0;
 
 	public const int KEY_A = 4;
@@ -512,7 +517,7 @@ public sealed class KeyboardState : IReadOnlyList<bool>, IReadOnlyCollection<boo
 
 	public KeyboardState()
 	{
-		_keys = new bool[512];
+		_keys = new bool[KeyCount];
 	}
 
 	public KeyboardState(bool[] keys)
@@ -522,22 +527,22 @@ public sealed class KeyboardState : IReadOnlyList<bool>, IReadOnlyCollection<boo
 
 	public static KeyboardState GetPressed(KeyboardState previousState, KeyboardState nextState)
 	{
-		KeyboardState keyboardState = new KeyboardState();
+		KeyboardState pressed = new KeyboardState();
 		for (int i = 0; i < previousState._keys.Length; i++)
 		{
-			keyboardState._keys[i] = !previousState._keys[i] && nextState._keys[i];
+			pressed._keys[i] = !previousState._keys[i] && nextState._keys[i];
 		}
-		return keyboardState;
+		return pressed;
 	}
 
 	public static KeyboardState GetReleased(KeyboardState previousState, KeyboardState nextState)
 	{
-		KeyboardState keyboardState = new KeyboardState();
+		KeyboardState released = new KeyboardState();
 		for (int i = 0; i < previousState._keys.Length; i++)
 		{
-			keyboardState._keys[i] = previousState._keys[i] && !nextState._keys[i];
+			released._keys[i] = previousState._keys[i] && !nextState._keys[i];
 		}
-		return keyboardState;
+		return released;
 	}
 
 	public IEnumerator<bool> GetEnumerator()
