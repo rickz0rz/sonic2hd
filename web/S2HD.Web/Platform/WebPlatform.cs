@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Runtime.InteropServices.JavaScript;
 using System.Threading;
 using OpenTK.Graphics.OpenGL;
@@ -13,7 +14,7 @@ using GL = SonicOrca.SDL2.GL;
 namespace SonicOrca.Web;
 
 /// <summary>
-/// Browser platform: a WebGL2 canvas, keyboard input from DOM events, and (for now) silent audio.
+/// Browser platform: a WebGL2 canvas, keyboard input from DOM events, and audio through Web Audio.
 /// The page calls into the game once per animation frame, so nothing here blocks.
 /// </summary>
 public sealed class WebPlatform : IPlatform
@@ -23,6 +24,8 @@ public sealed class WebPlatform : IPlatform
 	private readonly WebInputContext _input = new WebInputContext();
 
 	private readonly WebAudioContext _audio = new WebAudioContext();
+
+	public WebAudioContext WebAudio => _audio;
 
 	public WindowContext Window => _window;
 
@@ -154,7 +157,48 @@ public sealed partial class WebInputContext : InputContext
 	}
 }
 
-/// <summary>Silent for the prototype; the mixer still runs so game logic that tracks playback behaves normally.</summary>
-public sealed class WebAudioContext : AudioContext
+/// <summary>
+/// Mixes on demand: the page calls <see cref="Mix"/> to fill its Web Audio queue, in the same format as the desktop
+/// build (44.1 kHz, stereo, signed 16-bit). The runtime is single-threaded, so no locking is needed.
+/// </summary>
+public sealed partial class WebAudioContext : AudioContext
 {
+	public const int SampleRate = 44100;
+
+	private const int BytesPerFrame = 4;
+
+	private readonly List<ISampleProvider> _registeredSampleProviders = new List<ISampleProvider>();
+
+	private byte[] _buffer = Array.Empty<byte>();
+
+	public override void RegisterSampleProvider(ISampleProvider sampleProvider)
+	{
+		_registeredSampleProviders.Add(sampleProvider);
+	}
+
+	public override void UnregisterSampleProvider(ISampleProvider sampleProvider)
+	{
+		_registeredSampleProviders.Remove(sampleProvider);
+	}
+
+	/// <summary>
+	/// Mixes <paramref name="frames"/> stereo frames. With <paramref name="output"/> false the result is discarded,
+	/// which keeps sounds advancing while the browser does not yet allow audio.
+	/// </summary>
+	public void Mix(int frames, bool output)
+	{
+		int length = frames * BytesPerFrame;
+		if (_buffer.Length != length)
+			_buffer = new byte[length];
+		else
+			Array.Clear(_buffer);
+		Mixer?.Mix(_buffer, 0, length, _registeredSampleProviders.ToArray());
+		if (output)
+			Js.QueueAudio(_buffer);
+	}
+
+	private static partial class Js
+	{
+		[JSImport("queueAudio", "host")] public static partial void QueueAudio([JSMarshalAs<JSType.MemoryView>] Span<byte> samples);
+	}
 }

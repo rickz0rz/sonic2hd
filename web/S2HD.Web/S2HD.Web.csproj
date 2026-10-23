@@ -52,4 +52,26 @@
     <Copy SourceFiles="@(S2HDStaticFile)" DestinationFiles="@(S2HDStaticFile->'$(OutDir)wwwroot/%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
   </Target>
 
+  <!-- Optional: -p:BundleGameData=true puts the game data into the site as game.zip, and the page starts without
+       asking for files. GameDir has the same default as the desktop build. The credits film is left out because the
+       web build does not play video. Without the property, a game.zip from an earlier publish is removed -->
+  <PropertyGroup>
+    <GameDir Condition=" '$(GameDir)' == '' ">$([System.Environment]::GetFolderPath(SpecialFolder.UserProfile))/Downloads/S2HD_2.0.1012-rc2/S2HD_2.0.1012-rc2/</GameDir>
+  </PropertyGroup>
+
+  <Target Name="BundleGameData" AfterTargets="Publish">
+    <PropertyGroup>
+      <GameDataZip>$([MSBuild]::EnsureTrailingSlash('$(PublishDir)'))wwwroot/game.zip</GameDataZip>
+      <GameDataStaging>$(IntermediateOutputPath)gamedata/</GameDataStaging>
+    </PropertyGroup>
+    <Delete Files="$(GameDataZip)" Condition=" '$(BundleGameData)' != 'true' " />
+    <ItemGroup Condition=" '$(BundleGameData)' == 'true' ">
+      <GameDataFile Include="$(GameDir)data/*.dat" />
+    </ItemGroup>
+    <Error Condition=" '$(BundleGameData)' == 'true' And '@(GameDataFile)' == '' " Text="No game data in $(GameDir)data/. Set -p:GameDir=/path/to/S2HD_2.0.1012-rc2/ (keep the trailing slash)." />
+    <RemoveDir Directories="$(GameDataStaging)" Condition=" '$(BundleGameData)' == 'true' " />
+    <Copy SourceFiles="@(GameDataFile)" DestinationFolder="$(GameDataStaging)data" Condition=" '$(BundleGameData)' == 'true' " />
+    <ZipDirectory SourceDirectory="$(GameDataStaging)" DestinationFile="$(GameDataZip)" Overwrite="true" Condition=" '$(BundleGameData)' == 'true' " />
+  </Target>
+
 </Project>

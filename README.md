@@ -72,8 +72,15 @@ dotnet run --project tools/web-server -- publish/web/wwwroot 8080
 ```
 
 Then open http://localhost:8080. The `?data=<url>` query parameter loads a zip from the same site instead of asking,
-which is useful for testing. Keyboard controls match the desktop game. Audio, gamepads and the credits video are
-not implemented yet, and a browser with WebGL2 and a keyboard is required.
+which is useful for testing. Keyboard controls match the desktop game. Sound starts at the first key press or click,
+because browsers block audio until then. Gamepads and the credits video are not implemented yet, and a browser
+with WebGL2 and a keyboard is required.
+
+To put the game data into the site, add `-p:BundleGameData=true` to the publish command. The build then writes the
+`data/` folder to `wwwroot/game.zip`, and the page downloads it and starts without asking for files. It reads the
+game files from `GameDir`, as the desktop build does. The zip is about 115 MB. Some hosts limit file size, for
+example GitHub Pages (100 MB) and Cloudflare Pages (25 MB). The game data belongs to its owners, so only publish it
+where you have permission. A publish without the property removes `game.zip`.
 
 ## Logs and settings
 

@@ -22,6 +22,8 @@ public static partial class Program
 
 	private static S2HDSonicOrcaGameContext _game;
 
+	private static WebAudioContext _audio;
+
 	public static Version AppVersion = typeof(Program).Assembly.GetName().Version;
 
 	public static string AppArchitecture = "wasm";
@@ -93,6 +95,7 @@ public static partial class Program
 			Configuration.SetProperty("audio", "sound_volume", "1.0");
 			var platform = new WebPlatform();
 			platform.Initialise();
+			_audio = platform.WebAudio;
 			Trace.WriteLine($"Graphics: {platform.GraphicsAPI} ({platform.GraphicsVendor})");
 			_game = new S2HDSonicOrcaGameContext(platform) { ExternalPacing = true };
 			_game.Initialise();
@@ -119,6 +122,23 @@ public static partial class Program
 		{
 			Console.Error.WriteLine(ex);
 			return ex.Message;
+		}
+	}
+
+	/// <summary>
+	/// Mixes <paramref name="frames"/> frames of audio at 44.1 kHz and passes them to the page's queueAudio, or
+	/// discards them when <paramref name="output"/> is false (before the browser allows audio).
+	/// </summary>
+	[JSExport]
+	public static void MixAudio(int frames, bool output)
+	{
+		try
+		{
+			_audio?.Mix(frames, output);
+		}
+		catch (Exception ex)
+		{
+			Console.Error.WriteLine(ex);
 		}
 	}
 

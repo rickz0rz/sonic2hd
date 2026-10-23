@@ -51,6 +51,51 @@ addEventListener('resize', resizeCanvas);
 resizeCanvas();
 webgl.init(canvas);
 
+// Audio: the game mixes 44.1 kHz stereo on demand, and the page plays the chunks back to back with a short lead.
+// Browsers allow audio only after a key press or click. Until then the mix is discarded, so sounds stay in step
+const AUDIO_RATE = 44100, AUDIO_CHUNK = 1024, AUDIO_LEAD = 0.1;
+const audio = { context: null, next: 0, last: 0, peak: 0, underruns: 0 };
+function enableAudio() {
+  audio.context ??= new AudioContext();
+  if (audio.context.state !== 'running') audio.context.resume().catch(() => {});
+}
+addEventListener('keydown', enableAudio);
+addEventListener('pointerdown', enableAudio);
+
+function queueAudio(view) {
+  const samples = new Int16Array(view.slice().buffer);
+  const frames = samples.length / 2;
+  const buffer = audio.context.createBuffer(2, frames, AUDIO_RATE);
+  const left = buffer.getChannelData(0), right = buffer.getChannelData(1);
+  for (let i = 0; i < frames; i++) {
+    left[i] = samples[2 * i] / 32768;
+    right[i] = samples[2 * i + 1] / 32768;
+    audio.peak = Math.max(audio.peak, Math.abs(left[i]), Math.abs(right[i]));
+  }
+  const source = audio.context.createBufferSource();
+  source.buffer = buffer;
+  source.connect(audio.context.destination);
+  source.start(audio.next);
+  audio.next += frames / AUDIO_RATE;
+}
+
+function pumpAudio(now) {
+  const context = audio.context;
+  if (context?.state !== 'running') {
+    const frames = Math.min(Math.round((now - audio.last) * AUDIO_RATE / 1000), AUDIO_RATE / 10);
+    audio.last = now;
+    if (frames > 0) game.MixAudio(frames, false);
+    return;
+  }
+  audio.last = now;
+  // After a stall (or a hidden tab) the queue has run dry: start again just ahead of the playback position
+  if (audio.next < context.currentTime) {
+    if (audio.next > 0) audio.underruns++;
+    audio.next = context.currentTime + 0.02;
+  }
+  while (audio.next < context.currentTime + AUDIO_LEAD) game.MixAudio(AUDIO_CHUNK, true);
+}
+
 const runtime = await dotnet.create();
 runtime.setModuleImports('webgl', webgl);
 runtime.setModuleImports('host', {
@@ -62,6 +107,7 @@ runtime.setModuleImports('host', {
   setFullScreen: (on) => { if (on) canvas.requestFullscreen?.().catch(() => {}); else if (document.fullscreenElement) document.exitFullscreen(); },
   getKeyState: (view) => view.set(keys),
   alert: (text) => setStatus(text),
+  queueAudio,
 });
 await runtime.runMain();
 const game = (await runtime.getAssemblyExports(runtime.getConfig().mainAssemblyName)).S2HD.Program;
@@ -97,9 +143,34 @@ async function loadFolder(files) {
   start();
 }
 
+// Returns null when the site has no file at url (some hosts answer missing files with index.html)
+async function downloadZip(url) {
+  const response = await fetch(url);
+  if (!response.ok || (response.headers.get('Content-Type') || '').startsWith('text/html')) return null;
+  const total = Number(response.headers.get('Content-Length')) || 0;
+  const reader = response.body.getReader();
+  const chunks = [];
+  let received = 0, shownMB = -1;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    received += value.length;
+    const mb = Math.floor(received / 1048576);
+    if (mb === shownMB) continue;
+    shownMB = mb;
+    setStatus(`Downloading game data… ${mb}${total ? ` of ${Math.floor(total / 1048576)}` : ''} MB`);
+  }
+  return new Blob(chunks);
+}
+
 document.getElementById('zip').addEventListener('change', (e) => e.target.files[0] && loadZip(e.target.files[0]));
 document.getElementById('folder').addEventListener('change', (e) => loadFolder(e.target.files));
-if (params.has('data')) fetch(params.get('data')).then((r) => r.blob()).then(loadZip);
+// ?data=<url> loads a zip from the site. Otherwise game.zip is loaded when the site was published with
+// -p:BundleGameData=true, and the player is asked for the files when it is not there
+downloadZip(params.get('data') || 'game.zip')
+  .then((blob) => blob ? loadZip(blob) : params.has('data') && setStatus(`Could not download ${params.get('data')}.`))
+  .catch((e) => console.warn(`Game data download failed: ${e}`));
 if (params.has('shadertest')) { report(game.CompileAllShaders()); report('DONE'); }
 
 // Game loop: logic runs at a fixed 60 Hz regardless of the display's refresh rate
@@ -118,7 +189,8 @@ async function start() {
   panel.hidden = true;
   canvas.focus();
   running = true;
-  last = performance.now();
+  last = audio.last = performance.now();
+  enableAudio();
   requestAnimationFrame(loop);
 }
 
@@ -139,6 +211,7 @@ function loop(now) {
     // ?shots=600,1800 reports the canvas at those frames (captured before the browser clears the buffer)
     if (shotFrames.has(frames)) report(`SHOT ${frames} ${canvas.toDataURL('image/png')}`);
   }
+  pumpAudio(now);
   requestAnimationFrame(loop);
 }
 
@@ -152,7 +225,10 @@ function reportPerformance() {
   const step = stats(perf.steps), interval = stats(perf.intervals);
   const over = perf.steps.filter((v) => v > STEP).length;
   const line = `PERF frame ${frames}: step avg ${step.avg.toFixed(2)} p95 ${step.p95.toFixed(2)} max ${step.max.toFixed(1)} ms | ` +
-    `over budget ${over}/${perf.steps.length} | rAF interval avg ${interval.avg.toFixed(2)} p95 ${interval.p95.toFixed(2)} ms`;
+    `over budget ${over}/${perf.steps.length} | rAF interval avg ${interval.avg.toFixed(2)} p95 ${interval.p95.toFixed(2)} ms | ` +
+    `audio ${audio.context?.state ?? 'off'} peak ${audio.peak.toFixed(2)} underruns ${audio.underruns}`;
+  audio.peak = 0;
+  audio.underruns = 0;
   report(line);
   hud.textContent = `${(1000 / interval.avg).toFixed(0)} fps · step ${step.avg.toFixed(1)} ms (p95 ${step.p95.toFixed(1)})`;
   perf.steps.length = 0;
