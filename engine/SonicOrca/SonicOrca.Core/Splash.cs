@@ -4,6 +4,9 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// A water splash animation that stays on the surface of the water.
+/// </summary>
 internal class Splash
 {
 	private readonly WaterManager _waterManager;
@@ -35,8 +38,9 @@ internal class Splash
 			Finished = true;
 			return;
 		}
-		Rectanglei rectanglei = _waterManager.WaterAreas.First();
-		_position.Y = rectanglei.Top;
+		// The splash follows the surface of the first water area.
+		Rectanglei waterArea = _waterManager.WaterAreas.First();
+		_position.Y = waterArea.Top;
 		_animation.Animate();
 		if (_animation.Cycles > 0)
 		{
@@ -47,7 +51,7 @@ internal class Splash
 	public void Draw(I2dRenderer renderer)
 	{
 		int height = _animation.CurrentFrame.Source.Height;
-		Vector2i vector2i = _position + new Vector2i(0, -height / 2);
-		_animation.Draw(renderer, vector2i);
+		Vector2i drawPosition = _position + new Vector2i(0, -height / 2);
+		_animation.Draw(renderer, drawPosition);
 	}
 }

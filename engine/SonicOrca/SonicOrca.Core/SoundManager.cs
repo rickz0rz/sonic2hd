@@ -7,8 +7,17 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// Plays the music, the jingles and the sounds of a level.
+/// A jingle (for example the extra life or invincibility music) stops or mutes the level music while it plays.
+/// </summary>
 public class SoundManager
 {
+	/// <summary>
+	/// The number of ticks that the current music fades out before the next music starts.
+	/// </summary>
+	private const int CrossFadeDuration = 120;
+
 	private enum MusicFadeState
 	{
 		None,
@@ -54,12 +63,8 @@ public class SoundManager
 	{
 		get
 		{
-			SampleInstance sampleInstance = _jingleInstance.FirstOrDefault((SampleInstance x) => x?.Playing ?? false);
-			if (sampleInstance == null)
-			{
-				sampleInstance = _musicInstance;
-			}
-			return sampleInstance;
+			// A playing jingle has priority over the music.
+			return _jingleInstance.FirstOrDefault(x => x?.Playing ?? false) ?? _musicInstance;
 		}
 	}
 
@@ -75,7 +80,7 @@ public class SoundManager
 		UpdateMusicFading();
 		CheckFinishedJingles();
 		UpdateSounds();
-		_simpleInstances.RemoveAll((SampleInstance x) => !x.Playing);
+		_simpleInstances.RemoveAll(x => !x.Playing);
 	}
 
 	public void PlayMusic(string fullKeyPath)
@@ -102,7 +107,7 @@ public class SoundManager
 		if (CurrentInstance != null)
 		{
 			_queuedMusic = si;
-			FadeOutMusic(120);
+			FadeOutMusic(CrossFadeDuration);
 		}
 		else
 		{
@@ -142,6 +147,7 @@ public class SoundManager
 					currentInstance.Volume = 0.0;
 					currentInstance.Stop();
 					_musicFadeState = MusicFadeState.None;
+					// Start the music that CrossFadeMusic queued.
 					if (_queuedMusic != null)
 					{
 						SelectMusic(_queuedMusic);
@@ -186,10 +192,10 @@ public class SoundManager
 		_pausedJingle = _jingleOrder.LastOrDefault();
 		for (int i = 0; i < NumJingleTypes; i++)
 		{
-			SampleInstance sampleInstance = _jingleInstance[i];
-			if (sampleInstance != null && sampleInstance.Playing)
+			SampleInstance jingleInstance = _jingleInstance[i];
+			if (jingleInstance != null && jingleInstance.Playing)
 			{
-				sampleInstance.Stop();
+				jingleInstance.Stop();
 			}
 		}
 		if (_musicInstance != null)
@@ -266,8 +272,9 @@ public class SoundManager
 
 	public void SetJingle(JingleType jingleType, string resourceKey)
 	{
+		// The resource can be a sample info or a plain sample.
 		Resource resource = _gameContext.ResourceTree[resourceKey].Resource;
-		SampleInfo sampleInfo = ((resource.Identifier == ResourceTypeIdentifier.SampleInfo) ? ((SampleInfo)resource.LoadedResource) : new SampleInfo((Sample)resource.LoadedResource));
+		SampleInfo sampleInfo = (resource.Identifier == ResourceTypeIdentifier.SampleInfo) ? (SampleInfo)resource.LoadedResource : new SampleInfo((Sample)resource.LoadedResource);
 		_jingleSampleInfo[(int)jingleType] = sampleInfo;
 	}
 
@@ -292,24 +299,21 @@ public class SoundManager
 		}
 		switch (jingleType)
 		{
-			default:
-				return;
 			case JingleType.Life:
+				// The extra life jingle only mutes the music, so the music continues after the jingle.
 				MuteMusic();
 				break;
 			case JingleType.Invincibility:
-				StopMusic();
-				break;
 			case JingleType.SpeedShoes:
-				StopMusic();
-				break;
 			case JingleType.Super:
-				StopMusic();
-				break;
 			case JingleType.Drowning:
 				StopMusic();
 				break;
+			default:
+				return;
 		}
+
+		// Silence the other jingles. The newest jingle is the last item in the jingle order.
 		for (int i = 0; i < NumJingleTypes; i++)
 		{
 			if (_jingleInstance[i] != null)
@@ -317,33 +321,36 @@ public class SoundManager
 				_jingleInstance[i].Volume = 0.0;
 			}
 		}
-		if (_jingleInstance[(int)jingleType] == null)
+		int index = (int)jingleType;
+		if (_jingleInstance[index] == null)
 		{
-			_jingleInstance[(int)jingleType] = new SampleInstance(_gameContext, _jingleSampleInfo[(int)jingleType]);
+			_jingleInstance[index] = new SampleInstance(_gameContext, _jingleSampleInfo[index]);
 		}
 		else
 		{
 			_jingleOrder.Remove(jingleType);
 		}
 		_jingleOrder.Add(jingleType);
-		_jingleInstance[(int)jingleType].Classification = SampleInstanceClassification.Music;
-		_jingleInstance[(int)jingleType].Volume = 1.0;
-		_jingleInstance[(int)jingleType].SeekToStart();
-		_jingleInstance[(int)jingleType].Play();
+		_jingleInstance[index].Classification = SampleInstanceClassification.Music;
+		_jingleInstance[index].Volume = 1.0;
+		_jingleInstance[index].SeekToStart();
+		_jingleInstance[index].Play();
 	}
 
 	public void StopJingle(JingleType jingleType)
 	{
-		if (_jingleInstance[(int)jingleType] == null)
+		int index = (int)jingleType;
+		if (_jingleInstance[index] == null)
 		{
 			return;
 		}
-		_jingleInstance[(int)jingleType].Stop();
-		_jingleInstance[(int)jingleType].Dispose();
-		_jingleInstance[(int)jingleType] = null;
+		_jingleInstance[index].Stop();
+		_jingleInstance[index].Dispose();
+		_jingleInstance[index] = null;
 		_jingleOrder.Remove(jingleType);
 		if (_jingleOrder.Count == 0)
 		{
+			// No jingle is left, so bring back the music.
 			switch (jingleType)
 			{
 				case JingleType.Life:
@@ -352,17 +359,18 @@ public class SoundManager
 						FadeInMusic();
 					}
 					break;
+				case JingleType.Drowning:
+					break;
 				default:
 					PlayMusic(continueFadeOut: true);
-					break;
-				case JingleType.Drowning:
 					break;
 			}
 		}
 		else
 		{
-			JingleType jingleType2 = _jingleOrder.Last();
-			_jingleInstance[(int)jingleType2].Volume = 1.0;
+			// Make the newest jingle that is left audible again.
+			JingleType newestJingle = _jingleOrder.Last();
+			_jingleInstance[(int)newestJingle].Volume = 1.0;
 		}
 	}
 
@@ -446,6 +454,6 @@ public class SoundManager
 		{
 			sound.Update();
 		}
-		_sounds.RemoveAll((LevelSound s) => s.Finished);
+		_sounds.RemoveAll(s => s.Finished);
 	}
 }

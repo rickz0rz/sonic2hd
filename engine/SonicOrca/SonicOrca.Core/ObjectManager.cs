@@ -11,8 +11,17 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// Keeps the object entries and the active objects of a level. It activates the entries in the lifetime areas,
+/// updates and draws the active objects, and deactivates the objects that go out of the lifetime areas.
+/// </summary>
 public class ObjectManager
 {
+	/// <summary>
+	/// An object mapping can refer to a public or a private field or property.
+	/// </summary>
+	private const BindingFlags MappingBindingFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+
 	private readonly List<ObjectType> _registeredTypes = new List<ObjectType>();
 
 	private readonly ObjectEntryTable _objectEntryTable;
@@ -33,7 +42,7 @@ public class ObjectManager
 
 	public ObjectEntryTable ObjectEntryTable => _objectEntryTable;
 
-	public IEnumerable<ICharacter> Characters => _activeObjects.Where((ActiveObject x) => x.Type.Classification == ObjectClassification.Character).Cast<ICharacter>();
+	public IEnumerable<ICharacter> Characters => _activeObjects.Where(x => x.Type.Classification == ObjectClassification.Character).Cast<ICharacter>();
 
 	public ObjectManager(Level level)
 	{
@@ -103,35 +112,30 @@ public class ObjectManager
 
 	public void Draw(Renderer renderer, Viewport viewport, LevelLayer layer, LayerViewOptions viewOptions, bool priority)
 	{
-		foreach (ActiveObject item in from x in _activeObjects.Where((ActiveObject activeObject) =>
+		// The priority pass draws the objects with a positive priority. The other pass draws the objects with
+		// a negative priority. Objects with a priority of zero are not drawn.
+		IEnumerable<ActiveObject> objectsToDraw = _activeObjects
+			.Where(activeObject =>
 			{
-				if (activeObject.Layer != layer)
+				if (activeObject.Layer != layer || activeObject.Priority == 0)
 				{
 					return false;
 				}
-				if (activeObject.Priority == 0)
-				{
-					return false;
-				}
-				if ((activeObject.Priority < 0) & priority)
-				{
-					return false;
-				}
-				return (activeObject.Priority <= 0 || priority) ? true : false;
+				return priority ? activeObject.Priority > 0 : activeObject.Priority < 0;
 			})
-									  orderby x.Priority
-									  select x)
+			.OrderBy(x => x.Priority);
+		foreach (ActiveObject activeObject in objectsToDraw)
 		{
-			item.Draw(renderer, viewport, viewOptions);
+			activeObject.Draw(renderer, viewport, viewOptions);
 		}
 	}
 
 	public void DrawDebugInfo(Renderer renderer)
 	{
-		double num = 500.0;
-		num += _level.DebugContext.DrawText(renderer, $"TOTAL OBJECTS: {_objectEntryTable.Count}", FontAlignment.Left, 8.0, num, 0.75, 0);
-		num += _level.DebugContext.DrawText(renderer, $"ACTIVE OBJECTS: {_activeObjects.Count}", FontAlignment.Left, 8.0, num, 0.75, 0);
-		num += _level.DebugContext.DrawText(renderer, $"RESPAWN PREVENTED OBJECTS: {_respawnPrevention.Count}", FontAlignment.Left, 8.0, num, 0.75, 0);
+		double y = 500.0;
+		y += _level.DebugContext.DrawText(renderer, $"TOTAL OBJECTS: {_objectEntryTable.Count}", FontAlignment.Left, 8.0, y, 0.75, 0);
+		y += _level.DebugContext.DrawText(renderer, $"ACTIVE OBJECTS: {_activeObjects.Count}", FontAlignment.Left, 8.0, y, 0.75, 0);
+		y += _level.DebugContext.DrawText(renderer, $"RESPAWN PREVENTED OBJECTS: {_respawnPrevention.Count}", FontAlignment.Left, 8.0, y, 0.75, 0);
 	}
 
 	public void Start()
@@ -144,8 +148,9 @@ public class ObjectManager
 	public void Stop()
 	{
 		_objectEntryTable.Clear();
-		ActiveObject[] array = _activeObjects.ToArray();
-		foreach (ActiveObject activeObject in array)
+		// Iterate over a copy, because DeactivateObject removes the object from the list.
+		ActiveObject[] activeObjects = _activeObjects.ToArray();
+		foreach (ActiveObject activeObject in activeObjects)
 		{
 			DeactivateObject(activeObject);
 		}
@@ -163,8 +168,8 @@ public class ObjectManager
 	{
 		if (string.IsNullOrEmpty(objectEntry.Name))
 		{
-			int num = _objectEntryTable.Where((ObjectEntry e) => e.Type == objectEntry.Type).Count();
-			objectEntry.Name = objectEntry.Type.Name + " " + num;
+			int sameTypeCount = _objectEntryTable.Count(e => e.Type == objectEntry.Type);
+			objectEntry.Name = objectEntry.Type.Name + " " + sameTypeCount;
 		}
 		_objectEntryTable.Add(objectEntry);
 	}
@@ -175,92 +180,72 @@ public class ObjectManager
 		return ActiveSubObject<T>(objectEntry, parentObject);
 	}
 
+	/// <summary>
+	/// Connects a new active object to the objects that its mappings refer to,
+	/// and connects the objects whose mappings refer to the new object.
+	/// </summary>
 	private void MapInstancesOf(ActiveObject activeObject)
 	{
-		ObjectEntry entry = (from e in _objectEntryTable
-							 select (e) into e
-							 where e.Uid == activeObject.Uid
-							 select e).FirstOrDefault();
-		IEnumerable<ActiveObject> source = _activeObjects.Concat(_newActiveObjects);
+		ObjectEntry entry = _objectEntryTable.FirstOrDefault(e => e.Uid == activeObject.Uid);
+		IEnumerable<ActiveObject> allObjects = _activeObjects.Concat(_newActiveObjects);
 		if (entry == null)
 		{
 			return;
 		}
 		foreach (ObjectMapping mapping in entry.Mappings)
 		{
-			ActiveObject activeObject2 = (from e in source
-										  select (e) into e
-										  where e.Uid == mapping.Target
-										  select e).FirstOrDefault();
-			if (activeObject2 != null)
+			ActiveObject target = allObjects.FirstOrDefault(e => e.Uid == mapping.Target);
+			if (target != null)
 			{
-				BindingFlags bindingAttr = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-				MemberInfo memberInfo = activeObject.GetType().GetMember(mapping.Field, bindingAttr).First();
-				if (memberInfo != null)
-				{
-					memberInfo.SetUnderlyingValue(activeObject, activeObject2);
-				}
+				SetMappedMember(activeObject, mapping.Field, target);
 			}
 		}
-		foreach (ActiveObject item in from ao in source
-									  select (ao) into ao
-									  where ao.Entry.Mappings.FirstOrDefault((ObjectMapping m) => m.Target == entry.Uid) != null
-									  select ao)
+		foreach (ActiveObject mappedObject in allObjects.Where(ao => ao.Entry.Mappings.FirstOrDefault(m => m.Target == entry.Uid) != null))
 		{
-			foreach (ObjectMapping mapping2 in item.Entry.Mappings)
+			foreach (ObjectMapping mapping in mappedObject.Entry.Mappings)
 			{
-				if (mapping2.Target == activeObject.Uid)
+				if (mapping.Target == activeObject.Uid)
 				{
-					BindingFlags bindingAttr2 = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-					MemberInfo memberInfo2 = item.GetType().GetMember(mapping2.Field, bindingAttr2).First();
-					if (memberInfo2 != null)
-					{
-						memberInfo2.SetUnderlyingValue(item, activeObject);
-					}
+					SetMappedMember(mappedObject, mapping.Field, activeObject);
 				}
 			}
 		}
 	}
 
+	/// <summary>
+	/// Clears the mapped members of an active object that stops, and clears the members of other objects
+	/// that refer to it.
+	/// </summary>
 	private void UnMapInstancesOf(ActiveObject activeObject)
 	{
-		ObjectEntry entry = (from e in _objectEntryTable
-							 select (e) into e
-							 where e.Uid == activeObject.Uid
-							 select e).FirstOrDefault();
+		ObjectEntry entry = _objectEntryTable.FirstOrDefault(e => e.Uid == activeObject.Uid);
 		if (entry == null)
 		{
 			return;
 		}
-		if (entry != null)
+		foreach (ObjectMapping mapping in entry.Mappings)
 		{
-			foreach (ObjectMapping mapping in entry.Mappings)
+			SetMappedMember(activeObject, mapping.Field, null);
+		}
+		foreach (ActiveObject mappedObject in _activeObjects.Where(ao => ao.Entry.Mappings.FirstOrDefault(m => m.Target == entry.Uid) != null))
+		{
+			foreach (ObjectMapping mapping in mappedObject.Entry.Mappings)
 			{
-				BindingFlags bindingAttr = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-				MemberInfo memberInfo = activeObject.GetType().GetMember(mapping.Field, bindingAttr).First();
-				if (memberInfo != null)
+				if (mapping.Target == activeObject.Uid)
 				{
-					memberInfo.SetUnderlyingValue(activeObject, null);
+					SetMappedMember(mappedObject, mapping.Field, null);
 				}
 			}
 		}
-		foreach (ActiveObject item in from ao in _activeObjects
-									  select (ao) into ao
-									  where ao.Entry.Mappings.FirstOrDefault((ObjectMapping m) => m.Target == entry.Uid) != null
-									  select ao)
+	}
+
+	private static void SetMappedMember(ActiveObject owner, string field, ActiveObject value)
+	{
+		// First() throws when the member does not exist, so the null check is always true.
+		MemberInfo memberInfo = owner.GetType().GetMember(field, MappingBindingFlags).First();
+		if (memberInfo != null)
 		{
-			foreach (ObjectMapping mapping2 in item.Entry.Mappings)
-			{
-				if (mapping2.Target == activeObject.Uid)
-				{
-					BindingFlags bindingAttr2 = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-					MemberInfo memberInfo2 = item.GetType().GetMember(mapping2.Field, bindingAttr2).First();
-					if (memberInfo2 != null)
-					{
-						memberInfo2.SetUnderlyingValue(item, null);
-					}
-				}
-			}
+			memberInfo.SetUnderlyingValue(owner, value);
 		}
 	}
 
@@ -275,11 +260,11 @@ public class ObjectManager
 
 	public T ActiveSubObject<T>(ObjectEntry objectEntry, ActiveObject parentObject) where T : ActiveObject
 	{
-		T val = objectEntry.CreateSubObject<T>();
-		_newActiveObjects.Add(val);
-		val.ParentObject = parentObject;
-		val.Start();
-		return val;
+		T subObject = objectEntry.CreateSubObject<T>();
+		_newActiveObjects.Add(subObject);
+		subObject.ParentObject = parentObject;
+		subObject.Start();
+		return subObject;
 	}
 
 	public void DeactivateObject(ActiveObject activeObject)
@@ -302,36 +287,42 @@ public class ObjectManager
 
 	public bool IsInLifetimeArea(Rectanglei rect)
 	{
-		return _lifeTimeAreas.Any((Rectanglei r) => rect.IntersectsWith(r));
+		return _lifeTimeAreas.Any(r => rect.IntersectsWith(r));
 	}
 
 	private void ManageObjects()
 	{
-		IEnumerable<ObjectEntry> other = _respawnPrevention.Where((ObjectEntry x) => !IsInLifetimeArea(x.LifetimeArea)).ToArray();
-		_respawnPrevention.ExceptWith(other);
-		foreach (ActiveObject item in (IEnumerable<ActiveObject>)_activeObjects.Where((ActiveObject x) => !x.LockLifetime && !IsInLifetimeArea(x.LifetimeArea) && (!IsInLifetimeArea(x.Entry.LifetimeArea) || x.IsSubObject)).ToArray())
+		// An entry that leaves all lifetime areas can respawn again.
+		IEnumerable<ObjectEntry> entriesOutOfRange = _respawnPrevention.Where(x => !IsInLifetimeArea(x.LifetimeArea)).ToArray();
+		_respawnPrevention.ExceptWith(entriesOutOfRange);
+
+		// Deactivate the objects that are out of the lifetime areas.
+		ActiveObject[] objectsOutOfRange = _activeObjects.Where(x => !x.LockLifetime && !IsInLifetimeArea(x.LifetimeArea) && (!IsInLifetimeArea(x.Entry.LifetimeArea) || x.IsSubObject)).ToArray();
+		foreach (ActiveObject activeObject in objectsOutOfRange)
 		{
-			DeactivateObject(item);
-			_respawnPrevention.Remove(item.Entry);
+			DeactivateObject(activeObject);
+			_respawnPrevention.Remove(activeObject.Entry);
 		}
-		List<ObjectEntry> list = new List<ObjectEntry>();
+
+		// Activate the entries in the lifetime areas.
+		List<ObjectEntry> entriesInRange = new List<ObjectEntry>();
 		foreach (Rectanglei lifeTimeArea in _lifeTimeAreas)
 		{
-			list.AddRange(_objectEntryTable.GetAllInRegion(lifeTimeArea));
+			entriesInRange.AddRange(_objectEntryTable.GetAllInRegion(lifeTimeArea));
 		}
-		foreach (ObjectEntry item2 in list)
+		foreach (ObjectEntry entry in entriesInRange)
 		{
-			if (item2.Active == null && !_respawnPrevention.Contains(item2))
+			if (entry.Active == null && !_respawnPrevention.Contains(entry))
 			{
-				ActivateObjectEntry(item2);
+				ActivateObjectEntry(entry);
 			}
 		}
 	}
 
 	public void RegisterObjectTypes()
 	{
-		ObjectType[] array = ObjectType.LoadedTypes.Except(_registeredTypes).ToArray();
-		foreach (ObjectType objectType in array)
+		ObjectType[] newTypes = ObjectType.LoadedTypes.Except(_registeredTypes).ToArray();
+		foreach (ObjectType objectType in newTypes)
 		{
 			_registeredTypes.Add(objectType);
 			objectType.Register(_level);
@@ -421,8 +412,8 @@ public class ObjectManager
 
 	public void RemoveFinishedActiveObjects()
 	{
-		ActiveObject[] array = _activeObjects.Where((ActiveObject x) => x.Finished).ToArray();
-		foreach (ActiveObject activeObject in array)
+		ActiveObject[] finishedObjects = _activeObjects.Where(x => x.Finished).ToArray();
+		foreach (ActiveObject activeObject in finishedObjects)
 		{
 			DeactivateObject(activeObject);
 		}
@@ -435,30 +426,30 @@ public class ObjectManager
 
 	public ICharacter GetClosestCharacterTo(Vector2 position)
 	{
-		IEnumerable<ICharacter> enumerable = from x in _activeObjects
+		IEnumerable<ICharacter> candidates = from x in _activeObjects
 											 where x.Type.Classification == ObjectClassification.Character
 											 select (ICharacter)x into x
 											 where !x.IsDead && !x.IsDebug && !x.IsDying
 											 select x;
-		ICharacter character = null;
-		double num = double.NaN;
-		foreach (ICharacter item in enumerable)
+		ICharacter closestCharacter = null;
+		double closestDistance = double.NaN;
+		foreach (ICharacter character in candidates)
 		{
-			double length = (position - item.Position).Length;
-			if (character == null || length < num)
+			double distance = (position - character.Position).Length;
+			if (closestCharacter == null || distance < closestDistance)
 			{
-				character = item;
-				num = length;
+				closestCharacter = character;
+				closestDistance = distance;
 			}
 		}
-		return character;
+		return closestCharacter;
 	}
 
 	public void FinishSubObjects(ActiveObject parent)
 	{
-		foreach (ActiveObject item in _activeObjects.Where((ActiveObject x) => x.ParentObject == parent))
+		foreach (ActiveObject subObject in _activeObjects.Where(x => x.ParentObject == parent))
 		{
-			item.Finish();
+			subObject.Finish();
 		}
 	}
 

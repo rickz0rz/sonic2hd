@@ -7,8 +7,29 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// Keeps the water areas of a level, and draws the water effect and the splashes.
+/// </summary>
 public class WaterManager
 {
+	private const string SplashEnterResourceKey = "SONICORCA/PARTICLE/SPLASH/ENTER";
+
+	private const string SplashExitResourceKey = "SONICORCA/PARTICLE/SPLASH/EXIT";
+
+	private const string WaveTextureResourceKey = "SONICORCA/OBJECTS/WAVE/TEXTURE";
+
+	private const string WavesAnimationGroupResourceKey = "SONICORCA/OBJECTS/WAVES/ANIGROUP";
+
+	/// <summary>
+	/// The number of frames in the waves animation group.
+	/// </summary>
+	private const int WaveFrameCount = 32;
+
+	/// <summary>
+	/// The number of game frames that each wave frame shows.
+	/// </summary>
+	private const int GameFramesPerWaveFrame = 2;
+
 	private readonly SonicOrcaGameContext _gameContext;
 
 	private readonly Level _level;
@@ -23,7 +44,7 @@ public class WaterManager
 
 	public static ITexture waveTexture;
 
-	private AnimationGroup wavesAnimationGroup;
+	private AnimationGroup _wavesAnimationGroup;
 
 	private int _waveFrame;
 
@@ -78,10 +99,10 @@ public class WaterManager
 		if (Enabled)
 		{
 			ResourceTree resourceTree = _level.GameContext.ResourceTree;
-			SpashEnterAnimationGroup = resourceTree.GetLoadedResource<AnimationGroup>("SONICORCA/PARTICLE/SPLASH/ENTER");
-			SpashExitAnimationGroup = resourceTree.GetLoadedResource<AnimationGroup>("SONICORCA/PARTICLE/SPLASH/EXIT");
-			waveTexture = resourceTree.GetLoadedResource<ITexture>("SONICORCA/OBJECTS/WAVE/TEXTURE");
-			wavesAnimationGroup = resourceTree.GetLoadedResource<AnimationGroup>("SONICORCA/OBJECTS/WAVES/ANIGROUP");
+			SpashEnterAnimationGroup = resourceTree.GetLoadedResource<AnimationGroup>(SplashEnterResourceKey);
+			SpashExitAnimationGroup = resourceTree.GetLoadedResource<AnimationGroup>(SplashExitResourceKey);
+			waveTexture = resourceTree.GetLoadedResource<ITexture>(WaveTextureResourceKey);
+			_wavesAnimationGroup = resourceTree.GetLoadedResource<AnimationGroup>(WavesAnimationGroupResourceKey);
 			_gameContext.Renderer.GetWaterRenderer();
 			_loaded = true;
 		}
@@ -97,7 +118,7 @@ public class WaterManager
 		{
 			splash.Animate();
 		}
-		_splashes.RemoveAll((Splash x) => x.Finished);
+		_splashes.RemoveAll(x => x.Finished);
 	}
 
 	public void Animate()
@@ -106,13 +127,14 @@ public class WaterManager
 		{
 			_waveFrame++;
 			_waterTime += 0.0166f;
+			// The multiplication by zero keeps the wave phase at zero. The wave phase does not move.
 			WavePhase = 0.0 * MathX.WrapRadians(WavePhase + 1.0 / 32.0);
 		}
 	}
 
 	public bool IsUnderwater(Vector2i position)
 	{
-		return _waterAreas.Any((Rectanglei x) => x.Contains(position));
+		return _waterAreas.Any(x => x.Contains(position));
 	}
 
 	public void CreateSplash(LevelLayer layer, SplashType splashType, Vector2i position)
@@ -137,8 +159,7 @@ public class WaterManager
 		DrawSplashes(renderer, viewport);
 		foreach (Rectanglei waterArea in _waterAreas)
 		{
-			Rectangle rectangle = waterArea;
-			Draw(renderer, viewport, rectangle);
+			Draw(renderer, viewport, waterArea);
 		}
 	}
 
@@ -150,11 +171,11 @@ public class WaterManager
 		}
 		using (viewport.ApplyRendererState(renderer))
 		{
-			I2dRenderer i2dRenderer = renderer.Get2dRenderer();
-			i2dRenderer.ModelMatrix = i2dRenderer.ModelMatrix.Translate(-viewport.Bounds.X, -viewport.Bounds.Y);
+			I2dRenderer renderer2d = renderer.Get2dRenderer();
+			renderer2d.ModelMatrix = renderer2d.ModelMatrix.Translate(-viewport.Bounds.X, -viewport.Bounds.Y);
 			foreach (Splash splash in _splashes)
 			{
-				splash.Draw(i2dRenderer);
+				splash.Draw(renderer2d);
 			}
 		}
 		renderer.DeativateRenderer();
@@ -162,7 +183,9 @@ public class WaterManager
 
 	public void Draw(Renderer renderer, Viewport viewport, Rectanglei waterArea)
 	{
-		waveTexture = wavesAnimationGroup.Textures[_waveFrame / 2 % 32];
+		waveTexture = _wavesAnimationGroup.Textures[_waveFrame / GameFramesPerWaveFrame % WaveFrameCount];
+
+		// Clip the water area to the viewport, then convert it to screen coordinates.
 		Rectanglei bounds = viewport.Bounds;
 		bounds.Left = Math.Max(bounds.Left, waterArea.Left);
 		bounds.Top = Math.Max(bounds.Top, waterArea.Top);

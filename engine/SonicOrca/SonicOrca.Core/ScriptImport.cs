@@ -4,6 +4,9 @@ using System.Reflection;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// Gets the object types that an area or object script resource refers to.
+/// </summary>
 internal static class ScriptImport
 {
 	public static Type[] Compile(string sourceCode)

@@ -4,8 +4,14 @@ using SonicOrca.Geometry;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// Writes the input and state of the player to a stream each frame, and reads them back for playback.
+/// </summary>
 internal class PlayRecorder : IDisposable
 {
+	/// <summary>
+	/// The recorded data for one frame.
+	/// </summary>
 	public class Entry
 	{
 		public Vector2 Direction { get; set; }
@@ -68,6 +74,7 @@ internal class PlayRecorder : IDisposable
 		binaryWriter.Write(entry.Direction.X);
 		binaryWriter.Write(entry.Direction.Y);
 		binaryWriter.Write(entry.Action);
+		// Padding byte.
 		binaryWriter.Write((byte)0);
 		binaryWriter.Write(entry.Position.X);
 		binaryWriter.Write(entry.Position.Y);
@@ -116,6 +123,7 @@ internal class PlayRecorder : IDisposable
 		{
 			entry.Direction = new Vector2(binaryReader.ReadDouble(), binaryReader.ReadDouble());
 			entry.Action = (binaryReader.ReadByte() & 1) != 0;
+			// Skip the padding byte.
 			binaryReader.ReadByte();
 			entry.Position = new Vector2i(binaryReader.ReadInt32(), binaryReader.ReadInt32());
 			entry.LayerIndex = binaryReader.ReadInt16();

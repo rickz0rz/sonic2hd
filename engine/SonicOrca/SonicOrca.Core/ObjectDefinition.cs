@@ -5,6 +5,9 @@ using SonicOrca.Geometry;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// The saved data of one object in a level: its type key, unique ID, name, layer, position and behaviour values.
+/// </summary>
 public class ObjectDefinition
 {
 	private string _key;

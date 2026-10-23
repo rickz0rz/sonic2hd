@@ -3,6 +3,9 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// A short-lived visual effect, for example smoke or heat haze, that moves in a straight line.
+/// </summary>
 public class Particle
 {
 	public ParticleType Type { get; set; }
@@ -37,6 +40,6 @@ public class Particle
 
 	public override string ToString()
 	{
-		return $"{Time} particle, Time = {Type} Position = {Position} Velocity = {Velocity}";
+		return $"{Type} particle, Time = {Time} Position = {Position} Velocity = {Velocity}";
 	}
 }

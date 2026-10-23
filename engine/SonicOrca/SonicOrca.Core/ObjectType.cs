@@ -7,6 +7,10 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// The base class for a type of level object. An object type holds the data that all instances of the type share.
+/// The attributes on the subclass give its name, description, classification, dependencies and instance type.
+/// </summary>
 public abstract class ObjectType : ILoadedResource, IDisposable
 {
 	public const string AnimalClass = "animal";
@@ -87,7 +91,7 @@ public abstract class ObjectType : ILoadedResource, IDisposable
 	{
 		lock (LoadedTypeList.Sync)
 		{
-			if (!LoadedTypeList.Instance.Exists((ObjectType ot) => ot.GetType() == GetType()))
+			if (!LoadedTypeList.Instance.Exists(ot => ot.GetType() == GetType()))
 			{
 				LoadedTypeList.Instance.Add(this);
 			}
@@ -98,7 +102,7 @@ public abstract class ObjectType : ILoadedResource, IDisposable
 	{
 		lock (LoadedTypeList.Sync)
 		{
-			if (LoadedTypeList.Instance.Exists((ObjectType ot) => ot.GetType() == GetType()))
+			if (LoadedTypeList.Instance.Exists(ot => ot.GetType() == GetType()))
 			{
 				LoadedTypeList.Instance.Remove(this);
 			}
@@ -146,6 +150,7 @@ public abstract class ObjectType : ILoadedResource, IDisposable
 		{
 			throw new InvalidOperationException();
 		}
+		// Dynamic dispatch finds the GetLifeRadius overload in the subclass that matches the run-time type of the state.
 		return (Vector2)((dynamic)this).GetLifeRadius((dynamic)state);
 	}
 

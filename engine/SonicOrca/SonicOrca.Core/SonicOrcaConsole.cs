@@ -11,9 +11,28 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// The developer console. It shows recent output lines and reads commands that the user types,
+/// for example "debug", "spawn", "teleport" and "restart".
+/// </summary>
 public class SonicOrcaConsole : IDisposable
 {
 	private const string DefaultFontResourceKey = "SONICORCA/FONTS/SEGOEUI";
+
+	/// <summary>
+	/// The maximum number of lines that the output buffer and the command history keep.
+	/// </summary>
+	private const int MaxStoredLines = 128;
+
+	/// <summary>
+	/// The number of output lines that the console shows.
+	/// </summary>
+	private const int VisibleLines = 6;
+
+	/// <summary>
+	/// The change in opacity each frame when the console opens or closes (15 frames for a full fade).
+	/// </summary>
+	private const float FadeStep = 1f / 15f;
 
 	private readonly SonicOrcaGameContext _context;
 
@@ -57,9 +76,9 @@ public class SonicOrcaConsole : IDisposable
 	{
 		ResourceTree resourceTree = _context.ResourceTree;
 		_resourceSession = new ResourceSession(resourceTree);
-		_resourceSession.PushDependency("SONICORCA/FONTS/SEGOEUI");
+		_resourceSession.PushDependency(DefaultFontResourceKey);
 		await _resourceSession.LoadAsync();
-		_font = resourceTree.GetLoadedResource<Font>("SONICORCA/FONTS/SEGOEUI");
+		_font = resourceTree.GetLoadedResource<Font>(DefaultFontResourceKey);
 		_loadingResources = false;
 		_resourcesLoaded = true;
 	}
@@ -83,31 +102,31 @@ public class SonicOrcaConsole : IDisposable
 		KeyboardState keyboard = input.Pressed.Keyboard;
 		if (IsOpen)
 		{
-			_opacity = Math.Min(_opacity + 1f / 15f, 1f);
-			if (keyboard[42])
+			_opacity = Math.Min(_opacity + FadeStep, 1f);
+			if (keyboard[KeyboardState.KEY_BACKSPACE])
 			{
 				if (_currentLine.Length > 0)
 				{
 					_currentLine.Remove(_currentLine.Length - 1, 1);
 				}
 			}
-			else if (keyboard[40])
+			else if (keyboard[KeyboardState.KEY_RETURN])
 			{
 				if (_currentLine.Length > 0)
 				{
-					string text = _currentLine.ToString();
+					string line = _currentLine.ToString();
 					_currentLine.Clear();
-					if (_history.Count >= 128)
+					if (_history.Count >= MaxStoredLines)
 					{
 						_history.RemoveAt(0);
 					}
-					_history.Add(text);
+					_history.Add(line);
 					_historyScrollIndex = _history.Count;
-					WriteLine("> " + text);
-					ProcessLine(text);
+					WriteLine("> " + line);
+					ProcessLine(line);
 				}
 			}
-			else if (keyboard[82])
+			else if (keyboard[KeyboardState.KEY_UP])
 			{
 				_currentLine.Clear();
 				_historyScrollIndex = Math.Max(0, _historyScrollIndex - 1);
@@ -116,7 +135,7 @@ public class SonicOrcaConsole : IDisposable
 					_currentLine.Append(_history[_historyScrollIndex]);
 				}
 			}
-			else if (keyboard[81])
+			else if (keyboard[KeyboardState.KEY_DOWN])
 			{
 				_currentLine.Clear();
 				_historyScrollIndex = Math.Min(_history.Count, _historyScrollIndex + 1);
@@ -132,7 +151,7 @@ public class SonicOrcaConsole : IDisposable
 		}
 		else
 		{
-			_opacity = Math.Max(_opacity - 1f / 15f, 0f);
+			_opacity = Math.Max(_opacity - FadeStep, 0f);
 		}
 	}
 
@@ -140,30 +159,31 @@ public class SonicOrcaConsole : IDisposable
 	{
 		if (_resourcesLoaded && _opacity != 0f)
 		{
-			int height = _font.Height;
-			Colour colour = new Colour(0.8 * _opacity, 0.1, 0.1, 0.1);
-			Colour colour2 = new Colour(1.0 * _opacity, 1.0, 1.0, 1.0);
+			int lineHeight = _font.Height;
+			Colour backgroundColour = new Colour(0.8 * _opacity, 0.1, 0.1, 0.1);
+			Colour textColour = new Colour(1.0 * _opacity, 1.0, 1.0, 1.0);
 			Vector2i clientSize = renderer.Window.ClientSize;
-			Rectanglei rectanglei = new Rectanglei(8, 8, clientSize.X - 16, 6 * height);
-			Rectanglei rectanglei2 = new Rectangle(8.0, rectanglei.Bottom + 8, clientSize.X - 16, height);
-			I2dRenderer i2dRenderer = renderer.Get2dRenderer();
-			i2dRenderer.RenderQuad(colour, rectanglei);
-			i2dRenderer.RenderQuad(colour, rectanglei2);
+			Rectanglei outputBounds = new Rectanglei(8, 8, clientSize.X - 16, VisibleLines * lineHeight);
+			Rectanglei inputBounds = new Rectangle(8.0, outputBounds.Bottom + 8, clientSize.X - 16, lineHeight);
+			I2dRenderer renderer2d = renderer.Get2dRenderer();
+			renderer2d.RenderQuad(backgroundColour, outputBounds);
+			renderer2d.RenderQuad(backgroundColour, inputBounds);
 			IFontRenderer fontRenderer = renderer.GetFontRenderer();
-			int num = rectanglei.Bottom;
-			for (int i = 0; i < Math.Min(_buffer.Count, 6); i++)
+			// Draw the newest lines from the bottom of the output area upward.
+			int lineY = outputBounds.Bottom;
+			for (int i = 0; i < Math.Min(_buffer.Count, VisibleLines); i++)
 			{
-				string text = _buffer[_buffer.Count - 1 - i];
-				num -= height;
-				fontRenderer.RenderString(text, new Rectangle(rectanglei.X + 4, num, rectanglei.Width, height), FontAlignment.MiddleY, _font, colour2);
+				string line = _buffer[_buffer.Count - 1 - i];
+				lineY -= lineHeight;
+				fontRenderer.RenderString(line, new Rectangle(outputBounds.X + 4, lineY, outputBounds.Width, lineHeight), FontAlignment.MiddleY, _font, textColour);
 			}
-			fontRenderer.RenderString("> " + _currentLine.ToString(), rectanglei2.Inflate(new Vector2i(-4, 0)), FontAlignment.MiddleY, _font, colour2);
+			fontRenderer.RenderString("> " + _currentLine.ToString(), inputBounds.Inflate(new Vector2i(-4, 0)), FontAlignment.MiddleY, _font, textColour);
 		}
 	}
 
 	public void WriteLine(string line)
 	{
-		if (_buffer.Count >= 128)
+		if (_buffer.Count >= MaxStoredLines)
 		{
 			_buffer.RemoveAt(0);
 		}
@@ -223,9 +243,10 @@ public class SonicOrcaConsole : IDisposable
 				barrierType = BarrierType.Lightning;
 				break;
 			default:
-				WriteLine("usage: barrier <classic|bubble|fire|lightning>");
+				WriteLine("usage: barrier <none|classic|bubble|fire|lightning>");
 				return;
 		}
+		// The local variable hides the LevelGameState property and is always null, so this command has no effect.
 		LevelGameState levelGameState = null;
 		if (levelGameState != null && levelGameState.Level != null)
 		{
@@ -249,27 +270,28 @@ public class SonicOrcaConsole : IDisposable
 			level.ClassicDebugMode = !level.ClassicDebugMode;
 			return;
 		}
-		string text = args[0].ToLower();
-		if (!(text == "collision"))
+		switch (args[0].ToLower())
 		{
-			if (text == "invulnerable")
-			{
+			case "collision":
+				// Toggle between the normal view and the collision view.
+				if (level.LayerViewOptions.ShowLandscapeCollision)
+				{
+					level.LayerViewOptions.ShowLandscape = true;
+					level.LayerViewOptions.ShowLandscapeCollision = false;
+					level.LayerViewOptions.ShowObjectCollision = false;
+					level.ShowCharacterInfo = false;
+				}
+				else
+				{
+					level.LayerViewOptions.ShowLandscape = false;
+					level.LayerViewOptions.ShowLandscapeCollision = true;
+					level.LayerViewOptions.ShowObjectCollision = true;
+					level.ShowCharacterInfo = true;
+				}
+				break;
+			case "invulnerable":
 				level.Player.Protagonist.IsInvincible = !level.Player.Protagonist.IsInvincible;
-			}
-		}
-		else if (level.LayerViewOptions.ShowLandscapeCollision)
-		{
-			level.LayerViewOptions.ShowLandscape = true;
-			level.LayerViewOptions.ShowLandscapeCollision = false;
-			level.LayerViewOptions.ShowObjectCollision = false;
-			level.ShowCharacterInfo = false;
-		}
-		else
-		{
-			level.LayerViewOptions.ShowLandscape = false;
-			level.LayerViewOptions.ShowLandscapeCollision = true;
-			level.LayerViewOptions.ShowObjectCollision = true;
-			level.ShowCharacterInfo = true;
+				break;
 		}
 	}
 
@@ -285,40 +307,41 @@ public class SonicOrcaConsole : IDisposable
 			return;
 		}
 		string objectType = "SONICORCA/OBJECTS/" + args[0].ToUpper();
-		if (!level.ObjectManager.RegisteredTypes.Any((ObjectType x) => x.ResourceKey == objectType))
+		if (!level.ObjectManager.RegisteredTypes.Any(x => x.ResourceKey == objectType))
 		{
 			return;
 		}
-		Dictionary<string, object> dictionary = new Dictionary<string, object>();
-		for (int num = 1; num < args.Length; num++)
+		// The other arguments are "-name value" pairs that set the behaviour of the new object.
+		Dictionary<string, object> behaviour = new Dictionary<string, object>();
+		for (int i = 1; i < args.Length; i++)
 		{
-			if (args[num].StartsWith("-") || num >= args.Length - 2)
+			if (args[i].StartsWith("-") || i >= args.Length - 2)
 			{
-				string key = args[num].Substring(1);
-				object value = ParseBehaviourValue(args[num + 1]);
-				dictionary.Add(key, value);
-				num++;
+				string key = args[i].Substring(1);
+				object value = ParseBehaviourValue(args[i + 1]);
+				behaviour.Add(key, value);
+				i++;
 			}
 		}
 		Vector2i position = level.Player.Protagonist.Position;
-		LevelLayer item = level.Map.Layers[level.Map.CollisionPathLayers.Last()];
-		ObjectPlacement objectPlacement = new ObjectPlacement(objectType, level.Map.Layers.IndexOf(item), position, dictionary);
+		LevelLayer layer = level.Map.Layers[level.Map.CollisionPathLayers.Last()];
+		ObjectPlacement objectPlacement = new ObjectPlacement(objectType, level.Map.Layers.IndexOf(layer), position, behaviour);
 		level.ObjectManager.AddObject(objectPlacement);
 	}
 
 	private static object ParseBehaviourValue(string value)
 	{
-		if (int.TryParse(value, out var result))
+		if (int.TryParse(value, out int intValue))
 		{
-			return result;
+			return intValue;
 		}
-		if (double.TryParse(value, out var result2))
+		if (double.TryParse(value, out double doubleValue))
 		{
-			return result2;
+			return doubleValue;
 		}
-		if (bool.TryParse(value, out var result3))
+		if (bool.TryParse(value, out bool boolValue))
 		{
-			return result3;
+			return boolValue;
 		}
 		return value;
 	}
@@ -328,9 +351,9 @@ public class SonicOrcaConsole : IDisposable
 		if (LevelGameState != null && LevelGameState.Level != null)
 		{
 			Level level = LevelGameState.Level;
-			if (args.Length >= 2 && int.TryParse(args[0], out var result) && int.TryParse(args[1], out var result2))
+			if (args.Length >= 2 && int.TryParse(args[0], out int x) && int.TryParse(args[1], out int y))
 			{
-				level.Player.Protagonist.Position = new Vector2i(result, result2);
+				level.Player.Protagonist.Position = new Vector2i(x, y);
 			}
 		}
 	}
@@ -340,50 +363,53 @@ public class SonicOrcaConsole : IDisposable
 		if (LevelGameState != null && LevelGameState.Level != null)
 		{
 			Level level = LevelGameState.Level;
-			string text = string.Empty;
+			string mode = string.Empty;
 			if (args.Length >= 1)
 			{
-				text = args[0].ToLower();
+				mode = args[0].ToLower();
 			}
-			if (!(text == "checkpoint") && !(text == "starpost"))
+			if (mode == "checkpoint" || mode == "starpost")
 			{
-				level.FadeOut(LevelState.Restart);
+				level.FadeOut(LevelState.RestartCheckpoint);
 			}
 			else
 			{
-				level.FadeOut(LevelState.RestartCheckpoint);
+				level.FadeOut(LevelState.Restart);
 			}
 		}
 	}
 
+	/// <summary>
+	/// Splits a command line into tokens at white space. Text in double quotes stays in one token.
+	/// </summary>
 	private static string[] GetTokens(string line)
 	{
-		List<string> list = new List<string>();
-		StringBuilder stringBuilder = new StringBuilder();
-		bool flag = false;
+		List<string> tokens = new List<string>();
+		StringBuilder currentToken = new StringBuilder();
+		bool inQuotes = false;
 		foreach (char c in line)
 		{
 			if (c == '"')
 			{
-				flag = !flag;
+				inQuotes = !inQuotes;
 			}
-			else if (char.IsWhiteSpace(c) && !flag)
+			else if (char.IsWhiteSpace(c) && !inQuotes)
 			{
-				if (stringBuilder.Length > 0)
+				if (currentToken.Length > 0)
 				{
-					list.Add(stringBuilder.ToString());
-					stringBuilder.Clear();
+					tokens.Add(currentToken.ToString());
+					currentToken.Clear();
 				}
 			}
 			else
 			{
-				stringBuilder.Append(c);
+				currentToken.Append(c);
 			}
 		}
-		if (stringBuilder.Length > 0)
+		if (currentToken.Length > 0)
 		{
-			list.Add(stringBuilder.ToString());
+			tokens.Add(currentToken.ToString());
 		}
-		return list.ToArray();
+		return tokens.ToArray();
 	}
 }
