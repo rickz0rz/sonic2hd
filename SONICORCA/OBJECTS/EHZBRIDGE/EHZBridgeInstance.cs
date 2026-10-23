@@ -5,7 +5,6 @@
 // Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using SonicOrca.Core;
 using SonicOrca.Core.Collision;

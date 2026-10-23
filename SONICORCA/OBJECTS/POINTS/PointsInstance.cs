@@ -8,7 +8,6 @@ using SonicOrca.Core;
 using SonicOrca.Core.Objects.Metadata;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
-using SonicOrca.Resources;
 
 #nullable disable
 namespace SONICORCA.OBJECTS.POINTS;

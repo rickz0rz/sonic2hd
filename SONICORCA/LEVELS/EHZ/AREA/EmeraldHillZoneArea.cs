@@ -14,7 +14,6 @@ using SonicOrca.Core.Objects;
 using SonicOrca.Core.Objects.Base;
 using SonicOrca.Extensions;
 using SonicOrca.Geometry;
-using SonicOrca.Resources;
 
 #nullable disable
 namespace SONICORCA.LEVELS.EHZ.AREA;
