@@ -2,6 +2,9 @@ using System;
 
 namespace SonicOrca.Geometry;
 
+/// <summary>
+/// A two-dimensional vector or point in integers.
+/// </summary>
 public struct Vector2i : IEquatable<Vector2i>
 {
 	public int X { get; set; }

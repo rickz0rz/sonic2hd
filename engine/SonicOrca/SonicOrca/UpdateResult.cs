@@ -1,5 +1,8 @@
 namespace SonicOrca;
 
+/// <summary>
+/// The result of one step of an update sequence: go to the next step, or wait a number of ticks first.
+/// </summary>
 public struct UpdateResult
 {
 	private readonly UpdateResultType _type;

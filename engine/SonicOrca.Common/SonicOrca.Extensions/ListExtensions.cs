@@ -3,6 +3,9 @@ using System.Collections.Generic;
 
 namespace SonicOrca.Extensions;
 
+/// <summary>
+/// Finds items in read-only lists.
+/// </summary>
 public static class ListExtensions
 {
 	public static int IndexOf<T>(this IReadOnlyList<T> list, Predicate<T> match)

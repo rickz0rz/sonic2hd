@@ -2,6 +2,9 @@ using System;
 
 namespace SonicOrca;
 
+/// <summary>
+/// Contains math helpers for interpolation, clamps, wrapped ranges and angles.
+/// </summary>
 public static class MathX
 {
 	public const double TWOPI = Math.PI * 2.0;
@@ -15,19 +18,23 @@ public static class MathX
 		return (1.0 - t) * a + t * b;
 	}
 
+	/// <summary>
+	/// Moves <paramref name="from"/> towards <paramref name="to"/> by a fraction of the distance. Each move is at
+	/// least <paramref name="minChange"/>, and the result never goes past <paramref name="to"/>.
+	/// </summary>
 	public static double Lerp(double from, double to, double amount, double minChange)
 	{
-		double num = (to - from) * amount;
+		double change = (to - from) * amount;
 		if (to > from)
 		{
-			from += ((num < minChange) ? minChange : num);
+			from += ((change < minChange) ? minChange : change);
 			if (!(from > to))
 			{
 				return from;
 			}
 			return to;
 		}
-		from += ((num > 0.0 - minChange) ? (0.0 - minChange) : num);
+		from += ((change > 0.0 - minChange) ? (0.0 - minChange) : change);
 		if (!(from < to))
 		{
 			return from;
@@ -35,26 +42,33 @@ public static class MathX
 		return to;
 	}
 
+	/// <summary>
+	/// Does <see cref="Lerp(double, double, double, double)"/> in a range that wraps, such as an angle.
+	/// It moves along the shorter path.
+	/// </summary>
 	public static double LerpWrap(double from, double to, double amount, double minValue, double maxValue, double minChange = 0.0)
 	{
-		double num = maxValue - minValue;
-		double num2 = num / 2.0;
-		from %= num;
-		for (to %= num; to < from - num2; to += num)
+		double range = maxValue - minValue;
+		double halfRange = range / 2.0;
+		from %= range;
+		to %= range;
+		// Move the target by whole ranges until it is within half a range of the start.
+		while (to < from - halfRange)
 		{
+			to += range;
 		}
-		while (to > from + num2)
+		while (to > from + halfRange)
 		{
-			to -= num;
+			to -= range;
 		}
 		from = Lerp(from, to, amount, minChange);
 		if (from < minValue)
 		{
-			return from + num;
+			return from + range;
 		}
 		if (from > maxValue)
 		{
-			return from - num;
+			return from - range;
 		}
 		return from;
 	}
@@ -138,32 +152,33 @@ public static class MathX
 
 	public static int Wrap(int x, int max, int min = 0)
 	{
-		int num = max - min;
+		int range = max - min;
 		while (x < min)
 		{
-			x += num;
+			x += range;
 		}
 		while (x > max)
 		{
-			x -= num;
+			x -= range;
 		}
 		return x;
 	}
 
 	public static double Wrap(double x, double max, double min = 0.0)
 	{
-		double num = max - min;
+		double range = max - min;
 		while (x < min)
 		{
-			x += num;
+			x += range;
 		}
 		while (x > max)
 		{
-			x -= num;
+			x -= range;
 		}
 		return x;
 	}
 
+	// Note: the first test is against PI, not -PI. Thus a value from -PI to PI moves up by 2 PI and then back down.
 	public static double WrapRadians(double radians)
 	{
 		if (radians < Math.PI)
@@ -203,6 +218,10 @@ public static class MathX
 		return x;
 	}
 
+	/// <summary>
+	/// Does <see cref="GoTowards(double, double, double)"/> in a range that wraps, such as an angle.
+	/// It moves along the shorter path.
+	/// </summary>
 	public static double GoTowardsWrap(double x, double dest, double maxChange, double minValue, double maxValue)
 	{
 		x = Wrap(x, maxValue, minValue);
@@ -213,23 +232,27 @@ public static class MathX
 		}
 		if (x < dest)
 		{
-			double num = x - minValue + (maxValue - dest);
-			double num2 = dest - x;
-			if (num < num2)
+			double distanceDown = x - minValue + (maxValue - dest);
+			double distanceUp = dest - x;
+			if (distanceDown < distanceUp)
 			{
-				return Wrap(x - Math.Min(num, maxChange), maxValue, minValue);
+				return Wrap(x - Math.Min(distanceDown, maxChange), maxValue, minValue);
 			}
 			return Math.Min(x + maxChange, dest);
 		}
-		double num3 = x - dest;
-		double num4 = maxValue - x + (dest - minValue);
-		if (num3 < num4)
+		double distanceDownToDest = x - dest;
+		double distanceUpToDest = maxValue - x + (dest - minValue);
+		if (distanceDownToDest < distanceUpToDest)
 		{
 			return Math.Max(x - maxChange, dest);
 		}
-		return Wrap(x + Math.Min(num4, maxChange), maxValue, minValue);
+		return Wrap(x + Math.Min(distanceUpToDest, maxChange), maxValue, minValue);
 	}
 
+	/// <summary>
+	/// Gets the signed change along the shorter path from <paramref name="a"/> to <paramref name="b"/> in a range
+	/// that wraps.
+	/// </summary>
 	public static double WrapDifference(double a, double b, double minValue, double maxValue)
 	{
 		if (a == b)
@@ -238,21 +261,21 @@ public static class MathX
 		}
 		if (a < b)
 		{
-			double num = a - minValue + (maxValue - b);
-			double num2 = b - a;
-			if (num < num2)
+			double distanceDown = a - minValue + (maxValue - b);
+			double distanceUp = b - a;
+			if (distanceDown < distanceUp)
 			{
-				return 0.0 - num;
+				return 0.0 - distanceDown;
 			}
-			return num2;
+			return distanceUp;
 		}
-		double num3 = a - b;
-		double num4 = maxValue - a + (b - minValue);
-		if (num3 < num4)
+		double distanceDownToB = a - b;
+		double distanceUpToB = maxValue - a + (b - minValue);
+		if (distanceDownToB < distanceUpToB)
 		{
-			return 0.0 - num3;
+			return 0.0 - distanceDownToB;
 		}
-		return num4;
+		return distanceUpToB;
 	}
 
 	public static double ToRadians(double degrees)

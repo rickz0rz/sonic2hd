@@ -2,6 +2,9 @@ using System;
 
 namespace SonicOrca.Geometry;
 
+/// <summary>
+/// A three-dimensional vector with double precision.
+/// </summary>
 public struct Vector3 : IEquatable<Vector3>
 {
 	public double X { get; set; }
@@ -98,6 +101,7 @@ public struct Vector3 : IEquatable<Vector3>
 		return new Vector3(v.X / s, v.Y / s, v.Z / s);
 	}
 
+	// Note: this operator divides the vector by the scalar, not the scalar by the vector.
 	public static Vector3 operator /(double s, Vector3 v)
 	{
 		return new Vector3(v.X / s, v.Y / s, v.Z / s);

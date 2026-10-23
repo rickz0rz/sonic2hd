@@ -2,6 +2,9 @@ using System;
 
 namespace SonicOrca;
 
+/// <summary>
+/// Runs an action when it is disposed.
+/// </summary>
 public class Disposable : IDisposable
 {
 	private readonly Action _action;
@@ -13,10 +16,7 @@ public class Disposable : IDisposable
 
 	public void Dispose()
 	{
-		if (_action != null)
-		{
-			_action();
-		}
+		_action?.Invoke();
 	}
 
 	public static IDisposable FromAction(Action action)

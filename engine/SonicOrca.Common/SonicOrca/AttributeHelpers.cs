@@ -5,6 +5,9 @@ using System.Reflection;
 
 namespace SonicOrca;
 
+/// <summary>
+/// Reads attributes from types and from enumeration values.
+/// </summary>
 public static class AttributeHelpers
 {
 	public static string GetDescription(object value)
@@ -12,18 +15,20 @@ public static class AttributeHelpers
 		return GetAttribute<DescriptionAttribute>(value)?.Description;
 	}
 
+	/// <summary>
+	/// Gets the attribute of a <see cref="Type"/>, or of the field that defines an enumeration value.
+	/// </summary>
 	public static T GetAttribute<T>(object value) where T : Attribute
 	{
-		Type type = value as Type;
-		if (type == null)
+		if (value is Type type)
 		{
-			type = value.GetType();
-			if (!type.IsEnum)
-			{
-				throw new ArgumentException("Value must be a Type or Enum value.", "value");
-			}
-			return type.GetMember(value.ToString()).First().GetCustomAttribute<T>();
+			return type.GetCustomAttribute<T>();
 		}
-		return type.GetCustomAttribute<T>();
+		Type valueType = value.GetType();
+		if (!valueType.IsEnum)
+		{
+			throw new ArgumentException("Value must be a Type or Enum value.", "value");
+		}
+		return valueType.GetMember(value.ToString()).First().GetCustomAttribute<T>();
 	}
 }

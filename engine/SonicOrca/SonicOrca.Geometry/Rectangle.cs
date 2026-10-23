@@ -2,6 +2,9 @@ using System;
 
 namespace SonicOrca.Geometry;
 
+/// <summary>
+/// An axis-aligned rectangle with double precision, given by its top-left corner and its size.
+/// </summary>
 public struct Rectangle : IEquatable<Rectangle>
 {
 	public static Rectangle Empty => default;
@@ -120,6 +123,7 @@ public struct Rectangle : IEquatable<Rectangle>
 		return false;
 	}
 
+	// Note: this compares p.X with Top and p.Y with Left. The result is correct only when X and Y are equal.
 	public bool ContainsOrOverlaps(Vector2 p)
 	{
 		if (p.X >= Top && p.Y >= Left && p.X <= Right)
@@ -207,13 +211,13 @@ public struct Rectangle : IEquatable<Rectangle>
 
 	public static Rectangle Intersect(Rectangle a, Rectangle b)
 	{
-		double num = Math.Max(a.X, b.X);
-		double num2 = Math.Min(a.Right, b.Right);
-		double num3 = Math.Max(a.Y, b.Y);
-		double num4 = Math.Min(a.Bottom, b.Bottom);
-		if (num2 >= num && num4 >= num3)
+		double left = Math.Max(a.X, b.X);
+		double right = Math.Min(a.Right, b.Right);
+		double top = Math.Max(a.Y, b.Y);
+		double bottom = Math.Min(a.Bottom, b.Bottom);
+		if (right >= left && bottom >= top)
 		{
-			return new Rectangle(num, num3, num2 - num, num4 - num3);
+			return new Rectangle(left, top, right - left, bottom - top);
 		}
 		return Empty;
 	}

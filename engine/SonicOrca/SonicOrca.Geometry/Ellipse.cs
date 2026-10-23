@@ -2,6 +2,9 @@ using System;
 
 namespace SonicOrca.Geometry;
 
+/// <summary>
+/// An axis-aligned ellipse, given by its centre position and its radius on each axis.
+/// </summary>
 public struct Ellipse : IEquatable<Ellipse>
 {
 	public static Ellipse Empty => default;
@@ -25,8 +28,8 @@ public struct Ellipse : IEquatable<Ellipse>
 		{
 			return false;
 		}
-		Vector2 vector = new Vector2(p.X - Position.X, p.Y - Position.Y);
-		return vector.X * vector.X / (Radius.X * Radius.X) + vector.Y * vector.Y / (Radius.Y * Radius.Y) <= 1.0;
+		Vector2 offset = new Vector2(p.X - Position.X, p.Y - Position.Y);
+		return offset.X * offset.X / (Radius.X * Radius.X) + offset.Y * offset.Y / (Radius.Y * Radius.Y) <= 1.0;
 	}
 
 	public override bool Equals(object obj)

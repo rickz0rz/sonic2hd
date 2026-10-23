@@ -2,6 +2,9 @@ using System;
 
 namespace SonicOrca.Geometry;
 
+/// <summary>
+/// A four-dimensional vector with double precision.
+/// </summary>
 public struct Vector4 : IEquatable<Vector4>
 {
 	public double X { get; set; }
@@ -18,6 +21,7 @@ public struct Vector4 : IEquatable<Vector4>
 
 	public Vector4 Normalised => this / Length;
 
+	// Note: the W term is cubed, not squared, so this is not the true length when W is not 0 or 1.
 	public double Length => Math.Sqrt(X * X + Y * Y + Z * Z + W * W * W);
 
 	public static Vector4 UnitX => new Vector4(1.0, 0.0, 0.0, 0.0);
@@ -106,6 +110,7 @@ public struct Vector4 : IEquatable<Vector4>
 		return new Vector4(v.X / s, v.Y / s, v.Z / s, v.W / s);
 	}
 
+	// Note: this operator divides the vector by the scalar, not the scalar by the vector.
 	public static Vector4 operator /(double s, Vector4 v)
 	{
 		return new Vector4(v.X / s, v.Y / s, v.Z / s, v.W / s);

@@ -6,11 +6,17 @@ using System.Text;
 
 namespace SonicOrca;
 
+/// <summary>
+/// A table of text cells that loads from and saves to comma-separated values (CSV).
+/// </summary>
+/// <remarks>
+/// The indexer uses x for the column and y for the row. A cell outside the table reads as an empty string.
+/// </remarks>
 public class CsvSheet
 {
-	private List<List<string>> mRows = new List<List<string>>();
+	private List<List<string>> _rows = new List<List<string>>();
 
-	private int mColumns;
+	private int _columns;
 
 	public string this[int x, int y]
 	{
@@ -24,9 +30,9 @@ public class CsvSheet
 		}
 	}
 
-	public int Rows => mRows.Count;
+	public int Rows => _rows.Count;
 
-	public int Columns => mColumns;
+	public int Columns => _columns;
 
 	public CsvSheet()
 	{
@@ -45,13 +51,13 @@ public class CsvSheet
 
 	private void Load(Stream stream)
 	{
-		mRows = new List<List<string>>();
+		_rows = new List<List<string>>();
 		using (StreamReader streamReader = new StreamReader(stream))
 		{
 			string line;
 			while ((line = streamReader.ReadLine()) != null)
 			{
-				mRows.Add(new List<string>(ProcessLine(line)));
+				_rows.Add(new List<string>(ProcessLine(line)));
 			}
 		}
 		CalculateColumns();
@@ -66,15 +72,15 @@ public class CsvSheet
 	public void Save(Stream stream)
 	{
 		using StreamWriter streamWriter = new StreamWriter(stream);
-		foreach (List<string> mRow in mRows)
+		foreach (List<string> row in _rows)
 		{
-			for (int i = 0; i < mRow.Count - 1; i++)
+			for (int i = 0; i < row.Count - 1; i++)
 			{
-				streamWriter.Write("{0},", FormatAsCSV(mRow[i]));
+				streamWriter.Write("{0},", FormatAsCSV(row[i]));
 			}
-			if (mRow.Count > 0)
+			if (row.Count > 0)
 			{
-				streamWriter.Write(FormatAsCSV(mRow[mRow.Count - 1]));
+				streamWriter.Write(FormatAsCSV(row[row.Count - 1]));
 			}
 			streamWriter.WriteLine();
 		}
@@ -99,16 +105,16 @@ public class CsvSheet
 		{
 			throw new ArgumentOutOfRangeException();
 		}
-		if (y >= mRows.Count)
+		if (y >= _rows.Count)
 		{
 			return string.Empty;
 		}
-		List<string> list = mRows[y];
-		if (x >= list.Count)
+		List<string> row = _rows[y];
+		if (x >= row.Count)
 		{
 			return string.Empty;
 		}
-		return list[x];
+		return row[x];
 	}
 
 	private void Set(int x, int y, string value)
@@ -117,73 +123,79 @@ public class CsvSheet
 		{
 			throw new ArgumentOutOfRangeException();
 		}
-		while (y >= mRows.Count)
+		while (y >= _rows.Count)
 		{
-			mRows.Add(new List<string>());
+			_rows.Add(new List<string>());
 		}
-		List<string> list = mRows[y];
-		while (x >= list.Count)
+		List<string> row = _rows[y];
+		while (x >= row.Count)
 		{
-			list.Add(string.Empty);
+			row.Add(string.Empty);
 		}
-		list[x] = value;
+		row[x] = value;
 		CalculateColumns();
 	}
 
 	private void CalculateColumns()
 	{
-		mColumns = mRows.Max((List<string> row) => row.Count);
+		_columns = _rows.Max(row => row.Count);
 	}
 
 	private string[] ProcessLine(string line)
 	{
-		List<string> list = new List<string>();
+		List<string> cells = new List<string>();
 		using (StringReader sr = new StringReader(line))
 		{
 			string nextCell;
 			while ((nextCell = GetNextCell(sr)) != null)
 			{
-				list.Add(nextCell);
+				cells.Add(nextCell);
 			}
 		}
-		return list.ToArray();
+		return cells.ToArray();
 	}
 
+	/// <summary>
+	/// Reads one cell, up to the next comma that is not in quotes.
+	/// </summary>
+	/// <returns>The cell text, or <c>null</c> at the end of the line.</returns>
 	private string GetNextCell(StringReader sr)
 	{
 		if (sr.Peek() == -1)
 		{
 			return null;
 		}
-		int num = 0;
-		bool flag = false;
+		// Spaces outside quotes are kept only when more text follows them, so trailing spaces are removed.
+		int pendingSpaces = 0;
+		bool inQuotes = false;
 		StringBuilder stringBuilder = new StringBuilder();
 		while (sr.Peek() != -1)
 		{
 			char c = (char)sr.Read();
-			if (char.IsWhiteSpace(c) && !flag && string.IsNullOrEmpty(stringBuilder.ToString()))
+			if (char.IsWhiteSpace(c) && !inQuotes && string.IsNullOrEmpty(stringBuilder.ToString()))
 			{
 				continue;
 			}
-			if (c == ',' && !flag)
+			if (c == ',' && !inQuotes)
 			{
 				break;
 			}
-			if (c == ' ' && !flag)
+			if (c == ' ' && !inQuotes)
 			{
-				num++;
+				pendingSpaces++;
 				continue;
 			}
-			stringBuilder.Append(new string(' ', num));
-			num = 0;
-			if (c == '"' && (ushort)sr.Peek() == 34)
+			stringBuilder.Append(new string(' ', pendingSpaces));
+			pendingSpaces = 0;
+			if (c == '"' && sr.Peek() == '"')
 			{
+				// Two quotes in sequence are one literal quote.
 				sr.Read();
 				stringBuilder.Append('"');
 			}
 			else if (c == '"')
 			{
-				flag = !flag;
+				inQuotes = !inQuotes;
 			}
 			else
 			{

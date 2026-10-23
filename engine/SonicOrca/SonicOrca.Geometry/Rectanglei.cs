@@ -2,6 +2,9 @@ using System;
 
 namespace SonicOrca.Geometry;
 
+/// <summary>
+/// An axis-aligned rectangle in integers, given by its top-left corner and its size.
+/// </summary>
 public struct Rectanglei : IEquatable<Rectanglei>
 {
 	public static Rectanglei Empty => default;
@@ -162,12 +165,7 @@ public struct Rectanglei : IEquatable<Rectanglei>
 
 	public override bool Equals(object obj)
 	{
-		Rectanglei rectanglei = (Rectanglei)obj;
-		if (rectanglei.X == X && rectanglei.Y == Y && rectanglei.Width == Width)
-		{
-			return rectanglei.Height == Height;
-		}
-		return false;
+		return Equals((Rectanglei)obj);
 	}
 
 	public bool Equals(Rectanglei other)
@@ -196,13 +194,13 @@ public struct Rectanglei : IEquatable<Rectanglei>
 
 	public static Rectanglei Intersect(Rectanglei a, Rectanglei b)
 	{
-		int num = Math.Max(a.X, b.X);
-		int num2 = Math.Min(a.Right, b.Right);
-		int num3 = Math.Max(a.Y, b.Y);
-		int num4 = Math.Min(a.Bottom, b.Bottom);
-		if (num2 >= num && num4 >= num3)
+		int left = Math.Max(a.X, b.X);
+		int right = Math.Min(a.Right, b.Right);
+		int top = Math.Max(a.Y, b.Y);
+		int bottom = Math.Min(a.Bottom, b.Bottom);
+		if (right >= left && bottom >= top)
 		{
-			return new Rectanglei(num, num3, num2 - num, num4 - num3);
+			return new Rectanglei(left, top, right - left, bottom - top);
 		}
 		return Empty;
 	}
