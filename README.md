@@ -144,15 +144,21 @@ dotnet test --project tests/S2HD.Tests                                          
 The resource file tests make their own small files. The game data tests read the real `sonicorca.dat` and are
 skipped when the game files are not found. Set `S2HD_GAME_DIR` if they are not in the default location.
 
-The regression test plays the Emerald Hill attract demo in the release build. It saves screenshots at fixed level
-ticks and compares them with golden screenshots. The golden screenshots come from the game files, so Git ignores
-them (`tests/golden/`). Record them once from a known-good build:
+The regression tests run the release build and save screenshots at fixed level ticks:
+
+- One test plays the Emerald Hill attract demo, which moves the player through the first part of the level.
+- One test for each level that the demo data contains (EHZ, CPZ, HTZ, MTZ and DEZ, acts 1 and 2) starts the level
+  with no input.
+
+The tests compare the screenshots with golden screenshots. A run takes about 2 minutes. The golden screenshots come
+from the game files, so Git ignores them (`tests/golden/`). Record them once from a known-good build:
 
 1. Build the game for your platform, as the sections above describe.
 2. Run `S2HD_RECORD_GOLDEN=1 dotnet test --project tests/S2HD.Tests --filter-trait "Category=Regression"`.
 
-After a change, build the game again and run the tests. The test copies screenshots that do not match to
-`tests/golden/actual`. Set `S2HD_EXE` to test a build in a different location.
+After a change, build the game again and run the tests. The tests copy screenshots that do not match to
+`tests/golden/actual`. When a change is meant to change what the game draws, check the new screenshots, then record
+the golden screenshots again. Set `S2HD_EXE` to test a build in a different location.
 
 The test uses these environment variables, which you can also set by hand:
 
