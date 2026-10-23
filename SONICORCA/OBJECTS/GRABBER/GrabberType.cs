@@ -10,6 +10,7 @@ using SonicOrca.Core.Objects.Metadata;
 #nullable disable
 namespace SONICORCA.OBJECTS.GRABBER;
 
+/// <summary>The object type of the Grabber spider badnik from Chemical Plant Zone.</summary>
 [SonicOrca.Core.Objects.Metadata.Name("Grabber")]
 [Description("Grabber from Sonic 2")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Badnik)]

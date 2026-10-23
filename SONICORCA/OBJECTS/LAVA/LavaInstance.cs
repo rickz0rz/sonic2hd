@@ -16,11 +16,20 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.LAVA;
 
+/// <summary>
+/// A rectangle of lava, measured in tiles of 64 units. It hurts characters that touch it, gives off light from its top
+/// edge, and makes heat particles. It draws a glowing top row, a middle row, and bottom tiles for the rest.
+/// </summary>
 public class LavaInstance : ActiveObject
 {
 	private const int AnimationTop = 0;
 	private const int AnimationMiddle = 1;
 	private const int AnimationBottom = 2;
+	private const int TileSize = 64;
+
+	/// <summary>The lava makes a row of heat particles one time in this number of ticks.</summary>
+	private const int HeatParticleInterval = 24;
+
 	private AnimationInstance _animationTop;
 	private AnimationInstance _animationMiddle;
 	private AnimationInstance _animationBottom;
@@ -43,23 +52,23 @@ public class LavaInstance : ActiveObject
 	{
 		get
 		{
-			return new Rectanglei(-_size.X / 2 * 64 /*0x40*/, -_size.Y / 2 * 64 /*0x40*/, _size.X * 64 /*0x40*/, _size.Y * 64 /*0x40*/);
+			return new Rectanglei(-_size.X / 2 * TileSize, -_size.Y / 2 * TileSize, _size.X * TileSize, _size.Y * TileSize);
 		}
 	}
 
 	protected override void OnStart()
 	{
-		AnimationGroup loadedResource = ResourceTree.GetLoadedResource<AnimationGroup>(Type.GetAbsolutePath("/ANIGROUP"));
-		_animationTop = new AnimationInstance(loadedResource);
-		_animationMiddle = new AnimationInstance(loadedResource, 1);
-		_animationBottom = new AnimationInstance(loadedResource, 2);
-		CollisionVectors = CollisionVector.FromRectangle(this, new Rectanglei(-_size.X / 2 * 64 /*0x40*/, -_size.Y / 2 * 64 /*0x40*/, _size.X * 64 /*0x40*/, _size.Y * 64 /*0x40*/));
+		AnimationGroup animationGroup = ResourceTree.GetLoadedResource<AnimationGroup>(Type.GetAbsolutePath("/ANIGROUP"));
+		_animationTop = new AnimationInstance(animationGroup, AnimationTop);
+		_animationMiddle = new AnimationInstance(animationGroup, AnimationMiddle);
+		_animationBottom = new AnimationInstance(animationGroup, AnimationBottom);
+		CollisionVectors = CollisionVector.FromRectangle(this, Bounds);
 		CollisionVectors[1].Flags = CollisionFlags.Conveyor;
-		Priority = 4096 /*0x1000*/;
-		Rectanglei rectanglei = Bounds;
-		DesignBounds = rectanglei;
-		rectanglei = rectanglei.OffsetBy(Position);
-		_lightSource = new VectorLightSource(32 /*0x20*/, rectanglei.TopLeft, rectanglei.TopRight);
+		Priority = 4096;
+		Rectanglei bounds = Bounds;
+		DesignBounds = bounds;
+		bounds = bounds.OffsetBy(Position);
+		_lightSource = new VectorLightSource(32, bounds.TopLeft, bounds.TopRight);
 		Level.LightingManager.RegisterLightSource(_lightSource);
 	}
 
@@ -77,29 +86,27 @@ public class LavaInstance : ActiveObject
 
 	protected override void OnUpdate()
 	{
-		Rectanglei rectanglei = Bounds.OffsetBy(Position);
-		_lightSource.A = rectanglei.TopLeft;
-		_lightSource.B = rectanglei.TopRight;
-		if (Level.Ticks % 24 != 0)
+		Rectanglei bounds = Bounds.OffsetBy(Position);
+		_lightSource.A = bounds.TopLeft;
+		_lightSource.B = bounds.TopRight;
+		if (Level.Ticks % HeatParticleInterval != 0)
 			return;
 		ParticleManager particleManager = Level.ParticleManager;
 		Random random = particleManager.Random;
-		int num1 = -_size.X / 2 * 64 /*0x40*/;
-		int num2 = -_size.Y / 2 * 64 /*0x40*/;
-		for (int index1 = 0; index1 < _size.X; ++index1)
+		int left = -_size.X / 2 * TileSize;
+		int top = -_size.Y / 2 * TileSize;
+		// Make one heat particle near the centre of each tile in the top row.
+		for (int column = 0; column < _size.X; ++column)
 		{
-			for (int index2 = 0; index2 < 1; ++index2)
+			Vector2i tileCentre = Position + new Vector2i(left + column * TileSize + TileSize / 2, top + TileSize / 2);
+			particleManager.Add(new Particle()
 			{
-				Vector2i vector2i = Position + new Vector2i(num1 + index1 * 64 /*0x40*/ + 32 /*0x20*/, num2 + index2 * 64 /*0x40*/ + 32 /*0x20*/);
-				particleManager.Add(new Particle()
-				{
-					Type = ParticleType.Heat,
-					Layer = Layer,
-					Position = (Vector2)(vector2i + new Vector2i(random.Next(-4, 8), random.Next(-4, 8))),
-					Velocity = new Vector2(random.NextSignedDouble() * 1.0, random.NextDouble() * -1.4 - 0.8),
-					Time = random.Next(60, 120)
-				});
-			}
+				Type = ParticleType.Heat,
+				Layer = Layer,
+				Position = (Vector2)(tileCentre + new Vector2i(random.Next(-4, 8), random.Next(-4, 8))),
+				Velocity = new Vector2(random.NextSignedDouble() * 1.0, random.NextDouble() * -1.4 - 0.8),
+				Time = random.Next(60, 120)
+			});
 		}
 	}
 
@@ -116,125 +123,78 @@ public class LavaInstance : ActiveObject
 			return;
 		IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
 		objectRenderer.EmitsLight = true;
-		int num1 = -_size.X / 2 * 64 /*0x40*/;
-		int y1 = -_size.Y / 2 * 64 /*0x40*/;
-		int val2_1 = (_size.X + 1) / 2 * 64 /*0x40*/;
-		int val2_2 = (_size.Y + 1) / 2 * 64 /*0x40*/;
-		Rectanglei source1 = _animationTop.CurrentFrame.Source;
-		Vector2 scale;
-		for (int x1 = num1; x1 < val2_1; x1 += source1.Width)
+		int left = -_size.X / 2 * TileSize;
+		int top = -_size.Y / 2 * TileSize;
+		int right = (_size.X + 1) / 2 * TileSize;
+		int bottom = (_size.Y + 1) / 2 * TileSize;
+
+		// The top row glows above the top edge, with additive blending.
+		Rectanglei topSource = _animationTop.CurrentFrame.Source;
+		for (int x = left; x < right; x += topSource.Width)
 		{
-			Rectangle destination = new Rectangle(x1, y1 - source1.Height, source1.Width, source1.Height);
-			destination.Right = Math.Min(destination.Right, val2_1);
-			destination.Bottom = Math.Min(destination.Bottom, val2_2);
-			Rectangle source2 = (Rectangle)_animationTop.CurrentFrame.Source with
+			Rectangle destination = new Rectangle(x, top - topSource.Height, topSource.Width, topSource.Height);
+			destination.Right = Math.Min(destination.Right, right);
+			destination.Bottom = Math.Min(destination.Bottom, bottom);
+			Rectangle source = (Rectangle)_animationTop.CurrentFrame.Source with
 			{
 				Width = destination.Width,
 				Height = destination.Height
 			};
 			objectRenderer.Texture = _animationTop.CurrentTexture;
 			objectRenderer.BlendMode = BlendMode.Additive;
-			ref Rectangle local1 = ref destination;
-			double x2 = local1.X;
-			scale = objectRenderer.Scale;
-			double x3 = scale.X;
-			local1.X = x2 * x3;
-			ref Rectangle local2 = ref destination;
-			double y2 = local2.Y;
-			scale = objectRenderer.Scale;
-			double y3 = scale.Y;
-			local2.Y = y2 * y3;
-			ref Rectangle local3 = ref destination;
-			double width = local3.Width;
-			scale = objectRenderer.Scale;
-			double x4 = scale.X;
-			local3.Width = width * x4;
-			ref Rectangle local4 = ref destination;
-			double height = local4.Height;
-			scale = objectRenderer.Scale;
-			double y4 = scale.Y;
-			local4.Height = height * y4;
-			objectRenderer.Render(source2, destination);
+			ScaleRectangle(ref destination, objectRenderer.Scale);
+			objectRenderer.Render(source, destination);
 		}
 		objectRenderer.BlendMode = BlendMode.Alpha;
-		int num2 = y1;
-		Animation.Frame currentFrame = _animationMiddle.CurrentFrame;
-		Rectanglei source3 = currentFrame.Source;
-		for (int x5 = num1; x5 < val2_1; x5 += source3.Width)
+
+		// The middle row starts at the top edge.
+		int middleBottom = top;
+		Rectanglei tileSource = _animationMiddle.CurrentFrame.Source;
+		for (int x = left; x < right; x += tileSource.Width)
 		{
-			Rectangle destination = new Rectangle(x5, y1, source3.Width, source3.Height);
-			destination.Right = Math.Min(destination.Right, val2_1);
-			destination.Bottom = Math.Min(destination.Bottom, val2_2);
-			currentFrame = _animationMiddle.CurrentFrame;
-			Rectangle source4 = (Rectangle)currentFrame.Source with
+			Rectangle destination = new Rectangle(x, top, tileSource.Width, tileSource.Height);
+			destination.Right = Math.Min(destination.Right, right);
+			destination.Bottom = Math.Min(destination.Bottom, bottom);
+			Rectangle source = (Rectangle)_animationMiddle.CurrentFrame.Source with
 			{
 				Width = destination.Width,
 				Height = destination.Height
 			};
-			num2 = (int)destination.Bottom;
-			ref Rectangle local5 = ref destination;
-			double x6 = local5.X;
-			scale = objectRenderer.Scale;
-			double x7 = scale.X;
-			local5.X = x6 * x7;
-			ref Rectangle local6 = ref destination;
-			double y5 = local6.Y;
-			scale = objectRenderer.Scale;
-			double y6 = scale.Y;
-			local6.Y = y5 * y6;
-			ref Rectangle local7 = ref destination;
-			double width = local7.Width;
-			scale = objectRenderer.Scale;
-			double x8 = scale.X;
-			local7.Width = width * x8;
-			ref Rectangle local8 = ref destination;
-			double height = local8.Height;
-			scale = objectRenderer.Scale;
-			double y7 = scale.Y;
-			local8.Height = height * y7;
+			middleBottom = (int)destination.Bottom;
+			ScaleRectangle(ref destination, objectRenderer.Scale);
 			objectRenderer.Texture = _animationMiddle.CurrentTexture;
-			objectRenderer.Render(source4, destination);
+			objectRenderer.Render(source, destination);
 		}
-		if (num2 >= val2_2)
+		if (middleBottom >= bottom)
 			return;
-		currentFrame = _animationBottom.CurrentFrame;
-		source3 = currentFrame.Source;
-		for (int y8 = num2; y8 < val2_2; y8 += source3.Height)
+
+		// Bottom tiles fill the rest of the rectangle.
+		tileSource = _animationBottom.CurrentFrame.Source;
+		for (int y = middleBottom; y < bottom; y += tileSource.Height)
 		{
-			for (int x9 = num1; x9 < val2_1; x9 += source3.Width)
+			for (int x = left; x < right; x += tileSource.Width)
 			{
-				Rectangle destination = new Rectangle(x9, y8, source3.Width, source3.Height);
-				destination.Right = Math.Min(destination.Right, val2_1);
-				destination.Bottom = Math.Min(destination.Bottom, val2_2);
-				currentFrame = _animationBottom.CurrentFrame;
-				Rectangle source5 = (Rectangle)currentFrame.Source with
+				Rectangle destination = new Rectangle(x, y, tileSource.Width, tileSource.Height);
+				destination.Right = Math.Min(destination.Right, right);
+				destination.Bottom = Math.Min(destination.Bottom, bottom);
+				Rectangle source = (Rectangle)_animationBottom.CurrentFrame.Source with
 				{
 					Width = destination.Width,
 					Height = destination.Height
 				};
-				ref Rectangle local9 = ref destination;
-				double x10 = local9.X;
-				scale = objectRenderer.Scale;
-				double x11 = scale.X;
-				local9.X = x10 * x11;
-				ref Rectangle local10 = ref destination;
-				double y9 = local10.Y;
-				scale = objectRenderer.Scale;
-				double y10 = scale.Y;
-				local10.Y = y9 * y10;
-				ref Rectangle local11 = ref destination;
-				double width = local11.Width;
-				scale = objectRenderer.Scale;
-				double x12 = scale.X;
-				local11.Width = width * x12;
-				ref Rectangle local12 = ref destination;
-				double height = local12.Height;
-				scale = objectRenderer.Scale;
-				double y11 = scale.Y;
-				local12.Height = height * y11;
+				ScaleRectangle(ref destination, objectRenderer.Scale);
 				objectRenderer.Texture = _animationBottom.CurrentTexture;
-				objectRenderer.Render(source5, destination);
+				objectRenderer.Render(source, destination);
 			}
 		}
+	}
+
+	/// <summary>Multiplies the position and the size of <paramref name="rectangle"/> by <paramref name="scale"/>.</summary>
+	private static void ScaleRectangle(ref Rectangle rectangle, Vector2 scale)
+	{
+		rectangle.X *= scale.X;
+		rectangle.Y *= scale.Y;
+		rectangle.Width *= scale.X;
+		rectangle.Height *= scale.Y;
 	}
 }

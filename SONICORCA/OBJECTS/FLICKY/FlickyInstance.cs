@@ -10,6 +10,7 @@ using SonicOrca.Geometry;
 #nullable disable
 namespace SONICORCA.OBJECTS.FLICKY;
 
+/// <summary>The Flicky bird that a destroyed badnik releases. The base class <see cref="Animal"/> moves it.</summary>
 public class FlickyInstance : Animal
 {
 	public FlickyInstance()

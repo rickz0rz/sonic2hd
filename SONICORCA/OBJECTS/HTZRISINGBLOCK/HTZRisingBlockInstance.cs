@@ -15,13 +15,20 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.HTZRISINGBLOCK;
 
+/// <summary>
+/// A large solid block of ground or ceiling from Hill Top Zone. A rising group moves it up and down during the
+/// earthquake.
+/// </summary>
 public class HTZRisingBlockInstance : ActiveObject
 {
-	private AnimationInstance _animation;
-	private Vector2i _size = new Vector2i(2048 /*0x0800*/, 512 /*0x0200*/);
-	private HTZRisingBlockInstance.BlockType _blockKind;
+	/// <summary>The FloorB block is not drawn when the first character is below this Y position.</summary>
+	private const int FloorBHideY = 3400;
 
-	public HTZRisingBlockInstance.BlockType BlockKind
+	private AnimationInstance _animation;
+	private Vector2i _size = new Vector2i(2048, 512);
+	private BlockType _blockKind;
+
+	public BlockType BlockKind
 	{
 		get => _blockKind;
 		set => _blockKind = value;
@@ -54,10 +61,10 @@ public class HTZRisingBlockInstance : ActiveObject
 
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 	{
-		if (BlockKind == HTZRisingBlockInstance.BlockType.FloorB)
+		if (BlockKind == BlockType.FloorB)
 		{
-			ICharacter character = Level.ObjectManager.Characters.FirstOrDefault<ICharacter>();
-			if (character != null && character.Position.Y > 3400)
+			ICharacter character = Level.ObjectManager.Characters.FirstOrDefault();
+			if (character != null && character.Position.Y > FloorBHideY)
 				return;
 		}
 		renderer.GetObjectRenderer().Render(_animation);
@@ -66,24 +73,20 @@ public class HTZRisingBlockInstance : ActiveObject
 	private CollisionVector[] CalculateCollisionVectors()
 	{
 		CollisionVector[] collisionVectors;
-		if (BlockKind == HTZRisingBlockInstance.BlockType.FloorB)
+		if (BlockKind == BlockType.FloorB)
 		{
-			Vector2i vector2i1 = new Vector2i(_size.X / 2, _size.Y / 2);
-			Vector2i vector2i2 = new Vector2i(0, 58) - vector2i1;
-			Vector2i vector2i3 = new Vector2i(3072 /*0x0C00*/, 838) - vector2i1;
-			Vector2i size = Size;
-			Vector2i vector2i4 = new Vector2i(0, size.Y / 2) - vector2i1;
-			size = Size;
-			int x = size.X;
-			size = Size;
-			int y = size.Y / 2;
-			Vector2i vector2i5 = new Vector2i(x, y) - vector2i1;
+			// FloorB is a polygon with a sloped top edge from topLeft to slopeEnd.
+			Vector2i halfSize = new Vector2i(_size.X / 2, _size.Y / 2);
+			Vector2i topLeft = new Vector2i(0, 58) - halfSize;
+			Vector2i slopeEnd = new Vector2i(3072, 838) - halfSize;
+			Vector2i middleLeft = new Vector2i(0, Size.Y / 2) - halfSize;
+			Vector2i middleRight = new Vector2i(Size.X, Size.Y / 2) - halfSize;
 			collisionVectors = new CollisionVector[4]
 			{
-		new CollisionVector( this, vector2i4, vector2i2, flags: CollisionFlags.Solid),
-		new CollisionVector( this, vector2i2, vector2i3, flags: CollisionFlags.Solid),
-		new CollisionVector( this, vector2i3, vector2i5, flags: CollisionFlags.Solid),
-		new CollisionVector( this, vector2i5, vector2i4, flags: CollisionFlags.Solid)
+				new CollisionVector(this, middleLeft, topLeft, flags: CollisionFlags.Solid),
+				new CollisionVector(this, topLeft, slopeEnd, flags: CollisionFlags.Solid),
+				new CollisionVector(this, slopeEnd, middleRight, flags: CollisionFlags.Solid),
+				new CollisionVector(this, middleRight, middleLeft, flags: CollisionFlags.Solid)
 			};
 		}
 		else

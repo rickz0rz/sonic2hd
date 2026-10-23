@@ -13,6 +13,7 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.HTZVINELIFT.PILLAR;
 
+/// <summary>The pillar at the top or the bottom end of a vine lift path in Hill Top Zone. It is scenery only.</summary>
 public class HTZVineLiftPillarInstance : ActiveObject
 {
 	private const int TopAnimationIndex = 2;
@@ -37,13 +38,13 @@ public class HTZVineLiftPillarInstance : ActiveObject
 
 	public HTZVineLiftPillarInstance()
 	{
-		DesignBounds = new Rectanglei(-64, -170, 128 /*0x80*/, 340);
+		DesignBounds = new Rectanglei(-64, -170, 128, 340);
 	}
 
 	protected override void OnStart()
 	{
 		base.OnStart();
-		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("//ANIGROUP"), _bottom ? 3 : 2);
+		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("//ANIGROUP"), _bottom ? BottomAnimationIndex : TopAnimationIndex);
 		Priority = -256;
 	}
 

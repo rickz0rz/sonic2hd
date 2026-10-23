@@ -10,6 +10,7 @@ using SonicOrca.Core.Objects.Metadata;
 #nullable disable
 namespace SONICORCA.OBJECTS.HTZDOOR;
 
+/// <summary>The object type of the one-way door from Hill Top Zone.</summary>
 [SonicOrca.Core.Objects.Metadata.Name("One-way door")]
 [Description("One-way door from from Hill Top Zone, Sonic 2")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Obstacle)]

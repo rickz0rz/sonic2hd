@@ -21,24 +21,46 @@ using SonicOrca.Resources;
 #nullable disable
 namespace SONICORCA.OBJECTS.HTZSEESAW;
 
+/// <summary>
+/// The see-saw from Hill Top Zone, with the Sol fireball badnik on one end. A character that tilts the see-saw throws Sol
+/// into the air. When Sol lands on the other end, it launches the characters on the opposite side.
+/// </summary>
 public class HTZSeeSawInstance : ActiveObject
 {
+	/// <summary>The rotation of the platform for each bias (-1, 0 and 1).</summary>
 	private readonly IReadOnlyList<double> VisualAngles = new double[3]
 	{
-	-1.0 * Math.PI / 8.0,
-	0.0,
-	Math.PI / 8.0
+		-1.0 * Math.PI / 8.0,
+		0.0,
+		Math.PI / 8.0
 	};
+
+	/// <summary>The Y position of the left end of the collision vector for each bias (-1, 0 and 1).</summary>
+	private static readonly int[] LeftEndYOffsets = new int[3] { 80, 4, -64 };
+
+	/// <summary>The Y position of the right end of the collision vector for each bias (-1, 0 and 1).</summary>
+	private static readonly int[] RightEndYOffsets = new int[3] { -64, 4, 80 };
+
 	private const int AnimationStand = 0;
 	private const int AnimationPlatform = 1;
+
+	/// <summary>The half width of the middle part of the platform.</summary>
+	private const int MiddleHalfWidth = 32;
+
+	private const int SolOffsetX = 160;
+	private const int SolOffsetY = 32;
+
 	private AnimationInstance _animationStand;
 	private AnimationInstance _animationPlatform;
 	private readonly List<ICharacter> _charactersOnLeftSide = new List<ICharacter>();
 	private readonly List<ICharacter> _charactersOnMiddleSide = new List<ICharacter>();
 	private readonly List<ICharacter> _charactersOnRightSide = new List<ICharacter>();
+
+	/// <summary>The side that is down: -1 is left, 0 is level, 1 is right.</summary>
 	private int _bias;
+
 	private double _visualAngle;
-	private HTZSeeSawInstance.Sol _sol;
+	private Sol _sol;
 	private double _maxCharacterLandVelocity;
 	private double _strengthMultiplier = 1.0;
 
@@ -56,7 +78,7 @@ public class HTZSeeSawInstance : ActiveObject
 	{
 		get
 		{
-			return _charactersOnLeftSide.Concat<ICharacter>(_charactersOnMiddleSide).Concat<ICharacter>(_charactersOnRightSide);
+			return _charactersOnLeftSide.Concat(_charactersOnMiddleSide).Concat(_charactersOnRightSide);
 		}
 	}
 
@@ -64,37 +86,37 @@ public class HTZSeeSawInstance : ActiveObject
 
 	protected override void OnStart()
 	{
-		AnimationGroup loadedResource = ResourceTree.GetLoadedResource<AnimationGroup>(Type, "/ANIGROUP");
-		_animationStand = new AnimationInstance(loadedResource);
-		_animationPlatform = new AnimationInstance(loadedResource, 1);
+		AnimationGroup animationGroup = ResourceTree.GetLoadedResource<AnimationGroup>(Type, "/ANIGROUP");
+		_animationStand = new AnimationInstance(animationGroup, AnimationStand);
+		_animationPlatform = new AnimationInstance(animationGroup, AnimationPlatform);
 		CollisionVectors = new CollisionVector[1]
 		{
-	  new CollisionVector( this, new Vector2i(), new Vector2i(), flags: CollisionFlags.Conveyor | CollisionFlags.NoAngle | CollisionFlags.NoBalance | CollisionFlags.NoAutoAlignment)
+			new CollisionVector(this, new Vector2i(), new Vector2i(), flags: CollisionFlags.Conveyor | CollisionFlags.NoAngle | CollisionFlags.NoBalance | CollisionFlags.NoAutoAlignment)
 		};
 		_bias = FlipX ? -1 : 1;
 		_visualAngle = VisualAngles[_bias + 1];
-		_sol = Level.ObjectManager.AddSubObject<HTZSeeSawInstance.Sol>(this);
-		_sol.Position = Position + new Vector2i(160 /*0xA0*/ * _bias, 32 /*0x20*/);
+		_sol = Level.ObjectManager.AddSubObject<Sol>(this);
+		_sol.Position = Position + new Vector2i(SolOffsetX * _bias, SolOffsetY);
 		_sol.Side = _bias;
 		_sol.LockLifetime = true;
 		Priority = -256;
-		ShadowInfo.MaxShadowOffset = new Vector2i(16 /*0x10*/);
+		ShadowInfo.MaxShadowOffset = new Vector2i(16);
 	}
 
 	protected override void OnUpdateEditor()
 	{
 		base.OnUpdateEditor();
-		_sol.Position = Position + new Vector2i(160 /*0xA0*/ * _bias, 32 /*0x20*/);
+		_sol.Position = Position + new Vector2i(SolOffsetX * _bias, SolOffsetY);
 	}
 
 	protected override void OnUpdate()
 	{
 		if (_charactersOnLeftSide.Count != 0 || _charactersOnMiddleSide.Count != 0 || _charactersOnRightSide.Count != 0)
 		{
-			int num = Math.Sign(_charactersOnRightSide.Count - _charactersOnLeftSide.Count);
-			if (num != _bias)
+			int newBias = Math.Sign(_charactersOnRightSide.Count - _charactersOnLeftSide.Count);
+			if (newBias != _bias)
 			{
-				_bias = num;
+				_bias = newBias;
 				OnCharacterTouch(_bias, _maxCharacterLandVelocity);
 			}
 		}
@@ -105,11 +127,6 @@ public class HTZSeeSawInstance : ActiveObject
 	{
 		base.OnStop();
 		_sol.FinishForever();
-	}
-
-	protected override void OnCollision(CollisionEvent e)
-	{
-		int classification = (int)e.ActiveObject.Type.Classification;
 	}
 
 	private List<ICharacter> GetStandingCharacters()
@@ -132,57 +149,45 @@ public class HTZSeeSawInstance : ActiveObject
 		{
 			if (standingCharacter.Velocity.Y >= 0.0 || !standingCharacter.IsAirborne)
 			{
-				Vector2i position = standingCharacter.Position;
-				int x1 = position.X;
-				position = Position;
-				int num1 = position.X - 32 /*0x20*/;
-				int num2;
-				if (x1 < num1)
+				// These side codes (left -1, right 0, middle 1) do not match the codes of Sol.Side (-1 and 1).
+				int side;
+				if (standingCharacter.Position.X < Position.X - MiddleHalfWidth)
 				{
-					num2 = -1;
+					side = -1;
 					_charactersOnLeftSide.Add(standingCharacter);
+				}
+				else if (standingCharacter.Position.X > Position.X + MiddleHalfWidth)
+				{
+					side = 0;
+					_charactersOnRightSide.Add(standingCharacter);
 				}
 				else
 				{
-					position = standingCharacter.Position;
-					int x2 = position.X;
-					position = Position;
-					int num3 = position.X + 32 /*0x20*/;
-					if (x2 > num3)
-					{
-						num2 = 0;
-						_charactersOnRightSide.Add(standingCharacter);
-					}
-					else
-					{
-						num2 = 1;
-						_charactersOnMiddleSide.Add(standingCharacter);
-					}
+					side = 1;
+					_charactersOnMiddleSide.Add(standingCharacter);
 				}
-				if (!_sol.Flying && num2 != _sol.Side)
+				if (!_sol.Flying && side != _sol.Side)
 					_maxCharacterLandVelocity = Math.Max(_maxCharacterLandVelocity, standingCharacter.Velocity.Y);
 			}
 		}
 		if (_bias < -1 || _bias > 1)
 			return;
-		int[] numArray1 = new int[3] { 80 /*0x50*/, 4, -64 };
-		int[] numArray2 = new int[3] { -64, 4, 80 /*0x50*/ };
 		CollisionVector collisionVector = CollisionVectors[0];
-		collisionVector.RelativeA = new Vector2i(-192, numArray1[_bias + 1]);
-		collisionVector.RelativeB = new Vector2i(192 /*0xC0*/, numArray2[_bias + 1]);
+		collisionVector.RelativeA = new Vector2i(-192, LeftEndYOffsets[_bias + 1]);
+		collisionVector.RelativeB = new Vector2i(192, RightEndYOffsets[_bias + 1]);
 		RegisterCollisionUpdate();
+		// Keep the characters on the surface after the platform tilts.
 		foreach (ICharacter character in CharactersOnObject)
 		{
-			int y;
-			if (GetYIntersectAt(character.Position.X, out y))
+			if (GetYIntersectAt(character.Position.X, out int y))
 				character.Position = new Vector2i(character.Position.X, y - character.CollisionRadius.Y - 4);
 		}
 	}
 
+	/// <summary>Gets the Y position of the platform surface at the given X position.</summary>
 	private bool GetYIntersectAt(int x, out int y)
 	{
-		Vector2 intersection;
-		if (!CollisionVector.GetIntersection(CollisionVectors[0], new CollisionVector(new Vector2i(x, Position.Y - 512 /*0x0200*/), new Vector2i(x, Position.Y + 512 /*0x0200*/)), out intersection))
+		if (!CollisionVector.GetIntersection(CollisionVectors[0], new CollisionVector(new Vector2i(x, Position.Y - 512), new Vector2i(x, Position.Y + 512)), out Vector2 intersection))
 		{
 			y = 0;
 			return false;
@@ -191,29 +196,31 @@ public class HTZSeeSawInstance : ActiveObject
 		return true;
 	}
 
+	/// <summary>Throws Sol into the air when the see-saw tilts to a side that Sol is not on.</summary>
 	private void OnCharacterTouch(int side, double yVelocity)
 	{
 		if (_sol.Flying || side == _sol.Side)
 			return;
-		Vector2 vector2 = new Vector2(69.0 / 16.0, 32.375);
+		Vector2 launchVelocity = new Vector2(69.0 / 16.0, 32.375);
 		if (side != 0)
 		{
-			vector2 = new Vector2(51.0 / 16.0, 43.75);
+			launchVelocity = new Vector2(51.0 / 16.0, 43.75);
 			if (yVelocity > 36.0)
-				vector2 = new Vector2(2.5, 56.0);
+				launchVelocity = new Vector2(2.5, 56.0);
 		}
 		if (_sol.Side == 1)
-			vector2.X *= -1.0;
-		vector2.Y *= -1.0;
-		_sol.Velocity = vector2;
+			launchVelocity.X *= -1.0;
+		launchVelocity.Y *= -1.0;
+		_sol.Velocity = launchVelocity;
 		_sol.Side = _sol.Side == 1 ? -1 : 1;
 		_sol.Flying = true;
 	}
 
+	/// <summary>Launches the characters on the side opposite to where Sol landed, and on the middle.</summary>
 	private void OnSolTouch(int side, double yVelocity)
 	{
-		IEnumerable<ICharacter> characters = side == -1 ? _charactersOnRightSide.Concat<ICharacter>(_charactersOnMiddleSide) : _charactersOnLeftSide.Concat<ICharacter>(_charactersOnMiddleSide);
-		bool flag = false;
+		IEnumerable<ICharacter> characters = side == -1 ? _charactersOnRightSide.Concat(_charactersOnMiddleSide) : _charactersOnLeftSide.Concat(_charactersOnMiddleSide);
+		bool launched = false;
 		foreach (ICharacter character in characters)
 		{
 			character.LeaveGround();
@@ -222,9 +229,9 @@ public class HTZSeeSawInstance : ActiveObject
 			character.TumbleAngle = 0.0;
 			character.TumbleTurns = 1;
 			character.GroundVelocity = 0.0;
-			flag = true;
+			launched = true;
 		}
-		if (!flag)
+		if (!launched)
 			return;
 		Level.SoundManager.PlaySound(this, Type.GetAbsolutePath("SONICORCA/SOUND/SPRING"));
 	}
@@ -253,23 +260,30 @@ public class HTZSeeSawInstance : ActiveObject
 		objectRenderer.Render(_animationStand);
 	}
 
+	/// <summary>
+	/// The Sol fireball badnik that sits on one end of the see-saw. It flies to the other end when a character tilts
+	/// the see-saw.
+	/// </summary>
 	private class Sol : Enemy
 	{
 		private const int AnimationSol = 1;
 		private const double Gravity = 0.875;
+
+		/// <summary>The Y offset of Sol at rest. The index is the bias plus 1, plus 2 more when Sol is on the right.</summary>
 		private static readonly IReadOnlyList<int> SolRestYOffsets = new int[5]
 		{
-	  -32,
-	  -112,
-	  -188,
-	  -112,
-	  -32
+			-32,
+			-112,
+			-188,
+			-112,
+			-32
 		};
 		private AnimationInstance _animation;
 		private bool _facingRight;
 
 		public Vector2 Velocity { get; set; }
 
+		/// <summary>The end of the see-saw that Sol is on: -1 is left, 1 is right.</summary>
 		public int Side { get; set; }
 
 		public bool Flying { get; set; }
@@ -281,48 +295,34 @@ public class HTZSeeSawInstance : ActiveObject
 			base.OnStart();
 			CollisionRectangles = new CollisionRectangle[1]
 			{
-		new CollisionRectangle( this, 0, -36, -36, 72, 72)
+				new CollisionRectangle(this, 0, -36, -36, 72, 72)
 			};
-			_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("SONICORCA/OBJECTS/SOL/ANIGROUP"), 1);
-			ShadowInfo.MaxShadowOffset = new Vector2i(16 /*0x10*/, 16 /*0x10*/);
+			_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("SONICORCA/OBJECTS/SOL/ANIGROUP"), AnimationSol);
+			ShadowInfo.MaxShadowOffset = new Vector2i(16, 16);
 		}
 
 		protected override void OnUpdate()
 		{
-			Vector2i position;
 			if (Level.Player.Protagonist != null)
-			{
-				position = Level.Player.Protagonist.Position;
-				int x1 = position.X;
-				position = Position;
-				int x2 = position.X;
-				_facingRight = x1 >= x2;
-			}
+				_facingRight = Level.Player.Protagonist.Position.X >= Position.X;
 			int index = SeeSaw._bias + 1;
 			if (Side == 1)
 				index += 2;
-			position = SeeSaw.Position;
-			int y = position.Y + 64 /*0x40*/ + HTZSeeSawInstance.Sol.SolRestYOffsets[index];
+			int restY = SeeSaw.Position.Y + 64 + SolRestYOffsets[index];
 			if (!Flying)
 			{
-				position = Position;
-				Position = new Vector2i(position.X, y);
+				Position = new Vector2i(Position.X, restY);
 			}
 			else
 			{
-				PositionPrecise = PositionPrecise + Velocity;
-				Velocity += new Vector2(0.0, 0.875);
-				if (Velocity.Y > 0.0)
+				PositionPrecise += Velocity;
+				Velocity += new Vector2(0.0, Gravity);
+				if (Velocity.Y > 0.0 && Position.Y >= restY)
 				{
-					position = Position;
-					if (position.Y >= y)
-					{
-						position = Position;
-						Position = new Vector2i(position.X, y);
-						Flying = false;
-						SeeSaw._bias = Side;
-						SeeSaw.OnSolTouch(Side, Velocity.Y);
-					}
+					Position = new Vector2i(Position.X, restY);
+					Flying = false;
+					SeeSaw._bias = Side;
+					SeeSaw.OnSolTouch(Side, Velocity.Y);
 				}
 			}
 			SeeSaw._charactersOnLeftSide.Clear();

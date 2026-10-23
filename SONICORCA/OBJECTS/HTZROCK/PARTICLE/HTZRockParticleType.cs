@@ -10,6 +10,7 @@ using SonicOrca.Core.Objects.Metadata;
 #nullable disable
 namespace SONICORCA.OBJECTS.HTZROCK.PARTICLE;
 
+/// <summary>The object type of the rock fragment that a broken rock or breakable block throws out.</summary>
 [SonicOrca.Core.Objects.Metadata.Name("Rock particle")]
 [Description("Rock particle from Hill Top Zone, Sonic 2")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Particle)]

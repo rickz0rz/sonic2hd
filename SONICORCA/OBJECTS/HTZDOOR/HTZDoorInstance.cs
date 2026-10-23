@@ -17,9 +17,23 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.HTZDOOR;
 
+/// <summary>
+/// The one-way door from Hill Top Zone. It is a solid barrier that slides up while a character is on the approach side,
+/// and slides down again when no character is there.
+/// </summary>
 public class HTZDoorInstance : ActiveObject
 {
-	private const int BarrierMoveSpeed = 32 /*0x20*/;
+	private const int BarrierMoveSpeed = 32;
+
+	/// <summary>The barrier offset when the door is fully open. It is the height of the barrier.</summary>
+	private const int OpenBarrierOffset = -320;
+
+	/// <summary>The horizontal distance from the door on the approach side in which a character opens the door.</summary>
+	private const int DetectionWidth = 2048;
+
+	/// <summary>The vertical distance above and below the door in which a character opens the door.</summary>
+	private const int DetectionHalfHeight = 1080;
+
 	private AnimationInstance _animation;
 	private Vector2i _initialPosition;
 	private int _barrierOffset;
@@ -35,14 +49,14 @@ public class HTZDoorInstance : ActiveObject
 
 	public HTZDoorInstance()
 	{
-		DesignBounds = new Rectanglei(-32, sbyte.MinValue, 64 /*0x40*/, 320);
+		DesignBounds = new Rectanglei(-32, -128, 64, 320);
 	}
 
 	protected override void OnStart()
 	{
 		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"));
 		_initialPosition = Position;
-		CollisionVectors = CollisionVector.FromRectangle(this, new Rectanglei(-32, sbyte.MinValue, 64 /*0x40*/, 320));
+		CollisionVectors = CollisionVector.FromRectangle(this, new Rectanglei(-32, -128, 64, 320));
 		foreach (CollisionVector collisionVector in CollisionVectors)
 			collisionVector.Flags |= CollisionFlags.Solid;
 	}
@@ -50,17 +64,23 @@ public class HTZDoorInstance : ActiveObject
 	protected override void OnUpdate()
 	{
 		_closed = _barrierOffset == 0;
-		_barrierOffset = Level.ObjectManager.Characters.Any<ICharacter>(x => CheckCharacter(x)) ? Math.Max(_barrierOffset - 32 /*0x20*/, -320) : Math.Min(_barrierOffset + 32 /*0x20*/, 0);
+		_barrierOffset = Level.ObjectManager.Characters.Any(CheckCharacter)
+			? Math.Max(_barrierOffset - BarrierMoveSpeed, OpenBarrierOffset)
+			: Math.Min(_barrierOffset + BarrierMoveSpeed, 0);
 		Position = _initialPosition + new Vector2i(0, _barrierOffset);
 	}
 
+	/// <summary>Returns true when the character is on the approach side of the door, near enough to open it.</summary>
 	private bool CheckCharacter(ICharacter character)
 	{
 		if (!character.ShouldReactToLevel)
 			return false;
-		int num1 = _closed ? 0 : character.CollisionRadius.X + 4;
-		int num2 = 1080;
-		return (_direction != DoorDirection.Left ? Rectanglei.FromLTRB(_initialPosition.X - 2048 /*0x0800*/, _initialPosition.Y - num2, _initialPosition.X + num1, _initialPosition.Y + num2) : Rectanglei.FromLTRB(_initialPosition.X - num1, _initialPosition.Y - num2, _initialPosition.X + 2048 /*0x0800*/, _initialPosition.Y + num2)).Contains(character.Position);
+		// While the door is open, the area also includes the door itself, so the door stays open for a character in it.
+		int doorMargin = _closed ? 0 : character.CollisionRadius.X + 4;
+		Rectanglei area = _direction != DoorDirection.Left
+			? Rectanglei.FromLTRB(_initialPosition.X - DetectionWidth, _initialPosition.Y - DetectionHalfHeight, _initialPosition.X + doorMargin, _initialPosition.Y + DetectionHalfHeight)
+			: Rectanglei.FromLTRB(_initialPosition.X - doorMargin, _initialPosition.Y - DetectionHalfHeight, _initialPosition.X + DetectionWidth, _initialPosition.Y + DetectionHalfHeight);
+		return area.Contains(character.Position);
 	}
 
 	protected override void OnAnimate() => _animation.Animate();

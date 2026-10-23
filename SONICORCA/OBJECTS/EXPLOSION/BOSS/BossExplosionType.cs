@@ -10,6 +10,7 @@ using SonicOrca.Core.Objects.Metadata;
 #nullable disable
 namespace SONICORCA.OBJECTS.EXPLOSION.BOSS;
 
+/// <summary>The object type of the explosion particle that a boss makes when it is hit or destroyed.</summary>
 [SonicOrca.Core.Objects.Metadata.Name("Boss explosion")]
 [Description("Boss explosion from Sonic 1")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Particle)]

@@ -11,6 +11,7 @@ using SonicOrca.Geometry;
 #nullable disable
 namespace SONICORCA.OBJECTS.HTZSEESAW;
 
+/// <summary>The object type of the see-saw and its Sol fireball from Hill Top Zone.</summary>
 [SonicOrca.Core.Objects.Metadata.Name("See Saw")]
 [Description("See Saw and Sol from Hill Top Zone, Sonic 2")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Platform)]
@@ -26,6 +27,6 @@ public class HTZSeeSawType : ObjectType
 
 	public new Vector2 GetLifeRadius(ActiveObject state)
 	{
-		return (Vector2)new Vector2i(0, 2048 /*0x0800*/);
+		return (Vector2)new Vector2i(0, 2048);
 	}
 }

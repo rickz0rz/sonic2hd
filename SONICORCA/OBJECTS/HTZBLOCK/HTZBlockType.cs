@@ -12,6 +12,7 @@ using SonicOrca.Geometry;
 #nullable disable
 namespace SONICORCA.OBJECTS.HTZBLOCK;
 
+/// <summary>The object type of the floating block from Hill Top Zone.</summary>
 [SonicOrca.Core.Objects.Metadata.Name("Floating block")]
 [Description("Floating block from Hill Top Zone, Sonic 2")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Platform)]
@@ -23,10 +24,6 @@ public class HTZBlockType : ObjectType
 
 	public Vector2 GetLifeRadius(Platform state)
 	{
-		Vector2 movementRadius = state.MovementRadius;
-		double x = movementRadius.X;
-		movementRadius = state.MovementRadius;
-		double y = movementRadius.Y;
-		return new Vector2(x, y);
+		return state.MovementRadius;
 	}
 }

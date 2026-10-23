@@ -13,9 +13,14 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.HTZROCK.PARTICLE;
 
+/// <summary>
+/// A rock fragment from Hill Top Zone. It starts with a velocity that the object that creates it gives, falls with
+/// gravity and has a random frame and size.
+/// </summary>
 public class HTZRockParticleInstance : ActiveObject
 {
 	private const int AnimationRockParticle = 1;
+	private const double Gravity = 9.0 / 16.0;
 	private AnimationInstance _animation;
 	private Vector2 _velocity;
 	private double _scale;
@@ -31,7 +36,7 @@ public class HTZRockParticleInstance : ActiveObject
 
 	protected override void OnStart()
 	{
-		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("//ANIGROUP"), 1);
+		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("//ANIGROUP"), AnimationRockParticle);
 		_animation.CurrentFrameIndex = Level.Random.Next(0, _animation.Animation.Frames.Count);
 		_scale = Level.Random.NextDouble() * 0.5 + 0.5;
 		Priority = 1512;
@@ -41,8 +46,8 @@ public class HTZRockParticleInstance : ActiveObject
 
 	protected override void OnUpdate()
 	{
-		_velocity.Y += 9.0 / 16.0;
-		PositionPrecise = PositionPrecise + _velocity;
+		_velocity.Y += Gravity;
+		PositionPrecise += _velocity;
 	}
 
 	protected override void OnAnimate() => _animation.Animate();

@@ -14,8 +14,14 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.LAYERSWITCH;
 
+/// <summary>
+/// An invisible line that changes the path and the layer of a character that crosses it. A switch with a width is
+/// horizontal and reacts to characters that cross it up or down. Otherwise it is vertical and reacts to characters that
+/// cross it left or right.
+/// </summary>
 public class LayerSwitchInstance : ActiveObject
 {
+	/// <summary>The last side (-1 or 1) of the switch that each character was on.</summary>
 	private readonly Dictionary<ICharacter, int> _characterTrace = new Dictionary<ICharacter, int>();
 	private bool _allowAirborne = true;
 	private bool _pathConstrained;
@@ -149,9 +155,10 @@ public class LayerSwitchInstance : ActiveObject
 			_radius = _height / 2;
 			DesignBounds = new Rectanglei(-4, -_radius, 8, _radius * 2);
 		}
-		int index = Layer.Index;
-		_layerA += index;
-		_layerB += index;
+		// The layer state variables are relative to the layer of the switch.
+		int layerIndex = Layer.Index;
+		_layerA += layerIndex;
+		_layerB += layerIndex;
 	}
 
 	protected override void OnUpdate()
@@ -164,164 +171,56 @@ public class LayerSwitchInstance : ActiveObject
 	{
 		if (character.IsDebug || !character.ShouldReactToLevel || character.IsObjectControlled || _pathConstrained && character.Path != _path)
 			return;
+		// Side A is above (horizontal switch) or to the left (vertical switch). Side B is below or to the right.
+		int side = _horizontal
+			? (character.Position.Y < Position.Y ? -1 : 1)
+			: (character.Position.X < Position.X ? -1 : 1);
+		if (_characterTrace.TryGetValue(character, out int previousSide))
+		{
+			if ((_allowAirborne || !character.IsAirborne) && previousSide != side && IsAlongSwitch(character))
+			{
+				if (side == -1)
+				{
+					character.Path = _pathA;
+					character.Layer = Level.Map.Layers[_layerA];
+				}
+				else
+				{
+					character.Path = _pathB;
+					character.Layer = Level.Map.Layers[_layerB];
+				}
+			}
+		}
+		_characterTrace[character] = side;
+	}
+
+	/// <summary>Returns true when the character is within the length of the switch line.</summary>
+	private bool IsAlongSwitch(ICharacter character)
+	{
 		if (_horizontal)
-		{
-			int y1 = character.Position.Y;
-			Vector2i position = Position;
-			int y2 = position.Y;
-			int num1 = y1 < y2 ? -1 : 1;
-			if (_characterTrace.ContainsKey(character))
-			{
-				int num2 = _characterTrace[character];
-				if ((_allowAirborne || !character.IsAirborne) && num2 != num1)
-				{
-					position = character.Position;
-					int x1 = position.X;
-					position = Position;
-					int num3 = position.X - _radius;
-					if (x1 >= num3)
-					{
-						position = character.Position;
-						int x2 = position.X;
-						position = Position;
-						int num4 = position.X + _radius;
-						if (x2 < num4)
-						{
-							if (num1 == -1)
-							{
-								character.Path = _pathA;
-								character.Layer = Level.Map.Layers[_layerA];
-							}
-							else
-							{
-								character.Path = _pathB;
-								character.Layer = Level.Map.Layers[_layerB];
-							}
-						}
-					}
-				}
-			}
-			_characterTrace[character] = num1;
-		}
-		else
-		{
-			int x3 = character.Position.X;
-			Vector2i position = Position;
-			int x4 = position.X;
-			int num5 = x3 < x4 ? -1 : 1;
-			if (_characterTrace.ContainsKey(character))
-			{
-				int num6 = _characterTrace[character];
-				if ((_allowAirborne || !character.IsAirborne) && num6 != num5)
-				{
-					position = character.Position;
-					int y3 = position.Y;
-					position = Position;
-					int num7 = position.Y - _radius;
-					if (y3 >= num7)
-					{
-						position = character.Position;
-						int y4 = position.Y;
-						position = Position;
-						int num8 = position.Y + _radius;
-						if (y4 < num8)
-						{
-							if (num5 == -1)
-							{
-								character.Path = _pathA;
-								character.Layer = Level.Map.Layers[_layerA];
-							}
-							else
-							{
-								character.Path = _pathB;
-								character.Layer = Level.Map.Layers[_layerB];
-							}
-						}
-					}
-				}
-			}
-			_characterTrace[character] = num5;
-		}
+			return character.Position.X >= Position.X - _radius && character.Position.X < Position.X + _radius;
+		return character.Position.Y >= Position.Y - _radius && character.Position.Y < Position.Y + _radius;
 	}
 
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 	{
 		if (!viewOptions.ShowObjectCollision && !Level.StateFlags.HasFlag(LevelStateFlags.Editing))
 			return;
-		I2dRenderer obj1 = renderer.Get2dRenderer();
+		I2dRenderer renderer2d = renderer.Get2dRenderer();
+		Vector2 scale = renderer.GetObjectRenderer().Scale;
+		Colour yellow = new Colour(byte.MaxValue, byte.MaxValue, 0);
+		// A white line on the switch, with a yellow line on each side of it.
 		if (_horizontal)
 		{
-			obj1.RenderLine(new Colour(byte.MaxValue, byte.MaxValue, 0), new Vector2(-_radius * renderer.GetObjectRenderer().Scale.X, -2.0 * renderer.GetObjectRenderer().Scale.Y), new Vector2(_radius * renderer.GetObjectRenderer().Scale.X, -2.0 * renderer.GetObjectRenderer().Scale.Y), 1.0);
-			I2dRenderer obj2 = obj1;
-			Colour white = Colours.White;
-			double x1 = -_radius * renderer.GetObjectRenderer().Scale.X;
-			Vector2 scale = renderer.GetObjectRenderer().Scale;
-			double y1 = 0.0 * scale.Y;
-			Vector2 a1 = new Vector2(x1, y1);
-			double radius = _radius;
-			scale = renderer.GetObjectRenderer().Scale;
-			double x2 = scale.X;
-			double x3 = radius * x2;
-			scale = renderer.GetObjectRenderer().Scale;
-			double y2 = 0.0 * scale.Y;
-			Vector2 b1 = new Vector2(x3, y2);
-			obj2.RenderLine(white, a1, b1, 1.0);
-			I2dRenderer obj3 = obj1;
-			Colour colour = new Colour(byte.MaxValue, byte.MaxValue, 0);
-			double num = -_radius;
-			scale = renderer.GetObjectRenderer().Scale;
-			double x4 = scale.X;
-			Vector2 a2 = new Vector2(num * x4, 2.0 * renderer.GetObjectRenderer().Scale.Y);
-			Vector2 b2 = new Vector2(_radius * renderer.GetObjectRenderer().Scale.X, 2.0 * renderer.GetObjectRenderer().Scale.Y);
-			obj3.RenderLine(colour, a2, b2, 1.0);
+			renderer2d.RenderLine(yellow, new Vector2(-_radius * scale.X, -2.0 * scale.Y), new Vector2(_radius * scale.X, -2.0 * scale.Y), 1.0);
+			renderer2d.RenderLine(Colours.White, new Vector2(-_radius * scale.X, 0.0 * scale.Y), new Vector2(_radius * scale.X, 0.0 * scale.Y), 1.0);
+			renderer2d.RenderLine(yellow, new Vector2(-_radius * scale.X, 2.0 * scale.Y), new Vector2(_radius * scale.X, 2.0 * scale.Y), 1.0);
 		}
 		else
 		{
-			I2dRenderer obj4 = obj1;
-			Colour colour1 = new Colour(byte.MaxValue, byte.MaxValue, 0);
-			Vector2 scale = renderer.GetObjectRenderer().Scale;
-			double x5 = -2.0 * scale.X;
-			double num1 = -_radius;
-			scale = renderer.GetObjectRenderer().Scale;
-			double y3 = scale.Y;
-			double y4 = num1 * y3;
-			Vector2 a3 = new Vector2(x5, y4);
-			scale = renderer.GetObjectRenderer().Scale;
-			double x6 = -2.0 * scale.X;
-			double radius1 = _radius;
-			scale = renderer.GetObjectRenderer().Scale;
-			double y5 = scale.Y;
-			double y6 = radius1 * y5;
-			Vector2 b3 = new Vector2(x6, y6);
-			obj4.RenderLine(colour1, a3, b3, 1.0);
-			I2dRenderer obj5 = obj1;
-			Colour white = Colours.White;
-			double num2 = -_radius;
-			scale = renderer.GetObjectRenderer().Scale;
-			double y7 = scale.Y;
-			Vector2 a4 = new Vector2(0.0, num2 * y7);
-			double radius2 = _radius;
-			scale = renderer.GetObjectRenderer().Scale;
-			double y8 = scale.Y;
-			Vector2 b4 = new Vector2(0.0, radius2 * y8);
-			obj5.RenderLine(white, a4, b4, 1.0);
-			I2dRenderer obj6 = obj1;
-			Colour colour2 = new Colour(byte.MaxValue, byte.MaxValue, 0);
-			scale = renderer.GetObjectRenderer().Scale;
-			double x7 = 2.0 * scale.X;
-			double num3 = -_radius;
-			scale = renderer.GetObjectRenderer().Scale;
-			double y9 = scale.Y;
-			double y10 = num3 * y9;
-			Vector2 a5 = new Vector2(x7, y10);
-			scale = renderer.GetObjectRenderer().Scale;
-			double x8 = 2.0 * scale.X;
-			double radius3 = _radius;
-			scale = renderer.GetObjectRenderer().Scale;
-			double y11 = scale.Y;
-			double y12 = radius3 * y11;
-			Vector2 b5 = new Vector2(x8, y12);
-			obj6.RenderLine(colour2, a5, b5, 1.0);
+			renderer2d.RenderLine(yellow, new Vector2(-2.0 * scale.X, -_radius * scale.Y), new Vector2(-2.0 * scale.X, _radius * scale.Y), 1.0);
+			renderer2d.RenderLine(Colours.White, new Vector2(0.0, -_radius * scale.Y), new Vector2(0.0, _radius * scale.Y), 1.0);
+			renderer2d.RenderLine(yellow, new Vector2(2.0 * scale.X, -_radius * scale.Y), new Vector2(2.0 * scale.X, _radius * scale.Y), 1.0);
 		}
 	}
 }
