@@ -1,0 +1,74 @@
+# Builds the web version of the game and deploys it to GitHub Pages.
+# The site does not include the game data: players choose their own copy of the S2HD demo files.
+# Pull requests only build the site, as a check. Pushes to main build and deploy it.
+name: Deploy web build to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "S2HD/**"
+      - "SONICORCA/**"
+      - "engine/**"
+      - "assets/**"
+      - "web/**"
+      - ".github/workflows/deploy-web.yml"
+  pull_request:
+    paths:
+      - "S2HD/**"
+      - "SONICORCA/**"
+      - "engine/**"
+      - "assets/**"
+      - "web/**"
+      - ".github/workflows/deploy-web.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time. Do not cancel a deployment that is in progress.
+concurrency:
+  group: pages-${{ github.event_name == 'pull_request' && github.ref || 'deploy' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install the WebAssembly build tools
+        run: dotnet workload install wasm-tools
+
+      # Release compiles ahead of time to WebAssembly, which takes several minutes
+      - name: Publish the web build
+        run: dotnet publish web/S2HD.Web -c Release -o publish/web
+
+      - name: Check that the site has no game data
+        run: |
+          if find publish/web/wwwroot -name '*.dat' -o -name 'game.zip' | grep -q .; then
+            echo "The site contains game data. Do not publish it."; exit 1
+          fi
+          du -sh publish/web/wwwroot
+
+      - uses: actions/upload-pages-artifact@v3
+        if: github.event_name != 'pull_request'
+        with:
+          path: publish/web/wwwroot
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
