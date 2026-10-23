@@ -485,12 +485,11 @@ public class DrillEggmanInstance : BossObject
 			if (Health == 1 && _sparkAnimation.Cycles == 0)
 			{
 				Animation.Frame currentFrame = _sparkAnimation.CurrentFrame;
-				// This flipped offset is not used. The render call below uses the frame offset that is not flipped.
 				Vector2i offset = currentFrame.Offset;
 				if (flipX)
 					offset.X *= -1;
 				objectRenderer.Texture = _sparkAnimation.CurrentTexture;
-				objectRenderer.Render((Rectangle)currentFrame.Source, (Vector2)currentFrame.Offset, flipX);
+				objectRenderer.Render((Rectangle)currentFrame.Source, (Vector2)offset, flipX);
 			}
 			objectRenderer.EmitsLight = false;
 			objectRenderer.BlendMode = BlendMode.Alpha;
