@@ -5,27 +5,33 @@ using SonicOrca.Geometry;
 
 namespace SonicOrca.Graphics;
 
+/// <summary>
+/// The base class for a vertex buffer. It also maps shader attribute names to attribute locations.
+/// </summary>
 public abstract class VertexBuffer : IDisposable
 {
 	private readonly Dictionary<string, int> _attributeLocations = new Dictionary<string, int>();
 
 	public abstract IReadOnlyList<int> VectorCounts { get; }
 
+	/// <summary>
+	/// Gets the location of each named attribute from the shader program. Returns the vector counts, ordered by
+	/// attribute location.
+	/// </summary>
 	protected IEnumerable<int> SetAttributeLocations(IShaderProgram shaderProgram, IEnumerable<string> names, IEnumerable<int> vectorCounts)
 	{
-		string[] array = names.ToArray();
-		int[] array2 = vectorCounts.ToArray();
-		string[] array3 = array;
-		foreach (string text in array3)
+		string[] nameArray = names.ToArray();
+		int[] vectorCountArray = vectorCounts.ToArray();
+		foreach (string name in nameArray)
 		{
-			_attributeLocations[text] = shaderProgram.GetAttributeLocation(text);
+			_attributeLocations[name] = shaderProgram.GetAttributeLocation(name);
 		}
-		int[] array4 = new int[array2.Length];
-		for (int j = 0; j < array4.Length; j++)
+		int[] vectorCountsByLocation = new int[vectorCountArray.Length];
+		for (int i = 0; i < vectorCountsByLocation.Length; i++)
 		{
-			array4[_attributeLocations[array[j]]] = array2[j];
+			vectorCountsByLocation[_attributeLocations[nameArray[i]]] = vectorCountArray[i];
 		}
-		return array4;
+		return vectorCountsByLocation;
 	}
 
 	public abstract void Dispose();
@@ -96,6 +102,9 @@ public abstract class VertexBuffer : IDisposable
 		AddValue(index, value.Alpha / 255.0);
 	}
 
+	/// <summary>
+	/// Adds one value to each attribute. The attribute index is the position of the value in the list.
+	/// </summary>
 	public void AddValues(params object[] values)
 	{
 		for (int i = 0; i < values.Length; i++)

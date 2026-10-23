@@ -2,6 +2,10 @@ using System.Collections.Generic;
 
 namespace SonicOrca.Graphics.V2.Animation;
 
+/// <summary>
+/// Moves one or more named values of a layer property in a straight line from their start values to their end
+/// values, over a frame range.
+/// </summary>
 public class CompositionLayerTween
 {
 	public enum Type
@@ -94,21 +98,24 @@ public class CompositionLayerTween
 		}
 	}
 
+	/// <summary>
+	/// Gets the value of each value key at the current frame.
+	/// </summary>
 	public Dictionary<string, double> GetValueSet()
 	{
-		Dictionary<string, double> dictionary = new Dictionary<string, double>();
+		Dictionary<string, double> valueSet = new Dictionary<string, double>();
 		foreach (string valueKey in ValueKeys)
 		{
-			double num = EndValues[valueKey] - StartValues[valueKey];
-			if (num != 0.0)
+			double change = EndValues[valueKey] - StartValues[valueKey];
+			if (change != 0.0)
 			{
-				dictionary[valueKey] = StartValues[valueKey] + num / _duration * _currentFrame;
+				valueSet[valueKey] = StartValues[valueKey] + change / _duration * _currentFrame;
 			}
 			else
 			{
-				dictionary[valueKey] = StartValues[valueKey];
+				valueSet[valueKey] = StartValues[valueKey];
 			}
 		}
-		return dictionary;
+		return valueSet;
 	}
 }

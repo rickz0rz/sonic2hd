@@ -3,30 +3,34 @@ using System.Collections.Generic;
 
 namespace SonicOrca.Graphics.V2.Animation;
 
+/// <summary>
+/// Compares strings so that numbers sort by value and come before other strings. Other strings sort without case.
+/// </summary>
 public class SemiNumericComparer : IComparer<string>
 {
 	public int Compare(string s1, string s2)
 	{
-		if (IsNumeric(s1) && IsNumeric(s2))
+		bool isNumeric1 = IsNumeric(s1);
+		bool isNumeric2 = IsNumeric(s2);
+		if (isNumeric1 && isNumeric2)
 		{
-			if (Convert.ToInt32(s1) > Convert.ToInt32(s2))
+			int number1 = Convert.ToInt32(s1);
+			int number2 = Convert.ToInt32(s2);
+			if (number1 > number2)
 			{
 				return 1;
 			}
-			if (Convert.ToInt32(s1) < Convert.ToInt32(s2))
+			if (number1 < number2)
 			{
 				return -1;
 			}
-			if (Convert.ToInt32(s1) == Convert.ToInt32(s2))
-			{
-				return 0;
-			}
+			return 0;
 		}
-		if (IsNumeric(s1) && !IsNumeric(s2))
+		if (isNumeric1)
 		{
 			return -1;
 		}
-		if (!IsNumeric(s1) && IsNumeric(s2))
+		if (isNumeric2)
 		{
 			return 1;
 		}

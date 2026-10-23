@@ -2,6 +2,9 @@ using System;
 
 namespace SonicOrca.Graphics;
 
+/// <summary>
+/// Gives the GL component type and the component count of a vertex attribute type.
+/// </summary>
 public class VertexAttributeTypeAttribute : Attribute
 {
 	private readonly VertexAttributePointerType _type;

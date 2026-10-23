@@ -6,21 +6,38 @@ using SonicOrca.Core.Debugging;
 
 namespace SonicOrca.Graphics;
 
+/// <summary>
+/// Builds shader programs from Orca shader files. An Orca shader file holds the vertex shader and the fragment
+/// shader together, in blocks that start with a line such as "@vertex:". A line such as
+/// "@include "file.glsl"" puts the content of another file in its place.
+/// </summary>
 public static class OrcaShader
 {
+	private const string IncludeDirective = "@include";
+
+	/// <summary>
+	/// The blocks that make the vertex shader, in order. The empty name is the text before the first block.
+	/// </summary>
+	private static readonly string[] VertexBlockNames = new[] { string.Empty, "uniform", "vertex_input", "vertex_output", "vertex" };
+
+	/// <summary>
+	/// The blocks that make the fragment shader, in order. The empty name is the text before the first block.
+	/// </summary>
+	private static readonly string[] FragmentBlockNames = new[] { string.Empty, "uniform", "fragment_input", "fragment_output", "fragment" };
+
 	public static ManagedShaderProgram CreateFromFile(IGraphicsContext context, string path)
 	{
 		long start = FrameProfiler.Timestamp();
-		Parse(ParseShaderFileWithIncludes(path), out var vertexOuput, out var fragmentOutput);
-		ManagedShaderProgram program = new ManagedShaderProgram(context, vertexOuput, fragmentOutput);
+		Parse(ParseShaderFileWithIncludes(path), out string vertexOutput, out string fragmentOutput);
+		ManagedShaderProgram program = new ManagedShaderProgram(context, vertexOutput, fragmentOutput);
 		FrameProfiler.Note("Shader " + path, start);
 		return program;
 	}
 
 	public static ManagedShaderProgram Create(IGraphicsContext context, string input)
 	{
-		Parse(input, out var vertexOuput, out var fragmentOutput);
-		return new ManagedShaderProgram(context, vertexOuput, fragmentOutput);
+		Parse(input, out string vertexOutput, out string fragmentOutput);
+		return new ManagedShaderProgram(context, vertexOutput, fragmentOutput);
 	}
 
 	private static string ParseShaderFileWithIncludes(string path)
@@ -31,54 +48,40 @@ public static class OrcaShader
 		}
 		StringBuilder stringBuilder = new StringBuilder();
 		StreamReader streamReader = new StreamReader(path);
-		string text;
-		while ((text = streamReader.ReadLine()) != null)
+		string line;
+		while ((line = streamReader.ReadLine()) != null)
 		{
-			string text2 = text.TrimStart();
-			if (text2.StartsWith("@include"))
+			string directive = line.TrimStart();
+			if (directive.StartsWith(IncludeDirective))
 			{
-				text2 = text2.Substring(8);
-				if (text2.Length > 0 && char.IsWhiteSpace(text2[0]))
+				string includePath = directive.Substring(IncludeDirective.Length);
+				if (includePath.Length > 0 && char.IsWhiteSpace(includePath[0]))
 				{
-					text2 = text2.Trim();
-					if (!text2.StartsWith("\"") || !text2.EndsWith("\""))
+					includePath = includePath.Trim();
+					if (!includePath.StartsWith("\"") || !includePath.EndsWith("\""))
 					{
 						throw new InvalidDataException("include syntax error");
 					}
-					text2 = text2.Substring(1, text2.Length - 2);
-					text2 = Path.Combine(Path.GetDirectoryName(path), text2);
-					if (!File.Exists(text2))
+					includePath = includePath.Substring(1, includePath.Length - 2);
+					includePath = Path.Combine(Path.GetDirectoryName(path), includePath);
+					if (!File.Exists(includePath))
 					{
-						throw new FileNotFoundException(text2 + " not found.", text2);
+						throw new FileNotFoundException(includePath + " not found.", includePath);
 					}
-					stringBuilder.AppendLine(ParseShaderFileWithIncludes(text2));
+					stringBuilder.AppendLine(ParseShaderFileWithIncludes(includePath));
 					continue;
 				}
 			}
-			stringBuilder.AppendLine(text);
+			stringBuilder.AppendLine(line);
 		}
 		return stringBuilder.ToString();
 	}
 
 	public static void Parse(string input, out string vertexOuput, out string fragmentOutput)
 	{
-		IDictionary<string, string> blocks = GetBlocks(input).ToDictionary((KeyValuePair<string, string> x) => x.Key, (KeyValuePair<string, string> x) => x.Value);
-		vertexOuput = ConcatenateBlocks(blocks, new string[5]
-		{
-			string.Empty,
-			"uniform",
-			"vertex_input",
-			"vertex_output",
-			"vertex"
-		});
-		fragmentOutput = ConcatenateBlocks(blocks, new string[5]
-		{
-			string.Empty,
-			"uniform",
-			"fragment_input",
-			"fragment_output",
-			"fragment"
-		});
+		IDictionary<string, string> blocks = GetBlocks(input).ToDictionary(x => x.Key, x => x.Value);
+		vertexOuput = ConcatenateBlocks(blocks, VertexBlockNames);
+		fragmentOutput = ConcatenateBlocks(blocks, FragmentBlockNames);
 	}
 
 	private static string ConcatenateBlocks(IDictionary<string, string> blocks, IEnumerable<string> blockNames)
@@ -86,13 +89,13 @@ public static class OrcaShader
 		StringBuilder stringBuilder = new StringBuilder();
 		foreach (string blockName in blockNames)
 		{
-			if (blocks.TryGetValue(blockName, out var value))
+			if (blocks.TryGetValue(blockName, out string blockText))
 			{
 				if (!string.IsNullOrEmpty(blockName))
 				{
 					stringBuilder.AppendLine("//" + blockName + ":");
 				}
-				stringBuilder.Append(value);
+				stringBuilder.Append(blockText);
 			}
 		}
 		return stringBuilder.ToString();
@@ -100,28 +103,28 @@ public static class OrcaShader
 
 	private static IReadOnlyCollection<KeyValuePair<string, string>> GetBlocks(string input)
 	{
-		string key = string.Empty;
+		string blockName = string.Empty;
 		StringBuilder stringBuilder = new StringBuilder();
-		List<KeyValuePair<string, string>> list = new List<KeyValuePair<string, string>>();
+		List<KeyValuePair<string, string>> blocks = new List<KeyValuePair<string, string>>();
 		StringReader stringReader = new StringReader(input);
-		string text;
-		while ((text = stringReader.ReadLine()) != null)
+		string line;
+		while ((line = stringReader.ReadLine()) != null)
 		{
-			if (text.TrimStart().StartsWith("@"))
+			if (line.TrimStart().StartsWith("@"))
 			{
-				string text2 = text.Substring(text.IndexOf("@") + 1);
-				int num = text2.IndexOf(":");
-				if (num != -1)
+				string header = line.Substring(line.IndexOf("@") + 1);
+				int colonIndex = header.IndexOf(":");
+				if (colonIndex != -1)
 				{
-					list.Add(new KeyValuePair<string, string>(key, stringBuilder.ToString()));
-					key = text2.Remove(num);
+					blocks.Add(new KeyValuePair<string, string>(blockName, stringBuilder.ToString()));
+					blockName = header.Remove(colonIndex);
 					stringBuilder.Clear();
 					continue;
 				}
 			}
-			stringBuilder.AppendLine(text);
+			stringBuilder.AppendLine(line);
 		}
-		list.Add(new KeyValuePair<string, string>(key, stringBuilder.ToString()));
-		return list.ToArray();
+		blocks.Add(new KeyValuePair<string, string>(blockName, stringBuilder.ToString()));
+		return blocks.ToArray();
 	}
 }

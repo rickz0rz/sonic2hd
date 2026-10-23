@@ -1,5 +1,8 @@
 namespace SonicOrca.Graphics.V2.Animation;
 
+/// <summary>
+/// Describes an image asset that the layers of a composition use as a texture.
+/// </summary>
 public class CompositionAsset
 {
 	private string _id;

@@ -2,6 +2,9 @@ using System;
 
 namespace SonicOrca.Graphics;
 
+/// <summary>
+/// A shader program that owns its vertex shader and its fragment shader, and disposes of all three together.
+/// </summary>
 public class ManagedShaderProgram : IDisposable
 {
 	private readonly IShader _vertexShader;

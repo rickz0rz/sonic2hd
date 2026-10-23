@@ -3,6 +3,9 @@ using SonicOrca.Geometry;
 
 namespace SonicOrca.Graphics;
 
+/// <summary>
+/// The base class for the game window. A platform back end implements it.
+/// </summary>
 public abstract class WindowContext : IDisposable
 {
 	public virtual bool FullScreen { get; set; }

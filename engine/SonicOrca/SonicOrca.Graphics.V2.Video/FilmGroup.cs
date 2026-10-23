@@ -6,6 +6,9 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Graphics.V2.Video;
 
+/// <summary>
+/// A loaded film resource. It holds the films and the film buffers that decode them.
+/// </summary>
 public class FilmGroup : ILoadedResource, IDisposable, IReadOnlyList<Film>, IReadOnlyCollection<Film>, IEnumerable<Film>, IEnumerable
 {
 	private readonly ResourceTree _resourceTree;
@@ -34,7 +37,7 @@ public class FilmGroup : ILoadedResource, IDisposable, IReadOnlyList<Film>, IRea
 	public void OnLoaded()
 	{
 		FilmResourceKeys = _filmResourceKeys;
-		FilmBuffers = _filmResourceKeys.Select((string x) => _resourceTree.GetLoadedResource<IFilmBuffer>(x)).ToArray();
+		FilmBuffers = _filmResourceKeys.Select(x => _resourceTree.GetLoadedResource<IFilmBuffer>(x)).ToArray();
 	}
 
 	public void Dispose()

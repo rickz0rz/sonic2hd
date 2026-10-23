@@ -6,6 +6,9 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Graphics;
 
+/// <summary>
+/// A loaded animation resource. It holds a set of animations and the textures they use.
+/// </summary>
 public class AnimationGroup : ILoadedResource, IDisposable, IReadOnlyList<Animation>, IReadOnlyCollection<Animation>, IEnumerable<Animation>, IEnumerable
 {
 	private readonly ResourceTree _resourceTree;
@@ -37,7 +40,7 @@ public class AnimationGroup : ILoadedResource, IDisposable, IReadOnlyList<Animat
 
 	public void OnLoaded()
 	{
-		Textures = _textureResourceKeys.Select((string x) => _resourceTree.GetLoadedResource<ITexture>(x)).ToArray();
+		Textures = _textureResourceKeys.Select(x => _resourceTree.GetLoadedResource<ITexture>(x)).ToArray();
 	}
 
 	public void Dispose()

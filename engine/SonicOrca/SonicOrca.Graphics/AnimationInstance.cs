@@ -3,6 +3,9 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Graphics;
 
+/// <summary>
+/// Plays one animation of an animation group and draws its current frame.
+/// </summary>
 public class AnimationInstance
 {
 	private readonly AnimationGroup _animationGroup;
@@ -68,8 +71,8 @@ public class AnimationInstance
 	{
 		Animation animation = _animationGroup[_animationIndex];
 		Animation.Frame frame = animation.Frames[CurrentFrameIndex];
-		int valueOrDefault = OverrideDelay.GetValueOrDefault(frame.Delay);
-		if (_frameTime >= valueOrDefault)
+		int delay = OverrideDelay.GetValueOrDefault(frame.Delay);
+		if (_frameTime >= delay)
 		{
 			CurrentFrameIndex++;
 			if (CurrentFrameIndex >= animation.Frames.Count)
@@ -80,6 +83,7 @@ public class AnimationInstance
 				}
 				else if (animation.NextFrameIndex.HasValue)
 				{
+					// When the index changes, the Index setter also resets the frame index and the frame time.
 					Index = animation.NextFrameIndex.Value;
 				}
 				else
@@ -104,12 +108,12 @@ public class AnimationInstance
 		}
 	}
 
-	public void Draw(I2dRenderer renderer, Vector2 position = default(Vector2), bool flipX = false, bool flipY = false)
+	public void Draw(I2dRenderer renderer, Vector2 position = default, bool flipX = false, bool flipY = false)
 	{
 		Draw(renderer, Colours.White, position, flipX, flipY);
 	}
 
-	public void Draw(I2dRenderer renderer, Colour colour, Vector2 position = default(Vector2), bool flipX = false, bool flipY = false)
+	public void Draw(I2dRenderer renderer, Colour colour, Vector2 position = default, bool flipX = false, bool flipY = false)
 	{
 		Animation.Frame currentFrame = CurrentFrame;
 		Rectangle destination = new Rectangle(position.X - currentFrame.Source.Width / 2, position.Y - currentFrame.Source.Height / 2, currentFrame.Source.Width, currentFrame.Source.Height);
@@ -127,7 +131,7 @@ public class AnimationInstance
 		ITexture texture = _animationGroup.Textures[OverrideTextureIndex.GetValueOrDefault(currentFrame.TextureIndex)];
 		destination = destination.OffsetBy(currentFrame.Offset);
 		renderer.Colour = colour;
-		renderer.BlendMode = ((!AdditiveBlending) ? BlendMode.Alpha : BlendMode.Additive);
+		renderer.BlendMode = AdditiveBlending ? BlendMode.Additive : BlendMode.Alpha;
 		renderer.RenderTexture(texture, source, destination, flipX, flipY);
 		renderer.BlendMode = BlendMode.Alpha;
 	}

@@ -2,6 +2,10 @@ using System;
 
 namespace SonicOrca.Graphics.V2.Animation;
 
+/// <summary>
+/// One image layer of a composition. A layer has a frame range, a blend mode and an animated transform.
+/// A mask layer limits the drawing of the layer with the next index.
+/// </summary>
 public class CompositionLayer
 {
 	public enum LayerKind
@@ -15,7 +19,10 @@ public class CompositionLayer
 		Mask
 	}
 
-	private const uint _ddd = 0u;
+	/// <summary>
+	/// The layer type value in the composition file for an image layer.
+	/// </summary>
+	private const uint ImageLayerType = 2u;
 
 	private uint _index;
 
@@ -31,13 +38,9 @@ public class CompositionLayer
 
 	private string _textureReference;
 
-	private const double _sampleRate = 0.0;
-
 	private uint _startFrame;
 
 	private uint _endFrame;
-
-	private const uint _bm = 0u;
 
 	private uint _ellapsedFrames;
 
@@ -62,41 +65,41 @@ public class CompositionLayer
 	public CompositionLayer(uint index, uint layerType, uint layerSubType, uint layerBlendMode, string name, string fileExtension, string textureReference, uint startFrame, uint endFrame, CompositionLayerAnimatableTransform transform)
 	{
 		_index = index;
-		if (layerType == 2)
+		if (layerType != ImageLayerType)
 		{
-			_layerType = LayerKind.Image;
-			switch (layerSubType)
-			{
-				case 0u:
-					_layerSubType = LayerSubKind.None;
-					break;
-				case 1u:
-					_layerSubType = LayerSubKind.Mask;
-					break;
-				default:
-					throw new NotImplementedException();
-			}
-			switch (layerBlendMode)
-			{
-				case 0u:
-					_layerBlendMode = BlendMode.Alpha;
-					break;
-				case 1u:
-					_layerBlendMode = BlendMode.Additive;
-					break;
-				case 2u:
-					_layerBlendMode = BlendMode.Opaque;
-					break;
-			}
-			_name = name;
-			_fileExtension = fileExtension;
-			_textureReference = textureReference;
-			_startFrame = startFrame;
-			_endFrame = endFrame;
-			_transform = transform;
-			return;
+			throw new NotImplementedException();
 		}
-		throw new NotImplementedException();
+		_layerType = LayerKind.Image;
+		switch (layerSubType)
+		{
+			case 0u:
+				_layerSubType = LayerSubKind.None;
+				break;
+			case 1u:
+				_layerSubType = LayerSubKind.Mask;
+				break;
+			default:
+				throw new NotImplementedException();
+		}
+		// An unknown blend mode value keeps the default value, BlendMode.Opaque.
+		switch (layerBlendMode)
+		{
+			case 0u:
+				_layerBlendMode = BlendMode.Alpha;
+				break;
+			case 1u:
+				_layerBlendMode = BlendMode.Additive;
+				break;
+			case 2u:
+				_layerBlendMode = BlendMode.Opaque;
+				break;
+		}
+		_name = name;
+		_fileExtension = fileExtension;
+		_textureReference = textureReference;
+		_startFrame = startFrame;
+		_endFrame = endFrame;
+		_transform = transform;
 	}
 
 	public void ResetFrame()
@@ -110,9 +113,6 @@ public class CompositionLayer
 		if (_ellapsedFrames <= _endFrame)
 		{
 			_transform.Animate();
-		}
-		if (_ellapsedFrames <= _endFrame)
-		{
 			_ellapsedFrames++;
 		}
 	}

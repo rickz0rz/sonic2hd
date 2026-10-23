@@ -9,6 +9,9 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Graphics;
 
+/// <summary>
+/// Loads an animation group from an ".anigroup.xml" file.
+/// </summary>
 internal class AnimationGroupResourceType : ResourceType
 {
 	public override string Name => "animationgroup, xml";
@@ -22,25 +25,26 @@ internal class AnimationGroupResourceType : ResourceType
 	{
 	}
 
-	public override async Task<ILoadedResource> LoadAsync(ResourceLoadArgs e, CancellationToken ct = default(CancellationToken))
+	public override async Task<ILoadedResource> LoadAsync(ResourceLoadArgs e, CancellationToken ct = default)
 	{
 		XmlDocument xmlDocument = new XmlDocument();
 		await Task.Run(() =>
 		{
 			xmlDocument.Load(e.InputStream);
 		});
-		XmlNode xmlNode = xmlDocument.SelectSingleNode("anigroup");
-		IEnumerable<string> enumerable = from x in xmlNode.SelectNodes("textures/texture").OfType<XmlNode>()
-										 select e.GetAbsolutePath(x.InnerText);
-		IEnumerable<Animation> animations = from x in xmlNode.SelectNodes("animations/animation").OfType<XmlNode>()
-											select GetAnimationFromXmlNode(x);
-		e.PushDependencies(enumerable);
-		return new AnimationGroup(e.ResourceTree, enumerable, animations)
+		XmlNode anigroupNode = xmlDocument.SelectSingleNode("anigroup");
+		IEnumerable<string> textureResourceKeys = anigroupNode.SelectNodes("textures/texture").OfType<XmlNode>().Select(x => e.GetAbsolutePath(x.InnerText));
+		IEnumerable<Animation> animations = anigroupNode.SelectNodes("animations/animation").OfType<XmlNode>().Select(GetAnimationFromXmlNode);
+		e.PushDependencies(textureResourceKeys);
+		return new AnimationGroup(e.ResourceTree, textureResourceKeys, animations)
 		{
 			Resource = e.Resource
 		};
 	}
 
+	/// <summary>
+	/// Reads an animation node. Its attributes give the default values for the frames that do not set them.
+	/// </summary>
 	private Animation GetAnimationFromXmlNode(XmlNode node)
 	{
 		int? nextFrameIndex = null;
@@ -51,7 +55,7 @@ internal class AnimationGroupResourceType : ResourceType
 		int defaultOffsetX = 0;
 		int defaultOffsetY = 0;
 		int defaultDelay = 0;
-		if (node.TryGetAttributeValue("texture", out var value))
+		if (node.TryGetAttributeValue("texture", out string value))
 		{
 			defaultTexture = int.Parse(value);
 		}
@@ -83,23 +87,24 @@ internal class AnimationGroupResourceType : ResourceType
 		{
 			loopFrameIndex = int.Parse(value);
 		}
-		return new Animation(from x in node.SelectNodes("frame").OfType<XmlNode>()
-							 select GetFrameFromXmlNode(x, defaultTexture, defaultWidth, defaultHeight, defaultOffsetX, defaultOffsetY, defaultDelay), nextFrameIndex, loopFrameIndex);
+		IEnumerable<Animation.Frame> frames = node.SelectNodes("frame").OfType<XmlNode>()
+			.Select(x => GetFrameFromXmlNode(x, defaultTexture, defaultWidth, defaultHeight, defaultOffsetX, defaultOffsetY, defaultDelay));
+		return new Animation(frames, nextFrameIndex, loopFrameIndex);
 	}
 
 	private Animation.Frame GetFrameFromXmlNode(XmlNode node, int defaultTexture, int defaultWidth, int defaultHeight, int defaultOffsetX, int defaultOffsetY, int defaultDelay)
 	{
-		Animation.Frame result = default;
+		Animation.Frame frame = default;
 		int x = int.Parse(node.Attributes["x"].Value);
 		int y = int.Parse(node.Attributes["y"].Value);
-		int width = (node.TryGetAttributeValue("w", out var value) ? int.Parse(value) : defaultWidth);
-		int height = (node.TryGetAttributeValue("h", out value) ? int.Parse(value) : defaultHeight);
-		result.TextureIndex = (node.TryGetAttributeValue("texture", out value) ? int.Parse(value) : defaultTexture);
-		int x2 = (node.TryGetAttributeValue("offset_x", out value) ? int.Parse(value) : defaultOffsetX);
-		int y2 = (node.TryGetAttributeValue("offset_y", out value) ? int.Parse(value) : defaultOffsetY);
-		result.Delay = (node.TryGetAttributeValue("delay", out value) ? int.Parse(value) : defaultDelay);
-		result.Offset = new Vector2i(x2, y2);
-		result.Source = new Rectanglei(x, y, width, height);
-		return result;
+		int width = node.TryGetAttributeValue("w", out string value) ? int.Parse(value) : defaultWidth;
+		int height = node.TryGetAttributeValue("h", out value) ? int.Parse(value) : defaultHeight;
+		frame.TextureIndex = node.TryGetAttributeValue("texture", out value) ? int.Parse(value) : defaultTexture;
+		int offsetX = node.TryGetAttributeValue("offset_x", out value) ? int.Parse(value) : defaultOffsetX;
+		int offsetY = node.TryGetAttributeValue("offset_y", out value) ? int.Parse(value) : defaultOffsetY;
+		frame.Delay = node.TryGetAttributeValue("delay", out value) ? int.Parse(value) : defaultDelay;
+		frame.Offset = new Vector2i(offsetX, offsetY);
+		frame.Source = new Rectanglei(x, y, width, height);
+		return frame;
 	}
 }
