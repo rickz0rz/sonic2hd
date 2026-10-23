@@ -31,12 +31,12 @@ public static class RingPositions
 				list.Add(new Vector2i(num, num2));
 				switch (num4)
 				{
-				case 0:
-					num += 24;
-					break;
-				case 1:
-					num2 += 24;
-					break;
+					case 0:
+						num += 24;
+						break;
+					case 1:
+						num2 += 24;
+						break;
 				}
 			}
 		}

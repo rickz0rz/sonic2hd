@@ -34,24 +34,24 @@ public static class TextRenderingHelpers
 		Rectangle result = font.MeasureString(text, textRenderInfo.Bounds, textRenderInfo.Alignment);
 		switch (textRenderInfo.Alignment & FontAlignment.HorizontalMask)
 		{
-		case FontAlignment.MiddleX:
-			result.X += result.Width * (double)textRenderInfo.SizeMultiplier / 2.0;
-			break;
-		case FontAlignment.Right:
-			result.X += result.Width * (double)textRenderInfo.SizeMultiplier;
-			break;
+			case FontAlignment.MiddleX:
+				result.X += result.Width * (double)textRenderInfo.SizeMultiplier / 2.0;
+				break;
+			case FontAlignment.Right:
+				result.X += result.Width * (double)textRenderInfo.SizeMultiplier;
+				break;
 		}
 		switch (textRenderInfo.Alignment & FontAlignment.VerticalMask)
 		{
-		case FontAlignment.MiddleY:
-		{
-			double num = (float)font.Height * textRenderInfo.SizeMultiplier;
-			result.Y += (result.Height - num) / 2.0;
-			break;
-		}
-		case FontAlignment.Bottom:
-			result.X += result.Height * (double)textRenderInfo.SizeMultiplier;
-			break;
+			case FontAlignment.MiddleY:
+				{
+					double num = font.Height * textRenderInfo.SizeMultiplier;
+					result.Y += (result.Height - num) / 2.0;
+					break;
+				}
+			case FontAlignment.Bottom:
+				result.X += result.Height * (double)textRenderInfo.SizeMultiplier;
+				break;
 		}
 		Vector2 destination = new Vector2(result.X, result.Y);
 		string text2 = text;
@@ -60,14 +60,14 @@ public static class TextRenderingHelpers
 			Font.CharacterDefinition characterDefinition = font[key];
 			if (characterDefinition == null)
 			{
-				destination.X += (float)font.DefaultWidth * textRenderInfo.SizeMultiplier;
+				destination.X += font.DefaultWidth * textRenderInfo.SizeMultiplier;
 			}
 			else
 			{
 				RenderCharacter(g, font, characterDefinition, destination, colour, overlay, textRenderInfo.SizeMultiplier);
-				destination.X += (float)characterDefinition.Width * textRenderInfo.SizeMultiplier;
+				destination.X += characterDefinition.Width * textRenderInfo.SizeMultiplier;
 			}
-			destination.X += (float)font.Tracking * textRenderInfo.SizeMultiplier;
+			destination.X += font.Tracking * textRenderInfo.SizeMultiplier;
 		}
 		return result;
 	}
@@ -80,7 +80,7 @@ public static class TextRenderingHelpers
 			array[1] = font.OverlayTextures[overlay.Value];
 		}
 		Rectangle source = characterDefinition.SourceRectangle;
-		Rectangle destination2 = new Rectangle(destination.X + (double)((float)characterDefinition.Offset.X * sizeMultiplier), destination.Y + (double)((float)characterDefinition.Offset.Y * sizeMultiplier), source.Width * (double)sizeMultiplier, source.Height * (double)sizeMultiplier);
+		Rectangle destination2 = new Rectangle(destination.X + (double)(characterDefinition.Offset.X * sizeMultiplier), destination.Y + (double)(characterDefinition.Offset.Y * sizeMultiplier), source.Width * (double)sizeMultiplier, source.Height * (double)sizeMultiplier);
 		g.BlendMode = BlendMode.Alpha;
 		g.Colour = colour;
 		if (overlay.HasValue)
@@ -102,21 +102,21 @@ public static class TextRenderingHelpers
 		Rectangle result = font.MeasureString(text, textRenderInfo.Bounds, textRenderInfo.Alignment);
 		switch (textRenderInfo.Alignment & FontAlignment.HorizontalMask)
 		{
-		case FontAlignment.MiddleX:
-			result.X += result.Width * (double)textRenderInfo.SizeMultiplier / 2.0;
-			break;
-		case FontAlignment.Right:
-			result.X += result.Width * (double)textRenderInfo.SizeMultiplier;
-			break;
+			case FontAlignment.MiddleX:
+				result.X += result.Width * (double)textRenderInfo.SizeMultiplier / 2.0;
+				break;
+			case FontAlignment.Right:
+				result.X += result.Width * (double)textRenderInfo.SizeMultiplier;
+				break;
 		}
 		switch (textRenderInfo.Alignment & FontAlignment.VerticalMask)
 		{
-		case FontAlignment.MiddleY:
-			result.Y += result.Height * (double)textRenderInfo.SizeMultiplier / 2.0;
-			break;
-		case FontAlignment.Right:
-			result.X += result.Height * (double)textRenderInfo.SizeMultiplier;
-			break;
+			case FontAlignment.MiddleY:
+				result.Y += result.Height * (double)textRenderInfo.SizeMultiplier / 2.0;
+				break;
+			case FontAlignment.Right:
+				result.X += result.Height * (double)textRenderInfo.SizeMultiplier;
+				break;
 		}
 		Vector2 vector = new Vector2(result.X, result.Y);
 		string text2 = text;
@@ -125,13 +125,13 @@ public static class TextRenderingHelpers
 			Font.CharacterDefinition characterDefinition = font[key];
 			if (characterDefinition == null)
 			{
-				vector.X += (float)font.DefaultWidth * textRenderInfo.SizeMultiplier;
+				vector.X += font.DefaultWidth * textRenderInfo.SizeMultiplier;
 			}
 			else
 			{
-				vector.X += (float)characterDefinition.Width * textRenderInfo.SizeMultiplier;
+				vector.X += characterDefinition.Width * textRenderInfo.SizeMultiplier;
 			}
-			vector.X += (float)font.Tracking * textRenderInfo.SizeMultiplier;
+			vector.X += font.Tracking * textRenderInfo.SizeMultiplier;
 		}
 		return result;
 	}

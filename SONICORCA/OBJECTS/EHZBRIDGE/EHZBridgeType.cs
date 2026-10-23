@@ -14,14 +14,14 @@ namespace SONICORCA.OBJECTS.EHZBRIDGE;
 [SonicOrca.Core.Objects.Metadata.Name("Bridge")]
 [Description("Bridge from Emerald Hill Zone, Sonic 2")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Platform)]
-[ObjectInstance(typeof (EHZBridgeInstance))]
+[ObjectInstance(typeof(EHZBridgeInstance))]
 public class EHZBridgeType : ObjectType
 {
-  [Dependency]
-  public const string AnimationGroupResourceKey = "/ANIGROUP";
+	[Dependency]
+	public const string AnimationGroupResourceKey = "/ANIGROUP";
 
-  public Vector2 GetLifeRadius(EHZBridgeInstance state)
-  {
-    return (Vector2) new Vector2i(state.Logs * 64 /*0x40*/ / 2, 0);
-  }
+	public Vector2 GetLifeRadius(EHZBridgeInstance state)
+	{
+		return (Vector2)new Vector2i(state.Logs * 64 /*0x40*/ / 2, 0);
+	}
 }

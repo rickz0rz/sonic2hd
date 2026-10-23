@@ -9,5 +9,5 @@ namespace S2HD.Menu;
 
 internal interface ISetting
 {
-  string Name { get; }
+	string Name { get; }
 }

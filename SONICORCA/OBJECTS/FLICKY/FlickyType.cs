@@ -13,9 +13,9 @@ namespace SONICORCA.OBJECTS.FLICKY;
 [SonicOrca.Core.Objects.Metadata.Name("Flicky")]
 [Description("Flicky from Sonic 1")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Animal)]
-[ObjectInstance(typeof (FlickyInstance))]
+[ObjectInstance(typeof(FlickyInstance))]
 public class FlickyType : ObjectType
 {
-  [Dependency]
-  public const string AnimationGroupResourceKey = "/ANIGROUP";
+	[Dependency]
+	public const string AnimationGroupResourceKey = "/ANIGROUP";
 }

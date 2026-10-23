@@ -70,9 +70,9 @@ internal class RenderingLayer
 	public void UpdateClippingMarkers()
 	{
 		_clippingMarkers = (from m in _level.Map.Markers
-			where string.Equals(m.Tag, "clipping", StringComparison.OrdinalIgnoreCase)
-			where m.Layer == Layer
-			select m).ToArray();
+							where string.Equals(m.Tag, "clipping", StringComparison.OrdinalIgnoreCase)
+							where m.Layer == Layer
+							select m).ToArray();
 	}
 
 	public bool IsAreaClipped(Viewport viewport, Rectanglei area)
@@ -82,7 +82,7 @@ internal class RenderingLayer
 			LevelMarker[] clippingMarkers = _clippingMarkers;
 			foreach (LevelMarker levelMarker in clippingMarkers)
 			{
-				if (((Rectanglei)new Rectangle((double)(levelMarker.Bounds.X - viewport.Bounds.X) * viewport.Scale.X, (double)(levelMarker.Bounds.Y - viewport.Bounds.Y) * viewport.Scale.Y, (double)levelMarker.Bounds.Width * viewport.Scale.X, (double)levelMarker.Bounds.Height * viewport.Scale.Y)).IntersectsWith(area))
+				if (((Rectanglei)new Rectangle((levelMarker.Bounds.X - viewport.Bounds.X) * viewport.Scale.X, (levelMarker.Bounds.Y - viewport.Bounds.Y) * viewport.Scale.Y, levelMarker.Bounds.Width * viewport.Scale.X, levelMarker.Bounds.Height * viewport.Scale.Y)).IntersectsWith(area))
 				{
 					return false;
 				}

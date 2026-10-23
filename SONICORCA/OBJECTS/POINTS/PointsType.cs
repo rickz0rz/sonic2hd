@@ -13,9 +13,9 @@ namespace SONICORCA.OBJECTS.POINTS;
 [SonicOrca.Core.Objects.Metadata.Name("Points")]
 [Description("Points from Sonic 1")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Particle)]
-[ObjectInstance(typeof (PointsInstance))]
+[ObjectInstance(typeof(PointsInstance))]
 public class PointsType : ObjectType
 {
-  [Dependency]
-  public const string FontResourceKey = "SONICORCA/FONTS/POINTS";
+	[Dependency]
+	public const string FontResourceKey = "SONICORCA/FONTS/POINTS";
 }

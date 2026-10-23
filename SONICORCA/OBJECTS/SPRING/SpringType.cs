@@ -13,11 +13,11 @@ namespace SONICORCA.OBJECTS.SPRING;
 [SonicOrca.Core.Objects.Metadata.Name("Spring")]
 [Description("Spring from Sonic 1")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.General)]
-[ObjectInstance(typeof (SpringInstance))]
+[ObjectInstance(typeof(SpringInstance))]
 public class SpringType : ObjectType
 {
-  [Dependency]
-  public const string AnimationGroupResourceKey = "/ANIGROUP";
-  [Dependency]
-  public const string SoundResourceKey = "SONICORCA/SOUND/SPRING";
+	[Dependency]
+	public const string AnimationGroupResourceKey = "/ANIGROUP";
+	[Dependency]
+	public const string SoundResourceKey = "SONICORCA/SOUND/SPRING";
 }

@@ -13,9 +13,9 @@ namespace SONICORCA.OBJECTS.RING.SPARKLE;
 [SonicOrca.Core.Objects.Metadata.Name("Ring sparkle")]
 [Description("Ring sparkle from Sonic 1")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Particle)]
-[ObjectInstance(typeof (RingSparkleInstance))]
+[ObjectInstance(typeof(RingSparkleInstance))]
 public class RingSparkleType : ObjectType
 {
-  [Dependency]
-  public const string AnimationGroupResourceKey = "/ANIGROUP";
+	[Dependency]
+	public const string AnimationGroupResourceKey = "/ANIGROUP";
 }

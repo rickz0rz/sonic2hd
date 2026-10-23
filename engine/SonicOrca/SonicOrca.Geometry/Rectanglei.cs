@@ -14,7 +14,7 @@ public struct Rectanglei : IEquatable<Rectanglei>
 
 	public int Height { get; set; }
 
-	public long Area => (long)Width * (long)Height;
+	public long Area => Width * (long)Height;
 
 	public Vector2i TopLeft => new Vector2i(Left, Top);
 

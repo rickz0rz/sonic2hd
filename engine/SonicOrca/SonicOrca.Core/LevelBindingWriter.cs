@@ -25,9 +25,9 @@ public class LevelBindingWriter
 		xmlWriter.WriteStartDocument();
 		xmlWriter.WriteStartElement("Binding");
 		int key = (from x in _binding.ObjectPlacements
-			group x by x.Layer into x
-			orderby x.Count() descending
-			select x).First().Key;
+				   group x by x.Layer into x
+				   orderby x.Count() descending
+				   select x).First().Key;
 		xmlWriter.WriteStartElement("Definitions");
 		xmlWriter.WriteAttributeString("DefaultLayer", key.ToString());
 		foreach (ObjectPlacement objectPlacement in _binding.ObjectPlacements)

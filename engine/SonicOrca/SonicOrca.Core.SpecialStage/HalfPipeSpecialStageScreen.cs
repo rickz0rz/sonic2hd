@@ -249,20 +249,20 @@ internal class HalfPipeSpecialStageScreen : Screen
 			{
 				switch (segmentGeometry)
 				{
-				case SegmentGeometry.TurnLeft:
-					num -= MathX.ToRadians(3.2142857142857144);
-					break;
-				case SegmentGeometry.TurnRight:
-					num += MathX.ToRadians(3.2142857142857144);
-					break;
-				case SegmentGeometry.Rise:
-					num2 += MathX.ToRadians(6.428571428571429);
-					_ = Math.Cos(num2) / -2.0;
-					break;
-				case SegmentGeometry.Drop:
-					num2 -= MathX.ToRadians(6.428571428571429);
-					_ = Math.Cos(num2) / -2.0;
-					break;
+					case SegmentGeometry.TurnLeft:
+						num -= MathX.ToRadians(3.2142857142857144);
+						break;
+					case SegmentGeometry.TurnRight:
+						num += MathX.ToRadians(3.2142857142857144);
+						break;
+					case SegmentGeometry.Rise:
+						num2 += MathX.ToRadians(6.428571428571429);
+						_ = Math.Cos(num2) / -2.0;
+						break;
+					case SegmentGeometry.Drop:
+						num2 -= MathX.ToRadians(6.428571428571429);
+						_ = Math.Cos(num2) / -2.0;
+						break;
 				}
 				Vector3 vector2 = vector + new Vector3(Math.Sin(num), 0.0 - Math.Cos(num2), Math.Cos(num)) * 2.0;
 				double num3 = num2 - MathX.ToRadians(90.0);
@@ -307,7 +307,7 @@ internal class HalfPipeSpecialStageScreen : Screen
 	private void UpdateCamera()
 	{
 		int index = Math.Min(_trackNodes.Count - 1, _currentTrackNode + 1);
-		double num = (double)(_ticks % 2) / 2.0;
+		double num = _ticks % 2 / 2.0;
 		TrackNode trackNode = _trackNodes[_currentTrackNode];
 		TrackNode trackNode2 = _trackNodes[index];
 		Vector3 vector = trackNode.Position + new Vector3(0.0, -2.0, 0.0);
@@ -345,8 +345,8 @@ internal class HalfPipeSpecialStageScreen : Screen
 		_graphicsContext.ClearDepthBuffer();
 		_graphicsContext.DepthTesting = true;
 		List<TexturedQuad> list = new List<TexturedQuad>();
-		double num = 8.0 / (double)_floorTexture.Width;
-		int num2 = (int)((double)_floorTexture.Height * num / 2.0);
+		double num = 8.0 / _floorTexture.Width;
+		int num2 = (int)(_floorTexture.Height * num / 2.0);
 		Vector3[] array = null;
 		for (int i = 0; i < _trackNodes.Count; i++)
 		{
@@ -361,7 +361,7 @@ internal class HalfPipeSpecialStageScreen : Screen
 			TrackNode trackNode = _trackNodes[i];
 			Matrix4 transform = Matrix4.Identity.RotateY(trackNode.Angle.X).Translate(trackNode.Position);
 			Vector3[] array2 = (from x in GetCrossSection()
-				select transform * x).ToArray();
+								select transform * x).ToArray();
 			if (array != null)
 			{
 				for (int num3 = 0; num3 < array2.Length - 1; num3++)
@@ -375,10 +375,10 @@ internal class HalfPipeSpecialStageScreen : Screen
 						array2[num3 + 1]
 					}, new Vector2[4]
 					{
-						new Vector2((double)num3 / (double)(array2.Length - 1), 1.0 - (double)(num4 + 1) / (double)num2),
-						new Vector2((double)num3 / (double)(array2.Length - 1), 1.0 - (double)num4 / (double)num2),
-						new Vector2((double)(num3 + 1) / (double)(array2.Length - 1), 1.0 - (double)num4 / (double)num2),
-						new Vector2((double)(num3 + 1) / (double)(array2.Length - 1), 1.0 - (double)(num4 + 1) / (double)num2)
+						new Vector2(num3 / (double)(array2.Length - 1), 1.0 - (num4 + 1) / (double)num2),
+						new Vector2(num3 / (double)(array2.Length - 1), 1.0 - num4 / (double)num2),
+						new Vector2((num3 + 1) / (double)(array2.Length - 1), 1.0 - num4 / (double)num2),
+						new Vector2((num3 + 1) / (double)(array2.Length - 1), 1.0 - (num4 + 1) / (double)num2)
 					}, _floorTexture));
 				}
 			}
@@ -391,7 +391,7 @@ internal class HalfPipeSpecialStageScreen : Screen
 			double num6 = 3.0;
 			for (int num7 = 0; num7 < 7; num7++)
 			{
-				double num8 = (double)num7 * (MathX.ToRadians(180.0) / 6.0);
+				double num8 = num7 * (MathX.ToRadians(180.0) / 6.0);
 				Vector3 vector = new Vector3((0.0 - Math.Cos(num8)) * num6, Math.Sin(num8) * num6, 0.0);
 				list.Add(new TexturedQuad(new Vector3[4]
 				{
@@ -457,7 +457,7 @@ internal class HalfPipeSpecialStageScreen : Screen
 		Vector3[] array = new Vector3[32];
 		for (int i = 0; i < array.Length; i++)
 		{
-			double num = (double)i / 31.0 * Math.PI;
+			double num = i / 31.0 * Math.PI;
 			array[i] = new Vector3((0.0 - Math.Cos(num)) * 4.0, (0.0 - Math.Sin(num)) * 4.0, 0.0);
 		}
 		return array;

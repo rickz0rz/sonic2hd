@@ -68,12 +68,12 @@ public struct Size : IComparable<Size>, IEquatable<Size>
 
 	public static Size operator *(Size v, int x)
 	{
-		return new Size(v.Width * (double)x, v.Height * (double)x);
+		return new Size(v.Width * x, v.Height * x);
 	}
 
 	public static Size operator /(Size v, int x)
 	{
-		return new Size(v.Width / (double)x, v.Height / (double)x);
+		return new Size(v.Width / x, v.Height / x);
 	}
 
 	public static bool operator ==(Size a, Size b)

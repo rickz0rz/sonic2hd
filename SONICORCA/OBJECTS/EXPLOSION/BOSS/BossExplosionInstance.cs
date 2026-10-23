@@ -13,15 +13,15 @@ namespace SONICORCA.OBJECTS.EXPLOSION.BOSS;
 
 public class BossExplosionInstance : ParticleObject
 {
-  public BossExplosionInstance()
-    : base("/ANIGROUP")
-  {
-  }
+	public BossExplosionInstance()
+	  : base("/ANIGROUP")
+	{
+	}
 
-  protected override void OnStart()
-  {
-    base.OnStart();
-    this.Level.SoundManager.PlaySound((IActiveObject) this, this.Type.GetAbsolutePath("SONICORCA/SOUND/BOSSEXPLOSION"));
-    this.FilterMultiplier = 0.0;
-  }
+	protected override void OnStart()
+	{
+		base.OnStart();
+		Level.SoundManager.PlaySound(this, Type.GetAbsolutePath("SONICORCA/SOUND/BOSSEXPLOSION"));
+		FilterMultiplier = 0.0;
+	}
 }

@@ -11,7 +11,7 @@ namespace S2HD.Menu;
 
 internal interface ISpinnerSetting : ISetting
 {
-  IReadOnlyList<string> Values { get; }
+	IReadOnlyList<string> Values { get; }
 
-  int SelectedIndex { get; set; }
+	int SelectedIndex { get; set; }
 }

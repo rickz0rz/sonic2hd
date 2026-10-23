@@ -309,7 +309,7 @@ public class Level : IDisposable
 		Trace.WriteLine("Starting level " + Name);
 		_waterManager.Load();
 		_fadeTransition.Clear();
-		StateFlags = (LevelStateFlags)0;
+		StateFlags = 0;
 		Ticks = 0;
 		_intervals.Clear();
 		InitialiseEarthquake();

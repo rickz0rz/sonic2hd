@@ -13,11 +13,11 @@ namespace SONICORCA.OBJECTS.SPRINGBOARD;
 [SonicOrca.Core.Objects.Metadata.Name("Spring board")]
 [Description("Spring board from Sonic 2")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.General)]
-[ObjectInstance(typeof (SpringBoardInstance))]
+[ObjectInstance(typeof(SpringBoardInstance))]
 public class SpringBoardType : ObjectType
 {
-  [Dependency]
-  public const string AnimationGroupResourceKey = "/ANIGROUP";
-  [Dependency]
-  public const string SoundResourceKey = "SONICORCA/SOUND/SPRING";
+	[Dependency]
+	public const string AnimationGroupResourceKey = "/ANIGROUP";
+	[Dependency]
+	public const string SoundResourceKey = "SONICORCA/SOUND/SPRING";
 }

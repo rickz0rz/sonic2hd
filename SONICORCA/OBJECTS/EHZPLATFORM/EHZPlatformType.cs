@@ -15,18 +15,18 @@ namespace SONICORCA.OBJECTS.EHZPLATFORM;
 [SonicOrca.Core.Objects.Metadata.Name("Floating platform")]
 [Description("Floating platform from Emerald Hill Zone, Sonic 2")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Platform)]
-[ObjectInstance(typeof (EHZPlatformInstance))]
+[ObjectInstance(typeof(EHZPlatformInstance))]
 public class EHZPlatformType : ObjectType
 {
-  [Dependency]
-  public const string AnimationGroupResourceKey = "/ANIGROUP";
+	[Dependency]
+	public const string AnimationGroupResourceKey = "/ANIGROUP";
 
-  public Vector2 GetLifeRadius(Platform state)
-  {
-    Vector2 movementRadius = state.MovementRadius;
-    double x = movementRadius.X;
-    movementRadius = state.MovementRadius;
-    double y = movementRadius.Y;
-    return new Vector2(x, y);
-  }
+	public Vector2 GetLifeRadius(Platform state)
+	{
+		Vector2 movementRadius = state.MovementRadius;
+		double x = movementRadius.X;
+		movementRadius = state.MovementRadius;
+		double y = movementRadius.Y;
+		return new Vector2(x, y);
+	}
 }

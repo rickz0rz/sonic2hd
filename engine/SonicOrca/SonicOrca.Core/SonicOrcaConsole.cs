@@ -141,8 +141,8 @@ public class SonicOrcaConsole : IDisposable
 		if (_resourcesLoaded && _opacity != 0f)
 		{
 			int height = _font.Height;
-			Colour colour = new Colour(0.8 * (double)_opacity, 0.1, 0.1, 0.1);
-			Colour colour2 = new Colour(1.0 * (double)_opacity, 1.0, 1.0, 1.0);
+			Colour colour = new Colour(0.8 * _opacity, 0.1, 0.1, 0.1);
+			Colour colour2 = new Colour(1.0 * _opacity, 1.0, 1.0, 1.0);
 			Vector2i clientSize = renderer.Window.ClientSize;
 			Rectanglei rectanglei = new Rectanglei(8, 8, clientSize.X - 16, 6 * height);
 			Rectanglei rectanglei2 = new Rectangle(8.0, rectanglei.Bottom + 8, clientSize.X - 16, height);
@@ -178,21 +178,21 @@ public class SonicOrcaConsole : IDisposable
 			string[] args = tokens.Skip(1).ToArray();
 			switch (tokens[0].ToLower())
 			{
-			case "barrier":
-				ProcessCommandBarrier(args);
-				break;
-			case "debug":
-				ProcessCommandDebug(args);
-				break;
-			case "spawn":
-				ProcessCommandSpawn(args);
-				break;
-			case "teleport":
-				ProcessCommandTeleport(args);
-				break;
-			case "restart":
-				ProcessCommandRestart(args);
-				break;
+				case "barrier":
+					ProcessCommandBarrier(args);
+					break;
+				case "debug":
+					ProcessCommandDebug(args);
+					break;
+				case "spawn":
+					ProcessCommandSpawn(args);
+					break;
+				case "teleport":
+					ProcessCommandTeleport(args);
+					break;
+				case "restart":
+					ProcessCommandRestart(args);
+					break;
 			}
 		}
 	}
@@ -207,24 +207,24 @@ public class SonicOrcaConsole : IDisposable
 		BarrierType barrierType = BarrierType.None;
 		switch (args[0].ToLower())
 		{
-		case "none":
-			barrierType = BarrierType.None;
-			break;
-		case "classic":
-			barrierType = BarrierType.Classic;
-			break;
-		case "bubble":
-			barrierType = BarrierType.Bubble;
-			break;
-		case "fire":
-			barrierType = BarrierType.Fire;
-			break;
-		case "lightning":
-			barrierType = BarrierType.Lightning;
-			break;
-		default:
-			WriteLine("usage: barrier <classic|bubble|fire|lightning>");
-			return;
+			case "none":
+				barrierType = BarrierType.None;
+				break;
+			case "classic":
+				barrierType = BarrierType.Classic;
+				break;
+			case "bubble":
+				barrierType = BarrierType.Bubble;
+				break;
+			case "fire":
+				barrierType = BarrierType.Fire;
+				break;
+			case "lightning":
+				barrierType = BarrierType.Lightning;
+				break;
+			default:
+				WriteLine("usage: barrier <classic|bubble|fire|lightning>");
+				return;
 		}
 		LevelGameState levelGameState = null;
 		if (levelGameState != null && levelGameState.Level != null)

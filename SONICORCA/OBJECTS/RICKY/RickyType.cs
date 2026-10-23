@@ -13,9 +13,9 @@ namespace SONICORCA.OBJECTS.RICKY;
 [SonicOrca.Core.Objects.Metadata.Name("Ricky")]
 [Description("Ricky from Sonic 1")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Animal)]
-[ObjectInstance(typeof (RickyInstance))]
+[ObjectInstance(typeof(RickyInstance))]
 public class RickyType : ObjectType
 {
-  [Dependency]
-  public const string AnimationGroupResourceKey = "/ANIGROUP";
+	[Dependency]
+	public const string AnimationGroupResourceKey = "/ANIGROUP";
 }

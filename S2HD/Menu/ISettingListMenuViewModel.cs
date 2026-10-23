@@ -11,5 +11,5 @@ namespace S2HD.Menu;
 
 internal interface ISettingListMenuViewModel : IMenuViewModel
 {
-  ImmutableArray<ISetting> Items { get; }
+	ImmutableArray<ISetting> Items { get; }
 }

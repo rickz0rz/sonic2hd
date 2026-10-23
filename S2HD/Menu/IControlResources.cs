@@ -11,9 +11,9 @@ namespace S2HD.Menu;
 
 internal interface IControlResources
 {
-  Font Font { get; }
+	Font Font { get; }
 
-  ITexture ButtonA { get; }
+	ITexture ButtonA { get; }
 
-  ITexture ButtonB { get; }
+	ITexture ButtonB { get; }
 }

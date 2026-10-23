@@ -59,9 +59,9 @@ public struct Colour : IEquatable<Colour>
 	{
 		get
 		{
-			double num = (double)(int)Red / 255.0;
-			double num2 = (double)(int)Green / 255.0;
-			double num3 = (double)(int)Blue / 255.0;
+			double num = Red / 255.0;
+			double num2 = Green / 255.0;
+			double num3 = Blue / 255.0;
 			double num4 = Math.Max(Math.Max(num, num2), num3);
 			double num5 = Math.Min(Math.Min(num, num2), num3);
 			if ((num5 + num4) / 2.0 <= 0.0)
@@ -101,9 +101,9 @@ public struct Colour : IEquatable<Colour>
 	{
 		get
 		{
-			double val = (double)(int)Red / 255.0;
-			double val2 = (double)(int)Green / 255.0;
-			double val3 = (double)(int)Blue / 255.0;
+			double val = Red / 255.0;
+			double val2 = Green / 255.0;
+			double val3 = Blue / 255.0;
 			double num = Math.Max(Math.Max(val, val2), val3);
 			double num2 = Math.Min(Math.Min(val, val2), val3);
 			double num3 = (num2 + num) / 2.0;
@@ -128,9 +128,9 @@ public struct Colour : IEquatable<Colour>
 	{
 		get
 		{
-			double val = (double)(int)Red / 255.0;
-			double val2 = (double)(int)Green / 255.0;
-			double val3 = (double)(int)Blue / 255.0;
+			double val = Red / 255.0;
+			double val2 = Green / 255.0;
+			double val3 = Blue / 255.0;
 			double num = Math.Max(Math.Max(val, val2), val3);
 			return (Math.Min(Math.Min(val, val2), val3) + num) / 2.0;
 		}
@@ -241,42 +241,42 @@ public struct Colour : IEquatable<Colour>
 			double num6 = (num4 - num5) / num4;
 			hue *= 6.0;
 			int num7 = (int)hue;
-			double num8 = hue - (double)num7;
+			double num8 = hue - num7;
 			double num9 = num4 * num6 * num8;
 			double num10 = num5 + num9;
 			double num11 = num4 - num9;
 			switch (num7)
 			{
-			case 0:
-				num = num4;
-				num2 = num10;
-				num3 = num5;
-				break;
-			case 1:
-				num = num11;
-				num2 = num4;
-				num3 = num5;
-				break;
-			case 2:
-				num = num5;
-				num2 = num4;
-				num3 = num10;
-				break;
-			case 3:
-				num = num5;
-				num2 = num11;
-				num3 = num4;
-				break;
-			case 4:
-				num = num10;
-				num2 = num5;
-				num3 = num4;
-				break;
-			case 5:
-				num = num4;
-				num2 = num5;
-				num3 = num11;
-				break;
+				case 0:
+					num = num4;
+					num2 = num10;
+					num3 = num5;
+					break;
+				case 1:
+					num = num11;
+					num2 = num4;
+					num3 = num5;
+					break;
+				case 2:
+					num = num5;
+					num2 = num4;
+					num3 = num10;
+					break;
+				case 3:
+					num = num5;
+					num2 = num11;
+					num3 = num4;
+					break;
+				case 4:
+					num = num10;
+					num2 = num5;
+					num3 = num4;
+					break;
+				case 5:
+					num = num4;
+					num2 = num5;
+					num3 = num11;
+					break;
 			}
 		}
 		Red = (byte)MathX.Clamp(0.0, num * 255.0, 255.0);
@@ -330,21 +330,21 @@ public struct Colour : IEquatable<Colour>
 		}
 		switch (s.Length)
 		{
-		case 3:
-			result = new Colour(Convert4to8BitColour(Convert.ToByte(s.Substring(0, 1), 16)), Convert4to8BitColour(Convert.ToByte(s.Substring(1, 1), 16)), Convert4to8BitColour(Convert.ToByte(s.Substring(2, 1), 16)));
-			return true;
-		case 4:
-			result = new Colour(Convert4to8BitColour(Convert.ToByte(s.Substring(0, 1), 16)), Convert4to8BitColour(Convert.ToByte(s.Substring(1, 1), 16)), Convert4to8BitColour(Convert.ToByte(s.Substring(2, 1), 16)), Convert4to8BitColour(Convert.ToByte(s.Substring(3, 1), 16)));
-			return true;
-		case 6:
-			result = new Colour(Convert.ToByte(s.Substring(0, 2), 16), Convert.ToByte(s.Substring(2, 2), 16), Convert.ToByte(s.Substring(4, 2), 16));
-			return true;
-		case 8:
-			result = new Colour(Convert.ToByte(s.Substring(0, 2), 16), Convert.ToByte(s.Substring(2, 2), 16), Convert.ToByte(s.Substring(4, 2), 16), Convert.ToByte(s.Substring(6, 2), 16));
-			return true;
-		default:
-			result = Colours.Black;
-			return false;
+			case 3:
+				result = new Colour(Convert4to8BitColour(Convert.ToByte(s.Substring(0, 1), 16)), Convert4to8BitColour(Convert.ToByte(s.Substring(1, 1), 16)), Convert4to8BitColour(Convert.ToByte(s.Substring(2, 1), 16)));
+				return true;
+			case 4:
+				result = new Colour(Convert4to8BitColour(Convert.ToByte(s.Substring(0, 1), 16)), Convert4to8BitColour(Convert.ToByte(s.Substring(1, 1), 16)), Convert4to8BitColour(Convert.ToByte(s.Substring(2, 1), 16)), Convert4to8BitColour(Convert.ToByte(s.Substring(3, 1), 16)));
+				return true;
+			case 6:
+				result = new Colour(Convert.ToByte(s.Substring(0, 2), 16), Convert.ToByte(s.Substring(2, 2), 16), Convert.ToByte(s.Substring(4, 2), 16));
+				return true;
+			case 8:
+				result = new Colour(Convert.ToByte(s.Substring(0, 2), 16), Convert.ToByte(s.Substring(2, 2), 16), Convert.ToByte(s.Substring(4, 2), 16), Convert.ToByte(s.Substring(6, 2), 16));
+				return true;
+			default:
+				result = Colours.Black;
+				return false;
 		}
 	}
 

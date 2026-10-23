@@ -57,7 +57,7 @@ public class LevelSound : IDisposable
 	{
 		Camera camera = _level.Camera;
 		double num = camera.Bounds.X + camera.Bounds.Width / 2.0;
-		double num2 = (double)Position.X - num;
+		double num2 = Position.X - num;
 		if (Math.Abs(num2) < 512.0)
 		{
 			_instance.Pan = 0.0;
@@ -67,15 +67,15 @@ public class LevelSound : IDisposable
 			_instance.Pan = MathX.Clamp(-1.0, num2 / camera.Bounds.Width, 1.0);
 		}
 		double num3 = 0.0;
-		if ((double)Position.X < camera.Bounds.X)
+		if (Position.X < camera.Bounds.X)
 		{
-			num3 = camera.Bounds.X - (double)Position.X;
+			num3 = camera.Bounds.X - Position.X;
 		}
-		else if ((double)Position.X > camera.Bounds.Right)
+		else if (Position.X > camera.Bounds.Right)
 		{
-			num3 = (double)Position.X - camera.Bounds.Right;
+			num3 = Position.X - camera.Bounds.Right;
 		}
-		_instance.Volume = MathX.Clamp(0.0, 1.0 - num3 / (double)DistanceAudible, 1.0);
+		_instance.Volume = MathX.Clamp(0.0, 1.0 - num3 / DistanceAudible, 1.0);
 	}
 
 	public void Play()

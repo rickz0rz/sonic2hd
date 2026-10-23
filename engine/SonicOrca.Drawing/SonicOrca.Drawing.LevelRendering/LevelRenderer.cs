@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using SonicOrca.Core;
@@ -237,17 +236,17 @@ public class LevelRenderer : ILevelRenderer, IDisposable
 		viewOptions.FilterAmount = 0.0;
 		switch (layer.Lighting.Type)
 		{
-		case LevelLayerLightingType.Outside:
-			if (_level.NightMode != 0.0)
-			{
-				viewOptions.Filter = 1;
-				viewOptions.FilterAmount = _level.NightMode;
-			}
-			break;
-		case LevelLayerLightingType.Inside:
-			viewOptions.Filter = 2;
-			viewOptions.FilterAmount = 1.0 - layer.Lighting.Light;
-			break;
+			case LevelLayerLightingType.Outside:
+				if (_level.NightMode != 0.0)
+				{
+					viewOptions.Filter = 1;
+					viewOptions.FilterAmount = _level.NightMode;
+				}
+				break;
+			case LevelLayerLightingType.Inside:
+				viewOptions.Filter = 2;
+				viewOptions.FilterAmount = 1.0 - layer.Lighting.Light;
+				break;
 		}
 	}
 
@@ -376,7 +375,7 @@ public class LevelRenderer : ILevelRenderer, IDisposable
 		RenderingHelpers.RenderToFramebuffer(renderer, texture, _effectFramebuffer, BlendMode.Opaque);
 		_waterfallDistortionTexture.Wrapping = TextureWrapping.Repeat;
 		WaterfallRenderer waterfallRenderer = WaterfallRenderer.FromRenderer(renderer);
-		waterfallRenderer.DistortionOffset = new Vector2(0.0, (double)(_level.Ticks % 60) / -60.0);
+		waterfallRenderer.DistortionOffset = new Vector2(0.0, _level.Ticks % 60 / -60.0);
 		waterfallRenderer.DistortionTexture = _waterfallDistortionTexture;
 		waterfallRenderer.DistortionAmount = 16.0;
 		waterfallRenderer.NonDistortionRadius = new Vector2i(4, 24);

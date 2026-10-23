@@ -33,15 +33,15 @@ public static class LinqExtensions
 
 	public static int GetCollectionHashCode(params object[] items)
 	{
-		return ((IEnumerable<object>)items).GetCollectionHashCode();
+		return items.GetCollectionHashCode();
 	}
 
 	public static bool HasSameElementsAs<T>(this IEnumerable<T> first, IEnumerable<T> second)
 	{
 		Dictionary<T, int> firstMap = (from x in first
-			group x by x).ToDictionary((IGrouping<T, T> x) => x.Key, (IGrouping<T, T> x) => x.Count());
+									   group x by x).ToDictionary((IGrouping<T, T> x) => x.Key, (IGrouping<T, T> x) => x.Count());
 		Dictionary<T, int> secondMap = (from x in second
-			group x by x).ToDictionary((IGrouping<T, T> x) => x.Key, (IGrouping<T, T> x) => x.Count());
+										group x by x).ToDictionary((IGrouping<T, T> x) => x.Key, (IGrouping<T, T> x) => x.Count());
 		if (firstMap.Keys.All((T x) => secondMap.Keys.Contains(x) && firstMap[x] == secondMap[x]))
 		{
 			return secondMap.Keys.All((T x) => firstMap.Keys.Contains(x) && secondMap[x] == firstMap[x]);

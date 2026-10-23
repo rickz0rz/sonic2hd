@@ -12,9 +12,9 @@ namespace SONICORCA.OBJECTS.FLICKY;
 
 public class FlickyInstance : Animal
 {
-  public FlickyInstance()
-    : base("/ANIGROUP")
-  {
-    this.JumpVelocity = new Vector2(-12.0, -16.0);
-  }
+	public FlickyInstance()
+	  : base("/ANIGROUP")
+	{
+		JumpVelocity = new Vector2(-12.0, -16.0);
+	}
 }

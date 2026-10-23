@@ -14,15 +14,15 @@ namespace SONICORCA.OBJECTS.HTZRISINGGROUP;
 [SonicOrca.Core.Objects.Metadata.Name("Rising group")]
 [Description("Rising group from Hill Top Zone, Sonic 2")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Obstacle)]
-[ObjectInstance(typeof (HTZRisingGroupInstance))]
+[ObjectInstance(typeof(HTZRisingGroupInstance))]
 public class HTZRisingGroupType : ObjectType
 {
-  public Vector2 GetLifeRadius(HTZRisingGroupInstance state)
-  {
-    Vector2i size = state.Size;
-    double x = (double) size.X / 2.0;
-    size = state.Size;
-    double y = (double) size.Y / 2.0;
-    return new Vector2(x, y);
-  }
+	public Vector2 GetLifeRadius(HTZRisingGroupInstance state)
+	{
+		Vector2i size = state.Size;
+		double x = size.X / 2.0;
+		size = state.Size;
+		double y = size.Y / 2.0;
+		return new Vector2(x, y);
+	}
 }

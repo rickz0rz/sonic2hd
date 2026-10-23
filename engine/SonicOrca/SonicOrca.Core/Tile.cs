@@ -70,7 +70,7 @@ public class Tile : ITile
 			_opacity = _frames[0].Opacity;
 			if (_frames.Length >= 2)
 			{
-				_opacityChange = (_frames[1].Opacity - _opacity) / (float)(_frames[0].Delay + 1);
+				_opacityChange = (_frames[1].Opacity - _opacity) / (_frames[0].Delay + 1);
 			}
 		}
 	}
@@ -96,7 +96,7 @@ public class Tile : ITile
 			Frame frame2 = _frames[num];
 			if (frame2.Opacity != _opacity && frame.Delay > 0)
 			{
-				_opacityChange = (frame2.Opacity - _opacity) / (float)(frame.Delay + 1);
+				_opacityChange = (frame2.Opacity - _opacity) / (frame.Delay + 1);
 			}
 			else
 			{

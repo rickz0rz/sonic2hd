@@ -102,7 +102,7 @@ public class CompositionLayerTween
 			double num = EndValues[valueKey] - StartValues[valueKey];
 			if (num != 0.0)
 			{
-				dictionary[valueKey] = StartValues[valueKey] + num / (double)_duration * (double)_currentFrame;
+				dictionary[valueKey] = StartValues[valueKey] + num / _duration * _currentFrame;
 			}
 			else
 			{

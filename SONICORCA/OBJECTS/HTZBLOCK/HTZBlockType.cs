@@ -15,18 +15,18 @@ namespace SONICORCA.OBJECTS.HTZBLOCK;
 [SonicOrca.Core.Objects.Metadata.Name("Floating block")]
 [Description("Floating block from Hill Top Zone, Sonic 2")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Platform)]
-[ObjectInstance(typeof (HTZBlockInstance))]
+[ObjectInstance(typeof(HTZBlockInstance))]
 public class HTZBlockType : ObjectType
 {
-  [Dependency]
-  public const string AnimationGroupResourceKey = "/ANIGROUP";
+	[Dependency]
+	public const string AnimationGroupResourceKey = "/ANIGROUP";
 
-  public Vector2 GetLifeRadius(Platform state)
-  {
-    Vector2 movementRadius = state.MovementRadius;
-    double x = movementRadius.X;
-    movementRadius = state.MovementRadius;
-    double y = movementRadius.Y;
-    return new Vector2(x, y);
-  }
+	public Vector2 GetLifeRadius(Platform state)
+	{
+		Vector2 movementRadius = state.MovementRadius;
+		double x = movementRadius.X;
+		movementRadius = state.MovementRadius;
+		double y = movementRadius.Y;
+		return new Vector2(x, y);
+	}
 }

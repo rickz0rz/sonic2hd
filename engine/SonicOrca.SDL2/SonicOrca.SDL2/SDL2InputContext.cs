@@ -104,20 +104,20 @@ public class SDL2InputContext : InputContext, IDisposable
 			_event = events[i];
 			switch (_event.type)
 			{
-			case SDL.SDL_EventType.SDL_MOUSEWHEEL:
-				num = _event.wheel.y;
-				break;
-			case SDL.SDL_EventType.SDL_TEXTINPUT:
-			{
-				IntPtr ptr = (IntPtr)_event.text.text;
-				byte[] array = new byte[32];
-				int j;
-				for (j = 0; j < 32 && (array[j] = Marshal.ReadByte(ptr, j)) != 0; j++)
-				{
-				}
-				TextInput = Encoding.UTF8.GetString(array, 0, j);
-				break;
-			}
+				case SDL.SDL_EventType.SDL_MOUSEWHEEL:
+					num = _event.wheel.y;
+					break;
+				case SDL.SDL_EventType.SDL_TEXTINPUT:
+					{
+						IntPtr ptr = (IntPtr)_event.text.text;
+						byte[] array = new byte[32];
+						int j;
+						for (j = 0; j < 32 && (array[j] = Marshal.ReadByte(ptr, j)) != 0; j++)
+						{
+						}
+						TextInput = Encoding.UTF8.GetString(array, 0, j);
+						break;
+					}
 			}
 		}
 		while (SDL.SDL_PollEvent(out _event) != 0)
@@ -206,7 +206,7 @@ public class SDL2InputContext : InputContext, IDisposable
 
 	private double GetGameControllerAxis(IntPtr controller, SDL.SDL_GameControllerAxis axis, double minTolerance, double maxTolerance)
 	{
-		double value = (double)SDL.SDL_GameControllerGetAxis(controller, axis) / 32767.0;
+		double value = SDL.SDL_GameControllerGetAxis(controller, axis) / 32767.0;
 		double num = Math.Abs(value);
 		if (num < minTolerance)
 		{
@@ -214,9 +214,9 @@ public class SDL2InputContext : InputContext, IDisposable
 		}
 		if (num > maxTolerance)
 		{
-			return 1.0 * (double)Math.Sign(value);
+			return 1.0 * Math.Sign(value);
 		}
-		return (num - minTolerance) / (maxTolerance - minTolerance) * (double)Math.Sign(value);
+		return (num - minTolerance) / (maxTolerance - minTolerance) * Math.Sign(value);
 	}
 
 	public override char GetKeyCode(int scancode)

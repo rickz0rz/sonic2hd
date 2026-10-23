@@ -4,24 +4,24 @@
 // MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
 // Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
 
+using System;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
-using System;
 
 #nullable disable
 namespace S2HD.Menu;
 
 internal interface IMenuViewPresenter
 {
-  Rectanglei Bounds { get; set; }
+	Rectanglei Bounds { get; set; }
 
-  event EventHandler NavigateBack;
+	event EventHandler NavigateBack;
 
-  event EventHandler<NavigateNextEventArgs> NavigateNext;
+	event EventHandler<NavigateNextEventArgs> NavigateNext;
 
-  void Update();
+	void Update();
 
-  void HandleInput();
+	void HandleInput();
 
-  void Draw(Renderer renderer);
+	void Draw(Renderer renderer);
 }

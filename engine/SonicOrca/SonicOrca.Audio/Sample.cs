@@ -43,7 +43,7 @@ public class Sample : ILoadedResource, IDisposable
 
 	public long GetPcmDataOffset(int sampleIndex)
 	{
-		return (long)(_bitsPerSample / 8 * _channels) * (long)sampleIndex;
+		return _bitsPerSample / 8 * _channels * (long)sampleIndex;
 	}
 
 	public int GetSampleIndex(long pcmDataOffset)
@@ -58,8 +58,8 @@ public class Sample : ILoadedResource, IDisposable
 		int num = 0;
 		for (int i = 0; i < source.Length; i += 4)
 		{
-			leftSamples[num] = (float)BitConverter.ToInt16(source, i) / 32767f;
-			rightSamples[num] = (float)BitConverter.ToInt16(source, i + 2) / 32767f;
+			leftSamples[num] = BitConverter.ToInt16(source, i) / 32767f;
+			rightSamples[num] = BitConverter.ToInt16(source, i + 2) / 32767f;
 			num++;
 		}
 		return num;

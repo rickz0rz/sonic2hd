@@ -52,7 +52,7 @@ internal class GLFramebuffer : IFramebuffer, IDisposable
 			GL.FramebufferTexture(FramebufferTarget.Framebuffer, (FramebufferAttachment)(36064 + i), (_textures[i] = (GLTexture)context.CreateTexture(width, height)).Id, 0);
 		}
 		GL.DrawBuffers(numTextures, (from num in Enumerable.Range(0, numTextures)
-			select (DrawBuffersEnum)(36064 + num)).ToArray());
+									 select (DrawBuffersEnum)(36064 + num)).ToArray());
 		_depthBufferName = GL.GenRenderbuffer();
 		GL.BindRenderbuffer(RenderbufferTarget.Renderbuffer, _depthBufferName);
 		GL.RenderbufferStorage(RenderbufferTarget.Renderbuffer, RenderbufferStorage.Depth24Stencil8, width, height);

@@ -32,7 +32,7 @@ internal class FontResourceType : ResourceType
 		XmlNode xmlNode = xmlDocument.SelectSingleNode("font");
 		string absolutePath = e.GetAbsolutePath(xmlNode.SelectSingleNode("shape").InnerText);
 		string[] array = (from x in xmlNode.SelectNodes("overlay").OfType<XmlNode>()
-			select e.GetAbsolutePath(x.InnerText)).ToArray();
+						  select e.GetAbsolutePath(x.InnerText)).ToArray();
 		int defaultWidth = int.Parse(xmlNode.GetNodeInnerText("width", "0"));
 		int height = int.Parse(xmlNode.GetNodeInnerText("height", "0"));
 		int tracking = int.Parse(xmlNode.GetNodeInnerText("tracking", "0"));
@@ -43,7 +43,7 @@ internal class FontResourceType : ResourceType
 			shadow = new Vector2i(int.Parse(xmlNode2.Attributes["x"].Value), int.Parse(xmlNode2.Attributes["y"].Value));
 		}
 		IEnumerable<Font.CharacterDefinition> characterDefinitions = from x in xmlNode.SelectNodes("chardefs/chardef").OfType<XmlNode>()
-			select ParseCharacterDefinition(x);
+																	 select ParseCharacterDefinition(x);
 		e.PushDependency(absolutePath);
 		e.PushDependencies(array);
 		return new Font(e.ResourceTree, absolutePath, array, defaultWidth, height, tracking, shadow, characterDefinitions)

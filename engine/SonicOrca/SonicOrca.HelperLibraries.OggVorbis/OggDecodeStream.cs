@@ -109,27 +109,27 @@ public class OggDecodeStream : Stream
 				{
 					switch (syncState.pageout(page))
 					{
-					case 1:
-						streamState.pagein(page);
-						for (; i < 2; info.synthesis_headerin(comment, op), i++)
-						{
-							switch (streamState.packetout(op))
+						case 1:
+							streamState.pagein(page);
+							for (; i < 2; info.synthesis_headerin(comment, op), i++)
 							{
-							case -1:
-								textWriter.WriteLine("Corrupt secondary header.  Exiting.");
-								continue;
-							default:
-								continue;
-							case 0:
+								switch (streamState.packetout(op))
+								{
+									case -1:
+										textWriter.WriteLine("Corrupt secondary header.  Exiting.");
+										continue;
+									default:
+										continue;
+									case 0:
+										break;
+								}
 								break;
 							}
+							continue;
+						default:
+							continue;
+						case 0:
 							break;
-						}
-						continue;
-					default:
-						continue;
-					case 0:
-						break;
 					}
 					break;
 				}
@@ -167,72 +167,72 @@ public class OggDecodeStream : Stream
 				{
 					switch (syncState.pageout(page))
 					{
-					case -1:
-						textWriter.WriteLine("Corrupt or missing data in bitstream; continuing...");
-						continue;
-					default:
-						streamState.pagein(page);
-						while (true)
-						{
-							switch (streamState.packetout(op))
+						case -1:
+							textWriter.WriteLine("Corrupt or missing data in bitstream; continuing...");
+							continue;
+						default:
+							streamState.pagein(page);
+							while (true)
 							{
-							case -1:
-								continue;
-							default:
-							{
-								if (block.synthesis(op) == 0)
+								switch (streamState.packetout(op))
 								{
-									dspState.synthesis_blockin(block);
-								}
-								int num4;
-								while ((num4 = dspState.synthesis_pcmout(array2, array3)) > 0)
-								{
-									float[][] array4 = array2[0];
-									bool flag = false;
-									int num5 = ((num4 < num) ? num4 : num);
-									for (i = 0; i < info.channels; i++)
-									{
-										int num6 = i * 2;
-										int num7 = array3[i];
-										for (int k = 0; k < num5; k++)
+									case -1:
+										continue;
+									default:
 										{
-											int num8 = (int)((double)array4[i][num7 + k] * 32767.0);
-											if (num8 > 32767)
+											if (block.synthesis(op) == 0)
 											{
-												num8 = 32767;
-												flag = true;
+												dspState.synthesis_blockin(block);
 											}
-											if (num8 < -32768)
+											int num4;
+											while ((num4 = dspState.synthesis_pcmout(array2, array3)) > 0)
 											{
-												num8 = -32768;
-												flag = true;
+												float[][] array4 = array2[0];
+												bool flag = false;
+												int num5 = ((num4 < num) ? num4 : num);
+												for (i = 0; i < info.channels; i++)
+												{
+													int num6 = i * 2;
+													int num7 = array3[i];
+													for (int k = 0; k < num5; k++)
+													{
+														int num8 = (int)(array4[i][num7 + k] * 32767.0);
+														if (num8 > 32767)
+														{
+															num8 = 32767;
+															flag = true;
+														}
+														if (num8 < -32768)
+														{
+															num8 = -32768;
+															flag = true;
+														}
+														if (num8 < 0)
+														{
+															num8 |= 0x8000;
+														}
+														array[num6] = (byte)num8;
+														array[num6 + 1] = (byte)((uint)num8 >> 8);
+														num6 += 2 * info.channels;
+													}
+												}
+												stream.Write(array, 0, 2 * info.channels * num5);
+												dspState.synthesis_read(num5);
 											}
-											if (num8 < 0)
-											{
-												num8 |= 0x8000;
-											}
-											array[num6] = (byte)num8;
-											array[num6 + 1] = (byte)((uint)num8 >> 8);
-											num6 += 2 * info.channels;
+											continue;
 										}
-									}
-									stream.Write(array, 0, 2 * info.channels * num5);
-									dspState.synthesis_read(num5);
+									case 0:
+										break;
 								}
-								continue;
-							}
-							case 0:
 								break;
 							}
+							if (page.eos() != 0)
+							{
+								num3 = 1;
+							}
+							continue;
+						case 0:
 							break;
-						}
-						if (page.eos() != 0)
-						{
-							num3 = 1;
-						}
-						continue;
-					case 0:
-						break;
 					}
 					break;
 				}

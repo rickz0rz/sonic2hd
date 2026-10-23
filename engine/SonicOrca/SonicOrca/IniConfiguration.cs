@@ -263,48 +263,48 @@ public class IniConfiguration
 		}
 		switch (c)
 		{
-		case '[':
-		{
-			StringBuilder stringBuilder2 = new StringBuilder();
-			while (reader.TryRead(out c) && c != ']')
-			{
-				stringBuilder2.Append(c);
-			}
-			if (c != ']')
-			{
-				throw new Exception("Invalid section name");
-			}
-			currentSectionName = stringBuilder2.ToString().Trim();
-			if (!_sections.TryGetValue(currentSectionName, out var value2))
-			{
-				value2 = new Section(currentSectionName);
-				_sections.Add(currentSectionName, value2);
-			}
-			value2.Lines.Add(lineIndex);
-			break;
-		}
-		default:
-		{
-			StringBuilder stringBuilder = new StringBuilder();
-			stringBuilder.Append(c);
-			while (reader.TryRead(out c) && c != '=' && c != ':')
-			{
-				stringBuilder.Append(c);
-			}
-			if (c != '=' && c != ':')
-			{
-				throw new Exception("Expected = or : after property name");
-			}
-			string propertyName = stringBuilder.ToString().Trim();
-			string value = ReadPropertyValue(reader);
-			Property orAddProperty = GetOrAddProperty(currentSectionName, propertyName);
-			orAddProperty.Value = value;
-			orAddProperty.Lines.Add(lineIndex);
-			break;
-		}
-		case '#':
-		case ';':
-			break;
+			case '[':
+				{
+					StringBuilder stringBuilder2 = new StringBuilder();
+					while (reader.TryRead(out c) && c != ']')
+					{
+						stringBuilder2.Append(c);
+					}
+					if (c != ']')
+					{
+						throw new Exception("Invalid section name");
+					}
+					currentSectionName = stringBuilder2.ToString().Trim();
+					if (!_sections.TryGetValue(currentSectionName, out var value2))
+					{
+						value2 = new Section(currentSectionName);
+						_sections.Add(currentSectionName, value2);
+					}
+					value2.Lines.Add(lineIndex);
+					break;
+				}
+			default:
+				{
+					StringBuilder stringBuilder = new StringBuilder();
+					stringBuilder.Append(c);
+					while (reader.TryRead(out c) && c != '=' && c != ':')
+					{
+						stringBuilder.Append(c);
+					}
+					if (c != '=' && c != ':')
+					{
+						throw new Exception("Expected = or : after property name");
+					}
+					string propertyName = stringBuilder.ToString().Trim();
+					string value = ReadPropertyValue(reader);
+					Property orAddProperty = GetOrAddProperty(currentSectionName, propertyName);
+					orAddProperty.Value = value;
+					orAddProperty.Lines.Add(lineIndex);
+					break;
+				}
+			case '#':
+			case ';':
+				break;
 		}
 	}
 
@@ -321,15 +321,15 @@ public class IniConfiguration
 		}
 		switch (c)
 		{
-		case '\'':
-			flag = (flag3 = true);
-			break;
-		case '"':
-			flag2 = (flag3 = true);
-			break;
-		default:
-			stringBuilder.Append(c);
-			break;
+			case '\'':
+				flag = (flag3 = true);
+				break;
+			case '"':
+				flag2 = (flag3 = true);
+				break;
+			default:
+				stringBuilder.Append(c);
+				break;
 		}
 		while (reader.TryRead(out c))
 		{
@@ -373,25 +373,25 @@ public class IniConfiguration
 		}
 		switch (c)
 		{
-		case '0':
-			return '\0';
-		case 't':
-			return '\t';
-		case 'r':
-			return '\r';
-		case 'n':
-			return '\n';
-		case 'x':
-		{
-			char[] array = new char[4];
-			if (reader.ReadBlock(array, 0, 4) != 4)
-			{
-				throw new Exception("Wrong format for escaped unicode character.");
-			}
-			return (char)int.Parse(new string(array), NumberStyles.AllowHexSpecifier);
-		}
-		default:
-			return c;
+			case '0':
+				return '\0';
+			case 't':
+				return '\t';
+			case 'r':
+				return '\r';
+			case 'n':
+				return '\n';
+			case 'x':
+				{
+					char[] array = new char[4];
+					if (reader.ReadBlock(array, 0, 4) != 4)
+					{
+						throw new Exception("Wrong format for escaped unicode character.");
+					}
+					return (char)int.Parse(new string(array), NumberStyles.AllowHexSpecifier);
+				}
+			default:
+				return c;
 		}
 	}
 }

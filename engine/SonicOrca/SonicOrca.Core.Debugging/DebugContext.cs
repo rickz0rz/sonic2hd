@@ -56,8 +56,8 @@ public class DebugContext : IDisposable
 		_gameContext = level.GameContext;
 		_level = level;
 		_pages.AddRange(from x in DebugOptionDefinitions.CreateOptionsInOrder(this)
-			group x by x.Page into x
-			select new DebugPage(this, x.Key, x));
+						group x by x.Page into x
+						select new DebugPage(this, x.Key, x));
 		if (_pages.Count > 0)
 		{
 			SelectPage(_pages.First());
@@ -240,7 +240,7 @@ public class DebugContext : IDisposable
 			i2dRenderer.ModelMatrix = (i2dRenderer.ModelMatrix * Matrix4.CreateScale(scale, scale)).Translate(x, y);
 			renderer.GetFontRenderer().RenderStringWithShadow(text, default, alignment, Font, colour, overlay);
 		}
-		return (double)Font.Height * scale + 8.0;
+		return Font.Height * scale + 8.0;
 	}
 
 	public void PlayFocusSound()

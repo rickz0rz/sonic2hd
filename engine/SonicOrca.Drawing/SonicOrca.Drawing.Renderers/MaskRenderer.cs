@@ -236,16 +236,16 @@ internal class MaskRenderer : IMaskRenderer, IDisposable, IRenderer
 
 	private void GetClippedSourceRect(ITexture sourceTexture, Rectanglei source, Rectanglei destination, Rectanglei clippedDestination, out float left, out float top, out float right, out float bottom)
 	{
-		left = (float)source.Left / (float)sourceTexture.Width;
-		top = (float)source.Top / (float)sourceTexture.Height;
-		right = (float)source.Right / (float)sourceTexture.Width;
-		bottom = (float)source.Bottom / (float)sourceTexture.Height;
+		left = source.Left / (float)sourceTexture.Width;
+		top = source.Top / (float)sourceTexture.Height;
+		right = source.Right / (float)sourceTexture.Width;
+		bottom = source.Bottom / (float)sourceTexture.Height;
 		float num = right - left;
 		float num2 = bottom - top;
-		left += (float)(clippedDestination.Left - destination.Left) / (float)destination.Width / num;
-		top += (float)(clippedDestination.Top - destination.Top) / (float)destination.Height / num2;
-		right -= (float)(destination.Right - clippedDestination.Right) / (float)destination.Width / num2;
-		bottom -= (float)(destination.Bottom - clippedDestination.Bottom) / (float)destination.Height / num2;
+		left += (clippedDestination.Left - destination.Left) / (float)destination.Width / num;
+		top += (clippedDestination.Top - destination.Top) / (float)destination.Height / num2;
+		right -= (destination.Right - clippedDestination.Right) / (float)destination.Width / num2;
+		bottom -= (destination.Bottom - clippedDestination.Bottom) / (float)destination.Height / num2;
 	}
 
 	public void Deactivate()

@@ -14,18 +14,18 @@ namespace SONICORCA.OBJECTS.HTZSEESAW;
 [SonicOrca.Core.Objects.Metadata.Name("See Saw")]
 [Description("See Saw and Sol from Hill Top Zone, Sonic 2")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Platform)]
-[ObjectInstance(typeof (HTZSeeSawInstance))]
+[ObjectInstance(typeof(HTZSeeSawInstance))]
 public class HTZSeeSawType : ObjectType
 {
-  [Dependency]
-  public const string AnimationGroupResourceKey = "/ANIGROUP";
-  [Dependency]
-  public const string SolAnimationGroupResourceKey = "SONICORCA/OBJECTS/SOL/ANIGROUP";
-  [Dependency]
-  public const string BounceSoundResourceKey = "SONICORCA/SOUND/SPRING";
+	[Dependency]
+	public const string AnimationGroupResourceKey = "/ANIGROUP";
+	[Dependency]
+	public const string SolAnimationGroupResourceKey = "SONICORCA/OBJECTS/SOL/ANIGROUP";
+	[Dependency]
+	public const string BounceSoundResourceKey = "SONICORCA/SOUND/SPRING";
 
-  public new Vector2 GetLifeRadius(ActiveObject state)
-  {
-    return (Vector2) new Vector2i(0, 2048 /*0x0800*/);
-  }
+	public new Vector2 GetLifeRadius(ActiveObject state)
+	{
+		return (Vector2)new Vector2i(0, 2048 /*0x0800*/);
+	}
 }

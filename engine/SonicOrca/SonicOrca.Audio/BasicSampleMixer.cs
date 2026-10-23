@@ -10,11 +10,11 @@ public class BasicSampleMixer : ISampleMixer
 	{
 		byte[] array = new byte[length];
 		IEnumerable<ISampleProvider> second = from x in channels.OfType<SampleInstance>()
-			where x.Classification == SampleInstanceClassification.Music
-			select x;
+											  where x.Classification == SampleInstanceClassification.Music
+											  select x;
 		foreach (ISampleProvider item in (IEnumerable<ISampleProvider>)(from x in channels.Except(second).Concat(second)
-			where x.Playing
-			select x).ToArray())
+																		where x.Playing
+																		select x).ToArray())
 		{
 			double calculatedVolume = item.CalculatedVolume;
 			if (!(calculatedVolume <= 0.0))
@@ -23,7 +23,7 @@ public class BasicSampleMixer : ISampleMixer
 				for (int num2 = 0; num2 < num; num2 += 2)
 				{
 					short a = BitConverter.ToInt16(buffer, num2);
-					short b = (short)((double)BitConverter.ToInt16(array, num2) * calculatedVolume);
+					short b = (short)(BitConverter.ToInt16(array, num2) * calculatedVolume);
 					short num3 = MixSample(a, b);
 					buffer[num2] = (byte)(num3 & 0xFF);
 					buffer[num2 + 1] = (byte)((num3 >> 8) & 0xFF);

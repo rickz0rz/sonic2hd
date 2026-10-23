@@ -13,14 +13,14 @@ namespace SONICORCA.OBJECTS.CPZCHEMICALFALL;
 
 [SonicOrca.Core.Objects.Metadata.Name("Chemical Fall")]
 [Description("Chemical Fall from Chemical Plant Zone, Sonic 2")]
-[ObjectInstance(typeof (CPZChemicalFallInstance))]
+[ObjectInstance(typeof(CPZChemicalFallInstance))]
 public class CPZChemicalFallType : ObjectType
 {
-  [Dependency]
-  public const string AnimationGroupResourceKey = "/ANIGROUP";
+	[Dependency]
+	public const string AnimationGroupResourceKey = "/ANIGROUP";
 
-  public new Vector2 GetLifeRadius(ActiveObject state)
-  {
-    return (Vector2) new Vector2i(0, this.Level.Map.Bounds.Height);
-  }
+	public new Vector2 GetLifeRadius(ActiveObject state)
+	{
+		return (Vector2)new Vector2i(0, Level.Map.Bounds.Height);
+	}
 }

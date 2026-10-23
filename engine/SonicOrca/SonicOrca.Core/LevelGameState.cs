@@ -82,28 +82,28 @@ public class LevelGameState : IGameState, IDisposable
 			}
 			switch (_level.State)
 			{
-			case LevelState.Null:
-				if (!IsWaitingForNetworkPlayers())
-				{
-					StartLevel();
-				}
-				break;
-			case LevelState.Playing:
-				OnLevelUpdate();
-				break;
-			case LevelState.Dead:
-				OnPlayerDeath();
-				break;
-			case LevelState.Restart:
-			case LevelState.RestartCheckpoint:
-				OnPlayerRestart();
-				break;
-			case LevelState.StageCompleted:
-				OnStageComplete();
-				break;
-			case LevelState.Quit:
-				_finished = true;
-				break;
+				case LevelState.Null:
+					if (!IsWaitingForNetworkPlayers())
+					{
+						StartLevel();
+					}
+					break;
+				case LevelState.Playing:
+					OnLevelUpdate();
+					break;
+				case LevelState.Dead:
+					OnPlayerDeath();
+					break;
+				case LevelState.Restart:
+				case LevelState.RestartCheckpoint:
+					OnPlayerRestart();
+					break;
+				case LevelState.StageCompleted:
+					OnStageComplete();
+					break;
+				case LevelState.Quit:
+					_finished = true;
+					break;
 			}
 			yield return UpdateResult.Next();
 			if (_finished)

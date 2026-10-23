@@ -47,11 +47,11 @@ internal class SampleStream : Stream
 	{
 		switch (origin)
 		{
-		case SeekOrigin.End:
-			throw new NotImplementedException();
-		case SeekOrigin.Current:
-			offset += Position;
-			break;
+			case SeekOrigin.End:
+				throw new NotImplementedException();
+			case SeekOrigin.Current:
+				offset += Position;
+				break;
 		}
 		long num = offset - _sample.PcmData.LongLength;
 		if (num > 0)

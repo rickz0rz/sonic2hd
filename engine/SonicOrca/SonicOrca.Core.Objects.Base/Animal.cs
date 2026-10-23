@@ -64,7 +64,7 @@ public abstract class Animal : ActiveObject
 	protected override void OnStart()
 	{
 		_animationInstance = new AnimationInstance(ResourceTree, Type.GetAbsolutePath(_animationGroupResourceKey));
-		JumpVelocity = new Vector2(Math.Abs(JumpVelocity.X) * (double)Math.Sign(_direction), JumpVelocity.Y);
+		JumpVelocity = new Vector2(Math.Abs(JumpVelocity.X) * Math.Sign(_direction), JumpVelocity.Y);
 		Priority = ((_delay > 0) ? (-256) : 1280);
 	}
 

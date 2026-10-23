@@ -13,9 +13,9 @@ namespace SONICORCA.OBJECTS.SPINY;
 [SonicOrca.Core.Objects.Metadata.Name("Spiny")]
 [Description("Spiny from Sonic 2")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Badnik)]
-[ObjectInstance(typeof (SpinyInstance))]
+[ObjectInstance(typeof(SpinyInstance))]
 public class SpinyType : ObjectType
 {
-  [Dependency]
-  public const string AnimationGroupResourceKey = "/ANIGROUP";
+	[Dependency]
+	public const string AnimationGroupResourceKey = "/ANIGROUP";
 }

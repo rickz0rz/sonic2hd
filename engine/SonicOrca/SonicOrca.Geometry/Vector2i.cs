@@ -8,7 +8,7 @@ public struct Vector2i : IEquatable<Vector2i>
 
 	public int Y { get; set; }
 
-	public int Length => (int)Math.Sqrt((long)X * (long)X + (long)Y * (long)Y);
+	public int Length => (int)Math.Sqrt(X * (long)X + Y * (long)Y);
 
 	public double Angle => Math.Atan2(Y, X);
 

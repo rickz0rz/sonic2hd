@@ -13,9 +13,9 @@ namespace SONICORCA.OBJECTS.HTZRISINGBLOCK;
 [SonicOrca.Core.Objects.Metadata.Name("Rising block")]
 [Description("Rising block from Hill Top Zone, Sonic 2")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Obstacle)]
-[ObjectInstance(typeof (HTZRisingBlockInstance))]
+[ObjectInstance(typeof(HTZRisingBlockInstance))]
 public class HTZRisingBlockType : ObjectType
 {
-  [Dependency]
-  public const string AnimationGroupResourceKey = "/ANIGROUP";
+	[Dependency]
+	public const string AnimationGroupResourceKey = "/ANIGROUP";
 }

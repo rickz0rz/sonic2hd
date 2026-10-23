@@ -121,7 +121,7 @@ public class Platform : ActiveObject, IPlatform, IActiveObject
 		if (TimePeriod > 0)
 		{
 			CurrentTime = (Level.Ticks + TimeOffset) % TimePeriod;
-			CurrentT = (double)CurrentTime / (double)TimePeriod;
+			CurrentT = CurrentTime / (double)TimePeriod;
 		}
 		else
 		{
@@ -170,7 +170,7 @@ public class Platform : ActiveObject, IPlatform, IActiveObject
 				num2 = Math.Sin(num3);
 			}
 		}
-		PositionPrecise = new Vector2((double)_initialPosition.X + num * MovementRadius.X, (double)_initialPosition.Y + num2 * MovementRadius.Y + (double)_sagOffset);
+		PositionPrecise = new Vector2(_initialPosition.X + num * MovementRadius.X, _initialPosition.Y + num2 * MovementRadius.Y + _sagOffset);
 	}
 
 	protected bool IsCharacterInteractingWithPlatform()

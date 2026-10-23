@@ -156,7 +156,7 @@ internal class GLShaderProgram : IShaderProgram, IDisposable
 		int uniformLocation = GetUniformLocation(name);
 		if (uniformLocation >= 0)
 		{
-			GL.Uniform4(uniformLocation, (float)(int)value.Red / 255f, (float)(int)value.Green / 255f, (float)(int)value.Blue / 255f, (float)(int)value.Alpha / 255f);
+			GL.Uniform4(uniformLocation, value.Red / 255f, value.Green / 255f, value.Blue / 255f, value.Alpha / 255f);
 		}
 	}
 }

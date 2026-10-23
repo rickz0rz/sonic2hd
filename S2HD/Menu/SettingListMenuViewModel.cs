@@ -12,18 +12,18 @@ namespace S2HD.Menu;
 
 internal class SettingListMenuViewModel : ISettingListMenuViewModel, IMenuViewModel
 {
-  public ImmutableArray<ISetting> Items { get; }
+	public ImmutableArray<ISetting> Items { get; }
 
-  public object Tag { get; }
+	public object Tag { get; }
 
-  public SettingListMenuViewModel(IEnumerable<ISetting> items, object tag = null)
-    : this(items.ToImmutableArray<ISetting>(), tag)
-  {
-  }
+	public SettingListMenuViewModel(IEnumerable<ISetting> items, object tag = null)
+	  : this(items.ToImmutableArray<ISetting>(), tag)
+	{
+	}
 
-  public SettingListMenuViewModel(ImmutableArray<ISetting> items, object tag = null)
-  {
-    this.Items = items;
-    this.Tag = tag;
-  }
+	public SettingListMenuViewModel(ImmutableArray<ISetting> items, object tag = null)
+	{
+		Items = items;
+		Tag = tag;
+	}
 }

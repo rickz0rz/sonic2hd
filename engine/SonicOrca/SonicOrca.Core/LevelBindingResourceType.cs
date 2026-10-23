@@ -40,7 +40,7 @@ public class LevelBindingResourceType : ResourceType
 			defaultLayerIndex = 0;
 		}
 		levelBinding.ObjectPlacements.AddRange(from x in xmlNode.SelectNodes("Definition").OfType<XmlNode>()
-			select GetObjectPlacementFromXmlNode(x, defaultLayerIndex));
+											   select GetObjectPlacementFromXmlNode(x, defaultLayerIndex));
 		e.PushDependencies(levelBinding.ObjectPlacements.Select((ObjectPlacement x) => x.Key).Distinct());
 		return levelBinding;
 	}
@@ -95,8 +95,8 @@ public class LevelBindingResourceType : ResourceType
 			{
 				string name2 = item.Name;
 				(from x in item.ChildNodes.OfType<XmlNode>()
-					where x.NodeType == XmlNodeType.Element
-					select x).ToArray();
+				 where x.NodeType == XmlNodeType.Element
+				 select x).ToArray();
 				KeyValuePair<string, object>[] array = ParseBehaviour(item).ToArray();
 				object value2 = ((array.Length == 0) ? ParseBehaviourValue(item.InnerText) : array);
 				yield return new KeyValuePair<string, object>(name2, value2);

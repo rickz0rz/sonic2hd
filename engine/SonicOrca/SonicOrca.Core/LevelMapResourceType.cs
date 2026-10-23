@@ -43,9 +43,9 @@ internal class LevelMapResourceType : ResourceType
 		map.LayerTree.Children.Clear();
 		map.LayerTree.Children.AddRange(items);
 		LevelLayer[] items2 = (from x in map.LayerTree.GetDescendantsOrdered()
-			select x as LevelLayer into x
-			where x != null
-			select x).ToArray();
+							   select x as LevelLayer into x
+							   where x != null
+							   select x).ToArray();
 		map.Layers.Clear();
 		map.Layers.AddRange(items2);
 		XmlNode xmlNode = xmlDocument.SelectSingleNode("map/collision");
@@ -58,7 +58,7 @@ internal class LevelMapResourceType : ResourceType
 		if (xmlNode2 != null)
 		{
 			map.Markers.AddRange(from x in xmlNode2.SelectNodes("marker").OfType<XmlNode>()
-				select GetMarkerFromXmlNode(map, x));
+								 select GetMarkerFromXmlNode(map, x));
 		}
 		return map;
 	}
@@ -99,7 +99,7 @@ internal class LevelMapResourceType : ResourceType
 			levelLayer.MiniMapColour = result;
 		}
 		levelLayer.LayerRowDefinitions.AddRange(from x in node.SelectNodes("rowdefinitions/rowdefinition").OfType<XmlNode>()
-			select GetRowDefinitionFromXmlNode(x));
+												select GetRowDefinitionFromXmlNode(x));
 		XmlNode xmlNode = node.SelectSingleNode("lighting");
 		if (xmlNode != null)
 		{
@@ -115,7 +115,7 @@ internal class LevelMapResourceType : ResourceType
 			levelLayer.Lighting = levelLayerLighting;
 		}
 		levelLayer.Shadows.AddRange(from x in node.SelectNodes("shadows/shadow").OfType<XmlNode>()
-			select GetShadowFromXmlNode(x));
+									select GetShadowFromXmlNode(x));
 		XmlNode xmlNode2 = node.SelectSingleNode("tiles");
 		if (xmlNode2 != null)
 		{
@@ -144,7 +144,7 @@ internal class LevelMapResourceType : ResourceType
 			}
 		}
 		int[][] array = (from x in node.SelectNodes("tiles/row").OfType<XmlNode>()
-			select ReadTileValues(x.InnerText)).ToArray();
+						 select ReadTileValues(x.InnerText)).ToArray();
 		if (array.Length != 0)
 		{
 			levelLayer.Resize(array.Max((int[] x) => x.Length), array.Length);

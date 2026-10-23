@@ -185,9 +185,9 @@ public class CompositionGroupResourceType : ResourceType
 		node.TryGetNodeInnerText("e", out value3);
 		KeyValuePair<double, double> keyValuePair = ((!string.IsNullOrEmpty(value2) && !string.IsNullOrEmpty(value3)) ? new KeyValuePair<double, double>(double.Parse(value2, NumberStyles.Float, CultureInfo.InvariantCulture), double.Parse(value3, NumberStyles.Float, CultureInfo.InvariantCulture)) : (tweenType switch
 		{
-			CompositionLayerTween.Type.OPACITY => new KeyValuePair<double, double>(100.0, 100.0), 
-			CompositionLayerTween.Type.ROTATION => new KeyValuePair<double, double>(0.0, 0.0), 
-			_ => throw new NotImplementedException(), 
+			CompositionLayerTween.Type.OPACITY => new KeyValuePair<double, double>(100.0, 100.0),
+			CompositionLayerTween.Type.ROTATION => new KeyValuePair<double, double>(0.0, 0.0),
+			_ => throw new NotImplementedException(),
 		}));
 		uint num = (uint)Math.Round(double.Parse(value, NumberStyles.Float, CultureInfo.InvariantCulture));
 		compositionLayerTween = (CompositionLayerTween)Activator.CreateInstance(type, num, uint.MaxValue, keyValuePair);
@@ -271,24 +271,24 @@ public class CompositionGroupResourceType : ResourceType
 		{
 			switch (tweenType)
 			{
-			case CompositionLayerTween.Type.SCALE:
-			{
-				for (int num3 = 0; num3 < 3; num3++)
-				{
-					list4.Add(new KeyValuePair<double, double>(100.0, 100.0));
-				}
-				break;
-			}
-			case CompositionLayerTween.Type.POSITION:
-			{
-				for (int num2 = 0; num2 < 3; num2++)
-				{
-					list4.Add(new KeyValuePair<double, double>(0.0, 0.0));
-				}
-				break;
-			}
-			default:
-				throw new NotImplementedException();
+				case CompositionLayerTween.Type.SCALE:
+					{
+						for (int num3 = 0; num3 < 3; num3++)
+						{
+							list4.Add(new KeyValuePair<double, double>(100.0, 100.0));
+						}
+						break;
+					}
+				case CompositionLayerTween.Type.POSITION:
+					{
+						for (int num2 = 0; num2 < 3; num2++)
+						{
+							list4.Add(new KeyValuePair<double, double>(0.0, 0.0));
+						}
+						break;
+					}
+				default:
+					throw new NotImplementedException();
 			}
 		}
 		uint num4 = (uint)Math.Round(double.Parse(value, NumberStyles.Float, CultureInfo.InvariantCulture));
@@ -360,18 +360,18 @@ public class CompositionGroupResourceType : ResourceType
 		Type type = null;
 		switch (tweenType)
 		{
-		case CompositionLayerTween.Type.OPACITY:
-			type = typeof(CompositionLayerOpacityTween);
-			break;
-		case CompositionLayerTween.Type.ROTATION:
-			type = typeof(CompositionLayerRotationTween);
-			break;
-		case CompositionLayerTween.Type.POSITION:
-			type = typeof(CompositionLayerPositionTween);
-			break;
-		case CompositionLayerTween.Type.SCALE:
-			type = typeof(CompositionLayerScaleTween);
-			break;
+			case CompositionLayerTween.Type.OPACITY:
+				type = typeof(CompositionLayerOpacityTween);
+				break;
+			case CompositionLayerTween.Type.ROTATION:
+				type = typeof(CompositionLayerRotationTween);
+				break;
+			case CompositionLayerTween.Type.POSITION:
+				type = typeof(CompositionLayerPositionTween);
+				break;
+			case CompositionLayerTween.Type.SCALE:
+				type = typeof(CompositionLayerScaleTween);
+				break;
 		}
 		CompositionLayerTween compositionLayerTween = null;
 		if (tweenType == CompositionLayerTween.Type.OPACITY || tweenType == CompositionLayerTween.Type.ROTATION)

@@ -9,5 +9,5 @@ namespace S2HD.Menu;
 
 internal interface IMenuViewModel
 {
-  object Tag { get; }
+	object Tag { get; }
 }

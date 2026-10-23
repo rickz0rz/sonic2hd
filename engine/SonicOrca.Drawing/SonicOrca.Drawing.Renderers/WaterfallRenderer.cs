@@ -99,7 +99,7 @@ internal class WaterfallRenderer : IRenderer, IDisposable
 	{
 		Renderer.GetVertices(destination, vertexPositions);
 		Renderer.GetTextureMappings(texture, source, vertexUVs, flipX, flipY);
-		Renderer.GetTextureMappings(DistortionTexture, new Rectangle(DistortionOffset.X * (double)DistortionTexture.Width, DistortionOffset.Y * (double)DistortionTexture.Height, destination.Width, destination.Height), distortionUVs);
+		Renderer.GetTextureMappings(DistortionTexture, new Rectangle(DistortionOffset.X * DistortionTexture.Width, DistortionOffset.Y * DistortionTexture.Height, destination.Width, destination.Height), distortionUVs);
 		Renderer.GetVertices(new Rectangle(0.0, 0.0, 1.0, 1.0), vertexNormalisation);
 		for (int i = 0; i < 4; i++)
 		{
@@ -135,8 +135,8 @@ internal class WaterfallRenderer : IRenderer, IDisposable
 		IShaderProgram program = _shaderProgram.Program;
 		program.Activate();
 		program.SetUniform("ProjectionMatrix", value);
-		program.SetUniform("InputDistortionAmount", 1.0 / (double)texture.Height * DistortionAmount);
-		program.SetUniform("InputNonDistortionRadius", new Vector2(1.0 / (double)destination.Width * (double)NonDistortionRadius.X, 1.0 / (double)destination.Height * (double)NonDistortionRadius.Y));
+		program.SetUniform("InputDistortionAmount", 1.0 / texture.Height * DistortionAmount);
+		program.SetUniform("InputNonDistortionRadius", new Vector2(1.0 / destination.Width * NonDistortionRadius.X, 1.0 / destination.Height * NonDistortionRadius.Y));
 		_vao.Render(PrimitiveType.Quads, 0, 4);
 	}
 }

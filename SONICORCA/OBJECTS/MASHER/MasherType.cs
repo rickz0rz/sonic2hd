@@ -13,9 +13,9 @@ namespace SONICORCA.OBJECTS.MASHER;
 [SonicOrca.Core.Objects.Metadata.Name("Masher")]
 [Description("Masher from Sonic 2")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Badnik)]
-[ObjectInstance(typeof (MasherInstance))]
+[ObjectInstance(typeof(MasherInstance))]
 public class MasherType : ObjectType
 {
-  [Dependency]
-  public const string AnimationGroupResourceKey = "/ANIGROUP";
+	[Dependency]
+	public const string AnimationGroupResourceKey = "/ANIGROUP";
 }

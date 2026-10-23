@@ -11,7 +11,7 @@ namespace S2HD.Menu;
 
 internal interface IListMenuViewModel : IMenuViewModel
 {
-  ImmutableArray<IMenuItem> Items { get; }
+	ImmutableArray<IMenuItem> Items { get; }
 
-  int HighlightedIndex { get; set; }
+	int HighlightedIndex { get; set; }
 }

@@ -153,7 +153,7 @@ internal class LevelHud : IDisposable
 		i2dRenderer.Colour = new Colour(96, byte.MaxValue, byte.MaxValue, byte.MaxValue);
 		if (_level.Player.ProtagonistCharacterType == CharacterType.Sonic)
 		{
-			i2dRenderer.RenderTexture(_checkeredTextureSonic, new Vector2(captionLeft - (double)(_checkeredTextureSonic.Width / 2) - 8.0, top + (double)_font.Height / 2.0));
+			i2dRenderer.RenderTexture(_checkeredTextureSonic, new Vector2(captionLeft - _checkeredTextureSonic.Width / 2 - 8.0, top + _font.Height / 2.0));
 		}
 		else
 		{
@@ -161,7 +161,7 @@ internal class LevelHud : IDisposable
 			{
 				throw new NotImplementedException();
 			}
-			i2dRenderer.RenderTexture(_checkeredTextureTails, new Vector2(captionLeft - (double)(_checkeredTextureTails.Width / 2) - 8.0, top + (double)_font.Height / 2.0));
+			i2dRenderer.RenderTexture(_checkeredTextureTails, new Vector2(captionLeft - _checkeredTextureTails.Width / 2 - 8.0, top + _font.Height / 2.0));
 		}
 		if (rightAligned)
 		{

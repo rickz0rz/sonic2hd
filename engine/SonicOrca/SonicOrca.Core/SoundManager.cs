@@ -134,30 +134,30 @@ public class SoundManager
 		}
 		switch (_musicFadeState)
 		{
-		case MusicFadeState.FadingOut:
-			_musicFadeVolume -= _musicFadeAmount;
-			currentInstance.Volume = Math.Min(currentInstance.Volume, _musicFadeVolume);
-			if (currentInstance.Volume <= 0.0)
-			{
-				currentInstance.Volume = 0.0;
-				currentInstance.Stop();
-				_musicFadeState = MusicFadeState.None;
-				if (_queuedMusic != null)
+			case MusicFadeState.FadingOut:
+				_musicFadeVolume -= _musicFadeAmount;
+				currentInstance.Volume = Math.Min(currentInstance.Volume, _musicFadeVolume);
+				if (currentInstance.Volume <= 0.0)
 				{
-					SelectMusic(_queuedMusic);
-					_queuedMusic = null;
-					PlayMusic();
+					currentInstance.Volume = 0.0;
+					currentInstance.Stop();
+					_musicFadeState = MusicFadeState.None;
+					if (_queuedMusic != null)
+					{
+						SelectMusic(_queuedMusic);
+						_queuedMusic = null;
+						PlayMusic();
+					}
 				}
-			}
-			break;
-		case MusicFadeState.FadingIn:
-			currentInstance.Volume += _musicFadeAmount;
-			if (currentInstance.Volume >= 1.0)
-			{
-				currentInstance.Volume = 1.0;
-				_musicFadeState = MusicFadeState.None;
-			}
-			break;
+				break;
+			case MusicFadeState.FadingIn:
+				currentInstance.Volume += _musicFadeAmount;
+				if (currentInstance.Volume >= 1.0)
+				{
+					currentInstance.Volume = 1.0;
+					_musicFadeState = MusicFadeState.None;
+				}
+				break;
 		}
 	}
 
@@ -226,7 +226,7 @@ public class SoundManager
 			_musicInstance.Volume = 0.0;
 			_musicInstance.Play();
 			_musicFadeState = MusicFadeState.FadingIn;
-			_musicFadeAmount = 1.0 / (double)fadeDuration;
+			_musicFadeAmount = 1.0 / fadeDuration;
 		}
 	}
 
@@ -234,7 +234,7 @@ public class SoundManager
 	{
 		_musicFadeState = MusicFadeState.FadingOut;
 		_musicFadeVolume = CurrentInstance.Volume;
-		_musicFadeAmount = 1.0 / (double)fadeDuration;
+		_musicFadeAmount = 1.0 / fadeDuration;
 	}
 
 	public void MuteMusic()
@@ -292,23 +292,23 @@ public class SoundManager
 		}
 		switch (jingleType)
 		{
-		default:
-			return;
-		case JingleType.Life:
-			MuteMusic();
-			break;
-		case JingleType.Invincibility:
-			StopMusic();
-			break;
-		case JingleType.SpeedShoes:
-			StopMusic();
-			break;
-		case JingleType.Super:
-			StopMusic();
-			break;
-		case JingleType.Drowning:
-			StopMusic();
-			break;
+			default:
+				return;
+			case JingleType.Life:
+				MuteMusic();
+				break;
+			case JingleType.Invincibility:
+				StopMusic();
+				break;
+			case JingleType.SpeedShoes:
+				StopMusic();
+				break;
+			case JingleType.Super:
+				StopMusic();
+				break;
+			case JingleType.Drowning:
+				StopMusic();
+				break;
 		}
 		for (int i = 0; i < NumJingleTypes; i++)
 		{
@@ -346,17 +346,17 @@ public class SoundManager
 		{
 			switch (jingleType)
 			{
-			case JingleType.Life:
-				if (_musicFadeState != MusicFadeState.FadingOut)
-				{
-					FadeInMusic();
-				}
-				break;
-			default:
-				PlayMusic(continueFadeOut: true);
-				break;
-			case JingleType.Drowning:
-				break;
+				case JingleType.Life:
+					if (_musicFadeState != MusicFadeState.FadingOut)
+					{
+						FadeInMusic();
+					}
+					break;
+				default:
+					PlayMusic(continueFadeOut: true);
+					break;
+				case JingleType.Drowning:
+					break;
 			}
 		}
 		else

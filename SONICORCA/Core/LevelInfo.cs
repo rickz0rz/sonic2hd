@@ -9,22 +9,22 @@ namespace SonicOrca.Core;
 
 internal class LevelInfo
 {
-  public int GameIndex { get; }
+	public int GameIndex { get; }
 
-  public string Mnemonic { get; }
+	public string Mnemonic { get; }
 
-  public string Name { get; }
+	public string Name { get; }
 
-  public int Acts { get; }
+	public int Acts { get; }
 
-  public bool Unreleased { get; }
+	public bool Unreleased { get; }
 
-  public LevelInfo(int gameIndex, string mnemonic, string name, int acts, bool unreleased = false)
-  {
-    this.GameIndex = gameIndex;
-    this.Mnemonic = mnemonic;
-    this.Name = name;
-    this.Acts = acts;
-    this.Unreleased = unreleased;
-  }
+	public LevelInfo(int gameIndex, string mnemonic, string name, int acts, bool unreleased = false)
+	{
+		GameIndex = gameIndex;
+		Mnemonic = mnemonic;
+		Name = name;
+		Acts = acts;
+		Unreleased = unreleased;
+	}
 }

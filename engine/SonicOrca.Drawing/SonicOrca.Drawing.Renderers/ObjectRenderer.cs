@@ -324,7 +324,7 @@ public class ObjectRenderer : IObjectRenderer, IRenderer, IDisposable
 
 	public void Render(Rectangle source, Vector2 offset, bool flipX = false, bool flipY = false)
 	{
-		Render(source, new Rectangle((offset.X - (double)(int)(source.Width / 2.0)) * Scale.X, (offset.Y - (double)(int)(source.Height / 2.0)) * Scale.Y, source.Width * Scale.X, source.Height * Scale.Y), flipX, flipY);
+		Render(source, new Rectangle((offset.X - (int)(source.Width / 2.0)) * Scale.X, (offset.Y - (int)(source.Height / 2.0)) * Scale.Y, source.Width * Scale.X, source.Height * Scale.Y), flipX, flipY);
 	}
 
 	public void Render(Rectangle source, Rectangle destination, bool flipX = false, bool flipY = false)

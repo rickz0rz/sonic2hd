@@ -53,7 +53,7 @@ public class Viewport
 
 	private void CalculateScale()
 	{
-		_scale = new Vector2((double)Destination.Width / (double)Bounds.Width, (double)Destination.Height / (double)Bounds.Height);
+		_scale = new Vector2(Destination.Width / (double)Bounds.Width, Destination.Height / (double)Bounds.Height);
 	}
 
 	public Vector2i GetAbsolutePosition(Vector2i position)
@@ -64,7 +64,7 @@ public class Viewport
 	public Vector2i GetAbsolutePosition(int x, int y)
 	{
 		Vector2 scale = Scale;
-		return new Vector2i(Bounds.X + (int)((double)x * scale.X), Bounds.Y + (int)((double)y * scale.Y));
+		return new Vector2i(Bounds.X + (int)(x * scale.X), Bounds.Y + (int)(y * scale.Y));
 	}
 
 	public Vector2i GetRelativePosition(Vector2i position)
@@ -75,7 +75,7 @@ public class Viewport
 	public Vector2i GetRelativePosition(int x, int y)
 	{
 		Vector2 scale = Scale;
-		return new Vector2i((int)((double)(x - Bounds.X) / scale.X), (int)((double)(y - Bounds.Y) / scale.Y));
+		return new Vector2i((int)((x - Bounds.X) / scale.X), (int)((y - Bounds.Y) / scale.Y));
 	}
 
 	public IDisposable ApplyRendererState(Renderer renderer)

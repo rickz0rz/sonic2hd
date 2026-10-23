@@ -43,14 +43,14 @@ internal class RenderingTiler
 		int num = ((!editing) ? layer.OffsetY : 0);
 		double num2 = (editing ? 1.0 : layer.ParallaxY);
 		int num3 = layer.Rows * 64;
-		int num4 = (int)((double)viewport.Bounds.Y * num2);
+		int num4 = (int)(viewport.Bounds.Y * num2);
 		if (!flag && num4 >= num3)
 		{
 			return;
 		}
 		int num5 = num4 % num3;
 		int num6 = viewport.Destination.Y + num;
-		while ((double)num6 < (double)viewport.Destination.Bottom / viewport.Scale.Y)
+		while (num6 < viewport.Destination.Bottom / viewport.Scale.Y)
 		{
 			int height = num3 - num5;
 			PrepareTilesHorizontal(renderingLayer, viewport, num5, num6, ref height);
@@ -111,7 +111,7 @@ internal class RenderingTiler
 		{
 			return;
 		}
-		int i = (int)((double)viewport.Bounds.X * num4) - num5;
+		int i = (int)(viewport.Bounds.X * num4) - num5;
 		if (flag)
 		{
 			for (; i < 0; i += num2)
@@ -127,14 +127,14 @@ internal class RenderingTiler
 			i %= num2;
 		}
 		int num6 = i;
-		int num7 = (int)((double)viewport.Destination.X / viewport.Scale.X);
+		int num7 = (int)(viewport.Destination.X / viewport.Scale.X);
 		if (!editing)
 		{
 			_ = layer.ParallaxY;
 		}
 		TileSet tileSet = _tileSet;
 		int[,] tiles = layer.Tiles;
-		while ((double)num7 < (double)viewport.Destination.Right / viewport.Scale.X)
+		while (num7 < viewport.Destination.Right / viewport.Scale.X)
 		{
 			int num8 = 0;
 			if (num6 >= 0 && sourceY >= 0 && num6 < num2 && sourceY < num3)
@@ -150,7 +150,7 @@ internal class RenderingTiler
 			if (tileSet.TryGetValue(num8 & 0xFFF, out var _))
 			{
 				Rectangle rectangle = new Rectangle(0.0, sourceY % num, 64.0, height);
-				Rectanglei rectanglei = new Rectangle((double)(num7 + num9) * viewport.Scale.X, (double)destinationY * viewport.Scale.Y, (double)num * viewport.Scale.X, (double)height * viewport.Scale.Y);
+				Rectanglei rectanglei = new Rectangle((num7 + num9) * viewport.Scale.X, destinationY * viewport.Scale.Y, num * viewport.Scale.X, height * viewport.Scale.Y);
 				TileRenderInfo tileRenderInfo = new TileRenderInfo
 				{
 					Layer = layer,

@@ -103,19 +103,19 @@ internal class NetworkGameClient : IDisposable, IObserver<ReceivedPacket>
 	{
 		switch (receivedPacket.Packet.Type)
 		{
-		case PacketType.ConnectAck:
-			OnReceiveHandshakeAcknoledgement(receivedPacket.Packet);
-			break;
-		case PacketType.Ping:
-		{
-			PingPacket pingPacket = (PingPacket)receivedPacket.Packet;
-			Pong(pingPacket);
-			_roundTripTime = pingPacket.RoundTripTime;
-			break;
-		}
-		default:
-			_receivedPackets.Enqueue(receivedPacket.Packet);
-			break;
+			case PacketType.ConnectAck:
+				OnReceiveHandshakeAcknoledgement(receivedPacket.Packet);
+				break;
+			case PacketType.Ping:
+				{
+					PingPacket pingPacket = (PingPacket)receivedPacket.Packet;
+					Pong(pingPacket);
+					_roundTripTime = pingPacket.RoundTripTime;
+					break;
+				}
+			default:
+				_receivedPackets.Enqueue(receivedPacket.Packet);
+				break;
 		}
 	}
 
@@ -151,15 +151,15 @@ internal class NetworkGameClient : IDisposable, IObserver<ReceivedPacket>
 	{
 		switch (packet.Type)
 		{
-		case PacketType.ReadyToStartLevel:
-			Ready = true;
-			break;
-		case PacketType.PlayInput:
-			ProcessPlayInput((PlayInputPacket)packet);
-			break;
-		case PacketType.CharacterSynchronisation:
-			ProcessCharacterSynchronisation((CharacterSynchronisationPacket)packet);
-			break;
+			case PacketType.ReadyToStartLevel:
+				Ready = true;
+				break;
+			case PacketType.PlayInput:
+				ProcessPlayInput((PlayInputPacket)packet);
+				break;
+			case PacketType.CharacterSynchronisation:
+				ProcessCharacterSynchronisation((CharacterSynchronisationPacket)packet);
+				break;
 		}
 	}
 

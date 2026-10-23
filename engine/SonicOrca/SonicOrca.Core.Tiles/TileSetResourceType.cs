@@ -31,14 +31,14 @@ internal class TileSetResourceType : ResourceType
 		});
 		XmlNode xmlNode = xmlDocument.SelectSingleNode("tileset");
 		IEnumerable<string> enumerable = from x in xmlNode.SelectNodes("textures/texture").OfType<XmlNode>()
-			select e.GetAbsolutePath(x.InnerText);
+										 select e.GetAbsolutePath(x.InnerText);
 		e.PushDependencies(enumerable);
 		TileSet tileSet = new TileSet(e.ResourceTree, enumerable);
 		tileSet.Resource = e.Resource;
 		IEnumerable<Tile> source = from x in xmlNode.SelectNodes("tiles/tile").OfType<XmlNode>()
-			select ParseXmlTile(x, tileSet);
+								   select ParseXmlTile(x, tileSet);
 		IEnumerable<TileSequence> source2 = from x in xmlNode.SelectNodes("tiles/tileseq").OfType<XmlNode>()
-			select ParseXmlTileSequence(x, tileSet);
+											select ParseXmlTileSequence(x, tileSet);
 		foreach (ITile item in source.Cast<ITile>().Concat(source2.Cast<ITile>()))
 		{
 			tileSet[item.Id] = item;

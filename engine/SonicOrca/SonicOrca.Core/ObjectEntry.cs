@@ -82,7 +82,7 @@ public class ObjectEntry
 		get
 		{
 			Vector2 lifeRadius = _type.GetLifeRadius((IActiveObject)_state);
-			Vector2 vector = new Vector2((double)Position.X - lifeRadius.X, (double)Position.Y - lifeRadius.Y);
+			Vector2 vector = new Vector2(Position.X - lifeRadius.X, Position.Y - lifeRadius.Y);
 			return new Rectangle(vector.X, vector.Y, lifeRadius.X * 2.0, lifeRadius.Y * 2.0);
 		}
 	}
@@ -170,9 +170,9 @@ public class ObjectEntry
 			{
 				object obj = null;
 				MemberInfo memberInfo = (from m in targetObject.GetType().GetMembers(bindingAttr)
-					select (m) into m
-					where m.Name == kvp.Key
-					select m).FirstOrDefault();
+										 select (m) into m
+										 where m.Name == kvp.Key
+										 select m).FirstOrDefault();
 				if (!(memberInfo != null))
 				{
 					throw new Exception();
@@ -187,9 +187,9 @@ public class ObjectEntry
 			else
 			{
 				MemberInfo memberInfo2 = (from m in targetObject.GetType().GetMembers(bindingAttr)
-					select (m) into m
-					where m.Name == kvp.Key
-					select m).FirstOrDefault();
+										  select (m) into m
+										  where m.Name == kvp.Key
+										  select m).FirstOrDefault();
 				if (!(memberInfo2 != null))
 				{
 					throw new Exception();

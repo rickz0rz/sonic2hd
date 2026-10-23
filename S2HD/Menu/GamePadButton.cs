@@ -9,6 +9,6 @@ namespace S2HD.Menu;
 
 public enum GamePadButton
 {
-  A,
-  B,
+	A,
+	B,
 }

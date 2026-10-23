@@ -90,10 +90,10 @@ public abstract class VertexBuffer : IDisposable
 
 	public void AddValue(int index, Colour value)
 	{
-		AddValue(index, (double)(int)value.Red / 255.0);
-		AddValue(index, (double)(int)value.Green / 255.0);
-		AddValue(index, (double)(int)value.Blue / 255.0);
-		AddValue(index, (double)(int)value.Alpha / 255.0);
+		AddValue(index, value.Red / 255.0);
+		AddValue(index, value.Green / 255.0);
+		AddValue(index, value.Blue / 255.0);
+		AddValue(index, value.Alpha / 255.0);
 	}
 
 	public void AddValues(params object[] values)
@@ -122,7 +122,7 @@ public abstract class VertexBuffer : IDisposable
 			}
 			else
 			{
-				AddValue(i, (float)(int)values[i]);
+				AddValue(i, (int)values[i]);
 			}
 		}
 	}

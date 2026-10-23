@@ -203,7 +203,7 @@ public class Camera
 		_trackBounds.Y += _velocity.Y;
 		if (cameraProperties.MaxVelocity.X == 0.0)
 		{
-			_bounds.X = (double)ObjectToTrack.Position.X - _trackBounds.Width / 2.0;
+			_bounds.X = ObjectToTrack.Position.X - _trackBounds.Width / 2.0;
 		}
 		else
 		{
@@ -211,7 +211,7 @@ public class Camera
 		}
 		if (cameraProperties.MaxVelocity.Y == 0.0)
 		{
-			_bounds.Y = (double)ObjectToTrack.Position.Y - _trackBounds.Height / 2.0;
+			_bounds.Y = ObjectToTrack.Position.Y - _trackBounds.Height / 2.0;
 		}
 		else
 		{

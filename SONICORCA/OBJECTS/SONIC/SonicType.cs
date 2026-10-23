@@ -13,7 +13,7 @@ namespace SONICORCA.OBJECTS.SONIC;
 [SonicOrca.Core.Objects.Metadata.Name("Sonic")]
 [Description("Sonic from Sonic 1")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Character)]
-[ObjectInstance(typeof (SonicInstance))]
+[ObjectInstance(typeof(SonicInstance))]
 [Dependency("SONICORCA/OBJECTS/DUST")]
 [Dependency("SONICORCA/OBJECTS/BARRIER/ANIGROUP")]
 [Dependency("SONICORCA/OBJECTS/BARRIER/BUBBLE/ANIGROUP")]
@@ -36,10 +36,10 @@ namespace SONICORCA.OBJECTS.SONIC;
 [Dependency("SONICORCA/SOUND/DROWN")]
 public class SonicType : ObjectType
 {
-  [Dependency]
-  public const string AnimationGroupResourceKey = "/ANIGROUP";
-  [Dependency]
-  public const string PeeloutChargeSoundResourceKey = "SONICORCA/SOUND/PEELOUT/CHARGE";
-  [Dependency]
-  public const string PeeloutReleaseSoundResourceKey = "SONICORCA/SOUND/PEELOUT/RELEASE";
+	[Dependency]
+	public const string AnimationGroupResourceKey = "/ANIGROUP";
+	[Dependency]
+	public const string PeeloutChargeSoundResourceKey = "SONICORCA/SOUND/PEELOUT/CHARGE";
+	[Dependency]
+	public const string PeeloutReleaseSoundResourceKey = "SONICORCA/SOUND/PEELOUT/RELEASE";
 }

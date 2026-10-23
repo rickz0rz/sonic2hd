@@ -122,12 +122,12 @@ public class Font : ILoadedResource, IDisposable, IEnumerable<Font.CharacterDefi
 		double num2 = Height;
 		foreach (char key in text)
 		{
-			num += (double)(_characterDefinitions.TryGetValue(key, out var value) ? value.Width : DefaultWidth);
-			num += (double)Tracking;
+			num += _characterDefinitions.TryGetValue(key, out var value) ? value.Width : DefaultWidth;
+			num += Tracking;
 		}
 		if (text.Length > 0)
 		{
-			num -= (double)Tracking;
+			num -= Tracking;
 		}
 		double x = 0.0;
 		double y = 0.0;
@@ -135,27 +135,27 @@ public class Font : ILoadedResource, IDisposable, IEnumerable<Font.CharacterDefi
 		FontAlignment fontAlignment2 = alignment & FontAlignment.VerticalMask;
 		switch (fontAlignment)
 		{
-		case FontAlignment.Left:
-			x = boundary.X;
-			break;
-		case FontAlignment.MiddleX:
-			x = boundary.X + (boundary.Width - num) / 2.0;
-			break;
-		case FontAlignment.Right:
-			x = boundary.Right - num;
-			break;
+			case FontAlignment.Left:
+				x = boundary.X;
+				break;
+			case FontAlignment.MiddleX:
+				x = boundary.X + (boundary.Width - num) / 2.0;
+				break;
+			case FontAlignment.Right:
+				x = boundary.Right - num;
+				break;
 		}
 		switch (fontAlignment2)
 		{
-		case FontAlignment.Left:
-			y = boundary.Y;
-			break;
-		case FontAlignment.MiddleY:
-			y = boundary.Y + (boundary.Height - num2) / 2.0;
-			break;
-		case FontAlignment.Bottom:
-			y = boundary.Bottom - num2;
-			break;
+			case FontAlignment.Left:
+				y = boundary.Y;
+				break;
+			case FontAlignment.MiddleY:
+				y = boundary.Y + (boundary.Height - num2) / 2.0;
+				break;
+			case FontAlignment.Bottom:
+				y = boundary.Bottom - num2;
+				break;
 		}
 		return new Rectangle(x, y, num, num2);
 	}

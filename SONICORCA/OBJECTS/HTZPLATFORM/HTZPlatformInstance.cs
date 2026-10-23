@@ -16,28 +16,28 @@ namespace SONICORCA.OBJECTS.HTZPLATFORM;
 
 public class HTZPlatformInstance : Platform
 {
-  private AnimationInstance _animation;
+	private AnimationInstance _animation;
 
-  public HTZPlatformInstance()
-  {
-    this.DesignBounds = new Rectanglei((int) sbyte.MinValue, -64, 256 /*0x0100*/, 128 /*0x80*/);
-    this.SagWhenStoodOn = true;
-  }
+	public HTZPlatformInstance()
+	{
+		DesignBounds = new Rectanglei(sbyte.MinValue, -64, 256 /*0x0100*/, 128 /*0x80*/);
+		SagWhenStoodOn = true;
+	}
 
-  protected override void OnStart()
-  {
-    base.OnStart();
-    this._animation = new AnimationInstance(this.ResourceTree, this.Type.GetAbsolutePath("/ANIGROUP"));
-    this.CollisionVectors = new CollisionVector[1]
-    {
-      new CollisionVector((ActiveObject) this, new Vector2i((int) sbyte.MinValue, -32), new Vector2i(128 /*0x80*/, -32), flags: CollisionFlags.Conveyor)
-    };
-  }
+	protected override void OnStart()
+	{
+		base.OnStart();
+		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"));
+		CollisionVectors = new CollisionVector[1]
+		{
+	  new CollisionVector( this, new Vector2i( sbyte.MinValue, -32), new Vector2i(128 /*0x80*/, -32), flags: CollisionFlags.Conveyor)
+		};
+	}
 
-  protected override void OnAnimate() => this._animation.Animate();
+	protected override void OnAnimate() => _animation.Animate();
 
-  protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
-  {
-    renderer.GetObjectRenderer().Render(this._animation);
-  }
+	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
+	{
+		renderer.GetObjectRenderer().Render(_animation);
+	}
 }

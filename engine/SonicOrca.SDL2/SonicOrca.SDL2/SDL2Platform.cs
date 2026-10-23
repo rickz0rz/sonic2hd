@@ -1,7 +1,6 @@
 #define TRACE
 using System;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 using OpenTK.Graphics.OpenGL;
 using SDL2;
 using SonicOrca.Audio;

@@ -9,13 +9,13 @@ namespace S2HD.Menu;
 
 internal class AudioSliderOptionSetting : IAudioSliderSetting, ISetting
 {
-  public string Name { get; }
+	public string Name { get; }
 
-  public double Value { get; set; }
+	public double Value { get; set; }
 
-  public AudioSliderOptionSetting(string name, double value)
-  {
-    this.Name = name;
-    this.Value = value;
-  }
+	public AudioSliderOptionSetting(string name, double value)
+	{
+		Name = name;
+		Value = value;
+	}
 }

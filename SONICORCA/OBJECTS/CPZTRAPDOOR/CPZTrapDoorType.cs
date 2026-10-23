@@ -13,9 +13,9 @@ namespace SONICORCA.OBJECTS.CPZTRAPDOOR;
 [SonicOrca.Core.Objects.Metadata.Name("Trap door")]
 [Description("Trap door from Chemical Plant Zone, Sonic 2")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Obstacle)]
-[ObjectInstance(typeof (CPZTrapDoorInstance))]
+[ObjectInstance(typeof(CPZTrapDoorInstance))]
 public class CPZTrapDoorType : ObjectType
 {
-  [Dependency]
-  public const string AnimationGroupResourceKey = "/ANIGROUP";
+	[Dependency]
+	public const string AnimationGroupResourceKey = "/ANIGROUP";
 }

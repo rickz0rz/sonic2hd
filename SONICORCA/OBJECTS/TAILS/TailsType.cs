@@ -13,7 +13,7 @@ namespace SONICORCA.OBJECTS.TAILS;
 [SonicOrca.Core.Objects.Metadata.Name("Tails")]
 [Description("Tails from Sonic 2")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Character)]
-[ObjectInstance(typeof (TailsInstance))]
+[ObjectInstance(typeof(TailsInstance))]
 [Dependency("SONICORCA/OBJECTS/DUST")]
 [Dependency("SONICORCA/OBJECTS/BARRIER/ANIGROUP")]
 [Dependency("SONICORCA/OBJECTS/INVINCIBILITY/ANIGROUP")]
@@ -33,10 +33,10 @@ namespace SONICORCA.OBJECTS.TAILS;
 [Dependency("SONICORCA/SOUND/DROWN")]
 public class TailsType : ObjectType
 {
-  [Dependency]
-  public const string AnimationGroupResourceKey = "/ANIGROUP";
-  [Dependency]
-  public const string TailAnimationGroupResourceKey = "/TAIL/ANIGROUP";
-  [Dependency]
-  public const string HeadAnimationGroupResourceKey = "/HEAD/ANIGROUP";
+	[Dependency]
+	public const string AnimationGroupResourceKey = "/ANIGROUP";
+	[Dependency]
+	public const string TailAnimationGroupResourceKey = "/TAIL/ANIGROUP";
+	[Dependency]
+	public const string HeadAnimationGroupResourceKey = "/HEAD/ANIGROUP";
 }

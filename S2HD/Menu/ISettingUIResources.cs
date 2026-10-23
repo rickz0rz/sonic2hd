@@ -12,19 +12,19 @@ namespace S2HD.Menu;
 
 internal interface ISettingUIResources
 {
-  Font Font { get; }
+	Font Font { get; }
 
-  ITexture AudioSliderEmptyTexture { get; }
+	ITexture AudioSliderEmptyTexture { get; }
 
-  ITexture AudioSliderSilverTexture { get; }
+	ITexture AudioSliderSilverTexture { get; }
 
-  ITexture AudioSliderGoldTexture { get; }
+	ITexture AudioSliderGoldTexture { get; }
 
-  ITexture SelectionBar { get; set; }
+	ITexture SelectionBar { get; set; }
 
-  Sample NavigateSample { get; set; }
+	Sample NavigateSample { get; set; }
 
-  Sample ConfirmSample { get; set; }
+	Sample ConfirmSample { get; set; }
 
-  Sample CancelSample { get; set; }
+	Sample CancelSample { get; set; }
 }

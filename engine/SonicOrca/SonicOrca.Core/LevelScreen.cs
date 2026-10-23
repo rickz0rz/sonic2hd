@@ -101,12 +101,12 @@ public class LevelScreen : Screen
 		}
 		switch (num)
 		{
-		case 3:
-			_areaResourceKey = "SONICORCA/S2/LEVELS/ARZ/AREA";
-			break;
-		case 5:
-			_areaResourceKey = "SONICORCA/S2/LEVELS/HTZ/AREA";
-			break;
+			case 3:
+				_areaResourceKey = "SONICORCA/S2/LEVELS/ARZ/AREA";
+				break;
+			case 5:
+				_areaResourceKey = "SONICORCA/S2/LEVELS/HTZ/AREA";
+				break;
 		}
 	}
 
@@ -139,57 +139,57 @@ public class LevelScreen : Screen
 	{
 		switch (_state)
 		{
-		case LevelScreenState.Initialise:
-			if (NetworkSetupCheck())
-			{
-				_state = LevelScreenState.EstablishingNetworkPlay;
-			}
-			else
-			{
-				_state = LevelScreenState.Loading;
-			}
-			break;
-		case LevelScreenState.EstablishingNetworkPlay:
-			EstablishNetworkUpdate();
-			break;
-		case LevelScreenState.Loading:
-			LoadingUpdate();
-			break;
-		case LevelScreenState.ReadyToQuit:
-			UnloadLevel();
-			Finish();
-			break;
-		case LevelScreenState.NetworkWaitingForStart:
-			NetworkWaitingUpdate();
-			break;
-		case LevelScreenState.ReadyToPlay:
-		case LevelScreenState.Playing:
-			PlayingUpdate();
-			break;
-		case LevelScreenState.FadingOut:
-			PlayingUpdate();
-			if (!_level.StateFlags.HasFlag(LevelStateFlags.FadingOut))
-			{
-				_state = _nextState;
-			}
-			break;
-		case LevelScreenState.Dead:
-			if (_level.StateFlags.HasFlag(LevelStateFlags.TimeUp))
-			{
-				_player.StarpostTime = 0;
-			}
-			_level.Time = _player.StarpostTime;
-			UnloadLevel();
-			_player.Lives--;
-			if (_player.Lives <= 0)
-			{
+			case LevelScreenState.Initialise:
+				if (NetworkSetupCheck())
+				{
+					_state = LevelScreenState.EstablishingNetworkPlay;
+				}
+				else
+				{
+					_state = LevelScreenState.Loading;
+				}
+				break;
+			case LevelScreenState.EstablishingNetworkPlay:
+				EstablishNetworkUpdate();
+				break;
+			case LevelScreenState.Loading:
+				LoadingUpdate();
+				break;
+			case LevelScreenState.ReadyToQuit:
+				UnloadLevel();
 				Finish();
-			}
-			else
-			{
-				_state = LevelScreenState.Loading;
-			}
-			break;
+				break;
+			case LevelScreenState.NetworkWaitingForStart:
+				NetworkWaitingUpdate();
+				break;
+			case LevelScreenState.ReadyToPlay:
+			case LevelScreenState.Playing:
+				PlayingUpdate();
+				break;
+			case LevelScreenState.FadingOut:
+				PlayingUpdate();
+				if (!_level.StateFlags.HasFlag(LevelStateFlags.FadingOut))
+				{
+					_state = _nextState;
+				}
+				break;
+			case LevelScreenState.Dead:
+				if (_level.StateFlags.HasFlag(LevelStateFlags.TimeUp))
+				{
+					_player.StarpostTime = 0;
+				}
+				_level.Time = _player.StarpostTime;
+				UnloadLevel();
+				_player.Lives--;
+				if (_player.Lives <= 0)
+				{
+					Finish();
+				}
+				else
+				{
+					_state = LevelScreenState.Loading;
+				}
+				break;
 		}
 	}
 
@@ -197,34 +197,34 @@ public class LevelScreen : Screen
 	{
 		switch (_state)
 		{
-		case LevelScreenState.EstablishingNetworkPlay:
-			EstablishNetworkDraw(renderer);
-			break;
-		case LevelScreenState.Loading:
-			if (_seamless)
-			{
+			case LevelScreenState.EstablishingNetworkPlay:
+				EstablishNetworkDraw(renderer);
+				break;
+			case LevelScreenState.Loading:
+				if (_seamless)
+				{
+					PlayingDraw(renderer);
+				}
+				else
+				{
+					LoadingDraw(renderer);
+				}
+				break;
+			case LevelScreenState.NetworkWaitingForStart:
+				NetworkWaitingDraw(renderer);
+				break;
+			case LevelScreenState.ReadyToPlay:
+				if (_seamless)
+				{
+					PlayingDraw(renderer);
+				}
+				break;
+			case LevelScreenState.Playing:
+			case LevelScreenState.FadingOut:
 				PlayingDraw(renderer);
-			}
-			else
-			{
-				LoadingDraw(renderer);
-			}
-			break;
-		case LevelScreenState.NetworkWaitingForStart:
-			NetworkWaitingDraw(renderer);
-			break;
-		case LevelScreenState.ReadyToPlay:
-			if (_seamless)
-			{
-				PlayingDraw(renderer);
-			}
-			break;
-		case LevelScreenState.Playing:
-		case LevelScreenState.FadingOut:
-			PlayingDraw(renderer);
-			break;
-		case LevelScreenState.ReadyToQuit:
-			break;
+				break;
+			case LevelScreenState.ReadyToQuit:
+				break;
 		}
 	}
 
@@ -306,27 +306,27 @@ public class LevelScreen : Screen
 		{
 			switch (_level.State)
 			{
-			case LevelState.Dead:
-				_level.FadeOut(LevelState.Dead);
-				_state = LevelScreenState.FadingOut;
-				_nextState = LevelScreenState.Dead;
-				break;
-			case LevelState.StageCompleted:
-				if (_level.CurrentAct == 1)
-				{
-					_currentAct = 2;
-					_level.Time = 0;
-					_player.StarpostIndex = -1;
-					_seamless = true;
-					_state = LevelScreenState.Loading;
-				}
-				else
-				{
-					_level.FadeOut(LevelState.StageCompleted);
+				case LevelState.Dead:
+					_level.FadeOut(LevelState.Dead);
 					_state = LevelScreenState.FadingOut;
-					_nextState = LevelScreenState.ReadyToQuit;
-				}
-				break;
+					_nextState = LevelScreenState.Dead;
+					break;
+				case LevelState.StageCompleted:
+					if (_level.CurrentAct == 1)
+					{
+						_currentAct = 2;
+						_level.Time = 0;
+						_player.StarpostIndex = -1;
+						_seamless = true;
+						_state = LevelScreenState.Loading;
+					}
+					else
+					{
+						_level.FadeOut(LevelState.StageCompleted);
+						_state = LevelScreenState.FadingOut;
+						_nextState = LevelScreenState.ReadyToQuit;
+					}
+					break;
 			}
 		}
 		if (_networkPlay)

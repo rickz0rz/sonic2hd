@@ -13,11 +13,11 @@ namespace SONICORCA.OBJECTS.SPIKES;
 [SonicOrca.Core.Objects.Metadata.Name("Spikes")]
 [Description("Spikes from Sonic 1")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Obstacle)]
-[ObjectInstance(typeof (SpikesInstance))]
+[ObjectInstance(typeof(SpikesInstance))]
 public class SpikesType : ObjectType
 {
-  [Dependency]
-  public const string AnimationGroupResourceKey = "/ANIGROUP";
-  [Dependency]
-  public const string SpikeMovementSoundResourceKey = "SONICORCA/SOUND/SPIKESLASH";
+	[Dependency]
+	public const string AnimationGroupResourceKey = "/ANIGROUP";
+	[Dependency]
+	public const string SpikeMovementSoundResourceKey = "SONICORCA/SOUND/SPIKESLASH";
 }

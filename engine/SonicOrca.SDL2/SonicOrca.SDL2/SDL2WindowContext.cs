@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
 using OpenTK;
@@ -107,12 +106,12 @@ public class SDL2WindowContext : WindowContext, IGLWindow
 				uint flags = 0u;
 				switch (value)
 				{
-				case VideoMode.Fullscreen:
-					flags = 1u;
-					break;
-				case VideoMode.WindowedBorderless:
-					flags = 4097u;
-					break;
+					case VideoMode.Fullscreen:
+						flags = 1u;
+						break;
+					case VideoMode.WindowedBorderless:
+						flags = 4097u;
+						break;
 				}
 				SDL.SDL_SetWindowFullscreen(_windowHandle, flags);
 				if (value == VideoMode.Windowed)
@@ -299,30 +298,30 @@ public class SDL2WindowContext : WindowContext, IGLWindow
 			}
 			switch (sDL_Event.type)
 			{
-			case SDL.SDL_EventType.SDL_MOUSEMOTION:
-				if (HideCursorIfIdle)
-				{
-					_lastMouseMovementTickCount = num;
-					ShowCursor = true;
-				}
-				break;
-			case SDL.SDL_EventType.SDL_KEYDOWN:
-				if ((sDL_Event.key.keysym.mod & SDL.SDL_Keymod.KMOD_ALT) != 0 && sDL_Event.key.keysym.sym == SDL.SDL_Keycode.SDLK_F4)
-				{
-					Finished = true;
-				}
-				break;
-			case SDL.SDL_EventType.SDL_WINDOWEVENT:
-				switch (sDL_Event.window.windowEvent)
-				{
-				case SDL.SDL_WindowEventID.SDL_WINDOWEVENT_CLOSE:
-					Finished = true;
+				case SDL.SDL_EventType.SDL_MOUSEMOTION:
+					if (HideCursorIfIdle)
+					{
+						_lastMouseMovementTickCount = num;
+						ShowCursor = true;
+					}
 					break;
-				case SDL.SDL_WindowEventID.SDL_WINDOWEVENT_SIZE_CHANGED:
-					UpdateWindowSize(new Vector2i(sDL_Event.window.data1, sDL_Event.window.data2));
+				case SDL.SDL_EventType.SDL_KEYDOWN:
+					if ((sDL_Event.key.keysym.mod & SDL.SDL_Keymod.KMOD_ALT) != 0 && sDL_Event.key.keysym.sym == SDL.SDL_Keycode.SDLK_F4)
+					{
+						Finished = true;
+					}
 					break;
-				}
-				break;
+				case SDL.SDL_EventType.SDL_WINDOWEVENT:
+					switch (sDL_Event.window.windowEvent)
+					{
+						case SDL.SDL_WindowEventID.SDL_WINDOWEVENT_CLOSE:
+							Finished = true;
+							break;
+						case SDL.SDL_WindowEventID.SDL_WINDOWEVENT_SIZE_CHANGED:
+							UpdateWindowSize(new Vector2i(sDL_Event.window.data1, sDL_Event.window.data2));
+							break;
+					}
+					break;
 			}
 		}
 		Action result;
@@ -430,14 +429,14 @@ public class SDL2WindowContext : WindowContext, IGLWindow
 	{
 		if (_aspectRatio.X != 0 || _aspectRatio.Y != 0)
 		{
-			double num = (double)_aspectRatio.X / (double)_aspectRatio.Y;
+			double num = _aspectRatio.X / (double)_aspectRatio.Y;
 			if (_clientSize.X != size.X)
 			{
-				size.Y = (int)((double)size.X / num);
+				size.Y = (int)(size.X / num);
 			}
 			else if (_clientSize.Y != size.Y)
 			{
-				size.X = (int)((double)size.Y * num);
+				size.X = (int)(size.Y * num);
 			}
 		}
 		_clientSize = size;

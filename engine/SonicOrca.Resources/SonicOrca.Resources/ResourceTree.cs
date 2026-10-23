@@ -240,8 +240,8 @@ public class ResourceTree : IEnumerable<ResourceTree.Node>, IEnumerable
 	{
 		Dictionary<string, Resource> dictionary = new Dictionary<string, Resource>();
 		foreach (KeyValuePair<string, Node> item in from x in GetNodeListing()
-			where x.Value.Resource != null
-			select x)
+													where x.Value.Resource != null
+													select x)
 		{
 			dictionary[item.Key] = item.Value.Resource;
 		}

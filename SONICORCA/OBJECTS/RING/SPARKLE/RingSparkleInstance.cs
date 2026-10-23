@@ -11,10 +11,10 @@ namespace SONICORCA.OBJECTS.RING.SPARKLE;
 
 public class RingSparkleInstance : ParticleObject
 {
-  public RingSparkleInstance()
-    : base("/ANIGROUP")
-  {
-    this.AdditiveBlending = true;
-    this.FilterMultiplier = 0.0;
-  }
+	public RingSparkleInstance()
+	  : base("/ANIGROUP")
+	{
+		AdditiveBlending = true;
+		FilterMultiplier = 0.0;
+	}
 }
