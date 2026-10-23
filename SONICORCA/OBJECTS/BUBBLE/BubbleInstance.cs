@@ -29,10 +29,11 @@ public class BubbleInstance : ActiveObject
 	private AnimationInstance _animation;
 	private Vector2 _velocity;
 
-	/// <summary>
-	/// The size type at the start. After the first update, this field holds the current radius in pixels.
-	/// </summary>
+	/// <summary>The size type of the bubble.</summary>
 	private SizeType _size;
+
+	/// <summary>The current radius in pixels.</summary>
+	private int _radius;
 
 	private double _angle;
 	private int _maxSize;
@@ -51,6 +52,7 @@ public class BubbleInstance : ActiveObject
 		_velocity = new Vector2(0.0, -17.0 / 32.0);
 		_angle = Level.Random.NextDouble() * (2.0 * Math.PI);
 		_maxSize = SizeRadius[(int)_size];
+		_radius = (int)_size;
 		if (_size != SizeType.Large)
 		{
 			_maxSize += Level.Random.Next(-4, 4);
@@ -70,7 +72,7 @@ public class BubbleInstance : ActiveObject
 		_velocity.X = Math.Sin(_angle) * 0.5;
 		PositionPrecise = PositionPrecise + _velocity;
 		// The bubble grows by one pixel each frame until it reaches its maximum radius.
-		_size = (SizeType)Math.Min((int)(_size + 1), _maxSize);
+		_radius = Math.Min(_radius + 1, _maxSize);
 		if (!Level.WaterManager.IsUnderwater(Position))
 		{
 			FinishForever();
@@ -93,7 +95,7 @@ public class BubbleInstance : ActiveObject
 
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 	{
-		double scale = (double)_size / _animation.CurrentTexture.Width;
+		double scale = (double)_radius / _animation.CurrentTexture.Width;
 		IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
 		using (objectRenderer.BeginMatixState())
 		{
