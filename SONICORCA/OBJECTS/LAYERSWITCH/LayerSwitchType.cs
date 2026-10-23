@@ -19,6 +19,6 @@ public class LayerSwitchType : ObjectType
 {
 	public Vector2 GetLifeRadius(LayerSwitchInstance state)
 	{
-		return new Vector2((double)(state.Width / 2), (double)(state.Height / 2));
+		return new Vector2(state.Width / 2, state.Height / 2);
 	}
 }

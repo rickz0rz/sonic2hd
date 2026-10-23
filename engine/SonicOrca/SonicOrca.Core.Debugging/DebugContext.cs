@@ -240,7 +240,7 @@ public class DebugContext : IDisposable
 			i2dRenderer.ModelMatrix = (i2dRenderer.ModelMatrix * Matrix4.CreateScale(scale, scale)).Translate(x, y);
 			renderer.GetFontRenderer().RenderStringWithShadow(text, default, alignment, Font, colour, overlay);
 		}
-		return (double)Font.Height * scale + 8.0;
+		return Font.Height * scale + 8.0;
 	}
 
 	public void PlayFocusSound()

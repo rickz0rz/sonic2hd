@@ -20,31 +20,31 @@ public class CPZTubeCapParticleInstance : ActiveObject
 
 	public Vector2 Velocity
 	{
-		get => this._velocity;
-		set => this._velocity = value;
+		get => _velocity;
+		set => _velocity = value;
 	}
 
-	public CPZTubeCapParticleInstance() => this.DesignBounds = new Rectanglei(-60, -50, 120, 101);
+	public CPZTubeCapParticleInstance() => DesignBounds = new Rectanglei(-60, -50, 120, 101);
 
 	protected override void OnStart()
 	{
-		this._animation = new AnimationInstance(this.ResourceTree, this.Type.GetAbsolutePath("/ANIGROUP"), 1);
-		this._animation.CurrentFrameIndex = this.Level.Random.Next(0, this._animation.Animation.Frames.Count);
-		this.Priority = 1512;
+		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"), 1);
+		_animation.CurrentFrameIndex = Level.Random.Next(0, _animation.Animation.Frames.Count);
+		Priority = 1512;
 	}
 
-	protected override void OnStop() => this.FinishForever();
+	protected override void OnStop() => FinishForever();
 
 	protected override void OnUpdate()
 	{
-		this._velocity.Y += 9.0 / 16.0;
-		this.PositionPrecise = this.PositionPrecise + this._velocity;
+		_velocity.Y += 9.0 / 16.0;
+		PositionPrecise = PositionPrecise + _velocity;
 	}
 
-	protected override void OnAnimate() => this._animation.Animate();
+	protected override void OnAnimate() => _animation.Animate();
 
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 	{
-		renderer.GetObjectRenderer().Render(this._animation);
+		renderer.GetObjectRenderer().Render(_animation);
 	}
 }

@@ -99,7 +99,7 @@ public class FontRenderer : IFontRenderer
 			textures[1] = font.OverlayTextures[overlay.Value];
 		}
 		Rectangle source = characterDefinition.SourceRectangle;
-		Rectangle destination2 = new Rectangle(destination.X + (double)characterDefinition.Offset.X, destination.Y + (double)characterDefinition.Offset.Y, source.Width, source.Height);
+		Rectangle destination2 = new Rectangle(destination.X + characterDefinition.Offset.X, destination.Y + characterDefinition.Offset.Y, source.Width, source.Height);
 		destination2.X *= _renderer.GetObjectRenderer().Scale.X;
 		destination2.Y *= _renderer.GetObjectRenderer().Scale.Y;
 		destination2.Width *= _renderer.GetObjectRenderer().Scale.X;

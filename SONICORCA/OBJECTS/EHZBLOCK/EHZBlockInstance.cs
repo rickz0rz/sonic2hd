@@ -20,23 +20,23 @@ public class EHZBlockInstance : Platform
 
 	public EHZBlockInstance()
 	{
-		this.DesignBounds = new Rectanglei((int)sbyte.MinValue, -192, 256 /*0x0100*/, 384);
+		DesignBounds = new Rectanglei(sbyte.MinValue, -192, 256 /*0x0100*/, 384);
 	}
 
 	protected override void OnStart()
 	{
 		base.OnStart();
-		this._animation = new AnimationInstance(this.ResourceTree, this.Type.GetAbsolutePath("/ANIGROUP"));
-		this.CollisionVectors = CollisionVector.FromRectangle((ActiveObject)this, new Rectanglei((int)sbyte.MinValue, -164, 256 /*0x0100*/, 356));
-		this.CollisionVectors[0].Id = 1;
-		this.CollisionVectors[2].Id = 1;
-		this.CollisionVectors[3].Id = 1;
+		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"));
+		CollisionVectors = CollisionVector.FromRectangle(this, new Rectanglei(sbyte.MinValue, -164, 256 /*0x0100*/, 356));
+		CollisionVectors[0].Id = 1;
+		CollisionVectors[2].Id = 1;
+		CollisionVectors[3].Id = 1;
 	}
 
-	protected override void OnAnimate() => this._animation.Animate();
+	protected override void OnAnimate() => _animation.Animate();
 
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 	{
-		renderer.GetObjectRenderer().Render(this._animation);
+		renderer.GetObjectRenderer().Render(_animation);
 	}
 }

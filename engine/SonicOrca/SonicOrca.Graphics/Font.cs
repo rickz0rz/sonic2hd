@@ -122,12 +122,12 @@ public class Font : ILoadedResource, IDisposable, IEnumerable<Font.CharacterDefi
 		double num2 = Height;
 		foreach (char key in text)
 		{
-			num += (double)(_characterDefinitions.TryGetValue(key, out var value) ? value.Width : DefaultWidth);
-			num += (double)Tracking;
+			num += _characterDefinitions.TryGetValue(key, out var value) ? value.Width : DefaultWidth;
+			num += Tracking;
 		}
 		if (text.Length > 0)
 		{
-			num -= (double)Tracking;
+			num -= Tracking;
 		}
 		double x = 0.0;
 		double y = 0.0;

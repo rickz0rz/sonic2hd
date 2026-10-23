@@ -196,7 +196,7 @@ public class OggDecodeStream : Stream
 													int num7 = array3[i];
 													for (int k = 0; k < num5; k++)
 													{
-														int num8 = (int)((double)array4[i][num7 + k] * 32767.0);
+														int num8 = (int)(array4[i][num7 + k] * 32767.0);
 														if (num8 > 32767)
 														{
 															num8 = 32767;

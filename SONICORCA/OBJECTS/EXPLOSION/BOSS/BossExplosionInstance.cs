@@ -21,7 +21,7 @@ public class BossExplosionInstance : ParticleObject
 	protected override void OnStart()
 	{
 		base.OnStart();
-		this.Level.SoundManager.PlaySound((IActiveObject)this, this.Type.GetAbsolutePath("SONICORCA/SOUND/BOSSEXPLOSION"));
-		this.FilterMultiplier = 0.0;
+		Level.SoundManager.PlaySound(this, Type.GetAbsolutePath("SONICORCA/SOUND/BOSSEXPLOSION"));
+		FilterMultiplier = 0.0;
 	}
 }

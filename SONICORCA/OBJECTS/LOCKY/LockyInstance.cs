@@ -15,6 +15,6 @@ public class LockyInstance : Animal
 	public LockyInstance()
 	  : base("/ANIGROUP")
 	{
-		this.JumpVelocity = new Vector2(-10.0, -12.0);
+		JumpVelocity = new Vector2(-10.0, -12.0);
 	}
 }

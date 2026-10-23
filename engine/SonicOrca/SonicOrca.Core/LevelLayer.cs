@@ -125,7 +125,7 @@ public class LevelLayer : ILevelLayerTreeNode
 				Matrix4 modelMatrix = Matrix4.Identity;
 				if (viewOptions.Shadows)
 				{
-					modelMatrix = Matrix4.CreateTranslation((Vector2i)new Vector2((double)shadow.Displacement.X * viewport.Scale.X, (double)shadow.Displacement.Y * viewport.Scale.Y));
+					modelMatrix = Matrix4.CreateTranslation((Vector2i)new Vector2(shadow.Displacement.X * viewport.Scale.X, shadow.Displacement.Y * viewport.Scale.Y));
 				}
 				ITileRenderer tileRenderer = renderer.GetTileRenderer();
 				tileRenderer.ClipRectangle = viewport.Destination;
@@ -149,8 +149,8 @@ public class LevelLayer : ILevelLayerTreeNode
 	{
 		int num = Math.Max(0, Columns * 64 - viewport.Bounds.X);
 		int num2 = Math.Max(0, Rows * 64 - viewport.Bounds.Y);
-		num = (int)((double)num * viewport.Scale.X);
-		num2 = (int)((double)num2 * viewport.Scale.Y);
+		num = (int)(num * viewport.Scale.X);
+		num2 = (int)(num2 * viewport.Scale.Y);
 		List<Rectanglei> list = new List<Rectanglei>(2);
 		if (num < viewport.Destination.Width)
 		{
@@ -177,8 +177,8 @@ public class LevelLayer : ILevelLayerTreeNode
 		bool flag = !Editing && WrapY;
 		int num = ((!Editing) ? OffsetY : 0);
 		double num2 = (Editing ? 1.0 : ParallaxY);
-		int num3 = (int)((double)(Rows * 64) * viewport.Scale.Y);
-		int num4 = (int)((double)viewport.Bounds.Y * viewport.Scale.Y * num2);
+		int num3 = (int)(Rows * 64 * viewport.Scale.Y);
+		int num4 = (int)(viewport.Bounds.Y * viewport.Scale.Y * num2);
 		if (!flag && num4 >= num3)
 		{
 			return;
@@ -217,17 +217,17 @@ public class LevelLayer : ILevelLayerTreeNode
 		bool flag = !Editing && WrapX;
 		double num4 = (Editing ? 1.0 : ParallaxY);
 		int num5 = 0;
-		LayerRowDefinition rowDefinitionAt = GetRowDefinitionAt((int)((double)sourceY / viewport.Scale.Y), out var top);
+		LayerRowDefinition rowDefinitionAt = GetRowDefinitionAt((int)(sourceY / viewport.Scale.Y), out var top);
 		if (rowDefinitionAt != null && !Editing)
 		{
 			num4 = rowDefinitionAt.Parallax;
 			num5 = (int)rowDefinitionAt.CurrentOffset;
 			if (rowDefinitionAt.Width != 0)
 			{
-				num2 = (int)((double)rowDefinitionAt.Width * viewport.Scale.X);
+				num2 = (int)(rowDefinitionAt.Width * viewport.Scale.X);
 			}
-			top = (int)((double)top * viewport.Scale.Y);
-			height = Math.Min(height, top + (int)((double)rowDefinitionAt.Height * viewport.Scale.Y) - sourceY);
+			top = (int)(top * viewport.Scale.Y);
+			height = Math.Min(height, top + (int)(rowDefinitionAt.Height * viewport.Scale.Y) - sourceY);
 			height = Math.Min(height, 64 - sourceY % 64);
 			if (height <= 0)
 			{
@@ -243,7 +243,7 @@ public class LevelLayer : ILevelLayerTreeNode
 		{
 			return;
 		}
-		int i = (int)((double)viewport.Bounds.X * viewport.Scale.X * num4) - num5;
+		int i = (int)(viewport.Bounds.X * viewport.Scale.X * num4) - num5;
 		if (flag)
 		{
 			for (; i < 0; i += num2)
@@ -271,7 +271,7 @@ public class LevelLayer : ILevelLayerTreeNode
 			int num9 = num - num6 % num;
 			if (num9 != 0)
 			{
-				Rectanglei source = new Rectanglei(0, (int)((double)(sourceY % num) / viewport.Scale.Y), 64, (int)((double)height / viewport.Scale.Y));
+				Rectanglei source = new Rectanglei(0, (int)(sourceY % num / viewport.Scale.Y), 64, (int)(height / viewport.Scale.Y));
 				Rectanglei destination = new Rectanglei(num7 + num8, destinationY, num, height);
 				Level.TileSet.DrawTile(renderer, index, source, destination);
 				num6 += num9;

@@ -74,6 +74,6 @@ internal class DiscreteDebugOption<T> : DebugOption
 			num += -(int)(Context.Font.MeasureString(item.Key).Width * 0.5) - 16;
 			num2--;
 		}
-		return (int)((double)Context.Font.Height * 0.5);
+		return (int)(Context.Font.Height * 0.5);
 	}
 }

@@ -17,7 +17,7 @@ internal class NavigateNextEventArgs : EventArgs
 
 	public NavigateNextEventArgs(IMenuViewModel viewModel, object tag)
 	{
-		this.ViewModel = viewModel;
-		this.Tag = tag;
+		ViewModel = viewModel;
+		Tag = tag;
 	}
 }

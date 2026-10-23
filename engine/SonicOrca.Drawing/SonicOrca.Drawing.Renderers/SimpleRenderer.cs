@@ -415,10 +415,10 @@ public class SimpleRenderer : I2dRenderer, IDisposable, IRenderer
 		{
 			_verticesData[numVerticesData].position.x = (float)positions[i].X;
 			_verticesData[numVerticesData].position.y = (float)positions[i].Y;
-			_verticesData[numVerticesData].colour.r = (float)(int)colours[i].Red / 255f;
-			_verticesData[numVerticesData].colour.g = (float)(int)colours[i].Green / 255f;
-			_verticesData[numVerticesData].colour.b = (float)(int)colours[i].Blue / 255f;
-			_verticesData[numVerticesData].colour.a = (float)(int)colours[i].Alpha / 255f;
+			_verticesData[numVerticesData].colour.r = colours[i].Red / 255f;
+			_verticesData[numVerticesData].colour.g = colours[i].Green / 255f;
+			_verticesData[numVerticesData].colour.b = colours[i].Blue / 255f;
+			_verticesData[numVerticesData].colour.a = colours[i].Alpha / 255f;
 			_verticesData[numVerticesData].texcoords.s = (float)textureMappings[i].X;
 			_verticesData[numVerticesData].texcoords.t = (float)textureMappings[i].Y;
 			numVerticesData++;
@@ -474,7 +474,7 @@ public class SimpleRenderer : I2dRenderer, IDisposable, IRenderer
 
 	public void RenderTexture(ITexture texture, Rectangle source, Vector2 destination, bool flipX = false, bool flipY = false)
 	{
-		RenderTexture(texture, source, new Rectangle(destination.X - (double)(int)((double)texture.Width / 2.0), destination.Y - (double)(int)((double)texture.Height / 2.0), texture.Width, texture.Height), flipX, flipY);
+		RenderTexture(texture, source, new Rectangle(destination.X - (int)(texture.Width / 2.0), destination.Y - (int)(texture.Height / 2.0), texture.Width, texture.Height), flipX, flipY);
 	}
 
 	public void RenderTexture(IEnumerable<ITexture> textures, Vector2 destination)
@@ -492,7 +492,7 @@ public class SimpleRenderer : I2dRenderer, IDisposable, IRenderer
 	public void RenderTexture(IEnumerable<ITexture> textures, Rectangle source, Vector2 destination)
 	{
 		ITexture texture = textures.First();
-		RenderTexture(textures, source, new Rectangle(destination.X - (double)texture.Width / 2.0, destination.Y - (double)texture.Height / 2.0, texture.Width, texture.Height));
+		RenderTexture(textures, source, new Rectangle(destination.X - texture.Width / 2.0, destination.Y - texture.Height / 2.0, texture.Width, texture.Height));
 	}
 
 	public void RenderTexture(ITexture texture, Rectangle source, Rectangle destination, bool flipX = false, bool flipY = false)
@@ -548,8 +548,8 @@ public class SimpleRenderer : I2dRenderer, IDisposable, IRenderer
 		int num = 0;
 		for (int i = 0; i < sectors; i++)
 		{
-			double num2 = (double)i * (Math.PI * 2.0) / (double)sectors;
-			double num3 = (double)(i + 1) * (Math.PI * 2.0) / (double)sectors;
+			double num2 = i * (Math.PI * 2.0) / sectors;
+			double num3 = (i + 1) * (Math.PI * 2.0) / sectors;
 			array[num++] = new Vector2(Math.Sin(num2) * outerRadius, (0.0 - Math.Cos(num2)) * outerRadius) + centre;
 			array[num++] = new Vector2(Math.Sin(num2) * innerRadius, (0.0 - Math.Cos(num2)) * innerRadius) + centre;
 			array[num++] = new Vector2(Math.Sin(num3) * innerRadius, (0.0 - Math.Cos(num3)) * innerRadius) + centre;

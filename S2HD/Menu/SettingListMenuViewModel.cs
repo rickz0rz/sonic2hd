@@ -23,7 +23,7 @@ internal class SettingListMenuViewModel : ISettingListMenuViewModel, IMenuViewMo
 
 	public SettingListMenuViewModel(ImmutableArray<ISetting> items, object tag = null)
 	{
-		this.Items = items;
-		this.Tag = tag;
+		Items = items;
+		Tag = tag;
 	}
 }

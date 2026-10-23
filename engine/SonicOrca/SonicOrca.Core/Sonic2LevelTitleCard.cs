@@ -321,7 +321,7 @@ internal class Sonic2LevelTitleCard : ILevelTitleCard, IDisposable
 	{
 		int num = (int)LevelNameX.GetValueAt(_ticks);
 		byte b = (byte)MathX.Clamp(0.0, LevelNameHighlight.GetValueAt(_ticks), 255.0);
-		renderer.GetFontRenderer().RenderStringWithShadow(boundary: new Rectangle(num - (int)_levelNameFont.MeasureString(_level.Name.ToUpper(), new Rectangle(num, 342.0, 0.0, 0.0), FontAlignment.Left).Width, 342.0, 0.0, 0.0), text: _level.Name.ToUpper(), fontAlignment: FontAlignment.Left, font: _levelNameFont, colour: Colours.White, overlay: (b > 0) ? ((int?)null) : new int?(0), shadow: _levelNameFont.DefaultShadow, shadowColour: new Colour(b, b, b));
+		renderer.GetFontRenderer().RenderStringWithShadow(boundary: new Rectangle(num - (int)_levelNameFont.MeasureString(_level.Name.ToUpper(), new Rectangle(num, 342.0, 0.0, 0.0), FontAlignment.Left).Width, 342.0, 0.0, 0.0), text: _level.Name.ToUpper(), fontAlignment: FontAlignment.Left, font: _levelNameFont, colour: Colours.White, overlay: (b > 0) ? null : new int?(0), shadow: _levelNameFont.DefaultShadow, shadowColour: new Colour(b, b, b));
 	}
 
 	private void DrawZoneAct(Renderer renderer)
@@ -341,7 +341,7 @@ internal class Sonic2LevelTitleCard : ILevelTitleCard, IDisposable
 		if (_level.ShowAsZone)
 		{
 			boundary.X -= _levelNameFont.MeasureString("ZONE", boundary, FontAlignment.Left).Width;
-			fontRenderer.RenderStringWithShadow("ZONE", boundary, FontAlignment.Left, _levelNameFont, Colours.White, (b > 0) ? ((int?)null) : new int?(0), _levelNameFont.DefaultShadow, new Colour(b, b, b));
+			fontRenderer.RenderStringWithShadow("ZONE", boundary, FontAlignment.Left, _levelNameFont, Colours.White, (b > 0) ? null : new int?(0), _levelNameFont.DefaultShadow, new Colour(b, b, b));
 		}
 	}
 }

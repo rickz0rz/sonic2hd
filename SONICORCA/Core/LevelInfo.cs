@@ -21,10 +21,10 @@ internal class LevelInfo
 
 	public LevelInfo(int gameIndex, string mnemonic, string name, int acts, bool unreleased = false)
 	{
-		this.GameIndex = gameIndex;
-		this.Mnemonic = mnemonic;
-		this.Name = name;
-		this.Acts = acts;
-		this.Unreleased = unreleased;
+		GameIndex = gameIndex;
+		Mnemonic = mnemonic;
+		Name = name;
+		Acts = acts;
+		Unreleased = unreleased;
 	}
 }

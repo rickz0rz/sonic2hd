@@ -29,7 +29,7 @@ public class SampleInstance : IDisposable, ISampleProvider
 
 	public int SampleIndex { get; private set; }
 
-	public double Position => (double)SampleIndex / (double)_sample.SampleRate;
+	public double Position => SampleIndex / (double)_sample.SampleRate;
 
 	public IReadOnlyList<byte> LastReadBytes => _lastReadBytes;
 
@@ -67,12 +67,12 @@ public class SampleInstance : IDisposable, ISampleProvider
 	}
 
 	public SampleInstance(SonicOrcaGameContext context, SampleInfo sampleInfo)
-		: this(context.Audio, sampleInfo.Sample, sampleInfo.HasLoopPoint ? new int?(sampleInfo.LoopSampleIndex) : ((int?)null))
+		: this(context.Audio, sampleInfo.Sample, sampleInfo.HasLoopPoint ? new int?(sampleInfo.LoopSampleIndex) : null)
 	{
 	}
 
 	public SampleInstance(AudioContext audioAdapter, SampleInfo sampleInfo)
-		: this(audioAdapter, sampleInfo.Sample, sampleInfo.HasLoopPoint ? new int?(sampleInfo.LoopSampleIndex) : ((int?)null))
+		: this(audioAdapter, sampleInfo.Sample, sampleInfo.HasLoopPoint ? new int?(sampleInfo.LoopSampleIndex) : null)
 	{
 	}
 
@@ -134,7 +134,7 @@ public class SampleInstance : IDisposable, ISampleProvider
 
 	public void SeekTo(double time)
 	{
-		SeekTo((int)(time * (double)_sample.SampleRate));
+		SeekTo((int)(time * _sample.SampleRate));
 	}
 
 	public int Read(byte[] buffer, int offset, int count)

@@ -166,8 +166,8 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		public void Animate()
 		{
 			_angle = MathX.WrapRadians(_angle + Math.PI / 16.0);
-			_position.X = Math.Cos(_angle) * 46.0 + (double)_character.Level.Random.Next(-8, 8);
-			_position.Y = Math.Sin(_angle) * 64.0 + (double)_character.Level.Random.Next(-8, 8);
+			_position.X = Math.Cos(_angle) * 46.0 + _character.Level.Random.Next(-8, 8);
+			_position.Y = Math.Sin(_angle) * 64.0 + _character.Level.Random.Next(-8, 8);
 			_animation.Animate();
 		}
 
@@ -1120,7 +1120,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 				num = 1.0 - num;
 				num = MathX.Wrap(num + 0.5, 1.0);
 			}
-			Animation.CurrentFrameIndex = (int)((double)(Animation.AnimationGroup[Animation.Index].Frames.Count - 1) * num);
+			Animation.CurrentFrameIndex = (int)((Animation.AnimationGroup[Animation.Index].Frames.Count - 1) * num);
 			Animation.CurrentFrameIndex = MathX.Clamp(0, Animation.CurrentFrameIndex, Animation.AnimationGroup[Animation.Index].Frames.Count - 1);
 		}
 		else
@@ -1290,7 +1290,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		{
 			vector = GetPointRotatedFromRelative(intersection, new Vector2(intersection.X + collisionRadius.Y, intersection.Y), Math.PI / 2.0 + GroundAngle);
 		}
-		return MathX.DifferenceRadians((PositionPrecise - vector).Angle, t.Angle) * (double)num > 0.0;
+		return MathX.DifferenceRadians((PositionPrecise - vector).Angle, t.Angle) * num > 0.0;
 	}
 
 	private Vector2 GetPointRotatedFromOrigin(Vector2 center, Vector2 point, double angleInRadians)
@@ -1342,8 +1342,8 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			return false;
 		}
 		int num = (useLedgeSensor ? (CollisionRadius.X - LedgeSensorRadius) : 0);
-		Vector2 pointRotatedFromRelative = GetPointRotatedFromRelative(PositionPrecise, new Vector2(PositionPrecise.X - (double)CollisionRadius.Y, PositionPrecise.Y), GroundAngle + Math.PI / 2.0);
-		Vector2 pointRotatedFromRelative2 = GetPointRotatedFromRelative(PositionPrecise, new Vector2(PositionPrecise.X + (double)CollisionRadius.Y, PositionPrecise.Y), GroundAngle + Math.PI / 2.0);
+		Vector2 pointRotatedFromRelative = GetPointRotatedFromRelative(PositionPrecise, new Vector2(PositionPrecise.X - CollisionRadius.Y, PositionPrecise.Y), GroundAngle + Math.PI / 2.0);
+		Vector2 pointRotatedFromRelative2 = GetPointRotatedFromRelative(PositionPrecise, new Vector2(PositionPrecise.X + CollisionRadius.Y, PositionPrecise.Y), GroundAngle + Math.PI / 2.0);
 		Vector2i absoluteA = GroundVector.AbsoluteA;
 		Vector2i absoluteB = GroundVector.AbsoluteB;
 		if (Vector2.Intersects(pointRotatedFromRelative, pointRotatedFromRelative2, absoluteA, absoluteB))
@@ -1358,7 +1358,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		double distance4 = Vector2.GetDistance(GroundVector.Bounds.Centre, absoluteB);
 		_ = GroundAngle;
 		_ = GroundVector.Angle;
-		if (distance3 < distance2 && distance - (double)num > distance4)
+		if (distance3 < distance2 && distance - num > distance4)
 		{
 			return true;
 		}
@@ -1368,8 +1368,8 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	private bool IsBeyondPathStart(bool useLedgeSensor)
 	{
 		int num = (useLedgeSensor ? (CollisionRadius.X - LedgeSensorRadius) : 0);
-		Vector2 pointRotatedFromRelative = GetPointRotatedFromRelative(PositionPrecise, new Vector2(PositionPrecise.X - (double)CollisionRadius.Y, PositionPrecise.Y), GroundAngle + Math.PI / 2.0);
-		Vector2 pointRotatedFromRelative2 = GetPointRotatedFromRelative(PositionPrecise, new Vector2(PositionPrecise.X + (double)CollisionRadius.Y, PositionPrecise.Y), GroundAngle + Math.PI / 2.0);
+		Vector2 pointRotatedFromRelative = GetPointRotatedFromRelative(PositionPrecise, new Vector2(PositionPrecise.X - CollisionRadius.Y, PositionPrecise.Y), GroundAngle + Math.PI / 2.0);
+		Vector2 pointRotatedFromRelative2 = GetPointRotatedFromRelative(PositionPrecise, new Vector2(PositionPrecise.X + CollisionRadius.Y, PositionPrecise.Y), GroundAngle + Math.PI / 2.0);
 		Vector2i absoluteA = GroundVector.AbsoluteA;
 		Vector2i absoluteB = GroundVector.AbsoluteB;
 		if (Vector2.Intersects(pointRotatedFromRelative, pointRotatedFromRelative2, absoluteA, absoluteB))
@@ -1382,7 +1382,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		double distance2 = Vector2.GetDistance(intersection, GroundVector.AbsoluteA);
 		double distance3 = Vector2.GetDistance(intersection, GroundVector.AbsoluteB);
 		double distance4 = Vector2.GetDistance(GroundVector.Bounds.Centre, absoluteA);
-		if (distance3 > distance2 && distance - (double)num > distance4)
+		if (distance3 > distance2 && distance - num > distance4)
 		{
 			return true;
 		}
@@ -1430,7 +1430,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 				{
 					return true;
 				}
-				if (Velocity.X * (double)vector.FlipY < 0.0)
+				if (Velocity.X * vector.FlipY < 0.0)
 				{
 					if (vector != null)
 					{
@@ -1521,7 +1521,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 				}
 				else
 				{
-					GroundVelocity = ((Math.Abs(Velocity.X) > Math.Abs(Velocity.Y)) ? (Velocity.X * (double)GroundVector.FlipX) : (Velocity.X * Math.Cos(GroundAngle) + Velocity.Y * Math.Sin(GroundAngle)));
+					GroundVelocity = ((Math.Abs(Velocity.X) > Math.Abs(Velocity.Y)) ? (Velocity.X * GroundVector.FlipX) : (Velocity.X * Math.Cos(GroundAngle) + Velocity.Y * Math.Sin(GroundAngle)));
 					Velocity = new Vector2(GroundVelocity * Math.Cos(GroundAngle), GroundVelocity * Math.Sin(GroundAngle));
 				}
 			}
@@ -1678,8 +1678,8 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			Vector2 pointRotatedFromRelative2 = GetPointRotatedFromRelative(PositionPrecise, new Vector2(PositionPrecise.X, PositionPrecise.Y - num5), Math.PI / 2.0 + GroundAngle);
 			Vector2 pointRotatedFromRelative3 = GetPointRotatedFromRelative(PositionPrecise, new Vector2(PositionPrecise.X + num6, PositionPrecise.Y), Math.PI / 2.0 + GroundAngle);
 			Vector2 pointRotatedFromRelative4 = GetPointRotatedFromRelative(PositionPrecise, new Vector2(PositionPrecise.X - num6, PositionPrecise.Y), Math.PI / 2.0 + GroundAngle);
-			Vector2[][] collisionBox = GetCollisionBox(new Vector2(num5, num6 - (double)FloorSensorRadius + 20.0), rotate: false);
-			Vector2[][] collisionBox2 = GetCollisionBox(new Vector2(num5 - (double)LedgeSensorRadius, num6), rotate: false);
+			Vector2[][] collisionBox = GetCollisionBox(new Vector2(num5, num6 - FloorSensorRadius + 20.0), rotate: false);
+			Vector2[][] collisionBox2 = GetCollisionBox(new Vector2(num5 - LedgeSensorRadius, num6), rotate: false);
 			Vector2[][] array = new Vector2[0][];
 			Vector2[][] array2 = new Vector2[0][];
 			Vector2 vector = default;
@@ -2104,13 +2104,13 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	private Vector2 GetAlignmentForVector(CollisionVector t, Vector2 alignmentPosition, double alignmentAngle)
 	{
 		int y = CollisionRadius.Y;
-		GetPointRotatedFromRelative(alignmentPosition, new Vector2(alignmentPosition.X - (double)y, alignmentPosition.Y), Math.PI / 2.0 + alignmentAngle);
-		Vector2 pointRotatedFromRelative = GetPointRotatedFromRelative(alignmentPosition, new Vector2(alignmentPosition.X + (double)y, alignmentPosition.Y), Math.PI / 2.0 + alignmentAngle);
-		Vector2 pointRotatedFromRelative2 = GetPointRotatedFromRelative(pointRotatedFromRelative, new Vector2(pointRotatedFromRelative.X - (double)y, pointRotatedFromRelative.Y), Math.PI / 2.0 + t.Angle);
-		Vector2 pointRotatedFromRelative3 = GetPointRotatedFromRelative(pointRotatedFromRelative, new Vector2(pointRotatedFromRelative.X + (double)y, pointRotatedFromRelative.Y), Math.PI / 2.0 + t.Angle);
+		GetPointRotatedFromRelative(alignmentPosition, new Vector2(alignmentPosition.X - y, alignmentPosition.Y), Math.PI / 2.0 + alignmentAngle);
+		Vector2 pointRotatedFromRelative = GetPointRotatedFromRelative(alignmentPosition, new Vector2(alignmentPosition.X + y, alignmentPosition.Y), Math.PI / 2.0 + alignmentAngle);
+		Vector2 pointRotatedFromRelative2 = GetPointRotatedFromRelative(pointRotatedFromRelative, new Vector2(pointRotatedFromRelative.X - y, pointRotatedFromRelative.Y), Math.PI / 2.0 + t.Angle);
+		Vector2 pointRotatedFromRelative3 = GetPointRotatedFromRelative(pointRotatedFromRelative, new Vector2(pointRotatedFromRelative.X + y, pointRotatedFromRelative.Y), Math.PI / 2.0 + t.Angle);
 		Vector2 intersection = Intersector.Intersection(t.AbsoluteB, t.AbsoluteA, pointRotatedFromRelative3, pointRotatedFromRelative2).FirstOrDefault();
 		Vector2.GetLineIntersection(t.AbsoluteB, t.AbsoluteA, pointRotatedFromRelative3, pointRotatedFromRelative2, out intersection);
-		return GetPointRotatedFromRelative(intersection, new Vector2(intersection.X - (double)y, intersection.Y), Math.PI / 2.0 + t.Angle);
+		return GetPointRotatedFromRelative(intersection, new Vector2(intersection.X - y, intersection.Y), Math.PI / 2.0 + t.Angle);
 	}
 
 	public Vector2 GetAlignmentForVector2(CollisionVector t, Vector2 alignmentPosition, double alignmentAngle)
@@ -2134,7 +2134,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	private void UpdateCollisionsWithObjects()
 	{
 		int num = RectangleCollisionRadius.Y - NormalCollisionRadius.Y;
-		Rectangle rectangle = Rectangle.FromLTRB(PositionPrecise.X - (double)RectangleCollisionRadius.X, PositionPrecise.Y - (double)RectangleCollisionRadius.Y - (double)num, PositionPrecise.X + (double)RectangleCollisionRadius.X, PositionPrecise.Y + (double)RectangleCollisionRadius.Y - (double)num);
+		Rectangle rectangle = Rectangle.FromLTRB(PositionPrecise.X - RectangleCollisionRadius.X, PositionPrecise.Y - RectangleCollisionRadius.Y - num, PositionPrecise.X + RectangleCollisionRadius.X, PositionPrecise.Y + RectangleCollisionRadius.Y - num);
 		foreach (ActiveObject activeObject in Level.ObjectManager.ActiveObjects)
 		{
 			CollisionRectangle[] collisionRectangles = activeObject.CollisionRectangles;
@@ -2159,7 +2159,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		{
 			if (GroundVector.GetConnectionB(Path) == null)
 			{
-				double num = (PositionPrecise.Y - (double)GroundVector.AbsoluteB.Y) * (double)GroundVector.FlipY;
+				double num = (PositionPrecise.Y - GroundVector.AbsoluteB.Y) * GroundVector.FlipY;
 				if (num > 0.0)
 				{
 					DistanceFromLedge = num;
@@ -2168,7 +2168,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			}
 			if (GroundVector.GetConnectionA(Path) == null)
 			{
-				double num = (PositionPrecise.Y - (double)GroundVector.AbsoluteA.Y) * (double)GroundVector.FlipY;
+				double num = (PositionPrecise.Y - GroundVector.AbsoluteA.Y) * GroundVector.FlipY;
 				if (num < 0.0)
 				{
 					DistanceFromLedge = num;
@@ -2180,7 +2180,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		{
 			if (GroundVector.GetConnectionB(Path) == null)
 			{
-				double num = (PositionPrecise.X - (double)GroundVector.AbsoluteB.X) * (double)GroundVector.FlipX;
+				double num = (PositionPrecise.X - GroundVector.AbsoluteB.X) * GroundVector.FlipX;
 				if (num > 0.0)
 				{
 					DistanceFromLedge = num;
@@ -2189,7 +2189,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			}
 			if (GroundVector.GetConnectionA(Path) == null)
 			{
-				double num = (PositionPrecise.X - (double)GroundVector.AbsoluteA.X) * (double)GroundVector.FlipX;
+				double num = (PositionPrecise.X - GroundVector.AbsoluteA.X) * GroundVector.FlipX;
 				if (num < 0.0)
 				{
 					DistanceFromLedge = num;
@@ -2384,7 +2384,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		InvincibilityGroupResourceKey = "SONICORCA/OBJECTS/INVINCIBILITY/ANIGROUP";
 		_drowningAnimation = new AnimationInstance(resourceTree, "SONICORCA/HUD/DROWNING/ANIGROUP");
 		Priority = 1024;
-		StateFlags = (CharacterState)0;
+		StateFlags = 0;
 		ShowAngle = 0.0;
 		GroundVelocity = 0.0;
 		Velocity = new Vector2(0.0, 0.0);
@@ -2625,7 +2625,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 				ApplySlopeFriction();
 			}
 			GroundVelocity = ChangeSpeed(GroundVelocity, MovingDirection, TopSpeed, Acceleration, Deceleration, Friction);
-			if ((double)MovingDirection * GroundVelocity > 0.0)
+			if (MovingDirection * GroundVelocity > 0.0)
 			{
 				Facing = MovingDirection;
 			}
@@ -2706,7 +2706,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			if (LookDirection != CharacterLookDirection.Ducking)
 			{
 				IsCharging = false;
-				GroundVelocity = (32.0 + _spindashExtraSpeed) * (double)Facing;
+				GroundVelocity = (32.0 + _spindashExtraSpeed) * Facing;
 				CharacterEvents |= CharacterEvent.SpindashLaunch;
 				CameraProperties.Delay = new Vector2i(16, CameraProperties.Delay.Y);
 				Level.SoundManager.PlaySound(this, "SONICORCA/SOUND/SPINDASH/RELEASE");
@@ -2857,7 +2857,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	{
 		if (Mode != CollisionMode.Air)
 		{
-			GroundVelocity = (double)Math.Sign(GroundVelocity) * Math.Min(Math.Abs(GroundVelocity), 96.0);
+			GroundVelocity = Math.Sign(GroundVelocity) * Math.Min(Math.Abs(GroundVelocity), 96.0);
 			Velocity = new Vector2(MathX.Clamp(-64.0, GroundVelocity * Math.Cos(GroundAngle), 64.0), MathX.Clamp(-64.0, GroundVelocity * Math.Sin(GroundAngle), 64.0));
 			AddPlatformVelocity();
 			if (CharacterEvents.HasFlag(CharacterEvent.Jump))
@@ -2898,7 +2898,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			Velocity = new Vector2(Velocity.X, Math.Min(Velocity.Y, 0.0 - JumpForce));
 			CharacterEvents &= ~CharacterEvent.DoubleJump;
 		}
-		Velocity = new Vector2((double)Math.Sign(Velocity.X) * Math.Min(Math.Abs(Velocity.X), 96.0), (double)Math.Sign(Velocity.Y) * Math.Min(Math.Abs(Velocity.Y), 96.0));
+		Velocity = new Vector2(Math.Sign(Velocity.X) * Math.Min(Math.Abs(Velocity.X), 96.0), Math.Sign(Velocity.Y) * Math.Min(Math.Abs(Velocity.Y), 96.0));
 		bool flag = _collisionEvents[3] != null;
 		bool flag2 = _collisionEvents[1] != null;
 		double y = 0.0;
@@ -2935,7 +2935,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		}
 		int num = Math.Sign(DistanceFromLedge);
 		double num2 = Math.Abs(DistanceFromLedge);
-		if (num2 > (double)LedgeSensorRadius)
+		if (num2 > LedgeSensorRadius)
 		{
 			_balanceDirection = (CharacterBalanceDirection)(2 * num);
 			Facing = num;
@@ -3019,18 +3019,18 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	{
 		if (direction != 0)
 		{
-			double num = limit - speed * (double)direction;
+			double num = limit - speed * direction;
 			if (num > limit)
 			{
-				speed += deceleration * (double)direction;
+				speed += deceleration * direction;
 			}
 			else if (num > acceleration)
 			{
-				speed += acceleration * (double)direction;
+				speed += acceleration * direction;
 			}
 			else if (num > 0.0)
 			{
-				speed = limit * (double)direction;
+				speed = limit * direction;
 			}
 		}
 		if (friction > 0.0)
@@ -3175,7 +3175,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		{
 			"MODE: " + Mode,
 			"POSITION: " + Position.X + ", " + Position.Y,
-			"PRECISE: " + (PositionPrecise.X - (double)Position.X) + ", " + (PositionPrecise.Y - (double)Position.Y),
+			"PRECISE: " + (PositionPrecise.X - Position.X) + ", " + (PositionPrecise.Y - Position.Y),
 			"VELOCITY: " + (int)Velocity.X + ", " + (int)Velocity.Y,
 			"GROUND VELOCITY: " + (int)GroundVelocity,
 			"GROUND ID: " + Level.Map.CollisionVectors.IndexOf(GroundVector),
@@ -3215,7 +3215,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			{
 				_ = collisionBox[i];
 			}
-			new Rectangle(PositionPrecise.X - (double)CollisionRadius.X, PositionPrecise.Y - (double)CollisionRadius.Y, CollisionRadius.X * 2, CollisionRadius.Y * 2);
+			new Rectangle(PositionPrecise.X - CollisionRadius.X, PositionPrecise.Y - CollisionRadius.Y, CollisionRadius.X * 2, CollisionRadius.Y * 2);
 			double num2 = 0.0;
 			double num3 = 0.0;
 			bool flag = false;
@@ -3234,8 +3234,8 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			Vector2 pointRotatedFromRelative2 = GetPointRotatedFromRelative(PositionPrecise, new Vector2(PositionPrecise.X, PositionPrecise.Y - num2), Math.PI / 2.0 + GroundAngle);
 			Vector2 pointRotatedFromRelative3 = GetPointRotatedFromRelative(PositionPrecise, new Vector2(PositionPrecise.X - num3, PositionPrecise.Y), Math.PI / 2.0 + GroundAngle);
 			Vector2 pointRotatedFromRelative4 = GetPointRotatedFromRelative(PositionPrecise, new Vector2(PositionPrecise.X + num3, PositionPrecise.Y), Math.PI / 2.0 + GroundAngle);
-			Vector2[][] collisionBox2 = GetCollisionBox(new Vector2(num2 - (double)LedgeSensorRadius, num3 - (double)FloorSensorRadius + 20.0), rotate: false);
-			Vector2[][] collisionBox3 = GetCollisionBox(new Vector2(num2 - (double)LedgeSensorRadius, num3), rotate: false);
+			Vector2[][] collisionBox2 = GetCollisionBox(new Vector2(num2 - LedgeSensorRadius, num3 - FloorSensorRadius + 20.0), rotate: false);
+			Vector2[][] collisionBox3 = GetCollisionBox(new Vector2(num2 - LedgeSensorRadius, num3), rotate: false);
 			Vector2[][] array3 = new Vector2[0][];
 			Vector2[][] array4 = new Vector2[0][];
 			Vector2 vector = default;
@@ -3353,7 +3353,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		}
 		Animation.Frame currentFrame = Animation.CurrentFrame;
 		Vector2 vector = currentFrame.Offset;
-		Rectangle destination = new Rectangle(vector.X - (double)(currentFrame.Source.Width / 2), vector.Y - (double)(currentFrame.Source.Height / 2), currentFrame.Source.Width, currentFrame.Source.Height);
+		Rectangle destination = new Rectangle(vector.X - currentFrame.Source.Width / 2, vector.Y - currentFrame.Source.Height / 2, currentFrame.Source.Width, currentFrame.Source.Height);
 		characterRenderer.Filter = viewOptions.Filter;
 		characterRenderer.FilterAmount = viewOptions.FilterAmount;
 		characterRenderer.Brightness = (viewOptions.Shadows ? 0f : Brightness);
@@ -3364,7 +3364,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	{
 		if (IsCharging)
 		{
-			Vector2 destination = new Vector2(SpindashDustAnimation.CurrentFrame.Source.Width / 2, (double)CollisionRadius.Y + 8.0 - (double)(SpindashDustAnimation.CurrentFrame.Source.Height / 2));
+			Vector2 destination = new Vector2(SpindashDustAnimation.CurrentFrame.Source.Width / 2, CollisionRadius.Y + 8.0 - SpindashDustAnimation.CurrentFrame.Source.Height / 2);
 			if (IsFacingRight)
 			{
 				destination.X *= -1.0;
@@ -3503,7 +3503,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		Velocity = new Vector2(0.0, -28.0);
 		_dyingTicks = 120;
 		CameraProperties.Delay = new Vector2i(3600, 3600);
-		StateFlags = (CharacterState)0;
+		StateFlags = 0;
 		IsAirborne = true;
 		IsBraking = false;
 		IsCharging = false;
@@ -3520,7 +3520,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	{
 		if (_dyingTicks == 0)
 		{
-			StateFlags = (CharacterState)0;
+			StateFlags = 0;
 			IsDead = true;
 			return;
 		}
@@ -3538,7 +3538,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		{
 			for (int j = 0; j < 3; j++)
 			{
-				double num = (double)(j * 4 + i) / 12.0;
+				double num = (j * 4 + i) / 12.0;
 				_invincibilityParticles.Add(new InvincibilityParticle(this, num * (Math.PI * 2.0), loadedResource, i));
 			}
 		}
@@ -3622,7 +3622,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 				if (!protagonist.IsDebug && (_humanControlled || Level.Ticks % 64 == 0))
 				{
 					_autoSidekickState = AutoSidekickState.Flying;
-					StateFlags = (CharacterState)0;
+					StateFlags = 0;
 					CollisionRadius = NormalCollisionRadius;
 					Position = new Vector2i(protagonist.Position.X, protagonist.Position.Y - 1152);
 					Priority = 8192;

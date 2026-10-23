@@ -22,32 +22,32 @@ public class PointsInstance : ActiveObject
 	[StateVariable]
 	public int Value
 	{
-		get => this._value;
-		set => this._value = value;
+		get => _value;
+		set => _value = value;
 	}
 
 	protected override void OnStart()
 	{
-		this._font = this.Level.GameContext.ResourceTree.GetLoadedResource<Font>((ILoadedResource)this.Type, "SONICORCA/FONTS/POINTS");
-		this._velocityY = -12.0;
-		this.Priority = 2304 /*0x0900*/;
+		_font = Level.GameContext.ResourceTree.GetLoadedResource<Font>(Type, "SONICORCA/FONTS/POINTS");
+		_velocityY = -12.0;
+		Priority = 2304 /*0x0900*/;
 	}
 
 	protected override void OnUpdate()
 	{
-		if (this._velocityY >= 0.0)
+		if (_velocityY >= 0.0)
 		{
-			this.FinishForever();
+			FinishForever();
 		}
 		else
 		{
-			this.PositionPrecise = this.PositionPrecise + new Vector2(0.0, this._velocityY);
-			this._velocityY += 0.375;
+			PositionPrecise = PositionPrecise + new Vector2(0.0, _velocityY);
+			_velocityY += 0.375;
 		}
 	}
 
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 	{
-		renderer.GetFontRenderer().RenderStringWithShadow(this._value.ToString(), new Rectangle(), FontAlignment.Centre, this._font, Colours.White);
+		renderer.GetFontRenderer().RenderStringWithShadow(_value.ToString(), new Rectangle(), FontAlignment.Centre, _font, Colours.White);
 	}
 }

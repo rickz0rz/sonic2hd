@@ -32,100 +32,100 @@ public class HTZVineLiftInstance : ActiveObject
 	[StateVariable]
 	private int Duration
 	{
-		get => this._duration;
-		set => this._duration = value;
+		get => _duration;
+		set => _duration = value;
 	}
 
 	[StateVariable]
 	private HTZVineLiftInstance.LiftDirection Direction
 	{
-		get => this._direction;
-		set => this._direction = value;
+		get => _direction;
+		set => _direction = value;
 	}
 
 	[StateVariable]
 	private bool Outdoors
 	{
-		get => this._outdoors;
-		set => this._outdoors = value;
+		get => _outdoors;
+		set => _outdoors = value;
 	}
 
-	public HTZVineLiftInstance() => this.DesignBounds = new Rectanglei(-132, -41, 264, 82);
+	public HTZVineLiftInstance() => DesignBounds = new Rectanglei(-132, -41, 264, 82);
 
 	protected override void OnStart()
 	{
 		base.OnStart();
-		this._velocity = new Vector2(8.0, 4.0);
-		if (this._direction == HTZVineLiftInstance.LiftDirection.Left)
-			this._velocity.X *= -1.0;
-		this.Priority = 1256;
+		_velocity = new Vector2(8.0, 4.0);
+		if (_direction == HTZVineLiftInstance.LiftDirection.Left)
+			_velocity.X *= -1.0;
+		Priority = 1256;
 		int index = 5;
-		if (this._outdoors)
+		if (_outdoors)
 			index = 0;
-		this._animation = new AnimationInstance(this.ResourceTree, this.Type.GetAbsolutePath("/ANIGROUP"), index);
-		this._platform = this.Level.ObjectManager.AddSubObject<HTZVineLiftInstance.LiftPlatform>((ActiveObject)this);
-		this._platform.Position = this.Position;
-		this._platform.LockLifetime = true;
-		if (this.Direction != HTZVineLiftInstance.LiftDirection.Left)
+		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"), index);
+		_platform = Level.ObjectManager.AddSubObject<HTZVineLiftInstance.LiftPlatform>(this);
+		_platform.Position = Position;
+		_platform.LockLifetime = true;
+		if (Direction != HTZVineLiftInstance.LiftDirection.Left)
 			return;
-		this._platform.Position = new Vector2i(this.Position.X - 16 /*0x10*/, this.Position.Y);
+		_platform.Position = new Vector2i(Position.X - 16 /*0x10*/, Position.Y);
 	}
 
-	protected override void OnUpdateEditor() => this._platform.Position = this.Position;
+	protected override void OnUpdateEditor() => _platform.Position = Position;
 
 	protected override void OnUpdatePrepare()
 	{
-		switch (this._state)
+		switch (_state)
 		{
 			case HTZVineLiftInstance.State.Waiting:
-				if (!this._platform.Activated)
+				if (!_platform.Activated)
 					break;
-				this._state = HTZVineLiftInstance.State.Moving;
+				_state = HTZVineLiftInstance.State.Moving;
 				break;
 			case HTZVineLiftInstance.State.Moving:
-				--this._duration;
-				if (this._duration == 0)
+				--_duration;
+				if (_duration == 0)
 				{
-					this._state = HTZVineLiftInstance.State.Falling;
-					this._velocity = new Vector2();
-					this._platform.Velocity = new Vector2();
-					if (this.Direction == HTZVineLiftInstance.LiftDirection.Left)
-						this._platform.Position = new Vector2i(this._platform.Position.X - 16 /*0x10*/, this._platform.Position.Y);
-					this._platform.BeginDetach();
+					_state = HTZVineLiftInstance.State.Falling;
+					_velocity = new Vector2();
+					_platform.Velocity = new Vector2();
+					if (Direction == HTZVineLiftInstance.LiftDirection.Left)
+						_platform.Position = new Vector2i(_platform.Position.X - 16 /*0x10*/, _platform.Position.Y);
+					_platform.BeginDetach();
 					break;
 				}
-				this._platform.Velocity = this._velocity;
+				_platform.Velocity = _velocity;
 				break;
 			case HTZVineLiftInstance.State.Falling:
 				int num = 6;
-				if (this._outdoors)
+				if (_outdoors)
 					num = 1;
-				this._animation.Index = num;
+				_animation.Index = num;
 				break;
 		}
 	}
 
 	protected override void OnUpdate()
 	{
-		if (this._state != HTZVineLiftInstance.State.Moving)
+		if (_state != HTZVineLiftInstance.State.Moving)
 			return;
-		this.MovePrecise(this._velocity);
+		MovePrecise(_velocity);
 	}
 
 	protected override void OnStop()
 	{
-		if (this._state == HTZVineLiftInstance.State.Falling)
+		if (_state == HTZVineLiftInstance.State.Falling)
 			return;
-		this._platform.FinishForever();
+		_platform.FinishForever();
 	}
 
-	protected override void OnAnimate() => this._animation.Animate();
+	protected override void OnAnimate() => _animation.Animate();
 
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 	{
 		IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
-		bool flag = this._direction == HTZVineLiftInstance.LiftDirection.Left;
-		AnimationInstance animation = this._animation;
+		bool flag = _direction == HTZVineLiftInstance.LiftDirection.Left;
+		AnimationInstance animation = _animation;
 		Vector2 destination = (Vector2)new Vector2i(-16, -8);
 		int num = flag ? 1 : 0;
 		objectRenderer.Render(animation, destination, num != 0);
@@ -169,61 +169,61 @@ public class HTZVineLiftInstance : ActiveObject
 
 		protected override void OnStart()
 		{
-			this.CollisionVectors = new CollisionVector[1]
+			CollisionVectors = new CollisionVector[1]
 			{
-		new CollisionVector((ActiveObject) this, new Vector2i(-132, 17), new Vector2i(132, 17), flags: CollisionFlags.Conveyor)
+		new CollisionVector( this, new Vector2i(-132, 17), new Vector2i(132, 17), flags: CollisionFlags.Conveyor)
 			};
-			this.Priority = 1256;
-			this._animation = new AnimationInstance(this.ResourceTree, this.Type.GetAbsolutePath("/ANIGROUP"), 4);
+			Priority = 1256;
+			_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"), 4);
 		}
 
 		protected override void OnUpdatePrepare()
 		{
-			if (!this.Falling)
+			if (!Falling)
 				return;
-			if (this._fallingTicks < 6)
+			if (_fallingTicks < 6)
 			{
-				int fallElasticYoffset = HTZVineLiftInstance.LiftPlatform.FallElasticYOffsets[this._fallingTicks];
-				Vector2i fallingOriginPosition = this._fallingOriginPosition;
+				int fallElasticYoffset = HTZVineLiftInstance.LiftPlatform.FallElasticYOffsets[_fallingTicks];
+				Vector2i fallingOriginPosition = _fallingOriginPosition;
 				fallingOriginPosition.Y += fallElasticYoffset;
-				this.Velocity = (Vector2)fallingOriginPosition - this.PositionPrecise;
+				Velocity = (Vector2)fallingOriginPosition - PositionPrecise;
 			}
 			else
-				this.Velocity += new Vector2(0.0, 0.875);
+				Velocity += new Vector2(0.0, 0.875);
 		}
 
 		protected override void OnUpdate()
 		{
-			if (!this.Activated && this.Level.ObjectManager.IsCharacterStandingOn(this.CollisionVectors[0]))
-				this.Activated = true;
-			if (this.Falling)
-				++this._fallingTicks;
-			else if (this.Activated && this.Level.Ticks % 16 /*0x10*/ == 0)
-				this.Level.SoundManager.PlaySound((IActiveObject)this, this.Type.GetAbsolutePath("SONICORCA/SOUND/VINELIFT"));
-			this.MovePrecise(this.Velocity);
+			if (!Activated && Level.ObjectManager.IsCharacterStandingOn(CollisionVectors[0]))
+				Activated = true;
+			if (Falling)
+				++_fallingTicks;
+			else if (Activated && Level.Ticks % 16 /*0x10*/ == 0)
+				Level.SoundManager.PlaySound(this, Type.GetAbsolutePath("SONICORCA/SOUND/VINELIFT"));
+			MovePrecise(Velocity);
 		}
 
 		protected override void OnStop()
 		{
-			if (!this.Falling)
+			if (!Falling)
 				return;
-			this.FinishForever();
+			FinishForever();
 		}
 
-		protected override void OnAnimate() => this._animation.Animate();
+		protected override void OnAnimate() => _animation.Animate();
 
 		public void BeginDetach()
 		{
-			this.Falling = true;
-			this.LockLifetime = false;
-			this._fallingOriginPosition = this.Position;
+			Falling = true;
+			LockLifetime = false;
+			_fallingOriginPosition = Position;
 		}
 
 		protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 		{
-			if (!this.Falling || this._fallingTicks < 7)
+			if (!Falling || _fallingTicks < 7)
 				return;
-			renderer.GetObjectRenderer().Render(this._animation, (Vector2)new Vector2i(8, 13));
+			renderer.GetObjectRenderer().Render(_animation, (Vector2)new Vector2i(8, 13));
 		}
 	}
 }

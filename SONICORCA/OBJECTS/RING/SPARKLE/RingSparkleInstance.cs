@@ -14,7 +14,7 @@ public class RingSparkleInstance : ParticleObject
 	public RingSparkleInstance()
 	  : base("/ANIGROUP")
 	{
-		this.AdditiveBlending = true;
-		this.FilterMultiplier = 0.0;
+		AdditiveBlending = true;
+		FilterMultiplier = 0.0;
 	}
 }

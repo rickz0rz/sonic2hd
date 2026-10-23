@@ -4,6 +4,8 @@
 // MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
 // Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
 
+using System;
+using System.Collections.Generic;
 using SonicOrca.Core;
 using SonicOrca.Core.Collision;
 using SonicOrca.Core.Objects;
@@ -11,10 +13,8 @@ using SonicOrca.Core.Objects.Base;
 using SonicOrca.Extensions;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
-using SONICORCA.OBJECTS.DUST;
 using SonicOrca.Resources;
-using System;
-using System.Collections.Generic;
+using SONICORCA.OBJECTS.DUST;
 
 #nullable disable
 namespace SONICORCA.OBJECTS.SUBMARINEEGGMAN;
@@ -85,244 +85,244 @@ public class SubmarineEggmanInstance : BossObject
 
 	protected override void OnStart()
 	{
-		ResourceTree resourceTree = this.Level.GameContext.ResourceTree;
-		AnimationGroup loadedResource1 = resourceTree.GetLoadedResource<AnimationGroup>((ILoadedResource)this.Type, "/ANIGROUP");
-		AnimationGroup loadedResource2 = resourceTree.GetLoadedResource<AnimationGroup>((ILoadedResource)this.Type, "SONICORCA/OBJECTS/ROBOTNIK/ANIGROUP");
-		this._animationInside = new AnimationInstance(loadedResource1);
-		this._animationRobotnik = new AnimationInstance(loadedResource2);
-		this._animationBody = new AnimationInstance(loadedResource1, 1);
-		this._animationLights = new AnimationInstance(loadedResource1, 4);
-		this._animationHighlightsSpawnIntro = new AnimationInstance(loadedResource1, 8);
-		this._animationHighlightsIntro = new AnimationInstance(loadedResource1, 9);
-		this._animationHighlightsEnd = new AnimationInstance(loadedResource1, 10);
-		this._animationHighlightsLava = new AnimationInstance(loadedResource1, 11);
-		this._brokenPartsPositions[12] = new Vector2i(-20, -64);
-		this._brokenPartsPositions[14] = new Vector2i(-8, -88);
-		this._brokenPartsPositions[15] = new Vector2i(-16, -112);
-		this._brokenPartsPositions[13] = new Vector2i(-44, -112);
-		this._brokenPartsPositions[16 /*0x10*/] = new Vector2i(-80, -112);
-		this._brokenPartsIndexOrder[0] = 16 /*0x10*/;
-		this._brokenPartsIndexOrder[1] = 13;
-		this._brokenPartsIndexOrder[2] = 15;
-		this._brokenPartsIndexOrder[3] = 14;
-		this._brokenPartsIndexOrder[4] = 12;
-		this._animationGroup = loadedResource1;
-		this._brokenPartsA = new AnimationInstance(this._animationGroup, 12);
-		this._brokenPartsB = new AnimationInstance(this._animationGroup, 13);
-		this._brokenPartsC = new AnimationInstance(this._animationGroup, 14);
-		this._brokenPartsD = new AnimationInstance(this._animationGroup, 15);
-		this._brokenPartsE = new AnimationInstance(this._animationGroup, 16 /*0x10*/);
-		this.ExplosionResourceKey = this.Type.GetAbsolutePath("SONICORCA/OBJECTS/EXPLOSION/BOSS");
-		this.HitSoundResourceKey = this.Type.GetAbsolutePath("SONICORCA/SOUND/BOSSHIT");
-		this.CollisionRectangles = new CollisionRectangle[1]
+		ResourceTree resourceTree = Level.GameContext.ResourceTree;
+		AnimationGroup loadedResource1 = resourceTree.GetLoadedResource<AnimationGroup>(Type, "/ANIGROUP");
+		AnimationGroup loadedResource2 = resourceTree.GetLoadedResource<AnimationGroup>(Type, "SONICORCA/OBJECTS/ROBOTNIK/ANIGROUP");
+		_animationInside = new AnimationInstance(loadedResource1);
+		_animationRobotnik = new AnimationInstance(loadedResource2);
+		_animationBody = new AnimationInstance(loadedResource1, 1);
+		_animationLights = new AnimationInstance(loadedResource1, 4);
+		_animationHighlightsSpawnIntro = new AnimationInstance(loadedResource1, 8);
+		_animationHighlightsIntro = new AnimationInstance(loadedResource1, 9);
+		_animationHighlightsEnd = new AnimationInstance(loadedResource1, 10);
+		_animationHighlightsLava = new AnimationInstance(loadedResource1, 11);
+		_brokenPartsPositions[12] = new Vector2i(-20, -64);
+		_brokenPartsPositions[14] = new Vector2i(-8, -88);
+		_brokenPartsPositions[15] = new Vector2i(-16, -112);
+		_brokenPartsPositions[13] = new Vector2i(-44, -112);
+		_brokenPartsPositions[16 /*0x10*/] = new Vector2i(-80, -112);
+		_brokenPartsIndexOrder[0] = 16 /*0x10*/;
+		_brokenPartsIndexOrder[1] = 13;
+		_brokenPartsIndexOrder[2] = 15;
+		_brokenPartsIndexOrder[3] = 14;
+		_brokenPartsIndexOrder[4] = 12;
+		_animationGroup = loadedResource1;
+		_brokenPartsA = new AnimationInstance(_animationGroup, 12);
+		_brokenPartsB = new AnimationInstance(_animationGroup, 13);
+		_brokenPartsC = new AnimationInstance(_animationGroup, 14);
+		_brokenPartsD = new AnimationInstance(_animationGroup, 15);
+		_brokenPartsE = new AnimationInstance(_animationGroup, 16 /*0x10*/);
+		ExplosionResourceKey = Type.GetAbsolutePath("SONICORCA/OBJECTS/EXPLOSION/BOSS");
+		HitSoundResourceKey = Type.GetAbsolutePath("SONICORCA/SOUND/BOSSHIT");
+		CollisionRectangles = new CollisionRectangle[1]
 		{
-	  new CollisionRectangle((ActiveObject) this, 0, -100, -100, 200, 200)
+	  new CollisionRectangle( this, 0, -100, -100, 200, 200)
 		};
-		this._startPosition = this.Position;
-		this._leftX += this._startPosition.X;
-		this._rightX += this._startPosition.X;
-		this._leftPeekY += this._startPosition.Y;
-		this._leftFireballY += this._startPosition.Y;
-		this._leftSpawnY += this._startPosition.Y;
-		this._rightPeekY += this._startPosition.Y;
-		this._rightFireballY += this._startPosition.Y;
-		this._rightSpawnY += this._startPosition.Y;
-		this.LockLifetime = true;
-		this._velocity = new Vector2(0.0, -3.5);
-		this._isRightPit = true;
-		this._state = SubmarineEggmanInstance.State.Raise;
-		this.Health = 8;
+		_startPosition = Position;
+		_leftX += _startPosition.X;
+		_rightX += _startPosition.X;
+		_leftPeekY += _startPosition.Y;
+		_leftFireballY += _startPosition.Y;
+		_leftSpawnY += _startPosition.Y;
+		_rightPeekY += _startPosition.Y;
+		_rightFireballY += _startPosition.Y;
+		_rightSpawnY += _startPosition.Y;
+		LockLifetime = true;
+		_velocity = new Vector2(0.0, -3.5);
+		_isRightPit = true;
+		_state = SubmarineEggmanInstance.State.Raise;
+		Health = 8;
 	}
 
 	private void ResetHighlights()
 	{
-		this._animationHighlightsSpawnIntro.ResetFrame();
-		this._animationHighlightsSpawnIntro.Cycles = 0;
-		this._animationHighlightsIntro.ResetFrame();
-		this._animationHighlightsIntro.Cycles = 0;
-		this._animationHighlightsEnd.ResetFrame();
-		this._animationHighlightsEnd.Cycles = 0;
-		this._currentHighlight = this._animationHighlightsSpawnIntro;
+		_animationHighlightsSpawnIntro.ResetFrame();
+		_animationHighlightsSpawnIntro.Cycles = 0;
+		_animationHighlightsIntro.ResetFrame();
+		_animationHighlightsIntro.Cycles = 0;
+		_animationHighlightsEnd.ResetFrame();
+		_animationHighlightsEnd.Cycles = 0;
+		_currentHighlight = _animationHighlightsSpawnIntro;
 	}
 
 	private void CleanHighlights()
 	{
-		this.ResetHighlights();
-		this._currentHighlight = (AnimationInstance)null;
+		ResetHighlights();
+		_currentHighlight = null;
 	}
 
 	protected override void OnUpdate()
 	{
 		base.OnUpdate();
-		if (this.Health == 1 && this.Level.Random.Next(15) == 0)
-			this.EmitSmoke((Vector2)new Vector2i(this.Level.Random.Next((int)sbyte.MinValue, 128 /*0x80*/), this.Level.Random.Next(-64, -32)), new Vector2(0.0, -4.0));
-		switch (this._state)
+		if (Health == 1 && Level.Random.Next(15) == 0)
+			EmitSmoke((Vector2)new Vector2i(Level.Random.Next(sbyte.MinValue, 128 /*0x80*/), Level.Random.Next(-64, -32)), new Vector2(0.0, -4.0));
+		switch (_state)
 		{
 			case SubmarineEggmanInstance.State.Raise:
-				this.PositionPrecise = this.PositionPrecise + this._velocity;
-				if (this.Position.Y > (this._isRightPit ? this._rightPeekY : this._leftPeekY))
+				PositionPrecise = PositionPrecise + _velocity;
+				if (Position.Y > (_isRightPit ? _rightPeekY : _leftPeekY))
 					break;
-				this._velocity.Y = 0.0;
-				this._state = SubmarineEggmanInstance.State.PrepareFlameThrower;
-				this._stateTimer = 60;
-				this._nonHoverPosition = this.PositionPrecise;
-				this._floatOffsetAngle = 0.0;
+				_velocity.Y = 0.0;
+				_state = SubmarineEggmanInstance.State.PrepareFlameThrower;
+				_stateTimer = 60;
+				_nonHoverPosition = PositionPrecise;
+				_floatOffsetAngle = 0.0;
 				break;
 			case SubmarineEggmanInstance.State.PrepareFlameThrower:
-				--this._stateTimer;
-				if (this._stateTimer > 0)
+				--_stateTimer;
+				if (_stateTimer > 0)
 				{
-					this.Hover();
+					Hover();
 					break;
 				}
-				if (this._stateTimer == 0)
+				if (_stateTimer == 0)
 				{
-					this.CreateFlameThrowerFlame();
-					this.ResetHighlights();
+					CreateFlameThrowerFlame();
+					ResetHighlights();
 					break;
 				}
-				if (this._stateTimer > -120)
+				if (_stateTimer > -120)
 					break;
-				this.CreateFlameThrowerShot();
-				this._currentHighlight = this._animationHighlightsIntro;
-				this._stateTimer = 47;
-				this._state = SubmarineEggmanInstance.State.Hover;
+				CreateFlameThrowerShot();
+				_currentHighlight = _animationHighlightsIntro;
+				_stateTimer = 47;
+				_state = SubmarineEggmanInstance.State.Hover;
 				break;
 			case SubmarineEggmanInstance.State.Hover:
-				--this._stateTimer;
-				if (this._stateTimer > 0)
+				--_stateTimer;
+				if (_stateTimer > 0)
 				{
-					this.Hover();
+					Hover();
 					break;
 				}
-				this._currentHighlight = this._animationHighlightsEnd;
-				this._velocity = new Vector2(0.0, 3.5);
-				this._state = SubmarineEggmanInstance.State.Lower;
+				_currentHighlight = _animationHighlightsEnd;
+				_velocity = new Vector2(0.0, 3.5);
+				_state = SubmarineEggmanInstance.State.Lower;
 				break;
 			case SubmarineEggmanInstance.State.Lower:
-				this.PositionPrecise = this.PositionPrecise + this._velocity;
-				if (this.Position.Y > (this._isRightPit ? this._rightFireballY : this._leftFireballY) && !this._firedFireball)
+				PositionPrecise = PositionPrecise + _velocity;
+				if (Position.Y > (_isRightPit ? _rightFireballY : _leftFireballY) && !_firedFireball)
 				{
-					this.CreateFireball(-1);
-					this.CreateFireball(1);
-					this.Level.SoundManager.PlaySound(this.Position, "SONICORCA/SOUND/FIREBALL");
-					this._firedFireball = true;
+					CreateFireball(-1);
+					CreateFireball(1);
+					Level.SoundManager.PlaySound(Position, "SONICORCA/SOUND/FIREBALL");
+					_firedFireball = true;
 				}
-				if (this._isRightPit)
+				if (_isRightPit)
 				{
-					if (this.Position.Y < this._rightSpawnY)
+					if (Position.Y < _rightSpawnY)
 						break;
-					this.Position = new Vector2i(this.Position.X, this._rightSpawnY);
+					Position = new Vector2i(Position.X, _rightSpawnY);
 				}
 				else
 				{
-					if (this.Position.Y < this._leftSpawnY)
+					if (Position.Y < _leftSpawnY)
 						break;
-					this.Position = new Vector2i(this.Position.X, this._leftSpawnY);
+					Position = new Vector2i(Position.X, _leftSpawnY);
 				}
-				this._velocity = new Vector2(0.0, -3.5);
-				this._state = SubmarineEggmanInstance.State.Raise;
-				this._firedFireball = false;
-				ICharacter protagonist = this.Level.Player.Protagonist;
-				if (protagonist.Position.X < this._startPosition.X - 512 /*0x0200*/)
+				_velocity = new Vector2(0.0, -3.5);
+				_state = SubmarineEggmanInstance.State.Raise;
+				_firedFireball = false;
+				ICharacter protagonist = Level.Player.Protagonist;
+				if (protagonist.Position.X < _startPosition.X - 512 /*0x0200*/)
 				{
-					this.Position = new Vector2i(this._leftX, this._leftSpawnY);
-					this._isRightPit = false;
+					Position = new Vector2i(_leftX, _leftSpawnY);
+					_isRightPit = false;
 				}
 				else
 				{
-					this.Position = new Vector2i(this._rightX, this._rightSpawnY);
-					this._isRightPit = true;
+					Position = new Vector2i(_rightX, _rightSpawnY);
+					_isRightPit = true;
 				}
-				this._flipX = protagonist.Position.X >= this.Position.X;
+				_flipX = protagonist.Position.X >= Position.X;
 				break;
 			case SubmarineEggmanInstance.State.Defeated:
-				this.CleanHighlights();
-				--this._stateTimer;
-				if (this._stateTimer > 0)
+				CleanHighlights();
+				--_stateTimer;
+				if (_stateTimer > 0)
 				{
-					if (this._stateTimer % 16 /*0x10*/ == 0 && this._brokenPartsCounter < 5)
+					if (_stateTimer % 16 /*0x10*/ == 0 && _brokenPartsCounter < 5)
 					{
-						int num = this._brokenPartsIndexOrder[this._brokenPartsCounter];
-						this.ReleaseFragmentMetal(this.Position + this._brokenPartsPositions[num], 6.0, num);
+						int num = _brokenPartsIndexOrder[_brokenPartsCounter];
+						ReleaseFragmentMetal(Position + _brokenPartsPositions[num], 6.0, num);
 						switch (num)
 						{
 							case 12:
-								this._brokenPartsA = (AnimationInstance)null;
+								_brokenPartsA = null;
 								break;
 							case 13:
-								this._brokenPartsB = (AnimationInstance)null;
+								_brokenPartsB = null;
 								break;
 							case 14:
-								this._brokenPartsC = (AnimationInstance)null;
+								_brokenPartsC = null;
 								break;
 							case 15:
-								this._brokenPartsD = (AnimationInstance)null;
+								_brokenPartsD = null;
 								break;
 							case 16 /*0x10*/:
-								this._brokenPartsE = (AnimationInstance)null;
+								_brokenPartsE = null;
 								break;
 						}
-						++this._brokenPartsCounter;
+						++_brokenPartsCounter;
 					}
-					this.UpdateExplosions(128 /*0x80*/);
-					if (this._stateTimer >= 30)
+					UpdateExplosions(128 /*0x80*/);
+					if (_stateTimer >= 30)
 						break;
-					this.UpdateSmoke();
+					UpdateSmoke();
 					break;
 				}
-				this._animationBody.Index = 3;
-				this._animationRobotnik.Index = 0;
-				this.UpdateSmoke();
-				if (this._stateTimer > -60)
+				_animationBody.Index = 3;
+				_animationRobotnik.Index = 0;
+				UpdateSmoke();
+				if (_stateTimer > -60)
 					break;
-				this.Defeated = true;
-				this.Fleeing = true;
-				this.LockLifetime = false;
-				this.Position = this.Position + new Vector2i(0, 8);
+				Defeated = true;
+				Fleeing = true;
+				LockLifetime = false;
+				Position = Position + new Vector2i(0, 8);
 				break;
 		}
 	}
 
 	private void EmitSmoke(Vector2 offset, Vector2 velocity)
 	{
-		Matrix4 matrix4 = Matrix4.Identity * Matrix4.CreateTranslation((Vector2)this.Position);
-		if (this._flipX)
+		Matrix4 matrix4 = Matrix4.Identity * Matrix4.CreateTranslation((Vector2)Position);
+		if (_flipX)
 			matrix4 *= Matrix4.CreateScale(-1.0, 1.0);
 		Vector2i position = (Vector2i)((matrix4 * Matrix4.CreateTranslation(offset)).RotateZ(0.0) * new Vector2(0.0, 100.0));
-		DustInstance dustInstance = this.Level.ObjectManager.AddObject(new ObjectPlacement("SONICORCA/OBJECTS/DUST", this.Level.Map.Layers.IndexOf(this.Layer), position)) as DustInstance;
+		DustInstance dustInstance = Level.ObjectManager.AddObject(new ObjectPlacement("SONICORCA/OBJECTS/DUST", Level.Map.Layers.IndexOf(Layer), position)) as DustInstance;
 		dustInstance.SetDustAnimationIndex(1);
 		dustInstance.Velocity = velocity;
 	}
 
 	private void Hover()
 	{
-		this.PositionPrecise = this._nonHoverPosition + new Vector2(0.0, Math.Sin(this._floatOffsetAngle) / Math.PI * 16.0);
-		this._floatOffsetAngle += Math.PI / 64.0;
+		PositionPrecise = _nonHoverPosition + new Vector2(0.0, Math.Sin(_floatOffsetAngle) / Math.PI * 16.0);
+		_floatOffsetAngle += Math.PI / 64.0;
 	}
 
 	private void CreateFlameThrowerFlame()
 	{
-		SubmarineEggmanInstance.FlameThrower flameThrower = this.Level.ObjectManager.AddSubObject<SubmarineEggmanInstance.FlameThrower>((ActiveObject)this);
-		flameThrower.FlipX = this._flipX;
-		flameThrower.Position = this.Position + new Vector2i(this._flipX ? 132 : -132, -121);
+		SubmarineEggmanInstance.FlameThrower flameThrower = Level.ObjectManager.AddSubObject<SubmarineEggmanInstance.FlameThrower>(this);
+		flameThrower.FlipX = _flipX;
+		flameThrower.Position = Position + new Vector2i(_flipX ? 132 : -132, -121);
 	}
 
 	private void CreateFlameThrowerShot()
 	{
-		SubmarineEggmanInstance.FlameThrowerShot flameThrowerShot = this.Level.ObjectManager.AddSubObject<SubmarineEggmanInstance.FlameThrowerShot>((ActiveObject)this);
-		flameThrowerShot.FlipX = this._flipX;
-		flameThrowerShot.Position = this.Position + new Vector2i(this._flipX ? 448 : -448, -112);
-		flameThrowerShot.Velocity = new Vector2i(this._flipX ? 16 /*0x10*/ : -16, 0);
+		SubmarineEggmanInstance.FlameThrowerShot flameThrowerShot = Level.ObjectManager.AddSubObject<SubmarineEggmanInstance.FlameThrowerShot>(this);
+		flameThrowerShot.FlipX = _flipX;
+		flameThrowerShot.Position = Position + new Vector2i(_flipX ? 448 : -448, -112);
+		flameThrowerShot.Velocity = new Vector2i(_flipX ? 16 /*0x10*/ : -16, 0);
 	}
 
 	private void CreateFireball(int direction)
 	{
-		SubmarineEggmanInstance.Fireball fireball = this.Level.ObjectManager.AddSubObject<SubmarineEggmanInstance.Fireball>((ActiveObject)this);
+		SubmarineEggmanInstance.Fireball fireball = Level.ObjectManager.AddSubObject<SubmarineEggmanInstance.Fireball>(this);
 		fireball.IsMainFireball = true;
 		fireball.SpawnDirection = (SubmarineEggmanInstance.Fireball.FireSpawn)direction;
-		fireball.Position = this.Position;
-		if (this._isRightPit)
+		fireball.Position = Position;
+		if (_isRightPit)
 		{
 			if (direction == 1)
 			{
@@ -352,110 +352,110 @@ public class SubmarineEggmanInstance : BossObject
 		base.Hit(character);
 		if (character.Velocity.Y < -15.125)
 			character.Velocity = new Vector2(character.Velocity.X, -15.125);
-		if (this.Health <= 0)
+		if (Health <= 0)
 			return;
-		this._animationRobotnik.Index = 1;
+		_animationRobotnik.Index = 1;
 	}
 
 	protected override void Defeat()
 	{
 		base.Defeat();
-		this._state = SubmarineEggmanInstance.State.Defeated;
-		this._stateTimer = 179;
-		this._animationBody.Index = 2;
-		this._animationRobotnik.Index = 2;
-		this.CollisionRectangles = new CollisionRectangle[0];
-		this.Level.Player.GainScore(1000);
-		this.Level.CreateScoreObject(1000, this.Position + new Vector2i(0, (int)sbyte.MinValue));
+		_state = SubmarineEggmanInstance.State.Defeated;
+		_stateTimer = 179;
+		_animationBody.Index = 2;
+		_animationRobotnik.Index = 2;
+		CollisionRectangles = new CollisionRectangle[0];
+		Level.Player.GainScore(1000);
+		Level.CreateScoreObject(1000, Position + new Vector2i(0, sbyte.MinValue));
 	}
 
 	private void UpdateSmoke()
 	{
-		if (this.Level.Random.Next(15) != 0)
+		if (Level.Random.Next(15) != 0)
 			return;
-		this.EmitSmoke((Vector2)new Vector2i(this.Level.Random.Next((int)sbyte.MinValue, 128 /*0x80*/), this.Level.Random.Next(-64, -32)), new Vector2(0.0, -4.0));
+		EmitSmoke((Vector2)new Vector2i(Level.Random.Next(sbyte.MinValue, 128 /*0x80*/), Level.Random.Next(-64, -32)), new Vector2(0.0, -4.0));
 	}
 
 	private void ReleaseFragmentMetal(Vector2i position, double speed, int index, bool explode = true)
 	{
-		double num1 = this.Level.Random.NextRadians();
+		double num1 = Level.Random.NextRadians();
 		Vector2 velocity = new Vector2(speed * Math.Cos(num1), speed * Math.Sin(num1));
-		this.ReleaseFragmentMetal(position, velocity, index);
+		ReleaseFragmentMetal(position, velocity, index);
 		int num2 = explode ? 1 : 0;
 	}
 
 	private void ReleaseFragmentMetal(Vector2i position, Vector2 velocity, int index)
 	{
-		Fragment fragment = this.Level.ObjectManager.AddSubObject<Fragment>((ActiveObject)this);
-		fragment.AnimationGroup = this._animationGroup;
+		Fragment fragment = Level.ObjectManager.AddSubObject<Fragment>(this);
+		fragment.AnimationGroup = _animationGroup;
 		fragment.AnimationIndex = index;
 		fragment.Position = position;
 		fragment.Velocity = velocity;
 		fragment.AngularVelocity = 2.0 * Math.PI / 15.0;
-		fragment.FlipX = this.Level.Random.NextBoolean();
+		fragment.FlipX = Level.Random.NextBoolean();
 		fragment.Initialise();
 	}
 
 	protected override void OnAnimate()
 	{
-		this._animationInside.Animate();
-		this._animationRobotnik.Animate();
-		this._animationBody.Animate();
-		this._animationLights.Animate();
-		if (this._currentHighlight == null)
+		_animationInside.Animate();
+		_animationRobotnik.Animate();
+		_animationBody.Animate();
+		_animationLights.Animate();
+		if (_currentHighlight == null)
 			return;
-		if (this._currentHighlight == this._animationHighlightsEnd)
+		if (_currentHighlight == _animationHighlightsEnd)
 		{
-			this._currentHighlight.Animate();
-			if (this._currentHighlight.Cycles <= 0)
+			_currentHighlight.Animate();
+			if (_currentHighlight.Cycles <= 0)
 				return;
-			this._currentHighlight = (AnimationInstance)null;
-			this.CleanHighlights();
+			_currentHighlight = null;
+			CleanHighlights();
 		}
 		else
-			this._currentHighlight.Animate();
+			_currentHighlight.Animate();
 	}
 
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 	{
 		IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
 		objectRenderer.FilterAmount *= 0.5;
-		objectRenderer.Render(this._animationInside, this._flipX);
-		objectRenderer.Render(this._animationRobotnik, (Vector2)new Vector2i(this._flipX ? 32 /*0x20*/ : -32, -42), this._flipX);
-		if (this.IsInvincibleFlashing)
+		objectRenderer.Render(_animationInside, _flipX);
+		objectRenderer.Render(_animationRobotnik, (Vector2)new Vector2i(_flipX ? 32 /*0x20*/ : -32, -42), _flipX);
+		if (IsInvincibleFlashing)
 			objectRenderer.AdditiveColour = BossObject.FlashAdditiveColour;
-		objectRenderer.Render(this._animationBody, this._flipX);
+		objectRenderer.Render(_animationBody, _flipX);
 		objectRenderer.EmitsLight = true;
-		objectRenderer.Render(this._animationLights, this._flipX);
-		if (this._currentHighlight != null)
-			objectRenderer.Render(this._currentHighlight, (Vector2)new Vector2i(0, 0), this._flipX);
-		objectRenderer.Render(this._animationHighlightsLava, (Vector2)new Vector2i(0, 0), this._flipX);
-		if (this._state != SubmarineEggmanInstance.State.Defeated)
+		objectRenderer.Render(_animationLights, _flipX);
+		if (_currentHighlight != null)
+			objectRenderer.Render(_currentHighlight, (Vector2)new Vector2i(0, 0), _flipX);
+		objectRenderer.Render(_animationHighlightsLava, (Vector2)new Vector2i(0, 0), _flipX);
+		if (_state != SubmarineEggmanInstance.State.Defeated)
 			return;
-		if (this._brokenPartsA != null)
+		if (_brokenPartsA != null)
 		{
-			Vector2i brokenPartsPosition = this._brokenPartsPositions[12];
-			objectRenderer.Render(this._brokenPartsA, (Vector2)brokenPartsPosition, this._flipX);
+			Vector2i brokenPartsPosition = _brokenPartsPositions[12];
+			objectRenderer.Render(_brokenPartsA, (Vector2)brokenPartsPosition, _flipX);
 		}
-		if (this._brokenPartsC != null)
+		if (_brokenPartsC != null)
 		{
-			Vector2i brokenPartsPosition = this._brokenPartsPositions[14];
-			objectRenderer.Render(this._brokenPartsC, (Vector2)brokenPartsPosition, this._flipX);
+			Vector2i brokenPartsPosition = _brokenPartsPositions[14];
+			objectRenderer.Render(_brokenPartsC, (Vector2)brokenPartsPosition, _flipX);
 		}
-		if (this._brokenPartsD != null)
+		if (_brokenPartsD != null)
 		{
-			Vector2i brokenPartsPosition = this._brokenPartsPositions[15];
-			objectRenderer.Render(this._brokenPartsD, (Vector2)brokenPartsPosition, this._flipX);
+			Vector2i brokenPartsPosition = _brokenPartsPositions[15];
+			objectRenderer.Render(_brokenPartsD, (Vector2)brokenPartsPosition, _flipX);
 		}
-		if (this._brokenPartsB != null)
+		if (_brokenPartsB != null)
 		{
-			Vector2i brokenPartsPosition = this._brokenPartsPositions[13];
-			objectRenderer.Render(this._brokenPartsB, (Vector2)brokenPartsPosition, this._flipX);
+			Vector2i brokenPartsPosition = _brokenPartsPositions[13];
+			objectRenderer.Render(_brokenPartsB, (Vector2)brokenPartsPosition, _flipX);
 		}
-		if (this._brokenPartsE == null)
+		if (_brokenPartsE == null)
 			return;
-		Vector2i brokenPartsPosition1 = this._brokenPartsPositions[16 /*0x10*/];
-		objectRenderer.Render(this._brokenPartsE, (Vector2)brokenPartsPosition1, this._flipX);
+		Vector2i brokenPartsPosition1 = _brokenPartsPositions[16 /*0x10*/];
+		objectRenderer.Render(_brokenPartsE, (Vector2)brokenPartsPosition1, _flipX);
 	}
 
 	private enum State
@@ -472,7 +472,7 @@ public class SubmarineEggmanInstance : BossObject
 		public FlameThrower()
 		  : base("/ANIGROUP", 5)
 		{
-			this.FilterMultiplier = 0.0;
+			FilterMultiplier = 0.0;
 		}
 
 		protected override void OnCollision(CollisionEvent e)
@@ -487,56 +487,56 @@ public class SubmarineEggmanInstance : BossObject
 		protected override void OnUpdate()
 		{
 			base.OnUpdate();
-			if (this._animationInstance.CurrentFrameIndex == 35)
+			if (_animationInstance.CurrentFrameIndex == 35)
 			{
-				if (this.CollisionRectangles != null && this.CollisionRectangles.Length != 0)
+				if (CollisionRectangles != null && CollisionRectangles.Length != 0)
 					return;
-				int x = (int)((this.FlipX ? (double)-this._animationInstance.CurrentFrame.Offset.X : (double)this._animationInstance.CurrentFrame.Offset.X) - (double)this._animationInstance.CurrentFrame.Source.Width / 2.0);
-				Animation.Frame currentFrame = this._animationInstance.CurrentFrame;
-				double y1 = (double)currentFrame.Offset.Y;
-				currentFrame = this._animationInstance.CurrentFrame;
+				int x = (int)((FlipX ? -_animationInstance.CurrentFrame.Offset.X : _animationInstance.CurrentFrame.Offset.X) - _animationInstance.CurrentFrame.Source.Width / 2.0);
+				Animation.Frame currentFrame = _animationInstance.CurrentFrame;
+				double y1 = currentFrame.Offset.Y;
+				currentFrame = _animationInstance.CurrentFrame;
 				Rectanglei source = currentFrame.Source;
-				double num = (double)source.Height / 4.0;
+				double num = source.Height / 4.0;
 				int y2 = (int)(y1 - num);
-				currentFrame = this._animationInstance.CurrentFrame;
+				currentFrame = _animationInstance.CurrentFrame;
 				source = currentFrame.Source;
 				int width = source.Width;
-				currentFrame = this._animationInstance.CurrentFrame;
+				currentFrame = _animationInstance.CurrentFrame;
 				source = currentFrame.Source;
 				int height = source.Height / 2;
-				this.CollisionRectangles = new CollisionRectangle[1]
+				CollisionRectangles = new CollisionRectangle[1]
 				{
-		  new CollisionRectangle((ActiveObject) this, 0, x, y2, width, height)
+		  new CollisionRectangle( this, 0, x, y2, width, height)
 				};
 			}
 			else
 			{
-				if (this._animationInstance.CurrentFrameIndex != 50 || this.CollisionRectangles == null && this.CollisionRectangles.Length == 0)
+				if (_animationInstance.CurrentFrameIndex != 50 || CollisionRectangles == null && CollisionRectangles.Length == 0)
 					return;
-				this.CollisionRectangles = new CollisionRectangle[0];
+				CollisionRectangles = new CollisionRectangle[0];
 			}
 		}
 
 		protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 		{
-			if (this._animationInstance.CurrentFrameIndex >= 35)
+			if (_animationInstance.CurrentFrameIndex >= 35)
 			{
-				if (!this.CanDraw())
+				if (!CanDraw())
 					return;
 				Vector2 destination = new Vector2(12.0, 9.0);
 				IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
 				using (objectRenderer.BeginMatixState())
 				{
-					if (this.FlipX)
+					if (FlipX)
 						objectRenderer.ModelMatrix *= Matrix4.CreateScale(-1.0, 1.0);
-					if (this.FlipY)
+					if (FlipY)
 						objectRenderer.ModelMatrix *= Matrix4.CreateScale(1.0, -1.0);
-					if (this.FilterMultiplier == 0.0)
+					if (FilterMultiplier == 0.0)
 						objectRenderer.Filter = 0;
 					else
-						objectRenderer.FilterAmount *= this.FilterMultiplier;
-					objectRenderer.BlendMode = this.AdditiveBlending ? BlendMode.Additive : BlendMode.Alpha;
-					objectRenderer.Render(this._animationInstance, destination);
+						objectRenderer.FilterAmount *= FilterMultiplier;
+					objectRenderer.BlendMode = AdditiveBlending ? BlendMode.Additive : BlendMode.Alpha;
+					objectRenderer.Render(_animationInstance, destination);
 				}
 			}
 			else
@@ -554,22 +554,22 @@ public class SubmarineEggmanInstance : BossObject
 
 		protected override void OnStart()
 		{
-			this._animation = new AnimationInstance(this.ResourceTree, this.Type.GetAbsolutePath("/ANIGROUP"), 6);
-			this.CollisionRectangles = new CollisionRectangle[1]
+			_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"), 6);
+			CollisionRectangles = new CollisionRectangle[1]
 			{
-		new CollisionRectangle((ActiveObject) this, 0, -16, -16, 32 /*0x20*/, 32 /*0x20*/)
+		new CollisionRectangle( this, 0, -16, -16, 32 /*0x20*/, 32 /*0x20*/)
 			};
 		}
 
-		protected override void OnUpdate() => this.Position = this.Position + this.Velocity;
+		protected override void OnUpdate() => Position = Position + Velocity;
 
-		protected override void OnAnimate() => this._animation.Animate();
+		protected override void OnAnimate() => _animation.Animate();
 
 		protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 		{
 			IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
 			objectRenderer.EmitsLight = true;
-			objectRenderer.Render(this._animation, this.FlipX);
+			objectRenderer.Render(_animation, FlipX);
 		}
 	}
 
@@ -589,69 +589,69 @@ public class SubmarineEggmanInstance : BossObject
 
 		public SubmarineEggmanInstance.Fireball.FireSpawn SpawnDirection
 		{
-			get => this._spawnDirection;
-			set => this._spawnDirection = value;
+			get => _spawnDirection;
+			set => _spawnDirection = value;
 		}
 
 		protected override void OnStart()
 		{
-			this._fireball = new AnimationInstance(this.ResourceTree, this.Type.GetAbsolutePath("/ANIGROUP"), 7);
-			this._fireballTransition = new AnimationInstance(this.ResourceTree, this.Type.GetAbsolutePath("/ANIGROUP"), 17);
-			this._currentAnimation = this._fireball;
-			this.CollisionRectangles = new CollisionRectangle[1]
+			_fireball = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"), 7);
+			_fireballTransition = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"), 17);
+			_currentAnimation = _fireball;
+			CollisionRectangles = new CollisionRectangle[1]
 			{
-		new CollisionRectangle((ActiveObject) this, 0, -32, -32, 64 /*0x40*/, 64 /*0x40*/)
+		new CollisionRectangle( this, 0, -32, -32, 64 /*0x40*/, 64 /*0x40*/)
 			};
 		}
 
 		protected override void OnUpdate()
 		{
-			this.PositionPrecise = this.PositionPrecise + this.Velocity;
-			this.Velocity += new Vector2(0.0, 0.875);
-			if (!this.IsTouchingGround())
+			PositionPrecise = PositionPrecise + Velocity;
+			Velocity += new Vector2(0.0, 0.875);
+			if (!IsTouchingGround())
 				return;
-			this.Velocity = new Vector2(0.0, 0.0);
-			if (this._currentAnimation != this._fireballTransition)
-				this._currentAnimation = this._fireballTransition;
-			if (!this.IsMainFireball)
+			Velocity = new Vector2(0.0, 0.0);
+			if (_currentAnimation != _fireballTransition)
+				_currentAnimation = _fireballTransition;
+			if (!IsMainFireball)
 				return;
-			++this._ticks;
-			if (this._ticks == 15)
-				this.CreateFire();
-			else if (this._ticks == 20)
-				this.CreateFire();
-			else if (this._ticks == 25)
+			++_ticks;
+			if (_ticks == 15)
+				CreateFire();
+			else if (_ticks == 20)
+				CreateFire();
+			else if (_ticks == 25)
 			{
-				this.CreateFire();
+				CreateFire();
 			}
 			else
 			{
-				if (this._ticks != 29)
+				if (_ticks != 29)
 					return;
-				this.CreateFire();
+				CreateFire();
 			}
 		}
 
 		private void CreateFire()
 		{
-			SubmarineEggmanInstance.Fire fire = this.Level.ObjectManager.AddSubObject<SubmarineEggmanInstance.Fire>(this.ParentObject);
-			fire.Position = this.Position + new Vector2i(this._fireInstances * fire.DesignBounds.Width * (int)this.SpawnDirection, 0);
+			SubmarineEggmanInstance.Fire fire = Level.ObjectManager.AddSubObject<SubmarineEggmanInstance.Fire>(ParentObject);
+			fire.Position = Position + new Vector2i(_fireInstances * fire.DesignBounds.Width * (int)SpawnDirection, 0);
 			fire.BubbleLeftCount = 4;
 			fire.BubbleRightCount = 4;
 			fire.Priority = 1024 /*0x0400*/;
-			fire.Layer = this.Level.Map.Layers[this.Level.Map.Layers.Count - 1];
-			this.Level.SoundManager.PlaySound(this.Position, this.Type.GetAbsolutePath("SONICORCA/SOUND/FIREBURN"));
-			++this._fireInstances;
+			fire.Layer = Level.Map.Layers[Level.Map.Layers.Count - 1];
+			Level.SoundManager.PlaySound(Position, Type.GetAbsolutePath("SONICORCA/SOUND/FIREBURN"));
+			++_fireInstances;
 		}
 
 		private bool IsTouchingGround()
 		{
 			bool flag = false;
-			foreach (CollisionInfo collision in CollisionVector.GetCollisions((ActiveObject)this, 32 /*0x20*/))
+			foreach (CollisionInfo collision in CollisionVector.GetCollisions(this, 32 /*0x20*/))
 			{
 				if (collision.Vector.Owner == null && !collision.Vector.IsWall)
 				{
-					this.PositionPrecise = new Vector2(this.PositionPrecise.X, this.PositionPrecise.Y + collision.Shift);
+					PositionPrecise = new Vector2(PositionPrecise.X, PositionPrecise.Y + collision.Shift);
 					flag = true;
 				}
 			}
@@ -660,32 +660,32 @@ public class SubmarineEggmanInstance : BossObject
 
 		protected override void OnAnimate()
 		{
-			if (this._currentAnimation != null)
-				this._currentAnimation.Animate();
-			if (this._currentAnimation != this._fireballTransition || this._currentAnimation.Cycles <= 0)
+			if (_currentAnimation != null)
+				_currentAnimation.Animate();
+			if (_currentAnimation != _fireballTransition || _currentAnimation.Cycles <= 0)
 				return;
-			this._currentAnimation = (AnimationInstance)null;
-			this.Finish();
+			_currentAnimation = null;
+			Finish();
 		}
 
 		protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 		{
 			IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
 			objectRenderer.EmitsLight = true;
-			if (this._currentAnimation == null)
+			if (_currentAnimation == null)
 				return;
-			if (this._currentAnimation == this._fireballTransition)
+			if (_currentAnimation == _fireballTransition)
 			{
-				bool flipX = this.SpawnDirection == SubmarineEggmanInstance.Fireball.FireSpawn.Right;
-				objectRenderer.Render(this._currentAnimation, new Vector2(flipX ? 80.0 : -80.0, -8.0), flipX);
+				bool flipX = SpawnDirection == SubmarineEggmanInstance.Fireball.FireSpawn.Right;
+				objectRenderer.Render(_currentAnimation, new Vector2(flipX ? 80.0 : -80.0, -8.0), flipX);
 			}
 			else
 			{
-				double angle = this.Velocity.Angle + 6.0 * Math.PI / 5.0;
+				double angle = Velocity.Angle + 6.0 * Math.PI / 5.0;
 				using (objectRenderer.BeginMatixState())
 				{
 					objectRenderer.ModelMatrix *= Matrix4.CreateRotationZ(angle);
-					objectRenderer.Render(this._currentAnimation);
+					objectRenderer.Render(_currentAnimation);
 				}
 			}
 		}
@@ -710,40 +710,40 @@ public class SubmarineEggmanInstance : BossObject
 
 		protected override void OnStart()
 		{
-			this._fireballIntro = new AnimationInstance(this.ResourceTree, this.Type.GetAbsolutePath("/ANIGROUP"), 18);
-			this._fireballEnd = new AnimationInstance(this.ResourceTree, this.Type.GetAbsolutePath("/ANIGROUP"), 19);
-			this._currentAnimation = this._fireballIntro;
-			this.CollisionRectangles = new CollisionRectangle[1]
+			_fireballIntro = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"), 18);
+			_fireballEnd = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"), 19);
+			_currentAnimation = _fireballIntro;
+			CollisionRectangles = new CollisionRectangle[1]
 			{
-		new CollisionRectangle((ActiveObject) this, 0, -32, -32, 64 /*0x40*/, 64 /*0x40*/)
+		new CollisionRectangle( this, 0, -32, -32, 64 /*0x40*/, 64 /*0x40*/)
 			};
-			this._timer = 74;
+			_timer = 74;
 		}
 
 		protected override void OnUpdate()
 		{
-			--this._timer;
-			if (this._timer == 66)
+			--_timer;
+			if (_timer == 66)
 			{
-				if (this.BubbleLeftCount > 0)
-					this.BubbleFire(this.Position + new Vector2i(-64, 0), this.BubbleLeftCount--, 0);
-				if (this.BubbleRightCount <= 0)
+				if (BubbleLeftCount > 0)
+					BubbleFire(Position + new Vector2i(-64, 0), BubbleLeftCount--, 0);
+				if (BubbleRightCount <= 0)
 					return;
-				this.BubbleFire(this.Position + new Vector2i(64 /*0x40*/, 0), 0, this.BubbleRightCount--);
+				BubbleFire(Position + new Vector2i(64 /*0x40*/, 0), 0, BubbleRightCount--);
 			}
 			else
 			{
-				if (this._timer != 0)
+				if (_timer != 0)
 					return;
-				this._currentAnimation = this._fireballEnd;
+				_currentAnimation = _fireballEnd;
 			}
 		}
 
 		private void BubbleFire(Vector2i bubblePosition, int leftCount, int rightCount)
 		{
-			if (!this.IsGroundBelow(ref bubblePosition))
+			if (!IsGroundBelow(ref bubblePosition))
 				return;
-			SubmarineEggmanInstance.Fire fire = this.Level.ObjectManager.AddSubObject<SubmarineEggmanInstance.Fire>(this.ParentObject);
+			SubmarineEggmanInstance.Fire fire = Level.ObjectManager.AddSubObject<SubmarineEggmanInstance.Fire>(ParentObject);
 			fire.Position = bubblePosition;
 			fire.BubbleLeftCount = leftCount;
 			fire.BubbleRightCount = rightCount;
@@ -752,7 +752,7 @@ public class SubmarineEggmanInstance : BossObject
 		private bool IsGroundBelow(ref Vector2i postion)
 		{
 			bool flag = false;
-			foreach (CollisionInfo collision in CollisionVector.GetCollisions((ActiveObject)this, 32 /*0x20*/))
+			foreach (CollisionInfo collision in CollisionVector.GetCollisions(this, 32 /*0x20*/))
 			{
 				if (collision.Vector.Owner == null && !collision.Vector.IsWall)
 				{
@@ -765,21 +765,21 @@ public class SubmarineEggmanInstance : BossObject
 
 		protected override void OnAnimate()
 		{
-			if (this._currentAnimation != null)
-				this._currentAnimation.Animate();
-			if (this._currentAnimation != this._fireballEnd || this._currentAnimation.Cycles <= 0)
+			if (_currentAnimation != null)
+				_currentAnimation.Animate();
+			if (_currentAnimation != _fireballEnd || _currentAnimation.Cycles <= 0)
 				return;
-			this._currentAnimation = (AnimationInstance)null;
-			this.Finish();
+			_currentAnimation = null;
+			Finish();
 		}
 
 		protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 		{
 			IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
 			objectRenderer.EmitsLight = true;
-			if (this._currentAnimation == null)
+			if (_currentAnimation == null)
 				return;
-			objectRenderer.Render(this._currentAnimation);
+			objectRenderer.Render(_currentAnimation);
 		}
 	}
 }

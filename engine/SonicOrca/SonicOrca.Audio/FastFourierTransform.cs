@@ -7,7 +7,7 @@ public static class FastFourierTransform
 {
 	public static double HammingWindow(int n, int frameSize)
 	{
-		return 0.54 - 0.46 * Math.Cos(Math.PI * 2.0 * (double)n / (double)(frameSize - 1));
+		return 0.54 - 0.46 * Math.Cos(Math.PI * 2.0 * n / (frameSize - 1));
 	}
 
 	public static ComplexNumber[] TimeToFrequency(int m, double[] samples)

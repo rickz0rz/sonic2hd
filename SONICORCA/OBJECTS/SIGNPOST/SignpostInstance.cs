@@ -4,6 +4,8 @@
 // MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
 // Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
 
+using System;
+using System.Collections.Generic;
 using SonicOrca;
 using SonicOrca.Core;
 using SonicOrca.Core.Objects;
@@ -11,15 +13,13 @@ using SonicOrca.Core.Objects.Metadata;
 using SonicOrca.Extensions;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
-using System;
-using System.Collections.Generic;
 
 #nullable disable
 namespace SONICORCA.OBJECTS.SIGNPOST;
 
 public class SignpostInstance : ActiveObject
 {
-	private static readonly IReadOnlyList<Vector2i> SparkleParticleOffsets = (IReadOnlyList<Vector2i>)new Vector2i[4]
+	private static readonly IReadOnlyList<Vector2i> SparkleParticleOffsets = new Vector2i[4]
 	{
 	new Vector2i(16 /*0x10*/, 4),
 	new Vector2i(-16, 12),
@@ -58,75 +58,75 @@ public class SignpostInstance : ActiveObject
 	[StateVariable]
 	private bool Activated
 	{
-		get => this._activated;
-		set => this._activated = value;
+		get => _activated;
+		set => _activated = value;
 	}
 
 	public SignpostInstance()
 	{
-		this.DesignBounds = new Rectanglei(-96, -96, 192 /*0xC0*/, 192 /*0xC0*/);
+		DesignBounds = new Rectanglei(-96, -96, 192 /*0xC0*/, 192 /*0xC0*/);
 	}
 
 	protected override void OnStart()
 	{
-		this._updater = new Updater(this.GetUpdates());
-		this._animation = new AnimationInstance(this.ResourceTree, this.Type.GetAbsolutePath("/ANIGROUP"));
-		this._animation.Index = 2;
-		if (!this._activated)
+		_updater = new Updater(GetUpdates());
+		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"));
+		_animation.Index = 2;
+		if (!_activated)
 			return;
-		this._animation.Index = this.GetAnimationIndexFromCharacter(this.GetProtagonistCharacterIndex()) + 1;
-		this._activated = true;
-		this._triggedEndGame = true;
+		_animation.Index = GetAnimationIndexFromCharacter(GetProtagonistCharacterIndex()) + 1;
+		_activated = true;
+		_triggedEndGame = true;
 	}
 
-	protected override void OnUpdate() => this._updater.Update();
+	protected override void OnUpdate() => _updater.Update();
 
 	private IEnumerable<UpdateResult> GetUpdates()
 	{
-		if (!this._triggedEndGame)
+		if (!_triggedEndGame)
 		{
-			while (!this._activated)
+			while (!_activated)
 			{
-				foreach (ICharacter character in this.Level.ObjectManager.Characters)
+				foreach (ICharacter character in Level.ObjectManager.Characters)
 				{
-					if (!character.IsSidekick && !character.IsDebug && character.ShouldReactToLevel && character.Position.X >= this.Position.X && character.LastPosition.X < this.Position.X)
-						this.Activate(character);
+					if (!character.IsSidekick && !character.IsDebug && character.ShouldReactToLevel && character.Position.X >= Position.X && character.LastPosition.X < Position.X)
+						Activate(character);
 				}
 				yield return UpdateResult.Next();
 			}
 			int minSpins = 10;
 			int spins = 0;
 			int characterIndex = 0;
-			int targetCharacterIndex = this.GetProtagonistCharacterIndex();
+			int targetCharacterIndex = GetProtagonistCharacterIndex();
 			for (spins = 0; spins < minSpins || characterIndex != targetCharacterIndex; ++spins)
 			{
-				++this._animation.Index;
-				while (this._animation.Index != 0)
+				++_animation.Index;
+				while (_animation.Index != 0)
 				{
-					this.UpdateCamera();
-					this.UpdateSparkles();
+					UpdateCamera();
+					UpdateSparkles();
 					yield return UpdateResult.Next();
 				}
 				characterIndex = (characterIndex + 1) % 3;
-				int animationIndex = this.GetAnimationIndexFromCharacter(characterIndex);
-				this._animation.Index = animationIndex;
-				while (this._animation.Index != animationIndex + 1)
+				int animationIndex = GetAnimationIndexFromCharacter(characterIndex);
+				_animation.Index = animationIndex;
+				while (_animation.Index != animationIndex + 1)
 				{
-					this.UpdateCamera();
-					this.UpdateSparkles();
+					UpdateCamera();
+					UpdateSparkles();
 					yield return UpdateResult.Next();
 				}
 			}
-			Rectanglei bounds = this.Level.Bounds;
-			while (bounds.Bottom != this._targetCameraBottom)
+			Rectanglei bounds = Level.Bounds;
+			while (bounds.Bottom != _targetCameraBottom)
 			{
-				bounds.Bottom = MathX.GoTowards(bounds.Bottom, this._targetCameraBottom, 6);
-				this.Level.Bounds = bounds;
+				bounds.Bottom = MathX.GoTowards(bounds.Bottom, _targetCameraBottom, 6);
+				Level.Bounds = bounds;
 				yield return UpdateResult.Next();
 			}
 			yield return UpdateResult.Wait(80 /*0x50*/);
-			this.Level.CompleteLevel();
-			this._triggedEndGame = true;
+			Level.CompleteLevel();
+			_triggedEndGame = true;
 		}
 	}
 
@@ -145,7 +145,7 @@ public class SignpostInstance : ActiveObject
 
 	private int GetProtagonistCharacterIndex()
 	{
-		switch (this.Level.Player.ProtagonistCharacterType)
+		switch (Level.Player.ProtagonistCharacterType)
 		{
 			case CharacterType.Tails:
 				return 2;
@@ -156,50 +156,50 @@ public class SignpostInstance : ActiveObject
 
 	private void Activate(ICharacter character)
 	{
-		this._activated = true;
-		this._targetCameraBottom = this.Position.Y + 340;
-		this.Level.Bounds = this.Level.Bounds with
+		_activated = true;
+		_targetCameraBottom = Position.Y + 340;
+		Level.Bounds = Level.Bounds with
 		{
-			Bottom = Math.Max(this._targetCameraBottom, (int)this.Level.Camera.Bounds.Bottom)
+			Bottom = Math.Max(_targetCameraBottom, (int)Level.Camera.Bounds.Bottom)
 		};
-		this.Level.JustAboutToCompleteLevel();
-		this.Level.SoundManager.PlaySound((IActiveObject)this, this.Type.GetAbsolutePath("SONICORCA/SOUND/SIGNPOST"));
-		(this.Entry.State as SignpostInstance).Activated = true;
+		Level.JustAboutToCompleteLevel();
+		Level.SoundManager.PlaySound(this, Type.GetAbsolutePath("SONICORCA/SOUND/SIGNPOST"));
+		(Entry.State as SignpostInstance).Activated = true;
 	}
 
 	private void UpdateCamera()
 	{
-		Rectanglei bounds = this.Level.Bounds;
-		bounds.Bottom = MathX.GoTowards(bounds.Bottom, this._targetCameraBottom, 6);
-		this.Level.Bounds = bounds;
+		Rectanglei bounds = Level.Bounds;
+		bounds.Bottom = MathX.GoTowards(bounds.Bottom, _targetCameraBottom, 6);
+		Level.Bounds = bounds;
 	}
 
 	private void UpdateSparkles()
 	{
-		--this._sparkleDelay;
-		if (this._sparkleDelay > 0)
+		--_sparkleDelay;
+		if (_sparkleDelay > 0)
 			return;
-		this.CreateSparkles(SignpostInstance.SparklePositionOffsets[this._sparkleIndex]);
-		this._sparkleDelay = 12;
-		this._sparkleIndex = (this._sparkleIndex + 1) % SignpostInstance.SparklePositionOffsets.Length;
+		CreateSparkles(SignpostInstance.SparklePositionOffsets[_sparkleIndex]);
+		_sparkleDelay = 12;
+		_sparkleIndex = (_sparkleIndex + 1) % SignpostInstance.SparklePositionOffsets.Length;
 	}
 
 	private void CreateSparkles(Vector2i relativePosition)
 	{
-		Vector2i vector2i = this.Position + relativePosition;
+		Vector2i vector2i = Position + relativePosition;
 		int ticks = 0;
 		foreach (Vector2i sparkleParticleOffset in (IEnumerable<Vector2i>)SignpostInstance.SparkleParticleOffsets)
 		{
-			ObjectPlacement objectPlacement = new ObjectPlacement(this.Type.GetAbsolutePath("SONICORCA/OBJECTS/RING/SPARKLE"), this.Level.Map.Layers.IndexOf(this.Layer), vector2i + sparkleParticleOffset);
-			this.Level.SetInterval(ticks, (Action)(() => this.Level.ObjectManager.AddObject(objectPlacement)));
+			ObjectPlacement objectPlacement = new ObjectPlacement(Type.GetAbsolutePath("SONICORCA/OBJECTS/RING/SPARKLE"), Level.Map.Layers.IndexOf(Layer), vector2i + sparkleParticleOffset);
+			Level.SetInterval(ticks, () => Level.ObjectManager.AddObject(objectPlacement));
 			ticks += 2;
 		}
 	}
 
-	protected override void OnAnimate() => this._animation.Animate();
+	protected override void OnAnimate() => _animation.Animate();
 
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 	{
-		renderer.GetObjectRenderer().Render(this._animation);
+		renderer.GetObjectRenderer().Render(_animation);
 	}
 }

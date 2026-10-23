@@ -19,26 +19,26 @@ public class BubbleGeneratorInstance : ActiveObject
 
 	protected override void OnStart()
 	{
-		this._animation = new AnimationInstance(this.ResourceTree, this.Type.GetAbsolutePath("/ANIGROUP"));
+		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"));
 	}
 
 	protected override void OnUpdate()
 	{
-		if (this._nextLargeBubbleTime-- <= 0)
+		if (_nextLargeBubbleTime-- <= 0)
 		{
-			this._nextLargeBubbleTime = 960;
-			this.Level.WaterManager.CreateBubble(this.Level.Map.Layers.IndexOf(this.Layer), this.Position, 2);
+			_nextLargeBubbleTime = 960;
+			Level.WaterManager.CreateBubble(Level.Map.Layers.IndexOf(Layer), Position, 2);
 		}
-		if (this._nextSmallBubbleTime-- > 0)
+		if (_nextSmallBubbleTime-- > 0)
 			return;
-		this._nextSmallBubbleTime = this.Level.Random.Next(64 /*0x40*/, 128 /*0x80*/);
-		this.Level.WaterManager.CreateBubble(this.Level.Map.Layers.IndexOf(this.Layer), this.Position, this.Level.Random.Next(0, 2));
+		_nextSmallBubbleTime = Level.Random.Next(64 /*0x40*/, 128 /*0x80*/);
+		Level.WaterManager.CreateBubble(Level.Map.Layers.IndexOf(Layer), Position, Level.Random.Next(0, 2));
 	}
 
-	protected override void OnAnimate() => this._animation.Animate();
+	protected override void OnAnimate() => _animation.Animate();
 
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 	{
-		renderer.GetObjectRenderer().Render(this._animation);
+		renderer.GetObjectRenderer().Render(_animation);
 	}
 }

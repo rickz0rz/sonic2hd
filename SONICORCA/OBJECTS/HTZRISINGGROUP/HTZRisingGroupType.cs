@@ -20,9 +20,9 @@ public class HTZRisingGroupType : ObjectType
 	public Vector2 GetLifeRadius(HTZRisingGroupInstance state)
 	{
 		Vector2i size = state.Size;
-		double x = (double)size.X / 2.0;
+		double x = size.X / 2.0;
 		size = state.Size;
-		double y = (double)size.Y / 2.0;
+		double y = size.Y / 2.0;
 		return new Vector2(x, y);
 	}
 }

@@ -4,14 +4,14 @@
 // MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
 // Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
 
+using System.Collections.Generic;
+using System.Linq;
 using SonicOrca.Core;
 using SonicOrca.Core.Collision;
 using SonicOrca.Core.Objects;
 using SonicOrca.Extensions;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
-using System.Collections.Generic;
-using System.Linq;
 
 #nullable disable
 namespace SONICORCA.OBJECTS.CPZTUBESPRING;
@@ -25,24 +25,24 @@ public class CPZTubeSpringInstance : ActiveObject
 	private AnimationInstance _animation;
 	private Vector2 _bounceVelocity;
 
-	public CPZTubeSpringInstance() => this.DesignBounds = new Rectanglei(-67, -66, 134, 132);
+	public CPZTubeSpringInstance() => DesignBounds = new Rectanglei(-67, -66, 134, 132);
 
 	protected override void OnStart()
 	{
-		this._animation = new AnimationInstance(this.ResourceTree, this.Type.GetAbsolutePath("/ANIGROUP"));
-		this._bounceVelocity = new Vector2(0.0, -42.0);
-		this.CollisionVectors = ((IEnumerable<CollisionVector>)CollisionVector.FromRectangle((ActiveObject)this, (Rectanglei)new Rectangle(-64.0, -64.0, 128.0, 64.0))).Take<CollisionVector>(3).ToArray<CollisionVector>();
-		this.CollisionVectors[1].Id = 1;
-		this.Priority = 1256;
+		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"));
+		_bounceVelocity = new Vector2(0.0, -42.0);
+		CollisionVectors = CollisionVector.FromRectangle(this, (Rectanglei)new Rectangle(-64.0, -64.0, 128.0, 64.0)).Take<CollisionVector>(3).ToArray<CollisionVector>();
+		CollisionVectors[1].Id = 1;
+		Priority = 1256;
 	}
 
 	protected override void OnUpdate()
 	{
 		bool flag = false;
-		foreach (IActiveObject character in this.Level.ObjectManager.Characters)
+		foreach (IActiveObject character in Level.ObjectManager.Characters)
 		{
 			Vector2 position = (Vector2)character.Position;
-			if (position.X >= (double)(this.Position.X - 64 /*0x40*/) && position.X <= (double)(this.Position.X + 64 /*0x40*/) && position.Y >= (double)(this.Position.Y - 48 /*0x30*/) && position.Y <= (double)(this.Position.Y + 72))
+			if (position.X >= Position.X - 64 /*0x40*/ && position.X <= Position.X + 64 /*0x40*/ && position.Y >= Position.Y - 48 /*0x30*/ && position.Y <= Position.Y + 72)
 			{
 				flag = true;
 				break;
@@ -50,19 +50,19 @@ public class CPZTubeSpringInstance : ActiveObject
 		}
 		if (flag)
 		{
-			this._animation.Index = 2;
+			_animation.Index = 2;
 		}
 		else
 		{
-			if (this._animation.Index != 2)
+			if (_animation.Index != 2)
 				return;
-			this._animation.Index = 3;
+			_animation.Index = 3;
 		}
 	}
 
 	protected override void OnCollision(CollisionEvent e)
 	{
-		if (e.Id != 1 || e.ActiveObject.Type.Classification != ObjectClassification.Character || this._animation.Index == 3 || this._animation.Index == 2)
+		if (e.Id != 1 || e.ActiveObject.Type.Classification != ObjectClassification.Character || _animation.Index == 3 || _animation.Index == 2)
 			return;
 		ICharacter activeObject = (ICharacter)e.ActiveObject;
 		activeObject.IsAirborne = true;
@@ -73,33 +73,33 @@ public class CPZTubeSpringInstance : ActiveObject
 		ICharacter character = activeObject;
 		Vector2 velocity;
 		double x;
-		if (this._bounceVelocity.X == 0.0)
+		if (_bounceVelocity.X == 0.0)
 		{
 			velocity = activeObject.Velocity;
 			x = velocity.X;
 		}
 		else
-			x = this._bounceVelocity.X;
+			x = _bounceVelocity.X;
 		double y;
-		if (this._bounceVelocity.Y == 0.0)
+		if (_bounceVelocity.Y == 0.0)
 		{
 			velocity = activeObject.Velocity;
 			y = velocity.Y;
 		}
 		else
-			y = this._bounceVelocity.Y;
+			y = _bounceVelocity.Y;
 		Vector2 vector2 = new Vector2(x, y);
 		character.Velocity = vector2;
 		activeObject.IsHurt = false;
-		this._animation.Index = 1;
+		_animation.Index = 1;
 		e.MaintainVelocity = true;
-		this.Level.SoundManager.PlaySound((IActiveObject)this, this.Type.GetAbsolutePath("SONICORCA/SOUND/SPRING"));
+		Level.SoundManager.PlaySound(this, Type.GetAbsolutePath("SONICORCA/SOUND/SPRING"));
 	}
 
-	protected override void OnAnimate() => this._animation.Animate();
+	protected override void OnAnimate() => _animation.Animate();
 
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 	{
-		renderer.GetObjectRenderer().Render(this._animation, new Vector2(0.0, -66.0));
+		renderer.GetObjectRenderer().Render(_animation, new Vector2(0.0, -66.0));
 	}
 }

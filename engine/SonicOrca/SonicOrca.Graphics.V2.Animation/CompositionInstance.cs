@@ -159,7 +159,7 @@ public class CompositionInstance
 		{
 			_currentRenderLayerIndex = i;
 			Composition.Frame currentFrame = CurrentFrame;
-			Rectangle targetDestination = new Rectangle(offset.X - (double)currentFrame.Source.Width * 0.5, offset.Y - (double)currentFrame.Source.Height * 0.5, currentFrame.Source.Width, currentFrame.Source.Height);
+			Rectangle targetDestination = new Rectangle(offset.X - currentFrame.Source.Width * 0.5, offset.Y - currentFrame.Source.Height * 0.5, currentFrame.Source.Width, currentFrame.Source.Height);
 			AdditiveBlending = _activeLayers.ElementAt(i).BlendMode == BlendMode.Additive;
 			if (!_maskedLayers.Contains(_activeLayers.ElementAt(i)))
 			{
@@ -169,7 +169,7 @@ public class CompositionInstance
 			}
 			IMaskRenderer maskRenderer2 = renderer.GetMaskRenderer();
 			Composition.Frame maskFrameForLayer = GetMaskFrameForLayer(_activeLayers.ElementAt(i));
-			Rectangle maskDestination = new Rectangle(offset.X - (double)maskFrameForLayer.Source.Width * 0.5 * (maskFrameForLayer.Scale.X * 0.01), offset.Y - (double)maskFrameForLayer.Source.Height * 0.5 * (maskFrameForLayer.Scale.Y * 0.01), (double)maskFrameForLayer.Source.Width * maskFrameForLayer.Scale.X * 0.01, (double)maskFrameForLayer.Source.Height * maskFrameForLayer.Scale.Y * 0.01);
+			Rectangle maskDestination = new Rectangle(offset.X - maskFrameForLayer.Source.Width * 0.5 * (maskFrameForLayer.Scale.X * 0.01), offset.Y - maskFrameForLayer.Source.Height * 0.5 * (maskFrameForLayer.Scale.Y * 0.01), maskFrameForLayer.Source.Width * maskFrameForLayer.Scale.X * 0.01, maskFrameForLayer.Source.Height * maskFrameForLayer.Scale.Y * 0.01);
 			Draw(maskRenderer2, maskFrameForLayer, colour, maskFrameForLayer.Source, maskDestination, currentFrame.Source, targetDestination, flipX, flipY);
 		}
 	}

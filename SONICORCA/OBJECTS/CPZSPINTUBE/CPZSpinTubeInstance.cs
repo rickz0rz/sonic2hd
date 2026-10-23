@@ -4,15 +4,15 @@
 // MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
 // Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using SonicOrca.Core;
 using SonicOrca.Core.Collision;
 using SonicOrca.Core.Objects;
 using SonicOrca.Core.Objects.Metadata;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 
 #nullable disable
 namespace SONICORCA.OBJECTS.CPZSPINTUBE;
@@ -25,7 +25,7 @@ public class CPZSpinTubeInstance : ActiveObject
 
 	public CPZSpinTubeInstance()
 	{
-		this.DesignBounds = new Rectanglei(-64, -64, 128 /*0x80*/, 128 /*0x80*/);
+		DesignBounds = new Rectanglei(-64, -64, 128 /*0x80*/, 128 /*0x80*/);
 	}
 
 	[StateVariable]
@@ -36,14 +36,14 @@ public class CPZSpinTubeInstance : ActiveObject
 
 	protected override void OnStart()
 	{
-		this._path[0] = CPZSpinTubeInstance.ReadPathElements(this.Path0);
-		this._path[1] = CPZSpinTubeInstance.ReadPathElements(this.Path1);
-		if (this._path[0] == null || this._path[0].Length == 0)
-			this.Finish();
+		_path[0] = CPZSpinTubeInstance.ReadPathElements(Path0);
+		_path[1] = CPZSpinTubeInstance.ReadPathElements(Path1);
+		if (_path[0] == null || _path[0].Length == 0)
+			Finish();
 		else
-			this.CollisionRectangles = new CollisionRectangle[1]
+			CollisionRectangles = new CollisionRectangle[1]
 			{
-		new CollisionRectangle((ActiveObject) this, 0, this._path[0][0].Position.X - 64 /*0x40*/, this._path[0][0].Position.Y - 56, 128 /*0x80*/, 128 /*0x80*/)
+		new CollisionRectangle( this, 0, _path[0][0].Position.X - 64 /*0x40*/, _path[0][0].Position.Y - 56, 128 /*0x80*/, 128 /*0x80*/)
 			};
 	}
 
@@ -82,27 +82,27 @@ public class CPZSpinTubeInstance : ActiveObject
 		ICharacter activeObject = (ICharacter)e.ActiveObject;
 		if (activeObject.ObjectLink == this)
 			return;
-		this.CharacterBegin(activeObject);
+		CharacterBegin(activeObject);
 	}
 
 	protected override void OnUpdate()
 	{
 		base.OnUpdate();
-		ICharacter[] array = this.Level.ObjectManager.Characters.Where<ICharacter>((Func<ICharacter, bool>)(x => x.ObjectLink == this)).ToArray<ICharacter>();
+		ICharacter[] array = Level.ObjectManager.Characters.Where<ICharacter>(x => x.ObjectLink == this).ToArray<ICharacter>();
 		if (array.Length == 0)
 		{
-			this._pathIndex = this.Level.Random.Next(0, 2);
-			if (this._path[1] == null || this._path[1].Length == 0)
-				this._pathIndex = 0;
+			_pathIndex = Level.Random.Next(0, 2);
+			if (_path[1] == null || _path[1].Length == 0)
+				_pathIndex = 0;
 		}
 		foreach (ICharacter character in array)
 		{
-			if ((int)character.ObjectTag >= this._path[this._pathIndex].Length || character.IsDebug || character.IsDying || character.IsDead)
-				this.ReleaseCharacter(character);
+			if ((int)character.ObjectTag >= _path[_pathIndex].Length || character.IsDebug || character.IsDying || character.IsDead)
+				ReleaseCharacter(character);
 			else
-				this.CharacterContinue(character);
+				CharacterContinue(character);
 		}
-		this.LockLifetime = array.Length != 0;
+		LockLifetime = array.Length != 0;
 	}
 
 	private void CharacterBegin(ICharacter character)
@@ -110,25 +110,25 @@ public class CPZSpinTubeInstance : ActiveObject
 		character.IsAirborne = true;
 		character.ForceSpinball = true;
 		character.IsSpinball = true;
-		character.Position = this.Position + this._path[this._pathIndex][0].Position;
-		character.ObjectLink = (ActiveObject)this;
-		character.ObjectTag = (object)1;
+		character.Position = Position + _path[_pathIndex][0].Position;
+		character.ObjectLink = this;
+		character.ObjectTag = 1;
 		character.IsObjectControlled = true;
-		this.Level.SoundManager.PlaySound("SONICORCA/SOUND/SPINBALL");
-		this._previousCharacterLayer = this.Level.Map.Layers.IndexOf(character.Layer);
-		character.Layer = this.Level.Map.Layers.First<LevelLayer>((Func<LevelLayer, bool>)(l => l.Name == "pipes bottom"));
+		Level.SoundManager.PlaySound("SONICORCA/SOUND/SPINBALL");
+		_previousCharacterLayer = Level.Map.Layers.IndexOf(character.Layer);
+		character.Layer = Level.Map.Layers.First<LevelLayer>(l => l.Name == "pipes bottom");
 	}
 
 	private void CharacterContinue(ICharacter character)
 	{
 		int objectTag = (int)character.ObjectTag;
-		Vector2i vector2i = this.Position + this._path[this._pathIndex][objectTag].Position;
+		Vector2i vector2i = Position + _path[_pathIndex][objectTag].Position;
 		Vector2i position = character.Position;
 		Vector2 vector2 = (Vector2)(vector2i - position);
 		if (vector2.Length <= 32.0)
 		{
 			character.Position = vector2i;
-			character.ObjectTag = (object)(objectTag + 1);
+			character.ObjectTag = objectTag + 1;
 		}
 		else
 			character.Position = (Vector2i)((Vector2)position + vector2.Normalised * 32.0);
@@ -136,15 +136,15 @@ public class CPZSpinTubeInstance : ActiveObject
 		character.ForceSpinball = false;
 		character.Velocity = (vector2.X != 0.0 || vector2.Y != 0.0 ? vector2.Normalised : character.Velocity.Normalised) * 0.001;
 		character.CheckCollision = false;
-		if (!this._path[this._pathIndex][objectTag].SpinNoise)
+		if (!_path[_pathIndex][objectTag].SpinNoise)
 			return;
-		this.Level.SoundManager.PlaySound("SONICORCA/SOUND/SPINBALL");
+		Level.SoundManager.PlaySound("SONICORCA/SOUND/SPINBALL");
 	}
 
 	private void ReleaseCharacter(ICharacter character)
 	{
-		character.ObjectLink = (ActiveObject)null;
-		character.ObjectTag = (object)null;
+		character.ObjectLink = null;
+		character.ObjectTag = null;
 		character.ForceSpinball = false;
 		character.CheckCollision = true;
 		character.IsObjectControlled = false;
@@ -154,25 +154,25 @@ public class CPZSpinTubeInstance : ActiveObject
 			character.IsAirborne = true;
 			character.IsSpinball = true;
 			character.Velocity = new Vector2(0.0, -32.0);
-			this.Level.SoundManager.PlaySound("SONICORCA/SOUND/SPINDASH/RELEASE");
+			Level.SoundManager.PlaySound("SONICORCA/SOUND/SPINDASH/RELEASE");
 		}
-		character.Layer = this.Level.Map.Layers[this._previousCharacterLayer];
+		character.Layer = Level.Map.Layers[_previousCharacterLayer];
 	}
 
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 	{
-		if (!viewOptions.ShowObjectCollision && !this.Level.StateFlags.HasFlag((Enum)LevelStateFlags.Editing))
+		if (!viewOptions.ShowObjectCollision && !Level.StateFlags.HasFlag(LevelStateFlags.Editing))
 			return;
 		I2dRenderer obj1 = renderer.Get2dRenderer();
-		Rectanglei rectanglei = this.DesignBounds.OffsetBy(this._path[0][0].Position);
-		obj1.RenderQuad(Colours.White, new Rectangle((double)rectanglei.X * renderer.GetObjectRenderer().Scale.X, (double)rectanglei.Y * renderer.GetObjectRenderer().Scale.Y, (double)rectanglei.Width * renderer.GetObjectRenderer().Scale.X, (double)rectanglei.Height * renderer.GetObjectRenderer().Scale.Y));
+		Rectanglei rectanglei = DesignBounds.OffsetBy(_path[0][0].Position);
+		obj1.RenderQuad(Colours.White, new Rectangle(rectanglei.X * renderer.GetObjectRenderer().Scale.X, rectanglei.Y * renderer.GetObjectRenderer().Scale.Y, rectanglei.Width * renderer.GetObjectRenderer().Scale.X, rectanglei.Height * renderer.GetObjectRenderer().Scale.Y));
 		for (int index = 0; index < 2; ++index)
 		{
-			CPZSpinTubeInstance.PathElement[] source = this._path[index];
+			CPZSpinTubeInstance.PathElement[] source = _path[index];
 			if (source != null && source.Length != 0)
 			{
 				Vector2 vector2_1 = (Vector2)source[0].Position;
-				foreach (Vector2i vector2i in ((IEnumerable<CPZSpinTubeInstance.PathElement>)source).Skip<CPZSpinTubeInstance.PathElement>(1).Select<CPZSpinTubeInstance.PathElement, Vector2i>((Func<CPZSpinTubeInstance.PathElement, Vector2i>)(x => x.Position)))
+				foreach (Vector2i vector2i in source.Skip<CPZSpinTubeInstance.PathElement>(1).Select<CPZSpinTubeInstance.PathElement, Vector2i>(x => x.Position))
 				{
 					Vector2 vector2_2 = (Vector2)vector2i;
 					I2dRenderer obj2 = obj1;
@@ -203,10 +203,10 @@ public class CPZSpinTubeInstance : ActiveObject
 		public PathElement(Vector2i position, bool spinNoise)
 		  : this()
 		{
-			this.Position = position;
-			this.SpinNoise = spinNoise;
+			Position = position;
+			SpinNoise = spinNoise;
 		}
 
-		public override string ToString() => $"{this.Position}, Spin = {this.SpinNoise}";
+		public override string ToString() => $"{Position}, Spin = {SpinNoise}";
 	}
 }

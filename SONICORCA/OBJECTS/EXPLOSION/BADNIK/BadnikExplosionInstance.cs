@@ -21,7 +21,7 @@ public class BadnikExplosionInstance : ParticleObject
 	protected override void OnStart()
 	{
 		base.OnStart();
-		this.Level.SoundManager.PlaySound((IActiveObject)this, this.Type.GetAbsolutePath("SONICORCA/SOUND/BADNIKEXPLOSION"));
-		this.FilterMultiplier = 0.5;
+		Level.SoundManager.PlaySound(this, Type.GetAbsolutePath("SONICORCA/SOUND/BADNIKEXPLOSION"));
+		FilterMultiplier = 0.5;
 	}
 }

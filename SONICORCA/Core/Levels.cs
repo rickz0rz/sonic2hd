@@ -17,7 +17,7 @@ internal static class Levels
 	public const int Sonic2 = 2;
 	public const int Sonic3 = 3;
 	public const int SonicSK = 4;
-	public static readonly IReadOnlyList<LevelInfo> LevelList = (IReadOnlyList<LevelInfo>)new LevelInfo[11]
+	public static readonly IReadOnlyList<LevelInfo> LevelList = new LevelInfo[11]
 	{
 	new LevelInfo(2, "ehz", "Emerald Hill Zone", 2),
 	new LevelInfo(2, "cpz", "Chemical Plant Zone", 2),
@@ -34,7 +34,7 @@ internal static class Levels
 
 	public static string GetAreaResourceKey(string mnemonic)
 	{
-		return Levels.LevelList.Where<LevelInfo>((Func<LevelInfo, bool>)(x => x.GameIndex == 2)).FirstOrDefault<LevelInfo>((Func<LevelInfo, bool>)(x => x.Mnemonic.Equals(mnemonic, StringComparison.OrdinalIgnoreCase))) != null ? $"SONICORCA/LEVELS/{mnemonic.ToUpper()}/AREA" : (string)null;
+		return Levels.LevelList.Where<LevelInfo>(x => x.GameIndex == 2).FirstOrDefault<LevelInfo>(x => x.Mnemonic.Equals(mnemonic, StringComparison.OrdinalIgnoreCase)) != null ? $"SONICORCA/LEVELS/{mnemonic.ToUpper()}/AREA" : null;
 	}
 
 	public static int GetLevelIndex(string mnemonic)

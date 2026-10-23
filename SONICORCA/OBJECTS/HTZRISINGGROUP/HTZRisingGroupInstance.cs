@@ -4,9 +4,9 @@
 // MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
 // Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
 
+using System.Collections.Generic;
 using SonicOrca.Core;
 using SonicOrca.Geometry;
-using System.Collections.Generic;
 
 #nullable disable
 namespace SONICORCA.OBJECTS.HTZRISINGGROUP;
@@ -31,93 +31,93 @@ public class HTZRisingGroupInstance : ActiveObject
 
 	public Vector2i Size
 	{
-		get => this._size;
+		get => _size;
 		set
 		{
-			this._size = value;
-			this.DesignBounds = new Rectanglei(-(this._size.X / 2), -(this._size.Y / 2), this._size.X, this._size.Y);
+			_size = value;
+			DesignBounds = new Rectanglei(-(_size.X / 2), -(_size.Y / 2), _size.X, _size.Y);
 		}
 	}
 
 	public HTZRisingGroupInstance()
 	{
-		this.DesignBounds = new Rectanglei(-(this._size.X / 2), -(this._size.Y / 2), this._size.X, this._size.Y);
+		DesignBounds = new Rectanglei(-(_size.X / 2), -(_size.Y / 2), _size.X, _size.Y);
 	}
 
 	protected override void OnStart()
 	{
-		this._level = this.Level;
-		switch (this._level.CurrentAct)
+		_level = Level;
+		switch (_level.CurrentAct)
 		{
 			case 1:
-				this.Act1Events();
+				Act1Events();
 				break;
 			case 2:
-				this.Act2Events();
+				Act2Events();
 				break;
 		}
 	}
 
 	protected override void OnStop()
 	{
-		if (this.SlotA != null)
-			this.SlotA.LockLifetime = false;
-		if (this.SlotB != null)
-			this.SlotB.LockLifetime = false;
-		if (this.SlotC == null)
+		if (SlotA != null)
+			SlotA.LockLifetime = false;
+		if (SlotB != null)
+			SlotB.LockLifetime = false;
+		if (SlotC == null)
 			return;
-		this.SlotC.LockLifetime = false;
+		SlotC.LockLifetime = false;
 	}
 
 	protected override void OnUpdate()
 	{
-		if (this.SlotA != null && !this._groupMembers.Contains(this.SlotA))
+		if (SlotA != null && !_groupMembers.Contains(SlotA))
 		{
-			this.SlotA.LockLifetime = true;
-			this._groupMembers.Add(this.SlotA);
-			this.SlotA.Position = new Vector2i(this.SlotA.Position.X, this.SlotA.Position.Y + this._earthquakeUpperBound - this._earthquakeY);
+			SlotA.LockLifetime = true;
+			_groupMembers.Add(SlotA);
+			SlotA.Position = new Vector2i(SlotA.Position.X, SlotA.Position.Y + _earthquakeUpperBound - _earthquakeY);
 		}
-		if (this.SlotB != null && !this._groupMembers.Contains(this.SlotB))
+		if (SlotB != null && !_groupMembers.Contains(SlotB))
 		{
-			this.SlotB.LockLifetime = true;
-			this._groupMembers.Add(this.SlotB);
-			this.SlotB.Position = new Vector2i(this.SlotB.Position.X, this.SlotB.Position.Y + this._earthquakeUpperBound - this._earthquakeY);
+			SlotB.LockLifetime = true;
+			_groupMembers.Add(SlotB);
+			SlotB.Position = new Vector2i(SlotB.Position.X, SlotB.Position.Y + _earthquakeUpperBound - _earthquakeY);
 		}
-		if (this.SlotC != null && !this._groupMembers.Contains(this.SlotC))
+		if (SlotC != null && !_groupMembers.Contains(SlotC))
 		{
-			this.SlotC.LockLifetime = true;
-			this._groupMembers.Add(this.SlotC);
-			this.SlotC.Position = new Vector2i(this.SlotC.Position.X, this.SlotC.Position.Y + this._earthquakeUpperBound - this._earthquakeY);
+			SlotC.LockLifetime = true;
+			_groupMembers.Add(SlotC);
+			SlotC.Position = new Vector2i(SlotC.Position.X, SlotC.Position.Y + _earthquakeUpperBound - _earthquakeY);
 		}
-		switch (this._level.CurrentAct)
+		switch (_level.CurrentAct)
 		{
 			case 1:
-				this.Act1Events();
+				Act1Events();
 				break;
 			case 2:
-				this.Act2Events();
+				Act2Events();
 				break;
 		}
 	}
 
 	private void Act1Events()
 	{
-		Rectanglei bounds = (Rectanglei)this._level.Camera.Bounds;
-		LevelMarker marker1 = this._level.GetMarker("eq_1_left_reset");
-		LevelMarker marker2 = this._level.GetMarker("eq_1_left_begin");
-		LevelMarker marker3 = this._level.GetMarker("eq_1_right_begin");
-		LevelMarker marker4 = this._level.GetMarker("eq_1_right_reset");
-		switch (this._state)
+		Rectanglei bounds = (Rectanglei)_level.Camera.Bounds;
+		LevelMarker marker1 = _level.GetMarker("eq_1_left_reset");
+		LevelMarker marker2 = _level.GetMarker("eq_1_left_begin");
+		LevelMarker marker3 = _level.GetMarker("eq_1_right_begin");
+		LevelMarker marker4 = _level.GetMarker("eq_1_right_reset");
+		switch (_state)
 		{
 			case 0:
-				this._level.EarthquakeActive = false;
+				_level.EarthquakeActive = false;
 				if (bounds.X >= marker1.Position.X)
 				{
-					this._earthquakeUpperBound = 1280 /*0x0500*/;
-					this._earthquakeLowerBound = 896;
-					this._earthquakeY = this._earthquakeUpperBound;
-					this._earthquakeTimer = 0;
-					this._state = 1;
+					_earthquakeUpperBound = 1280 /*0x0500*/;
+					_earthquakeLowerBound = 896;
+					_earthquakeY = _earthquakeUpperBound;
+					_earthquakeTimer = 0;
+					_state = 1;
 					break;
 				}
 				break;
@@ -132,38 +132,38 @@ public class HTZRisingGroupInstance : ActiveObject
 					int x4 = position.X;
 					if (x3 < x4)
 					{
-						if (this._earthquakeDirection)
+						if (_earthquakeDirection)
 						{
-							if (this._earthquakeY == this._earthquakeLowerBound)
+							if (_earthquakeY == _earthquakeLowerBound)
 							{
-								--this._earthquakeTimer;
-								if (this._earthquakeTimer < 0)
+								--_earthquakeTimer;
+								if (_earthquakeTimer < 0)
 								{
-									this._earthquakeTimer = 120;
-									this._earthquakeDirection = !this._earthquakeDirection;
+									_earthquakeTimer = 120;
+									_earthquakeDirection = !_earthquakeDirection;
 								}
-								this._level.EarthquakeActive = false;
+								_level.EarthquakeActive = false;
 							}
-							else if (this._level.Ticks % 4 == 0)
+							else if (_level.Ticks % 4 == 0)
 							{
-								this._earthquakeY -= 4;
-								this._level.EarthquakeActive = true;
+								_earthquakeY -= 4;
+								_level.EarthquakeActive = true;
 							}
 						}
-						else if (this._earthquakeY == this._earthquakeUpperBound)
+						else if (_earthquakeY == _earthquakeUpperBound)
 						{
-							--this._earthquakeTimer;
-							if (this._earthquakeTimer < 0)
+							--_earthquakeTimer;
+							if (_earthquakeTimer < 0)
 							{
-								this._earthquakeTimer = 120;
-								this._earthquakeDirection = !this._earthquakeDirection;
+								_earthquakeTimer = 120;
+								_earthquakeDirection = !_earthquakeDirection;
 							}
-							this._level.EarthquakeActive = false;
+							_level.EarthquakeActive = false;
 						}
-						else if (this._level.Ticks % 4 == 0)
+						else if (_level.Ticks % 4 == 0)
 						{
-							this._earthquakeY += 4;
-							this._level.EarthquakeActive = true;
+							_earthquakeY += 4;
+							_level.EarthquakeActive = true;
 						}
 					}
 				}
@@ -172,8 +172,8 @@ public class HTZRisingGroupInstance : ActiveObject
 				int x6 = position.X;
 				if (x5 < x6)
 				{
-					this._earthquakeDirection = false;
-					this._state = 0;
+					_earthquakeDirection = false;
+					_state = 0;
 					break;
 				}
 				int x7 = bounds.X;
@@ -181,51 +181,51 @@ public class HTZRisingGroupInstance : ActiveObject
 				int x8 = position.X;
 				if (x7 >= x8)
 				{
-					this._earthquakeDirection = false;
-					this._state = 2;
+					_earthquakeDirection = false;
+					_state = 2;
 					break;
 				}
 				break;
 			case 2:
-				this._level.EarthquakeActive = false;
+				_level.EarthquakeActive = false;
 				if (bounds.X < marker4.Position.X)
 				{
-					this._earthquakeY = this._earthquakeUpperBound;
-					this._earthquakeTimer = 0;
-					this._state = 1;
+					_earthquakeY = _earthquakeUpperBound;
+					_earthquakeTimer = 0;
+					_state = 1;
 					break;
 				}
 				break;
 		}
-		this.UpdateGroupPositions();
+		UpdateGroupPositions();
 	}
 
 	private void Act2Events()
 	{
-		Rectanglei bounds = (Rectanglei)this._level.Camera.Bounds;
-		LevelMarker marker1 = this._level.GetMarker("eq_2_split");
-		LevelMarker marker2 = this._level.GetMarker("eq_2a_left_reset");
-		LevelMarker marker3 = this._level.GetMarker("eq_2a_left_begin");
-		LevelMarker marker4 = this._level.GetMarker("eq_2a_right_begin");
-		LevelMarker marker5 = this._level.GetMarker("eq_2a_right_reset");
-		switch (this._state)
+		Rectanglei bounds = (Rectanglei)_level.Camera.Bounds;
+		LevelMarker marker1 = _level.GetMarker("eq_2_split");
+		LevelMarker marker2 = _level.GetMarker("eq_2a_left_reset");
+		LevelMarker marker3 = _level.GetMarker("eq_2a_left_begin");
+		LevelMarker marker4 = _level.GetMarker("eq_2a_right_begin");
+		LevelMarker marker5 = _level.GetMarker("eq_2a_right_reset");
+		switch (_state)
 		{
 			case 0:
-				this._level.EarthquakeActive = false;
+				_level.EarthquakeActive = false;
 				if (bounds.X >= marker2.Position.X)
 				{
 					if (bounds.Y < marker1.Position.Y)
 					{
-						this._earthquakeUpperBound = 3328 /*0x0D00*/;
-						this._earthquakeLowerBound = 0;
-						this._earthquakeY = this._earthquakeUpperBound;
-						this._state = 1;
+						_earthquakeUpperBound = 3328 /*0x0D00*/;
+						_earthquakeLowerBound = 0;
+						_earthquakeY = _earthquakeUpperBound;
+						_state = 1;
 						break;
 					}
-					this._earthquakeUpperBound = 3072 /*0x0C00*/;
-					this._earthquakeLowerBound = 0;
-					this._earthquakeY = this._earthquakeUpperBound;
-					this._state = 4;
+					_earthquakeUpperBound = 3072 /*0x0C00*/;
+					_earthquakeLowerBound = 0;
+					_earthquakeY = _earthquakeUpperBound;
+					_state = 4;
 					break;
 				}
 				break;
@@ -240,38 +240,38 @@ public class HTZRisingGroupInstance : ActiveObject
 					int x4 = position1.X;
 					if (x3 < x4)
 					{
-						if (this._earthquakeDirection)
+						if (_earthquakeDirection)
 						{
-							if (this._earthquakeY == this._earthquakeLowerBound)
+							if (_earthquakeY == _earthquakeLowerBound)
 							{
-								--this._earthquakeTimer;
-								if (this._earthquakeTimer < 0)
+								--_earthquakeTimer;
+								if (_earthquakeTimer < 0)
 								{
-									this._earthquakeTimer = 120;
-									this._earthquakeDirection = !this._earthquakeDirection;
+									_earthquakeTimer = 120;
+									_earthquakeDirection = !_earthquakeDirection;
 								}
-								this._level.EarthquakeActive = false;
+								_level.EarthquakeActive = false;
 							}
-							else if (this._level.Ticks % 4 == 0)
+							else if (_level.Ticks % 4 == 0)
 							{
-								this._earthquakeY -= 4;
-								this._level.EarthquakeActive = true;
+								_earthquakeY -= 4;
+								_level.EarthquakeActive = true;
 							}
 						}
-						else if (this._earthquakeY == this._earthquakeUpperBound)
+						else if (_earthquakeY == _earthquakeUpperBound)
 						{
-							--this._earthquakeTimer;
-							if (this._earthquakeTimer < 0)
+							--_earthquakeTimer;
+							if (_earthquakeTimer < 0)
 							{
-								this._earthquakeTimer = 120;
-								this._earthquakeDirection = !this._earthquakeDirection;
+								_earthquakeTimer = 120;
+								_earthquakeDirection = !_earthquakeDirection;
 							}
-							this._level.EarthquakeActive = false;
+							_level.EarthquakeActive = false;
 						}
-						else if (this._level.Ticks % 4 == 0)
+						else if (_level.Ticks % 4 == 0)
 						{
-							this._earthquakeY += 4;
-							this._level.EarthquakeActive = true;
+							_earthquakeY += 4;
+							_level.EarthquakeActive = true;
 						}
 					}
 				}
@@ -280,8 +280,8 @@ public class HTZRisingGroupInstance : ActiveObject
 				int x6 = position1.X;
 				if (x5 < x6)
 				{
-					this._earthquakeDirection = false;
-					this._state = 0;
+					_earthquakeDirection = false;
+					_state = 0;
 					break;
 				}
 				int x7 = bounds.X;
@@ -289,18 +289,18 @@ public class HTZRisingGroupInstance : ActiveObject
 				int x8 = position1.X;
 				if (x7 >= x8)
 				{
-					this._earthquakeDirection = false;
-					this._state = 2;
+					_earthquakeDirection = false;
+					_state = 2;
 					break;
 				}
 				break;
 			case 2:
-				this._level.EarthquakeActive = false;
+				_level.EarthquakeActive = false;
 				if (bounds.X < marker5.Position.X)
 				{
-					this._earthquakeY = this._earthquakeUpperBound;
-					this._earthquakeTimer = 0;
-					this._state = 1;
+					_earthquakeY = _earthquakeUpperBound;
+					_earthquakeTimer = 0;
+					_state = 1;
 					break;
 				}
 				break;
@@ -315,38 +315,38 @@ public class HTZRisingGroupInstance : ActiveObject
 					int x12 = position2.X;
 					if (x11 < x12)
 					{
-						if (this._earthquakeDirection)
+						if (_earthquakeDirection)
 						{
-							if (this._earthquakeY == this._earthquakeLowerBound)
+							if (_earthquakeY == _earthquakeLowerBound)
 							{
-								--this._earthquakeTimer;
-								if (this._earthquakeTimer < 0)
+								--_earthquakeTimer;
+								if (_earthquakeTimer < 0)
 								{
-									this._earthquakeTimer = 120;
-									this._earthquakeDirection = !this._earthquakeDirection;
+									_earthquakeTimer = 120;
+									_earthquakeDirection = !_earthquakeDirection;
 								}
-								this._level.EarthquakeActive = false;
+								_level.EarthquakeActive = false;
 							}
-							else if (this._level.Ticks % 4 == 0)
+							else if (_level.Ticks % 4 == 0)
 							{
-								this._earthquakeY -= 4;
-								this._level.EarthquakeActive = true;
+								_earthquakeY -= 4;
+								_level.EarthquakeActive = true;
 							}
 						}
-						else if (this._earthquakeY == this._earthquakeUpperBound)
+						else if (_earthquakeY == _earthquakeUpperBound)
 						{
-							--this._earthquakeTimer;
-							if (this._earthquakeTimer < 0)
+							--_earthquakeTimer;
+							if (_earthquakeTimer < 0)
 							{
-								this._earthquakeTimer = 120;
-								this._earthquakeDirection = !this._earthquakeDirection;
+								_earthquakeTimer = 120;
+								_earthquakeDirection = !_earthquakeDirection;
 							}
-							this._level.EarthquakeActive = false;
+							_level.EarthquakeActive = false;
 						}
-						else if (this._level.Ticks % 4 == 0)
+						else if (_level.Ticks % 4 == 0)
 						{
-							this._earthquakeY += 4;
-							this._level.EarthquakeActive = true;
+							_earthquakeY += 4;
+							_level.EarthquakeActive = true;
 						}
 					}
 				}
@@ -355,8 +355,8 @@ public class HTZRisingGroupInstance : ActiveObject
 				int x14 = position2.X;
 				if (x13 < x14)
 				{
-					this._earthquakeDirection = false;
-					this._state = 0;
+					_earthquakeDirection = false;
+					_state = 0;
 					break;
 				}
 				int x15 = bounds.X;
@@ -364,33 +364,33 @@ public class HTZRisingGroupInstance : ActiveObject
 				int x16 = position2.X;
 				if (x15 >= x16)
 				{
-					this._earthquakeDirection = false;
-					this._state = 5;
+					_earthquakeDirection = false;
+					_state = 5;
 					break;
 				}
 				break;
 			case 5:
-				this._level.EarthquakeActive = false;
+				_level.EarthquakeActive = false;
 				if (bounds.X < marker5.Position.X)
 				{
-					this._earthquakeY = this._earthquakeUpperBound;
-					this._earthquakeTimer = 0;
-					this._state = 4;
+					_earthquakeY = _earthquakeUpperBound;
+					_earthquakeTimer = 0;
+					_state = 4;
 					break;
 				}
 				break;
 		}
-		this.UpdateGroupPositions();
+		UpdateGroupPositions();
 	}
 
 	private void UpdateGroupPositions()
 	{
-		if (!this._level.EarthquakeActive)
+		if (!_level.EarthquakeActive)
 			return;
-		int num = this._earthquakeDirection ? -4 : 4;
-		if (this._level.Ticks % 4 != 0)
+		int num = _earthquakeDirection ? -4 : 4;
+		if (_level.Ticks % 4 != 0)
 			return;
-		foreach (ActiveObject groupMember in this._groupMembers)
+		foreach (ActiveObject groupMember in _groupMembers)
 		{
 			Vector2i position = groupMember.Position;
 			position.Y += num;

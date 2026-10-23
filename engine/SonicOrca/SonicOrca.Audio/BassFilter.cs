@@ -26,7 +26,7 @@ internal class BassFilter
 	private static void Apply(float[] samples)
 	{
 		int m = (int)Math.Log(samples.Length, 2.0);
-		ComplexNumber[] array = FastFourierTransform.TimeToFrequency(m, ((IEnumerable<float>)samples).Select((Func<float, double>)((float x) => x)).ToArray());
+		ComplexNumber[] array = FastFourierTransform.TimeToFrequency(m, samples.Select((Func<float, double>)((float x) => x)).ToArray());
 		for (int num = 32; num < samples.Length; num++)
 		{
 			array[num].Real = 0.0;

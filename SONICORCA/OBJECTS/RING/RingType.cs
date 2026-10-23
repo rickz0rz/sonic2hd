@@ -35,8 +35,8 @@ public class RingType : ObjectType
 
 	protected override void OnStart()
 	{
-		this.AnimationInstance = new AnimationInstance(this.Level.GameContext.ResourceTree, this.GetAbsolutePath("/ANIGROUP"));
+		AnimationInstance = new AnimationInstance(Level.GameContext.ResourceTree, this.GetAbsolutePath("/ANIGROUP"));
 	}
 
-	protected override void OnAnimate() => this.AnimationInstance.Animate();
+	protected override void OnAnimate() => AnimationInstance.Animate();
 }

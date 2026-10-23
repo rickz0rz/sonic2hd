@@ -4,6 +4,7 @@
 // MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
 // Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
 
+using System;
 using SonicOrca.Core;
 using SonicOrca.Core.Objects.Base;
 using SonicOrca.Drawing.Renderers;
@@ -11,7 +12,6 @@ using SonicOrca.Extensions;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
 using SonicOrca.Resources;
-using System;
 
 #nullable disable
 namespace SONICORCA.OBJECTS.TAILS;
@@ -23,22 +23,22 @@ public class TailsInstance : Character
 
 	protected override void OnStart()
 	{
-		this.AnimationGroupResourceKey = this.Type.GetAbsolutePath("/ANIGROUP");
-		AnimationGroup loadedResource1 = this.ResourceTree.GetLoadedResource<AnimationGroup>((ILoadedResource)this.Type, "/TAIL/ANIGROUP");
-		AnimationGroup loadedResource2 = this.ResourceTree.GetLoadedResource<AnimationGroup>((ILoadedResource)this.Type, "/HEAD/ANIGROUP");
-		this._tailAnimationInstance = new AnimationInstance(loadedResource1);
-		this._headAnimationInstance = new AnimationInstance(loadedResource2);
-		this.NormalCollisionRadius = new Vector2i(40, 60);
-		this.CanFly = true;
+		AnimationGroupResourceKey = Type.GetAbsolutePath("/ANIGROUP");
+		AnimationGroup loadedResource1 = ResourceTree.GetLoadedResource<AnimationGroup>(Type, "/TAIL/ANIGROUP");
+		AnimationGroup loadedResource2 = ResourceTree.GetLoadedResource<AnimationGroup>(Type, "/HEAD/ANIGROUP");
+		_tailAnimationInstance = new AnimationInstance(loadedResource1);
+		_headAnimationInstance = new AnimationInstance(loadedResource2);
+		NormalCollisionRadius = new Vector2i(40, 60);
+		CanFly = true;
 		base.OnStart();
 	}
 
 	protected override void OnAnimate()
 	{
 		base.OnAnimate();
-		int index = this._tailAnimationInstance.Index;
+		int index = _tailAnimationInstance.Index;
 		int num;
-		switch (this.Animation.Index)
+		switch (Animation.Index)
 		{
 			case 0:
 			case 1:
@@ -70,16 +70,16 @@ public class TailsInstance : Character
 				num = -1;
 				break;
 		}
-		this._tailAnimationInstance.Index = num;
+		_tailAnimationInstance.Index = num;
 		if (num != -1)
-			this._tailAnimationInstance.Animate();
-		if (this.Animation.Index == 24)
+			_tailAnimationInstance.Animate();
+		if (Animation.Index == 24)
 		{
-			this._headAnimationInstance.Index = 0;
-			this._headAnimationInstance.Animate();
+			_headAnimationInstance.Index = 0;
+			_headAnimationInstance.Animate();
 		}
 		else
-			this._headAnimationInstance.Index = -1;
+			_headAnimationInstance.Index = -1;
 	}
 
 	protected override void DrawBody(Renderer renderer, LayerViewOptions viewOptions)
@@ -87,71 +87,71 @@ public class TailsInstance : Character
 		I2dRenderer obj = renderer.Get2dRenderer();
 		CharacterRenderer characterRenderer = CharacterRenderer.FromRenderer(renderer);
 		characterRenderer.ModelMatrix = obj.ModelMatrix;
-		double propertyDouble1 = this.Level.GameContext.Configuration.GetPropertyDouble("debug", "tails_hue_shift");
-		double propertyDouble2 = this.Level.GameContext.Configuration.GetPropertyDouble("debug", "tails_sat_shift");
-		double propertyDouble3 = this.Level.GameContext.Configuration.GetPropertyDouble("debug", "tails_lum_shift");
+		double propertyDouble1 = Level.GameContext.Configuration.GetPropertyDouble("debug", "tails_hue_shift");
+		double propertyDouble2 = Level.GameContext.Configuration.GetPropertyDouble("debug", "tails_sat_shift");
+		double propertyDouble3 = Level.GameContext.Configuration.GetPropertyDouble("debug", "tails_lum_shift");
 		characterRenderer.Filter = viewOptions.Filter;
 		characterRenderer.FilterAmount = viewOptions.FilterAmount;
-		characterRenderer.Brightness = this.Brightness;
-		if (this.DrawBodyRotated)
-			characterRenderer.ModelMatrix *= Matrix4.CreateRotationZ(this.ShowAngle);
+		characterRenderer.Brightness = Brightness;
+		if (DrawBodyRotated)
+			characterRenderer.ModelMatrix *= Matrix4.CreateRotationZ(ShowAngle);
 		Vector2 offset;
 		Rectangle destination;
 		Rectanglei source;
-		if (this._tailAnimationInstance.Index != -1)
+		if (_tailAnimationInstance.Index != -1)
 		{
-			SonicOrca.Graphics.Animation.Frame currentFrame = this._tailAnimationInstance.CurrentFrame;
+			SonicOrca.Graphics.Animation.Frame currentFrame = _tailAnimationInstance.CurrentFrame;
 			offset = (Vector2)currentFrame.Offset;
-			double x = offset.X - (double)(currentFrame.Source.Width / 2);
-			double y = offset.Y - (double)(currentFrame.Source.Height / 2);
-			double width = (double)currentFrame.Source.Width;
+			double x = offset.X - currentFrame.Source.Width / 2;
+			double y = offset.Y - currentFrame.Source.Height / 2;
+			double width = currentFrame.Source.Width;
 			source = currentFrame.Source;
-			double height = (double)source.Height;
+			double height = source.Height;
 			destination = new Rectangle(x, y, width, height);
-			if (this.Animation.Index == 10)
+			if (Animation.Index == 10)
 			{
-				double angle = Math.Atan2(this.Velocity.Y, this.Velocity.X);
+				double angle = Math.Atan2(Velocity.Y, Velocity.X);
 				characterRenderer.ModelMatrix *= Matrix4.CreateRotationZ(angle);
-				characterRenderer.RenderTexture(this._tailAnimationInstance.AnimationGroup.Textures[1], this._tailAnimationInstance.AnimationGroup.Textures[0], propertyDouble1, propertyDouble2, propertyDouble3, (Rectangle)currentFrame.Source, destination, true, this.Velocity.X < 0.0);
+				characterRenderer.RenderTexture(_tailAnimationInstance.AnimationGroup.Textures[1], _tailAnimationInstance.AnimationGroup.Textures[0], propertyDouble1, propertyDouble2, propertyDouble3, (Rectangle)currentFrame.Source, destination, true, Velocity.X < 0.0);
 				characterRenderer.ModelMatrix = obj.ModelMatrix;
 			}
 			else
-				characterRenderer.RenderTexture(this._tailAnimationInstance.AnimationGroup.Textures[1], this._tailAnimationInstance.AnimationGroup.Textures[0], propertyDouble1, propertyDouble2, propertyDouble3, (Rectangle)currentFrame.Source, destination, this.IsFacingRight, false);
+				characterRenderer.RenderTexture(_tailAnimationInstance.AnimationGroup.Textures[1], _tailAnimationInstance.AnimationGroup.Textures[0], propertyDouble1, propertyDouble2, propertyDouble3, (Rectangle)currentFrame.Source, destination, IsFacingRight, false);
 		}
-		SonicOrca.Graphics.Animation.Frame currentFrame1 = this.Animation.CurrentFrame;
+		SonicOrca.Graphics.Animation.Frame currentFrame1 = Animation.CurrentFrame;
 		offset = (Vector2)currentFrame1.Offset;
 		double x1 = offset.X;
 		source = currentFrame1.Source;
-		double num1 = (double)(source.Width / 2);
+		double num1 = source.Width / 2;
 		double x2 = x1 - num1;
 		double y1 = offset.Y;
 		source = currentFrame1.Source;
-		double num2 = (double)(source.Height / 2);
+		double num2 = source.Height / 2;
 		double y2 = y1 - num2;
 		source = currentFrame1.Source;
-		double width1 = (double)source.Width;
+		double width1 = source.Width;
 		source = currentFrame1.Source;
-		double height1 = (double)source.Height;
+		double height1 = source.Height;
 		destination = new Rectangle(x2, y2, width1, height1);
-		characterRenderer.RenderTexture(this.Animation.AnimationGroup.Textures[1], this.Animation.AnimationGroup.Textures[0], propertyDouble1, propertyDouble2, propertyDouble3, (Rectangle)currentFrame1.Source, destination, this.IsFacingRight, this.IsFacingLeft && this.Animation.Index == 16 /*0x10*/);
-		if (this._headAnimationInstance.Index == -1)
+		characterRenderer.RenderTexture(Animation.AnimationGroup.Textures[1], Animation.AnimationGroup.Textures[0], propertyDouble1, propertyDouble2, propertyDouble3, (Rectangle)currentFrame1.Source, destination, IsFacingRight, IsFacingLeft && Animation.Index == 16 /*0x10*/);
+		if (_headAnimationInstance.Index == -1)
 			return;
-		SonicOrca.Graphics.Animation.Frame currentFrame2 = this._headAnimationInstance.CurrentFrame;
+		SonicOrca.Graphics.Animation.Frame currentFrame2 = _headAnimationInstance.CurrentFrame;
 		offset = (Vector2)currentFrame2.Offset;
 		ref Rectangle local2 = ref destination;
 		double x3 = offset.X;
 		source = currentFrame2.Source;
-		double num3 = (double)(source.Width / 2);
+		double num3 = source.Width / 2;
 		double x4 = x3 - num3;
 		double y3 = offset.Y;
 		source = currentFrame2.Source;
-		double num4 = (double)(source.Height / 2);
+		double num4 = source.Height / 2;
 		double y4 = y3 - num4;
 		source = currentFrame2.Source;
-		double width2 = (double)source.Width;
+		double width2 = source.Width;
 		source = currentFrame2.Source;
-		double height2 = (double)source.Height;
+		double height2 = source.Height;
 		local2 = new Rectangle(x4, y4, width2, height2);
-		characterRenderer.RenderTexture(this._headAnimationInstance.AnimationGroup.Textures[1], this._headAnimationInstance.AnimationGroup.Textures[0], propertyDouble1, propertyDouble2, propertyDouble3, (Rectangle)currentFrame2.Source, destination, this.IsFacingRight, false);
+		characterRenderer.RenderTexture(_headAnimationInstance.AnimationGroup.Textures[1], _headAnimationInstance.AnimationGroup.Textures[0], propertyDouble1, propertyDouble2, propertyDouble3, (Rectangle)currentFrame2.Source, destination, IsFacingRight, false);
 	}
 }

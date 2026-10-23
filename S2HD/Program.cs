@@ -4,9 +4,6 @@
 // MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
 // Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
 
-using SDL2;
-using SonicOrca;
-using SonicOrca.SDL2;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -15,6 +12,9 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
+using SDL2;
+using SonicOrca;
+using SonicOrca.SDL2;
 
 #nullable disable
 namespace S2HD;
@@ -53,7 +53,7 @@ public static class Program
 	[STAThread]
 	private static void Main(string[] args)
 	{
-		Program.CommandLineArguments = (IReadOnlyList<string>)args;
+		Program.CommandLineArguments = args;
 		Program.EnsureUserDataDirectoryExists();
 		Program.WriteLogHeader();
 		Program.LoadConfiguration();
@@ -97,7 +97,7 @@ public static class Program
 		}
 	}
 
-	private static IPlatform GetPlatform() => (IPlatform)SDL2Platform.Instance;
+	private static IPlatform GetPlatform() => SDL2Platform.Instance;
 
 	private static void RunGame()
 	{
@@ -148,7 +148,7 @@ public static class Program
 	private static void FocusGame()
 	{
 		Process current = Process.GetCurrentProcess();
-		Process process = ((IEnumerable<Process>)Process.GetProcessesByName(current.ProcessName)).Where<Process>((Func<Process, bool>)(x => x.Id != current.Id)).FirstOrDefault<Process>();
+		Process process = Process.GetProcessesByName(current.ProcessName).Where<Process>(x => x.Id != current.Id).FirstOrDefault<Process>();
 		if (process == null || !OperatingSystem.IsWindows())
 			return;
 		Program.SetForegroundWindow(process.MainWindowHandle);
@@ -174,9 +174,9 @@ public static class Program
 	private static void WriteLogHeader()
 	{
 		Trace.AutoFlush = true;
-		Trace.Listeners.Add((TraceListener)new TextWriterTraceListener(Program.LogPath));
-		Trace.Listeners.Add((TraceListener)new ConsoleTraceListener());
-		Trace.WriteLine((object)Environment.OSVersion);
+		Trace.Listeners.Add(new TextWriterTraceListener(Program.LogPath));
+		Trace.Listeners.Add(new ConsoleTraceListener());
+		Trace.WriteLine(Environment.OSVersion);
 		Trace.WriteLine($"SonicOrca {Program.AppVersion} [{"RELEASE"} {Program.AppArchitecture}]");
 		Trace.WriteLine(DateTime.Now.ToString("dd MMMM yyyy @ hh:mm tt"));
 		Trace.WriteLine(new string('-', 80 /*0x50*/));

@@ -21,6 +21,6 @@ public class CPZChemicalFallType : ObjectType
 
 	public new Vector2 GetLifeRadius(ActiveObject state)
 	{
-		return (Vector2)new Vector2i(0, this.Level.Map.Bounds.Height);
+		return (Vector2)new Vector2i(0, Level.Map.Bounds.Height);
 	}
 }

@@ -25,12 +25,12 @@ internal class ListMenuViewModel : IListMenuViewModel, IMenuViewModel
 
 	public ListMenuViewModel(ImmutableArray<IMenuItem> items, object tag = null)
 	{
-		this.Items = items;
-		this.Tag = tag;
+		Items = items;
+		Tag = tag;
 	}
 
 	public override string ToString()
 	{
-		return string.Join<IMenuItem>(", ", (IEnumerable<IMenuItem>)this.Items);
+		return string.Join<IMenuItem>(", ", Items);
 	}
 }

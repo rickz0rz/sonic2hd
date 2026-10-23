@@ -430,14 +430,14 @@ public class SDL2WindowContext : WindowContext, IGLWindow
 	{
 		if (_aspectRatio.X != 0 || _aspectRatio.Y != 0)
 		{
-			double num = (double)_aspectRatio.X / (double)_aspectRatio.Y;
+			double num = _aspectRatio.X / (double)_aspectRatio.Y;
 			if (_clientSize.X != size.X)
 			{
-				size.Y = (int)((double)size.X / num);
+				size.Y = (int)(size.X / num);
 			}
 			else if (_clientSize.Y != size.Y)
 			{
-				size.X = (int)((double)size.Y * num);
+				size.X = (int)(size.Y * num);
 			}
 		}
 		_clientSize = size;

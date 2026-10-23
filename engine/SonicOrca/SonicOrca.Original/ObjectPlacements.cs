@@ -81,13 +81,13 @@ public static class ObjectPlacements
 				{
 					text = "SONICORCA/OBJECTS/LAYERSWITCH";
 					int[] array = new int[4] { 256, 512, 1024, 2048 };
-					obj = (((originalPlacement.SubType & 4) == 0) ? ((object)new
+					obj = (((originalPlacement.SubType & 4) == 0) ? (new
 					{
 						AllowAirborne = ((originalPlacement.SubType & 0x80) == 0),
 						Height = array[originalPlacement.SubType & 3],
 						Left = (((originalPlacement.SubType & 0x10) != 0) ? 1 : 0),
 						Right = (((originalPlacement.SubType & 8) != 0) ? 1 : 0)
-					}) : ((object)new
+					}) : (new
 					{
 						AllowAirborne = ((originalPlacement.SubType & 0x80) == 0),
 						Width = array[originalPlacement.SubType & 3],

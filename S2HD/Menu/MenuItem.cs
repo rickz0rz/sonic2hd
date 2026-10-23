@@ -17,10 +17,10 @@ internal class MenuItem : IMenuItem
 
 	public MenuItem(string text, IMenuViewModel next = null, object tag = null)
 	{
-		this.Text = text;
-		this.Next = next;
-		this.Tag = tag;
+		Text = text;
+		Next = next;
+		Tag = tag;
 	}
 
-	public override string ToString() => this.Text;
+	public override string ToString() => Text;
 }

@@ -4,6 +4,7 @@
 // MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
 // Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
 
+using System;
 using SonicOrca.Core;
 using SonicOrca.Core.Collision;
 using SonicOrca.Core.Lighting;
@@ -11,7 +12,6 @@ using SonicOrca.Core.Objects;
 using SonicOrca.Extensions;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
-using System;
 
 #nullable disable
 namespace SONICORCA.OBJECTS.LAVA;
@@ -29,43 +29,43 @@ public class LavaInstance : ActiveObject
 
 	public int Width
 	{
-		get => this._size.X;
-		set => this._size.X = value;
+		get => _size.X;
+		set => _size.X = value;
 	}
 
 	public int Height
 	{
-		get => this._size.Y;
-		set => this._size.Y = value;
+		get => _size.Y;
+		set => _size.Y = value;
 	}
 
 	private Rectanglei Bounds
 	{
 		get
 		{
-			return new Rectanglei(-this._size.X / 2 * 64 /*0x40*/, -this._size.Y / 2 * 64 /*0x40*/, this._size.X * 64 /*0x40*/, this._size.Y * 64 /*0x40*/);
+			return new Rectanglei(-_size.X / 2 * 64 /*0x40*/, -_size.Y / 2 * 64 /*0x40*/, _size.X * 64 /*0x40*/, _size.Y * 64 /*0x40*/);
 		}
 	}
 
 	protected override void OnStart()
 	{
-		AnimationGroup loadedResource = this.ResourceTree.GetLoadedResource<AnimationGroup>(this.Type.GetAbsolutePath("/ANIGROUP"));
-		this._animationTop = new AnimationInstance(loadedResource);
-		this._animationMiddle = new AnimationInstance(loadedResource, 1);
-		this._animationBottom = new AnimationInstance(loadedResource, 2);
-		this.CollisionVectors = CollisionVector.FromRectangle((ActiveObject)this, new Rectanglei(-this._size.X / 2 * 64 /*0x40*/, -this._size.Y / 2 * 64 /*0x40*/, this._size.X * 64 /*0x40*/, this._size.Y * 64 /*0x40*/));
-		this.CollisionVectors[1].Flags = CollisionFlags.Conveyor;
-		this.Priority = 4096 /*0x1000*/;
-		Rectanglei rectanglei = this.Bounds;
-		this.DesignBounds = rectanglei;
-		rectanglei = rectanglei.OffsetBy(this.Position);
-		this._lightSource = new VectorLightSource(32 /*0x20*/, rectanglei.TopLeft, rectanglei.TopRight);
-		this.Level.LightingManager.RegisterLightSource((ILightSource)this._lightSource);
+		AnimationGroup loadedResource = ResourceTree.GetLoadedResource<AnimationGroup>(Type.GetAbsolutePath("/ANIGROUP"));
+		_animationTop = new AnimationInstance(loadedResource);
+		_animationMiddle = new AnimationInstance(loadedResource, 1);
+		_animationBottom = new AnimationInstance(loadedResource, 2);
+		CollisionVectors = CollisionVector.FromRectangle(this, new Rectanglei(-_size.X / 2 * 64 /*0x40*/, -_size.Y / 2 * 64 /*0x40*/, _size.X * 64 /*0x40*/, _size.Y * 64 /*0x40*/));
+		CollisionVectors[1].Flags = CollisionFlags.Conveyor;
+		Priority = 4096 /*0x1000*/;
+		Rectanglei rectanglei = Bounds;
+		DesignBounds = rectanglei;
+		rectanglei = rectanglei.OffsetBy(Position);
+		_lightSource = new VectorLightSource(32 /*0x20*/, rectanglei.TopLeft, rectanglei.TopRight);
+		Level.LightingManager.RegisterLightSource(_lightSource);
 	}
 
 	protected override void OnStop()
 	{
-		this.Level.LightingManager.UnregisterLightSource((ILightSource)this._lightSource);
+		Level.LightingManager.UnregisterLightSource(_lightSource);
 	}
 
 	protected override void OnCollision(CollisionEvent e)
@@ -77,24 +77,24 @@ public class LavaInstance : ActiveObject
 
 	protected override void OnUpdate()
 	{
-		Rectanglei rectanglei = this.Bounds.OffsetBy(this.Position);
-		this._lightSource.A = rectanglei.TopLeft;
-		this._lightSource.B = rectanglei.TopRight;
-		if (this.Level.Ticks % 24 != 0)
+		Rectanglei rectanglei = Bounds.OffsetBy(Position);
+		_lightSource.A = rectanglei.TopLeft;
+		_lightSource.B = rectanglei.TopRight;
+		if (Level.Ticks % 24 != 0)
 			return;
-		ParticleManager particleManager = this.Level.ParticleManager;
+		ParticleManager particleManager = Level.ParticleManager;
 		Random random = particleManager.Random;
-		int num1 = -this._size.X / 2 * 64 /*0x40*/;
-		int num2 = -this._size.Y / 2 * 64 /*0x40*/;
-		for (int index1 = 0; index1 < this._size.X; ++index1)
+		int num1 = -_size.X / 2 * 64 /*0x40*/;
+		int num2 = -_size.Y / 2 * 64 /*0x40*/;
+		for (int index1 = 0; index1 < _size.X; ++index1)
 		{
 			for (int index2 = 0; index2 < 1; ++index2)
 			{
-				Vector2i vector2i = this.Position + new Vector2i(num1 + index1 * 64 /*0x40*/ + 32 /*0x20*/, num2 + index2 * 64 /*0x40*/ + 32 /*0x20*/);
+				Vector2i vector2i = Position + new Vector2i(num1 + index1 * 64 /*0x40*/ + 32 /*0x20*/, num2 + index2 * 64 /*0x40*/ + 32 /*0x20*/);
 				particleManager.Add(new Particle()
 				{
 					Type = ParticleType.Heat,
-					Layer = this.Layer,
+					Layer = Layer,
 					Position = (Vector2)(vector2i + new Vector2i(random.Next(-4, 8), random.Next(-4, 8))),
 					Velocity = new Vector2(random.NextSignedDouble() * 1.0, random.NextDouble() * -1.4 - 0.8),
 					Time = random.Next(60, 120)
@@ -105,9 +105,9 @@ public class LavaInstance : ActiveObject
 
 	protected override void OnAnimate()
 	{
-		this._animationTop.Animate();
-		this._animationMiddle.Animate();
-		this._animationBottom.Animate();
+		_animationTop.Animate();
+		_animationMiddle.Animate();
+		_animationBottom.Animate();
 	}
 
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
@@ -116,23 +116,23 @@ public class LavaInstance : ActiveObject
 			return;
 		IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
 		objectRenderer.EmitsLight = true;
-		int num1 = -this._size.X / 2 * 64 /*0x40*/;
-		int y1 = -this._size.Y / 2 * 64 /*0x40*/;
-		int val2_1 = (this._size.X + 1) / 2 * 64 /*0x40*/;
-		int val2_2 = (this._size.Y + 1) / 2 * 64 /*0x40*/;
-		Rectanglei source1 = this._animationTop.CurrentFrame.Source;
+		int num1 = -_size.X / 2 * 64 /*0x40*/;
+		int y1 = -_size.Y / 2 * 64 /*0x40*/;
+		int val2_1 = (_size.X + 1) / 2 * 64 /*0x40*/;
+		int val2_2 = (_size.Y + 1) / 2 * 64 /*0x40*/;
+		Rectanglei source1 = _animationTop.CurrentFrame.Source;
 		Vector2 scale;
 		for (int x1 = num1; x1 < val2_1; x1 += source1.Width)
 		{
-			Rectangle destination = new Rectangle((double)x1, (double)(y1 - source1.Height), (double)source1.Width, (double)source1.Height);
-			destination.Right = Math.Min(destination.Right, (double)val2_1);
-			destination.Bottom = Math.Min(destination.Bottom, (double)val2_2);
-			Rectangle source2 = (Rectangle)this._animationTop.CurrentFrame.Source with
+			Rectangle destination = new Rectangle(x1, y1 - source1.Height, source1.Width, source1.Height);
+			destination.Right = Math.Min(destination.Right, val2_1);
+			destination.Bottom = Math.Min(destination.Bottom, val2_2);
+			Rectangle source2 = (Rectangle)_animationTop.CurrentFrame.Source with
 			{
 				Width = destination.Width,
 				Height = destination.Height
 			};
-			objectRenderer.Texture = this._animationTop.CurrentTexture;
+			objectRenderer.Texture = _animationTop.CurrentTexture;
 			objectRenderer.BlendMode = BlendMode.Additive;
 			ref Rectangle local1 = ref destination;
 			double x2 = local1.X;
@@ -158,14 +158,14 @@ public class LavaInstance : ActiveObject
 		}
 		objectRenderer.BlendMode = BlendMode.Alpha;
 		int num2 = y1;
-		Animation.Frame currentFrame = this._animationMiddle.CurrentFrame;
+		Animation.Frame currentFrame = _animationMiddle.CurrentFrame;
 		Rectanglei source3 = currentFrame.Source;
 		for (int x5 = num1; x5 < val2_1; x5 += source3.Width)
 		{
-			Rectangle destination = new Rectangle((double)x5, (double)y1, (double)source3.Width, (double)source3.Height);
-			destination.Right = Math.Min(destination.Right, (double)val2_1);
-			destination.Bottom = Math.Min(destination.Bottom, (double)val2_2);
-			currentFrame = this._animationMiddle.CurrentFrame;
+			Rectangle destination = new Rectangle(x5, y1, source3.Width, source3.Height);
+			destination.Right = Math.Min(destination.Right, val2_1);
+			destination.Bottom = Math.Min(destination.Bottom, val2_2);
+			currentFrame = _animationMiddle.CurrentFrame;
 			Rectangle source4 = (Rectangle)currentFrame.Source with
 			{
 				Width = destination.Width,
@@ -192,21 +192,21 @@ public class LavaInstance : ActiveObject
 			scale = objectRenderer.Scale;
 			double y7 = scale.Y;
 			local8.Height = height * y7;
-			objectRenderer.Texture = this._animationMiddle.CurrentTexture;
+			objectRenderer.Texture = _animationMiddle.CurrentTexture;
 			objectRenderer.Render(source4, destination);
 		}
 		if (num2 >= val2_2)
 			return;
-		currentFrame = this._animationBottom.CurrentFrame;
+		currentFrame = _animationBottom.CurrentFrame;
 		source3 = currentFrame.Source;
 		for (int y8 = num2; y8 < val2_2; y8 += source3.Height)
 		{
 			for (int x9 = num1; x9 < val2_1; x9 += source3.Width)
 			{
-				Rectangle destination = new Rectangle((double)x9, (double)y8, (double)source3.Width, (double)source3.Height);
-				destination.Right = Math.Min(destination.Right, (double)val2_1);
-				destination.Bottom = Math.Min(destination.Bottom, (double)val2_2);
-				currentFrame = this._animationBottom.CurrentFrame;
+				Rectangle destination = new Rectangle(x9, y8, source3.Width, source3.Height);
+				destination.Right = Math.Min(destination.Right, val2_1);
+				destination.Bottom = Math.Min(destination.Bottom, val2_2);
+				currentFrame = _animationBottom.CurrentFrame;
 				Rectangle source5 = (Rectangle)currentFrame.Source with
 				{
 					Width = destination.Width,
@@ -232,7 +232,7 @@ public class LavaInstance : ActiveObject
 				scale = objectRenderer.Scale;
 				double y11 = scale.Y;
 				local12.Height = height * y11;
-				objectRenderer.Texture = this._animationBottom.CurrentTexture;
+				objectRenderer.Texture = _animationBottom.CurrentTexture;
 				objectRenderer.Render(source5, destination);
 			}
 		}

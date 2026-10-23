@@ -88,73 +88,73 @@ public class MonitorInstance : ActiveObject
 	[StateVariable]
 	private MonitorContents Contents
 	{
-		get => this._contents;
-		set => this._contents = value;
+		get => _contents;
+		set => _contents = value;
 	}
 
 	[StateVariable]
 	private bool Broken
 	{
-		get => this._broken;
-		set => this._broken = value;
+		get => _broken;
+		set => _broken = value;
 	}
 
-	public MonitorInstance() => this.DesignBounds = new Rectanglei(-60, -60, 120, 120);
+	public MonitorInstance() => DesignBounds = new Rectanglei(-60, -60, 120, 120);
 
 	protected override void OnStart()
 	{
-		this._stationary = true;
-		AnimationGroup loadedResource = this.ResourceTree.GetLoadedResource<AnimationGroup>((ILoadedResource)this.Type, "/ANIGROUP");
-		this._shellAnimation = new AnimationInstance(loadedResource);
-		this._shellOverlayAnimation = new AnimationInstance(loadedResource);
-		this._screenAnimation = new AnimationInstance(loadedResource);
-		this._screenOverlayAnimation = new AnimationInstance(loadedResource);
-		this._shellAnimation.Index = this._broken ? 2 : 0;
-		this._shellOverlayAnimation.Index = this._broken ? 3 : 1;
-		this._screenAnimation.Index = MonitorInstance.GetScreenContentsAnimationIndex(this._contents, (int)this.Level.Player.ProtagonistCharacterType);
-		this._screenOverlayAnimation.Index = 4;
-		if (this._broken)
+		_stationary = true;
+		AnimationGroup loadedResource = ResourceTree.GetLoadedResource<AnimationGroup>(Type, "/ANIGROUP");
+		_shellAnimation = new AnimationInstance(loadedResource);
+		_shellOverlayAnimation = new AnimationInstance(loadedResource);
+		_screenAnimation = new AnimationInstance(loadedResource);
+		_screenOverlayAnimation = new AnimationInstance(loadedResource);
+		_shellAnimation.Index = _broken ? 2 : 0;
+		_shellOverlayAnimation.Index = _broken ? 3 : 1;
+		_screenAnimation.Index = MonitorInstance.GetScreenContentsAnimationIndex(_contents, (int)Level.Player.ProtagonistCharacterType);
+		_screenOverlayAnimation.Index = 4;
+		if (_broken)
 			return;
-		this._contentsAnimation = new AnimationInstance(loadedResource);
-		this._contentsAnimation.Index = MonitorInstance.GetContentsAnimationIndex(this._contents, (int)this.Level.Player.ProtagonistCharacterType);
-		this.CollisionVectors = CollisionVector.FromRectangle((ActiveObject)this, (Rectanglei)new Rectangle(-60.0, -60.0, 120.0, 120.0));
-		this.CollisionVectors[3].Id = 1;
+		_contentsAnimation = new AnimationInstance(loadedResource);
+		_contentsAnimation.Index = MonitorInstance.GetContentsAnimationIndex(_contents, (int)Level.Player.ProtagonistCharacterType);
+		CollisionVectors = CollisionVector.FromRectangle(this, (Rectanglei)new Rectangle(-60.0, -60.0, 120.0, 120.0));
+		CollisionVectors[3].Id = 1;
 	}
 
 	protected override void OnUpdate()
 	{
-		if (!this._stationary)
+		if (!_stationary)
 		{
-			this.PositionPrecise = this.PositionPrecise + this._velocity;
+			PositionPrecise = PositionPrecise + _velocity;
 			bool flag = false;
-			foreach (CollisionInfo collision in CollisionVector.GetCollisions((ActiveObject)this, 60))
+			foreach (CollisionInfo collision in CollisionVector.GetCollisions(this, 60))
 			{
 				if (collision.Vector.Owner == null && !collision.Vector.IsWall)
 				{
-					Vector2 positionPrecise = this.PositionPrecise;
+					Vector2 positionPrecise = PositionPrecise;
 					double x = positionPrecise.X;
-					positionPrecise = this.PositionPrecise;
+					positionPrecise = PositionPrecise;
 					double y = positionPrecise.Y + collision.Shift;
-					this.PositionPrecise = new Vector2(x, y);
+					PositionPrecise = new Vector2(x, y);
 					flag = true;
 				}
 			}
 			if (flag)
 			{
-				this.Entry.Position = this.Position;
-				this._stationary = true;
+				Entry.Position = Position;
+				_stationary = true;
 			}
 			else
-				this._velocity += new Vector2(0.0, 0.875);
+				_velocity += new Vector2(0.0, 0.875);
 		}
-		if (!this._raisingContents)
+		if (!_raisingContents)
 			return;
-		this._contentsPosition += this._contentsVelocity;
-		this._contentsVelocity.Y += 0.375;
-		if (this._contentsVelocity.Y < 0.0)
+		_contentsPosition += _contentsVelocity;
+		_contentsVelocity.Y += 0.375;
+		if (_contentsVelocity.Y < 0.0)
 			return;
-		this._raisingContents = false;
-		this.InvokeContents();
+		_raisingContents = false;
+		InvokeContents();
 	}
 
 	protected override void OnCollision(CollisionEvent e)
@@ -164,16 +164,16 @@ public class MonitorInstance : ActiveObject
 		ICharacter activeObject = (ICharacter)e.ActiveObject;
 		if (e.Id == 1)
 		{
-			this._stationary = false;
-			this._velocity.Y = -6.0;
+			_stationary = false;
+			_velocity.Y = -6.0;
 			activeObject.Velocity = new Vector2(activeObject.Velocity.X, activeObject.Velocity.Y * -1.0);
 			e.MaintainVelocity = true;
 		}
 		else
 		{
-			if (!this.CanCharacterBreak(activeObject))
+			if (!CanCharacterBreak(activeObject))
 				return;
-			this.Break(activeObject);
+			Break(activeObject);
 			e.IgnoreCollision = true;
 		}
 	}
@@ -185,7 +185,7 @@ public class MonitorInstance : ActiveObject
 
 	private void Break(ICharacter character)
 	{
-		this._breaker = character;
+		_breaker = character;
 		ICharacter character1 = character;
 		Vector2 velocity = character.Velocity;
 		double x = velocity.X;
@@ -195,84 +195,84 @@ public class MonitorInstance : ActiveObject
 		character1.Velocity = vector2;
 		if (character.Jumped)
 			character.IsJumping = true;
-		this._broken = true;
-		(this.Entry.State as MonitorInstance).Broken = true;
-		this._shellAnimation.Index = 2;
-		this._shellOverlayAnimation.Index = 3;
-		this.CollisionVectors = new CollisionVector[0];
-		this.CollisionRectangles = new CollisionRectangle[0];
-		this.RegisterCollisionUpdate();
-		this.CreateExplosionObject();
-		this.CreateRaisingContents();
-		this.LockLifetime = true;
+		_broken = true;
+		(Entry.State as MonitorInstance).Broken = true;
+		_shellAnimation.Index = 2;
+		_shellOverlayAnimation.Index = 3;
+		CollisionVectors = new CollisionVector[0];
+		CollisionRectangles = new CollisionRectangle[0];
+		RegisterCollisionUpdate();
+		CreateExplosionObject();
+		CreateRaisingContents();
+		LockLifetime = true;
 	}
 
 	private void CreateExplosionObject()
 	{
-		this.Level.ObjectManager.AddObject(new ObjectPlacement(this.Type.GetAbsolutePath("SONICORCA/OBJECTS/EXPLOSION/BADNIK"), this.Level.Map.Layers.IndexOf(this.Layer), this.Position));
+		Level.ObjectManager.AddObject(new ObjectPlacement(Type.GetAbsolutePath("SONICORCA/OBJECTS/EXPLOSION/BADNIK"), Level.Map.Layers.IndexOf(Layer), Position));
 	}
 
 	private void CreateRaisingContents()
 	{
-		this._contentsVelocity = new Vector2(0.0, -12.0);
-		this._contentsPosition = new Vector2(0.0, -13.0);
-		this._raisingContents = true;
+		_contentsVelocity = new Vector2(0.0, -12.0);
+		_contentsPosition = new Vector2(0.0, -13.0);
+		_raisingContents = true;
 	}
 
 	private void InvokeContents()
 	{
-		this.LockLifetime = false;
-		switch (this._contents)
+		LockLifetime = false;
+		switch (_contents)
 		{
 			case MonitorContents.Life:
-				this._breaker.Player.GainLives();
+				_breaker.Player.GainLives();
 				break;
 			case MonitorContents.Ring:
-				this._breaker.Player.GainRings(10);
-				this.Level.SoundManager.PlaySound((IActiveObject)this._breaker, "SONICORCA/SOUND/RING");
+				_breaker.Player.GainRings(10);
+				Level.SoundManager.PlaySound(_breaker, "SONICORCA/SOUND/RING");
 				break;
 			case MonitorContents.SpeedShoes:
-				this._breaker.Player.GiveSpeedShoes();
+				_breaker.Player.GiveSpeedShoes();
 				break;
 			case MonitorContents.Barrier:
-				this._breaker.Player.GiveBarrier(BarrierType.Classic);
-				this.Level.SoundManager.PlaySound((IActiveObject)this._breaker, "SONICORCA/SOUND/BARRIER");
+				_breaker.Player.GiveBarrier(BarrierType.Classic);
+				Level.SoundManager.PlaySound(_breaker, "SONICORCA/SOUND/BARRIER");
 				break;
 			case MonitorContents.Invincibility:
-				this._breaker.Player.GiveInvincibility();
+				_breaker.Player.GiveInvincibility();
 				break;
 		}
 	}
 
 	protected override void OnAnimate()
 	{
-		this._shellAnimation.Animate();
-		this._shellOverlayAnimation.Animate();
-		if (!this._broken)
+		_shellAnimation.Animate();
+		_shellOverlayAnimation.Animate();
+		if (!_broken)
 		{
-			this._screenAnimation.Animate();
-			this._screenOverlayAnimation.Animate();
+			_screenAnimation.Animate();
+			_screenOverlayAnimation.Animate();
 		}
-		if (!this._raisingContents)
+		if (!_raisingContents)
 			return;
-		this._contentsAnimation.Animate();
+		_contentsAnimation.Animate();
 	}
 
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 	{
 		IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
-		objectRenderer.Render(this._shellAnimation);
+		objectRenderer.Render(_shellAnimation);
 		if (viewOptions.Shadows)
 			return;
 		objectRenderer.FilterAmount *= 0.25;
-		if (!this._broken)
+		if (!_broken)
 		{
-			objectRenderer.Render(this._screenAnimation, new Vector2(2.0, -10.0));
-			objectRenderer.Render(this._screenOverlayAnimation, new Vector2(0.0, -13.0));
+			objectRenderer.Render(_screenAnimation, new Vector2(2.0, -10.0));
+			objectRenderer.Render(_screenOverlayAnimation, new Vector2(0.0, -13.0));
 		}
-		objectRenderer.Render(this._shellOverlayAnimation);
-		if (!this._raisingContents)
+		objectRenderer.Render(_shellOverlayAnimation);
+		if (!_raisingContents)
 			return;
-		objectRenderer.Render(this._contentsAnimation, this._contentsPosition);
+		objectRenderer.Render(_contentsAnimation, _contentsPosition);
 	}
 }

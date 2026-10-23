@@ -33,7 +33,7 @@ public static class LinqExtensions
 
 	public static int GetCollectionHashCode(params object[] items)
 	{
-		return ((IEnumerable<object>)items).GetCollectionHashCode();
+		return items.GetCollectionHashCode();
 	}
 
 	public static bool HasSameElementsAs<T>(this IEnumerable<T> first, IEnumerable<T> second)

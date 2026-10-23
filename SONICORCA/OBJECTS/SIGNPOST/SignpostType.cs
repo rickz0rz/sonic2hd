@@ -26,6 +26,6 @@ public class SignpostType : ObjectType
 
 	public new Vector2 GetLifeRadius(ActiveObject state)
 	{
-		return (Vector2)new Vector2i(0, this.Level.Bounds.Height);
+		return (Vector2)new Vector2i(0, Level.Bounds.Height);
 	}
 }

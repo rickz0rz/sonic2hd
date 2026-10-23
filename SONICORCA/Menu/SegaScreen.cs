@@ -4,13 +4,13 @@
 // MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
 // Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
 
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 using SonicOrca.Audio;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
 using SonicOrca.Resources;
-using System;
-using System.Threading;
-using System.Threading.Tasks;
 
 #nullable disable
 namespace SonicOrca.Menu;
@@ -30,71 +30,71 @@ internal class SegaScreen : Screen
 
 	public SegaScreen(SonicOrcaGameContext context)
 	{
-		this._context = context;
-		this._fadeTransition.Set();
-		this._stateMachine = this.CreateFSM();
+		_context = context;
+		_fadeTransition.Set();
+		_stateMachine = CreateFSM();
 	}
 
 	public override async Task LoadAsync(ScreenLoadingProgress progress, CancellationToken ct = default(CancellationToken))
 	{
-		ResourceTree resourceTree = this._context.ResourceTree;
-		this._resourceSession = new ResourceSession(resourceTree);
-		this._resourceSession.PushDependencies("SONICORCA/MENU/SEGA/SCREENLOGO", "SONICORCA/MENU/SEGA/SOUND");
-		await this._resourceSession.LoadAsync(ct);
-		this._logoTexture = resourceTree.GetLoadedResource<ITexture>("SONICORCA/MENU/SEGA/SCREENLOGO");
-		this._segaSample = resourceTree.GetLoadedResource<Sample>("SONICORCA/MENU/SEGA/SOUND");
+		ResourceTree resourceTree = _context.ResourceTree;
+		_resourceSession = new ResourceSession(resourceTree);
+		_resourceSession.PushDependencies("SONICORCA/MENU/SEGA/SCREENLOGO", "SONICORCA/MENU/SEGA/SOUND");
+		await _resourceSession.LoadAsync(ct);
+		_logoTexture = resourceTree.GetLoadedResource<ITexture>("SONICORCA/MENU/SEGA/SCREENLOGO");
+		_segaSample = resourceTree.GetLoadedResource<Sample>("SONICORCA/MENU/SEGA/SOUND");
 	}
 
 	public override void Unload()
 	{
-		if (this._segaSampleInstance != null)
-			this._segaSampleInstance.Dispose();
-		if (this._resourceSession == null)
+		if (_segaSampleInstance != null)
+			_segaSampleInstance.Dispose();
+		if (_resourceSession == null)
 			return;
-		this._resourceSession.Unload();
+		_resourceSession.Unload();
 	}
 
 	private FiniteStateMachine CreateFSM()
 	{
 		int cancelWait = 0;
 		FiniteStateMachine finiteStateMachine = new FiniteStateMachine();
-		finiteStateMachine.Begin().Do((Action)(() => cancelWait = 120)).While((Func<bool>)(() => cancelWait-- >= 0 && !this._cancelled)).Do((Action)(() =>
+		finiteStateMachine.Begin().Do(() => cancelWait = 120).While(() => cancelWait-- >= 0 && !_cancelled).Do(() =>
 		{
-			if (this._cancelled)
+			if (_cancelled)
 				finiteStateMachine.Finish();
 			else
-				this._fadeTransition.BeginFadeIn();
-		})).While((Func<bool>)(() => !this._fadeTransition.Finished), (Action)(() =>
+				_fadeTransition.BeginFadeIn();
+		}).While(() => !_fadeTransition.Finished, () =>
 		{
-			if (this._cancelled)
+			if (_cancelled)
 			{
-				this._fadeTransition.BeginFadeOut();
-				finiteStateMachine.Begin().Do((Action)(() => this._fadeTransition.BeginFadeOut())).While((Func<bool>)(() => !this._fadeTransition.Finished), (Action)(() => this._fadeTransition.Update())).Do((Action)(() => finiteStateMachine.Finish()));
+				_fadeTransition.BeginFadeOut();
+				finiteStateMachine.Begin().Do(() => _fadeTransition.BeginFadeOut()).While(() => !_fadeTransition.Finished, () => _fadeTransition.Update()).Do(() => finiteStateMachine.Finish());
 			}
 			else
-				this._fadeTransition.Update();
-		})).Do((Action)(() =>
+				_fadeTransition.Update();
+		}).Do(() =>
 		{
-			this._segaSampleInstance = new SampleInstance(this._context, this._segaSample);
-			this._segaSampleInstance.Play();
-		})).While((Func<bool>)(() => this._segaSampleInstance.Playing)).Do((Action)(() => cancelWait = 60)).While((Func<bool>)(() => cancelWait-- >= 0 && !this._cancelled)).Do((Action)(() => this._fadeTransition.BeginFadeOut())).While((Func<bool>)(() => !this._fadeTransition.Finished), (Action)(() => this._fadeTransition.Update()));
+			_segaSampleInstance = new SampleInstance(_context, _segaSample);
+			_segaSampleInstance.Play();
+		}).While(() => _segaSampleInstance.Playing).Do(() => cancelWait = 60).While(() => cancelWait-- >= 0 && !_cancelled).Do(() => _fadeTransition.BeginFadeOut()).While(() => !_fadeTransition.Finished, () => _fadeTransition.Update());
 		return finiteStateMachine;
 	}
 
 	public override void Update()
 	{
-		if (this._context.Pressed[0].Start)
-			this._cancelled = true;
-		if (this._stateMachine.Update())
+		if (_context.Pressed[0].Start)
+			_cancelled = true;
+		if (_stateMachine.Update())
 			return;
-		this.Finish();
+		Finish();
 	}
 
 	public override void Draw(Renderer renderer)
 	{
 		I2dRenderer obj = renderer.Get2dRenderer();
 		obj.RenderQuad(Colours.White, new Rectangle(0.0, 0.0, 1920.0, 1080.0));
-		obj.RenderTexture(this._logoTexture, new Vector2(960.0, 540.0));
-		this._fadeTransition.Draw(renderer);
+		obj.RenderTexture(_logoTexture, new Vector2(960.0, 540.0));
+		_fadeTransition.Draw(renderer);
 	}
 }

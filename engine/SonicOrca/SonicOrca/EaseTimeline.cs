@@ -74,7 +74,7 @@ public class EaseTimeline
 		{
 			return entry.Value;
 		}
-		double num = (entry2.Value - entry.Value) / (double)(entry2.Time - entry.Time);
-		return entry.Value + num * (double)(time - entry.Time);
+		double num = (entry2.Value - entry.Value) / (entry2.Time - entry.Time);
+		return entry.Value + num * (time - entry.Time);
 	}
 }

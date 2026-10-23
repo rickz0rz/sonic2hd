@@ -83,7 +83,7 @@ internal abstract class Packet
 	{
 		return packetType switch
 		{
-			PacketType.Ping => (Packet)new PingPacket(data),
+			PacketType.Ping => new PingPacket(data),
 			PacketType.Pong => new PongPacket(data),
 			PacketType.ChatMessage => new ChatMessagePacket(data),
 			PacketType.PlayInput => new PlayInputPacket(data),

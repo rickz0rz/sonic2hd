@@ -22,7 +22,7 @@ internal class InformationDebugOption : DebugOption
 
 	public override int Draw(Renderer renderer)
 	{
-		int num = (int)((double)Context.Font.Height * 0.5);
+		int num = (int)(Context.Font.Height * 0.5);
 		Rectangle rectangle = new Rectangle(0.0, 0.0, 1888.0, num);
 		foreach (IEnumerable<KeyValuePair<string, object>> item in GetInformation())
 		{

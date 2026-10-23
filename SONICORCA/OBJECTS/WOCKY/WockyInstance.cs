@@ -15,6 +15,6 @@ public class WockyInstance : Animal
 	public WockyInstance()
 	  : base("/ANIGROUP")
 	{
-		this.JumpVelocity = new Vector2(-10.0, -5.0);
+		JumpVelocity = new Vector2(-10.0, -5.0);
 	}
 }

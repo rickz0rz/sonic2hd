@@ -15,7 +15,7 @@ public class PockyInstance : Animal
 	public PockyInstance()
 	  : base("/ANIGROUP")
 	{
-		this.JumpVelocity = new Vector2(-6.0, -12.0);
-		this.JumpGravity = 0.875;
+		JumpVelocity = new Vector2(-6.0, -12.0);
+		JumpGravity = 0.875;
 	}
 }

@@ -64,10 +64,10 @@ public abstract class Renderer : IDisposable
 
 	public static void GetTextureMappings(ITexture texture, Rectanglei source, Vector2[] textureMappings, bool flipX = false, bool flipY = false)
 	{
-		double x = (flipX ? ((double)source.Right / (double)texture.Width) : ((double)source.Left / (double)texture.Width));
-		double x2 = (flipX ? ((double)source.Left / (double)texture.Width) : ((double)source.Right / (double)texture.Width));
-		double y = (flipY ? ((double)source.Bottom / (double)texture.Height) : ((double)source.Top / (double)texture.Height));
-		double y2 = (flipY ? ((double)source.Top / (double)texture.Height) : ((double)source.Bottom / (double)texture.Height));
+		double x = (flipX ? (source.Right / (double)texture.Width) : (source.Left / (double)texture.Width));
+		double x2 = (flipX ? (source.Left / (double)texture.Width) : (source.Right / (double)texture.Width));
+		double y = (flipY ? (source.Bottom / (double)texture.Height) : (source.Top / (double)texture.Height));
+		double y2 = (flipY ? (source.Top / (double)texture.Height) : (source.Bottom / (double)texture.Height));
 		textureMappings[0].X = x;
 		textureMappings[0].Y = y;
 		textureMappings[1].X = x;
@@ -80,10 +80,10 @@ public abstract class Renderer : IDisposable
 
 	public static void GetTextureMappingsHalfIn(ITexture texture, Rectanglei source, ref Vector2[] textureMappings, bool flipX = false, bool flipY = false)
 	{
-		double x = (flipX ? (((double)source.Right - 0.5) / (double)texture.Width) : (((double)source.Left + 0.5) / (double)texture.Width));
-		double x2 = (flipX ? (((double)source.Left + 0.5) / (double)texture.Width) : (((double)source.Right - 0.5) / (double)texture.Width));
-		double y = (flipY ? (((double)source.Bottom - 0.5) / (double)texture.Height) : (((double)source.Top + 0.5) / (double)texture.Height));
-		double y2 = (flipY ? (((double)source.Top + 0.5) / (double)texture.Height) : (((double)source.Bottom - 0.5) / (double)texture.Height));
+		double x = (flipX ? ((source.Right - 0.5) / texture.Width) : ((source.Left + 0.5) / texture.Width));
+		double x2 = (flipX ? ((source.Left + 0.5) / texture.Width) : ((source.Right - 0.5) / texture.Width));
+		double y = (flipY ? ((source.Bottom - 0.5) / texture.Height) : ((source.Top + 0.5) / texture.Height));
+		double y2 = (flipY ? ((source.Top + 0.5) / texture.Height) : ((source.Bottom - 0.5) / texture.Height));
 		textureMappings[0].X = x;
 		textureMappings[0].Y = y;
 		textureMappings[1].X = x;

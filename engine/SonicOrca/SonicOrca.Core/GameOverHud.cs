@@ -84,7 +84,7 @@ public class GameOverHud : IDisposable
 	{
 		IFontRenderer fontRenderer = renderer.GetFontRenderer();
 		int num = _font.DefaultWidth / 2;
-		fontRenderer.RenderStringWithShadow((_reason == Reason.GameOver) ? "GAME" : "TIME", new Rectangle(LeftFly.GetValueAt(_ticks) - (double)num, 0.0, 0.0, 1080.0), (FontAlignment)6, _font, Colours.White);
-		fontRenderer.RenderStringWithShadow("OVER", new Rectangle(RightFly.GetValueAt(_ticks) + (double)num, 0.0, 0.0, 1080.0), FontAlignment.MiddleY, _font, Colours.White);
+		fontRenderer.RenderStringWithShadow((_reason == Reason.GameOver) ? "GAME" : "TIME", new Rectangle(LeftFly.GetValueAt(_ticks) - num, 0.0, 0.0, 1080.0), (FontAlignment)6, _font, Colours.White);
+		fontRenderer.RenderStringWithShadow("OVER", new Rectangle(RightFly.GetValueAt(_ticks) + num, 0.0, 0.0, 1080.0), FontAlignment.MiddleY, _font, Colours.White);
 	}
 }

@@ -4,14 +4,14 @@
 // MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
 // Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
 
+using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
 using SonicOrca;
 using SonicOrca.Audio;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
 using SonicOrca.Input;
-using System;
-using System.Collections.Generic;
-using System.Collections.Immutable;
 
 #nullable disable
 namespace S2HD.Menu;
@@ -40,11 +40,11 @@ internal class SettingListMenuViewPresenter : IMenuViewPresenter
 
 	public Rectanglei Bounds
 	{
-		get => this._bounds;
+		get => _bounds;
 		set
 		{
-			this._bounds = value;
-			this._layoutDirty = true;
+			_bounds = value;
+			_layoutDirty = true;
 		}
 	}
 
@@ -53,50 +53,50 @@ internal class SettingListMenuViewPresenter : IMenuViewPresenter
 	  ISettingUIResources resources,
 	  ISettingListMenuViewModel viewModel)
 	{
-		this._gameContext = gameContext;
-		this._audioContext = this._gameContext.Audio;
-		this._resources = resources;
-		this._viewModel = viewModel;
-		this._settings = viewModel.Items;
-		this.Layout();
+		_gameContext = gameContext;
+		_audioContext = _gameContext.Audio;
+		_resources = resources;
+		_viewModel = viewModel;
+		_settings = viewModel.Items;
+		Layout();
 	}
 
 	private void Layout()
 	{
-		int x = this.Bounds.Left + 16 /*0x10*/;
-		int width = this.Bounds.Width - 32 /*0x20*/;
-		int y = this.Bounds.Top + 16 /*0x10*/;
-		this._optionSettingUIs.Clear();
-		foreach (ISetting setting in this._settings)
+		int x = Bounds.Left + 16 /*0x10*/;
+		int width = Bounds.Width - 32 /*0x20*/;
+		int y = Bounds.Top + 16 /*0x10*/;
+		_optionSettingUIs.Clear();
+		foreach (ISetting setting in _settings)
 		{
-			this._optionSettingUIs.Add(new SettingUI(setting, this._resources)
+			_optionSettingUIs.Add(new SettingUI(setting, _resources)
 			{
 				Bounds = new Rectanglei(x, y, width, 64 /*0x40*/),
 				Highlighted = false
 			});
 			y += 64 /*0x40*/;
 		}
-		if (this._optionSettingUIs.Count > 0)
+		if (_optionSettingUIs.Count > 0)
 		{
-			this._selectedIndex = this._selectedIndex != -1 ? Math.Min(this._selectedIndex, this._optionSettingUIs.Count - 1) : 0;
-			this._optionSettingUIs[this._selectedIndex].Highlighted = true;
+			_selectedIndex = _selectedIndex != -1 ? Math.Min(_selectedIndex, _optionSettingUIs.Count - 1) : 0;
+			_optionSettingUIs[_selectedIndex].Highlighted = true;
 		}
 		else
-			this._selectedIndex = -1;
-		this._layoutDirty = false;
+			_selectedIndex = -1;
+		_layoutDirty = false;
 	}
 
 	public void Update()
 	{
-		if (!this._layoutDirty)
+		if (!_layoutDirty)
 			return;
-		this.Layout();
+		Layout();
 	}
 
 	public void HandleInput()
 	{
-		InputContext input = this._gameContext.Input;
-		InputState pressed = this._gameContext.Input.Pressed;
+		InputContext input = _gameContext.Input;
+		InputState pressed = _gameContext.Input.Pressed;
 		GamePadInputState gamePadInputState;
 		Vector2i pov;
 		Vector2 leftAxis;
@@ -127,7 +127,7 @@ internal class SettingListMenuViewPresenter : IMenuViewPresenter
 										if (leftAxis.Y > -0.5)
 											goto label_15;
 									}
-									if (!this._tapDown)
+									if (!_tapDown)
 										goto label_14;
 								label_15:
 									if (!input.Pressed.Keyboard[81])
@@ -141,7 +141,7 @@ internal class SettingListMenuViewPresenter : IMenuViewPresenter
 											if (leftAxis.Y < 0.5)
 												goto label_20;
 										}
-										if (!this._tapUp)
+										if (!_tapUp)
 											goto label_19;
 									label_20:
 										if (!input.Pressed.Keyboard[80 /*0x50*/])
@@ -155,7 +155,7 @@ internal class SettingListMenuViewPresenter : IMenuViewPresenter
 												if (leftAxis.X > -0.5)
 													goto label_25;
 											}
-											if (!this._tapLeft)
+											if (!_tapLeft)
 												goto label_24;
 										label_25:
 											if (!input.Pressed.Keyboard[79])
@@ -169,39 +169,39 @@ internal class SettingListMenuViewPresenter : IMenuViewPresenter
 													if (leftAxis.X < 0.5)
 														goto label_30;
 												}
-												if (this._tapRight)
+												if (_tapRight)
 													goto label_30;
 											}
-											this.NavigateRight();
+											NavigateRight();
 											goto label_30;
 										}
 									label_24:
-										this.NavigateLeft();
+										NavigateLeft();
 										goto label_30;
 									}
 								label_19:
-									this.NavigateDown();
+									NavigateDown();
 									goto label_30;
 								}
 							label_14:
-								this.NavigateUp();
+								NavigateUp();
 								goto label_30;
 							}
 						}
 					}
-					EventHandler navigateBack = this.NavigateBack;
+					EventHandler navigateBack = NavigateBack;
 					if (navigateBack != null)
 					{
-						navigateBack((object)this, EventArgs.Empty);
+						navigateBack(this, EventArgs.Empty);
 						goto label_30;
 					}
 					goto label_30;
 				}
 			}
 		}
-		EventHandler<NavigateNextEventArgs> navigateNext = this.NavigateNext;
+		EventHandler<NavigateNextEventArgs> navigateNext = NavigateNext;
 		if (navigateNext != null)
-			navigateNext((object)this, new NavigateNextEventArgs((IMenuViewModel)null, (object)4));
+			navigateNext(this, new NavigateNextEventArgs(null, 4));
 	label_30:
 		gamePadInputState = pressed.GamePad[0];
 		pov = gamePadInputState.POV;
@@ -220,11 +220,11 @@ internal class SettingListMenuViewPresenter : IMenuViewPresenter
 					if (leftAxis.Y >= -0.5)
 						goto label_36;
 				}
-				this._tapDown = true;
+				_tapDown = true;
 				goto label_36;
 			}
 		}
-		this._tapUp = true;
+		_tapUp = true;
 	label_36:
 		gamePadInputState = pressed.GamePad[0];
 		pov = gamePadInputState.POV;
@@ -243,11 +243,11 @@ internal class SettingListMenuViewPresenter : IMenuViewPresenter
 					if (leftAxis.X >= -0.5)
 						goto label_42;
 				}
-				this._tapLeft = true;
+				_tapLeft = true;
 				goto label_42;
 			}
 		}
-		this._tapRight = true;
+		_tapRight = true;
 	label_42:
 		gamePadInputState = pressed.GamePad[0];
 		pov = gamePadInputState.POV;
@@ -257,8 +257,8 @@ internal class SettingListMenuViewPresenter : IMenuViewPresenter
 			leftAxis = gamePadInputState.LeftAxis;
 			if (Math.Abs(leftAxis.Y) < 0.01)
 			{
-				this._tapUp = false;
-				this._tapDown = false;
+				_tapUp = false;
+				_tapDown = false;
 			}
 		}
 		gamePadInputState = pressed.GamePad[0];
@@ -269,42 +269,42 @@ internal class SettingListMenuViewPresenter : IMenuViewPresenter
 		leftAxis = gamePadInputState.LeftAxis;
 		if (Math.Abs(leftAxis.X) >= 0.01)
 			return;
-		this._tapLeft = false;
-		this._tapRight = false;
+		_tapLeft = false;
+		_tapRight = false;
 	}
 
 	public void NavigateUp()
 	{
-		if (this._selectedIndex <= 0)
+		if (_selectedIndex <= 0)
 			return;
-		this._optionSettingUIs[this._selectedIndex].Highlighted = false;
-		--this._selectedIndex;
-		this._optionSettingUIs[this._selectedIndex].Highlighted = true;
-		this.PlayNavigationSound();
+		_optionSettingUIs[_selectedIndex].Highlighted = false;
+		--_selectedIndex;
+		_optionSettingUIs[_selectedIndex].Highlighted = true;
+		PlayNavigationSound();
 	}
 
 	public void NavigateDown()
 	{
-		if (this._selectedIndex >= this._optionSettingUIs.Count - 1)
+		if (_selectedIndex >= _optionSettingUIs.Count - 1)
 			return;
-		this._optionSettingUIs[this._selectedIndex].Highlighted = false;
-		++this._selectedIndex;
-		this._optionSettingUIs[this._selectedIndex].Highlighted = true;
-		this.PlayNavigationSound();
+		_optionSettingUIs[_selectedIndex].Highlighted = false;
+		++_selectedIndex;
+		_optionSettingUIs[_selectedIndex].Highlighted = true;
+		PlayNavigationSound();
 	}
 
 	private void PlayNavigationSound()
 	{
-		if (this._resources.NavigateSample == null)
+		if (_resources.NavigateSample == null)
 			return;
-		this._audioContext.PlaySound(this._resources.NavigateSample);
+		_audioContext.PlaySound(_resources.NavigateSample);
 	}
 
 	private void NavigateLeft()
 	{
-		if (this._selectedIndex == -1)
+		if (_selectedIndex == -1)
 			return;
-		ISetting setting = this._settings[this._selectedIndex];
+		ISetting setting = _settings[_selectedIndex];
 		switch (setting)
 		{
 			case IAudioSliderSetting _:
@@ -313,23 +313,23 @@ internal class SettingListMenuViewPresenter : IMenuViewPresenter
 					break;
 				audioSliderSetting.Value = MathX.Snap(audioSliderSetting.Value - 0.1, 0.1);
 				audioSliderSetting.Value = Math.Max(audioSliderSetting.Value, 0.0);
-				this.PlayNavigationSound();
+				PlayNavigationSound();
 				break;
 			case ISpinnerSetting _:
 				ISpinnerSetting spinnerSetting = setting as ISpinnerSetting;
 				if (spinnerSetting.SelectedIndex <= 0)
 					break;
 				--spinnerSetting.SelectedIndex;
-				this.PlayNavigationSound();
+				PlayNavigationSound();
 				break;
 		}
 	}
 
 	private void NavigateRight()
 	{
-		if (this._selectedIndex == -1)
+		if (_selectedIndex == -1)
 			return;
-		ISetting setting = this._settings[this._selectedIndex];
+		ISetting setting = _settings[_selectedIndex];
 		switch (setting)
 		{
 			case IAudioSliderSetting _:
@@ -338,7 +338,7 @@ internal class SettingListMenuViewPresenter : IMenuViewPresenter
 					break;
 				audioSliderSetting.Value = MathX.Snap(audioSliderSetting.Value + 0.1, 0.1);
 				audioSliderSetting.Value = Math.Min(audioSliderSetting.Value, 1.0);
-				this.PlayNavigationSound();
+				PlayNavigationSound();
 				break;
 			case ISpinnerSetting _:
 				ISpinnerSetting spinnerSetting = setting as ISpinnerSetting;
@@ -346,7 +346,7 @@ internal class SettingListMenuViewPresenter : IMenuViewPresenter
 				if (spinnerSetting.SelectedIndex >= count - 1)
 					break;
 				++spinnerSetting.SelectedIndex;
-				this.PlayNavigationSound();
+				PlayNavigationSound();
 				break;
 		}
 	}
@@ -354,15 +354,15 @@ internal class SettingListMenuViewPresenter : IMenuViewPresenter
 	public void Draw(Renderer renderer)
 	{
 		I2dRenderer obj = renderer.Get2dRenderer();
-		if (this._selectedIndex != -1)
+		if (_selectedIndex != -1)
 		{
-			Rectanglei destination = this._optionSettingUIs[this._selectedIndex].Bounds;
+			Rectanglei destination = _optionSettingUIs[_selectedIndex].Bounds;
 			destination = destination.Inflate(new Vector2i(16 /*0x10*/, 0));
 			Colour colour = new Colour(0.1, 1.0, 1.0, 1.0);
 			obj.BlendMode = BlendMode.Additive;
 			obj.RenderQuad(colour, (Rectangle)destination);
 		}
-		foreach (SettingUI optionSettingUi in this._optionSettingUIs)
+		foreach (SettingUI optionSettingUi in _optionSettingUIs)
 			optionSettingUi.Draw(renderer);
 	}
 }

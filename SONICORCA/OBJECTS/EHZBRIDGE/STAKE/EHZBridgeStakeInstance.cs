@@ -15,12 +15,12 @@ public class EHZBridgeStakeInstance : Scenery
 	public EHZBridgeStakeInstance()
 	  : base("//ANIGROUP")
 	{
-		this.DesignBounds = new Rectanglei(-32, -32, 64 /*0x40*/, 64 /*0x40*/);
+		DesignBounds = new Rectanglei(-32, -32, 64 /*0x40*/, 64 /*0x40*/);
 	}
 
 	protected override void OnStart()
 	{
 		base.OnStart();
-		this.Priority = 1280 /*0x0500*/;
+		Priority = 1280 /*0x0500*/;
 	}
 }

@@ -4,6 +4,9 @@
 // MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
 // Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using SonicOrca.Core;
 using SonicOrca.Core.Collision;
 using SonicOrca.Core.Objects.Base;
@@ -11,9 +14,6 @@ using SonicOrca.Core.Objects.Metadata;
 using SonicOrca.Extensions;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 
 #nullable disable
 namespace SONICORCA.OBJECTS.CPZBLOBS;
@@ -36,8 +36,8 @@ public class CPZBlobsInstance : ActiveObject
 	[StateVariable]
 	private CPZBlobsInstance.ArrangementType Arrangement
 	{
-		get => this._arrangementType;
-		set => this._arrangementType = value;
+		get => _arrangementType;
+		set => _arrangementType = value;
 	}
 
 	[StateVariable]
@@ -45,15 +45,15 @@ public class CPZBlobsInstance : ActiveObject
 
 	protected override void OnStart()
 	{
-		this._animationGroup = this.ResourceTree.GetLoadedResource<AnimationGroup>(this.Type.GetAbsolutePath("/ANIGROUP"));
-		this.DesignBounds = new Rectanglei((int)sbyte.MinValue, (int)sbyte.MinValue, 256 /*0x0100*/, 256 /*0x0100*/);
-		this._children = new CPZBlobsInstance.Blob[6];
+		_animationGroup = ResourceTree.GetLoadedResource<AnimationGroup>(Type.GetAbsolutePath("/ANIGROUP"));
+		DesignBounds = new Rectanglei(sbyte.MinValue, sbyte.MinValue, 256 /*0x0100*/, 256 /*0x0100*/);
+		_children = new CPZBlobsInstance.Blob[6];
 		for (int index = 5; index >= 0; --index)
 		{
-			CPZBlobsInstance.Blob blob = this.Level.ObjectManager.AddSubObject<CPZBlobsInstance.Blob>((ActiveObject)this);
-			blob.Initialise(this.Position, index, this.FlipX);
-			this._children[index] = blob;
-			this._children[index].Priority = index + 2;
+			CPZBlobsInstance.Blob blob = Level.ObjectManager.AddSubObject<CPZBlobsInstance.Blob>(this);
+			blob.Initialise(Position, index, FlipX);
+			_children[index] = blob;
+			_children[index].Priority = index + 2;
 		}
 	}
 
@@ -64,24 +64,24 @@ public class CPZBlobsInstance : ActiveObject
 	[HideInEditor]
 	public List<AnimationInstance> BottomStartOverflowTriggeredAnimations
 	{
-		get => this._bottomStartOverflowTriggeredAnimations;
+		get => _bottomStartOverflowTriggeredAnimations;
 	}
 
 	[HideInEditor]
 	public Dictionary<AnimationInstance, Vector2> TriggeredAnimationsPositions
 	{
-		get => this._triggeredAnimationsPositions;
+		get => _triggeredAnimationsPositions;
 	}
 
 	[HideInEditor]
-	public Dictionary<AnimationInstance, Vector2> TriggeredAnimations => this._triggeredAnimations;
+	public Dictionary<AnimationInstance, Vector2> TriggeredAnimations => _triggeredAnimations;
 
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 	{
 		base.OnDraw(renderer, viewOptions);
 		IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
 		List<AnimationInstance> animationInstanceList = new List<AnimationInstance>();
-		foreach (KeyValuePair<AnimationInstance, Vector2> triggeredAnimation in this.TriggeredAnimations)
+		foreach (KeyValuePair<AnimationInstance, Vector2> triggeredAnimation in TriggeredAnimations)
 		{
 			triggeredAnimation.Key.Animate();
 			if (triggeredAnimation.Key.Cycles > 0)
@@ -91,33 +91,33 @@ public class CPZBlobsInstance : ActiveObject
 		{
 			key.ResetFrame();
 			key.Cycles = 0;
-			if (key.Index == 4 || this.BottomStartOverflowTriggeredAnimations.Contains(key))
+			if (key.Index == 4 || BottomStartOverflowTriggeredAnimations.Contains(key))
 			{
-				CPZBlobsInstance.OverflowInstance overflowInstance = this.Level.ObjectManager.AddSubObject<CPZBlobsInstance.OverflowInstance>((ActiveObject)this);
+				CPZBlobsInstance.OverflowInstance overflowInstance = Level.ObjectManager.AddSubObject<CPZBlobsInstance.OverflowInstance>(this);
 				overflowInstance.InitOverflow();
-				overflowInstance.Layer = this.Level.Map.Layers.Last<LevelLayer>();
-				Vector2 animationsPosition = this.TriggeredAnimationsPositions[key];
-				if (this.BottomStartOverflowTriggeredAnimations.Contains(key))
+				overflowInstance.Layer = Level.Map.Layers.Last<LevelLayer>();
+				Vector2 animationsPosition = TriggeredAnimationsPositions[key];
+				if (BottomStartOverflowTriggeredAnimations.Contains(key))
 				{
-					if (this._arrangementType == CPZBlobsInstance.ArrangementType.Arc)
+					if (_arrangementType == CPZBlobsInstance.ArrangementType.Arc)
 						overflowInstance.PositionPrecise = new Vector2(animationsPosition.X, animationsPosition.Y - 40.0);
 					else
 						overflowInstance.PositionPrecise = new Vector2(animationsPosition.X, animationsPosition.Y - 40.0);
 				}
-				else if (this._arrangementType == CPZBlobsInstance.ArrangementType.Arc)
+				else if (_arrangementType == CPZBlobsInstance.ArrangementType.Arc)
 					overflowInstance.PositionPrecise = new Vector2(animationsPosition.X, animationsPosition.Y - 15.0);
 				else
 					overflowInstance.PositionPrecise = new Vector2(animationsPosition.X, animationsPosition.Y - 23.0);
 			}
-			if (this.BottomStartOverflowTriggeredAnimations.Contains(key))
-				this.BottomStartOverflowTriggeredAnimations.Remove(key);
-			this.TriggeredAnimations.Remove(key);
-			this.TriggeredAnimationsPositions.Remove(key);
+			if (BottomStartOverflowTriggeredAnimations.Contains(key))
+				BottomStartOverflowTriggeredAnimations.Remove(key);
+			TriggeredAnimations.Remove(key);
+			TriggeredAnimationsPositions.Remove(key);
 		}
-		foreach (KeyValuePair<AnimationInstance, Vector2> triggeredAnimation in this.TriggeredAnimations)
+		foreach (KeyValuePair<AnimationInstance, Vector2> triggeredAnimation in TriggeredAnimations)
 		{
-			Vector2 animationsPosition = this.TriggeredAnimationsPositions[triggeredAnimation.Key];
-			objectRenderer.Render(triggeredAnimation.Key, animationsPosition - this.PositionPrecise + triggeredAnimation.Value);
+			Vector2 animationsPosition = TriggeredAnimationsPositions[triggeredAnimation.Key];
+			objectRenderer.Render(triggeredAnimation.Key, animationsPosition - PositionPrecise + triggeredAnimation.Value);
 		}
 	}
 
@@ -150,310 +150,310 @@ public class CPZBlobsInstance : ActiveObject
 
 		public int Delay { get; set; }
 
-		public CPZBlobsInstance Host => this.ParentObject as CPZBlobsInstance;
+		public CPZBlobsInstance Host => ParentObject as CPZBlobsInstance;
 
-		public Vector2 Velocity => this._velocity;
+		public Vector2 Velocity => _velocity;
 
 		protected override void OnStart()
 		{
 			base.OnStart();
-			this._animationBlob = new AnimationInstance(this.Host._animationGroup);
-			this._animationTopSplashStart = new AnimationInstance(this.Host._animationGroup, 1);
-			this._animationTopSplashEnd = new AnimationInstance(this.Host._animationGroup, 2);
-			this._animationBottomSplashStart = new AnimationInstance(this.Host._animationGroup, 3);
-			this._animationBottomSplashEnd = new AnimationInstance(this.Host._animationGroup, 4);
-			this._animationBottomOverflow = new AnimationInstance(this.Host._animationGroup, 5);
-			this.Priority = (int)sbyte.MinValue;
-			this.CollisionRectangles = new CollisionRectangle[1]
+			_animationBlob = new AnimationInstance(Host._animationGroup);
+			_animationTopSplashStart = new AnimationInstance(Host._animationGroup, 1);
+			_animationTopSplashEnd = new AnimationInstance(Host._animationGroup, 2);
+			_animationBottomSplashStart = new AnimationInstance(Host._animationGroup, 3);
+			_animationBottomSplashEnd = new AnimationInstance(Host._animationGroup, 4);
+			_animationBottomOverflow = new AnimationInstance(Host._animationGroup, 5);
+			Priority = sbyte.MinValue;
+			CollisionRectangles = new CollisionRectangle[1]
 			{
-		new CollisionRectangle((ActiveObject) this, 0, -16, -16, 32 /*0x20*/, 32 /*0x20*/)
+		new CollisionRectangle( this, 0, -16, -16, 32 /*0x20*/, 32 /*0x20*/)
 			};
 		}
 
 		public void Initialise(Vector2i position, int index, bool flipX)
 		{
-			this._index = index;
-			this._upVelocity = this.Host._arrangementType != CPZBlobsInstance.ArrangementType.Arc ? -9.0 : -17.55;
-			this._velocity = new Vector2(0.0, this._upVelocity);
-			this.Position = position;
-			this._originalY = this.Host._arrangementType != CPZBlobsInstance.ArrangementType.Arc ? position.Y : position.Y + 8;
+			_index = index;
+			_upVelocity = Host._arrangementType != CPZBlobsInstance.ArrangementType.Arc ? -9.0 : -17.55;
+			_velocity = new Vector2(0.0, _upVelocity);
+			Position = position;
+			_originalY = Host._arrangementType != CPZBlobsInstance.ArrangementType.Arc ? position.Y : position.Y + 8;
 			if (flipX)
 			{
-				this._leftToRight = false;
-				this._upX = position.X;
-				this._downX = position.X + 384;
-				this._currentAngle = Math.PI;
+				_leftToRight = false;
+				_upX = position.X;
+				_downX = position.X + 384;
+				_currentAngle = Math.PI;
 			}
 			else
 			{
-				this._leftToRight = true;
-				this._upX = position.X + 384;
-				this._downX = position.X;
-				this._currentAngle = 0.0;
+				_leftToRight = true;
+				_upX = position.X + 384;
+				_downX = position.X;
+				_currentAngle = 0.0;
 			}
-			this.Delay = this.Host._arrangementType != CPZBlobsInstance.ArrangementType.Arc ? index * 4 : index * 5;
-			this.LockLifetime = true;
+			Delay = Host._arrangementType != CPZBlobsInstance.ArrangementType.Arc ? index * 4 : index * 5;
+			LockLifetime = true;
 		}
 
 		protected override void OnUpdate()
 		{
 			base.OnUpdate();
-			if (this.Host.Finished)
-				this.Finish();
-			else if (this.Delay > 0)
-				--this.Delay;
-			else if (this.Host._arrangementType == CPZBlobsInstance.ArrangementType.Arc)
-				this.UpdateArc();
+			if (Host.Finished)
+				Finish();
+			else if (Delay > 0)
+				--Delay;
+			else if (Host._arrangementType == CPZBlobsInstance.ArrangementType.Arc)
+				UpdateArc();
 			else
-				this.UpdateStraight();
+				UpdateStraight();
 		}
 
 		private void UpdateArc()
 		{
-			if (this.Host._arrangementType == CPZBlobsInstance.ArrangementType.Arc)
-				this.ArcPrepareTriggers();
-			if (this._leftToRight && this._currentAngle <= 0.0)
-				this.PlayGloopSound();
-			if (!this._leftToRight && this._currentAngle >= Math.PI)
-				this.PlayGloopSound();
-			Vector2 relative = new Vector2((double)(this._downX + this._upX) * 0.5, (double)this._originalY);
-			double num = Vector2.GetDistance(new Vector2((double)this._downX, 0.0), new Vector2((double)this._upX, 0.0)) * 0.5;
+			if (Host._arrangementType == CPZBlobsInstance.ArrangementType.Arc)
+				ArcPrepareTriggers();
+			if (_leftToRight && _currentAngle <= 0.0)
+				PlayGloopSound();
+			if (!_leftToRight && _currentAngle >= Math.PI)
+				PlayGloopSound();
+			Vector2 relative = new Vector2((_downX + _upX) * 0.5, _originalY);
+			double num = Vector2.GetDistance(new Vector2(_downX, 0.0), new Vector2(_upX, 0.0)) * 0.5;
 			double x = relative.X - num;
-			if (this._leftToRight)
-				this._currentAngle += 0.031939525311496228;
+			if (_leftToRight)
+				_currentAngle += 0.031939525311496228;
 			else
-				this._currentAngle -= 0.031939525311496228;
-			this.PositionPrecise = this.PositionPrecise + this._velocity;
-			if (this._leftToRight)
+				_currentAngle -= 0.031939525311496228;
+			PositionPrecise = PositionPrecise + _velocity;
+			if (_leftToRight)
 			{
-				Vector2 point = new Vector2(x, (double)this._originalY);
-				this.PositionPrecise = new Vector2(Vector2.GetPointRotatedFromRelative(relative, point, this._currentAngle).X, this.PositionPrecise.Y);
+				Vector2 point = new Vector2(x, _originalY);
+				PositionPrecise = new Vector2(Vector2.GetPointRotatedFromRelative(relative, point, _currentAngle).X, PositionPrecise.Y);
 			}
 			else
 			{
-				Vector2 point = new Vector2(x, (double)this._originalY);
-				this.PositionPrecise = new Vector2(Vector2.GetPointRotatedFromRelative(relative, point, this._currentAngle).X, this.PositionPrecise.Y);
+				Vector2 point = new Vector2(x, _originalY);
+				PositionPrecise = new Vector2(Vector2.GetPointRotatedFromRelative(relative, point, _currentAngle).X, PositionPrecise.Y);
 			}
-			this._velocity.Y += 0.375;
-			if (this.PositionPrecise.Y >= (double)this._originalY && !this._directionChange)
+			_velocity.Y += 0.375;
+			if (PositionPrecise.Y >= _originalY && !_directionChange)
 			{
-				this._directionChange = true;
-				this.Delay = 72;
+				_directionChange = true;
+				Delay = 72;
 			}
-			if (!this._directionChange)
+			if (!_directionChange)
 				return;
-			this._velocity.Y = this._upVelocity;
-			this._directionChange = false;
-			this._leftToRight = !this._leftToRight;
-			if (this._leftToRight)
-				this._currentAngle = 0.0;
-			if (!this._leftToRight)
-				this._currentAngle = Math.PI;
-			this.PositionPrecise = new Vector2(this._leftToRight ? (double)this._downX : (double)this._upX, (double)this._originalY);
+			_velocity.Y = _upVelocity;
+			_directionChange = false;
+			_leftToRight = !_leftToRight;
+			if (_leftToRight)
+				_currentAngle = 0.0;
+			if (!_leftToRight)
+				_currentAngle = Math.PI;
+			PositionPrecise = new Vector2(_leftToRight ? _downX : _upX, _originalY);
 		}
 
 		private void UpdateStraight()
 		{
-			this.PositionPrecise = this.PositionPrecise + this._velocity;
-			if (this._directionChange)
+			PositionPrecise = PositionPrecise + _velocity;
+			if (_directionChange)
 			{
-				this._velocity.Y = this._upVelocity * (double)this._directionChangeNormal;
-				this._directionChange = false;
+				_velocity.Y = _upVelocity * _directionChangeNormal;
+				_directionChange = false;
 			}
-			if (this.Position.Y > this._originalY && this._velocity.Y > 0.0)
+			if (Position.Y > _originalY && _velocity.Y > 0.0)
 			{
-				this.PlayGloopSound();
-				this.Delay = 72;
-				this._directionChange = true;
-				this._velocity.Y = 0.0;
-				this._directionChangeNormal = 1;
+				PlayGloopSound();
+				Delay = 72;
+				_directionChange = true;
+				_velocity.Y = 0.0;
+				_directionChangeNormal = 1;
 			}
-			else if (this.Position.Y < this._originalY - 324 && this._velocity.Y < 0.0)
+			else if (Position.Y < _originalY - 324 && _velocity.Y < 0.0)
 			{
-				this.PlayGloopSound();
-				this.Delay = 9;
-				this._directionChange = true;
-				this._velocity.Y = 0.0;
-				this._directionChangeNormal = -1;
+				PlayGloopSound();
+				Delay = 9;
+				_directionChange = true;
+				_velocity.Y = 0.0;
+				_directionChangeNormal = -1;
 			}
-			this.PositionPrecise = new Vector2(this._velocity.Y >= 0.0 ? (double)this._downX : (double)this._upX, this.PositionPrecise.Y);
+			PositionPrecise = new Vector2(_velocity.Y >= 0.0 ? _downX : _upX, PositionPrecise.Y);
 		}
 
 		private void PlayGloopSound()
 		{
-			this.Level.SoundManager.PlaySoundVisibleOnly("SONICORCA/SOUND/BLOB", this.Position);
+			Level.SoundManager.PlaySoundVisibleOnly("SONICORCA/SOUND/BLOB", Position);
 		}
 
 		protected override void OnAnimate()
 		{
-			if (!this._startAnimation)
+			if (!_startAnimation)
 				return;
-			this._animationBlob.Animate();
+			_animationBlob.Animate();
 		}
 
 		private void TriggerAnimation(AnimationInstance animation, Vector2 position, bool isFinal = false)
 		{
-			if (!(this._lastTriggeredAnimation != animation | isFinal))
+			if (!(_lastTriggeredAnimation != animation | isFinal))
 				return;
-			this._lastTriggeredAnimation = animation;
+			_lastTriggeredAnimation = animation;
 			if (isFinal)
-				this._lastTriggeredAnimation = (AnimationInstance)null;
-			if (!this.Host.TriggeredAnimations.Any<KeyValuePair<AnimationInstance, Vector2>>((Func<KeyValuePair<AnimationInstance, Vector2>, bool>)(a => a.Key.Index == animation.Index)) && !this.Host.TriggeredAnimationsPositions.Any<KeyValuePair<AnimationInstance, Vector2>>((Func<KeyValuePair<AnimationInstance, Vector2>, bool>)(p => p.Value == this.PositionPrecise)))
+				_lastTriggeredAnimation = null;
+			if (!Host.TriggeredAnimations.Any<KeyValuePair<AnimationInstance, Vector2>>(a => a.Key.Index == animation.Index) && !Host.TriggeredAnimationsPositions.Any<KeyValuePair<AnimationInstance, Vector2>>(p => p.Value == PositionPrecise))
 			{
 				animation.ResetFrame();
 				animation.Cycles = 0;
-				this.Host.TriggeredAnimations.Add(animation, position);
-				this.Host.TriggeredAnimationsPositions.Add(animation, this.PositionPrecise);
+				Host.TriggeredAnimations.Add(animation, position);
+				Host.TriggeredAnimationsPositions.Add(animation, PositionPrecise);
 			}
-			if (this._index == 5 && animation.Index == 3 && this.Host._arrangementType == CPZBlobsInstance.ArrangementType.Straight)
+			if (_index == 5 && animation.Index == 3 && Host._arrangementType == CPZBlobsInstance.ArrangementType.Straight)
 			{
-				KeyValuePair<AnimationInstance, Vector2> keyValuePair = this.Host.TriggeredAnimations.LastOrDefault<KeyValuePair<AnimationInstance, Vector2>>((Func<KeyValuePair<AnimationInstance, Vector2>, bool>)(a => a.Key.Index == 3));
+				KeyValuePair<AnimationInstance, Vector2> keyValuePair = Host.TriggeredAnimations.LastOrDefault<KeyValuePair<AnimationInstance, Vector2>>(a => a.Key.Index == 3);
 				if (keyValuePair.Key == null)
 					return;
-				this.Host.BottomStartOverflowTriggeredAnimations.Add(keyValuePair.Key);
+				Host.BottomStartOverflowTriggeredAnimations.Add(keyValuePair.Key);
 			}
 			else
 			{
-				if (this._index != 5 || animation.Index != 3 || this.Host._arrangementType != CPZBlobsInstance.ArrangementType.Arc || this._velocity.Y >= 0.0 || this.Host.BottomStartOverflowTriggeredAnimations.Count != 0)
+				if (_index != 5 || animation.Index != 3 || Host._arrangementType != CPZBlobsInstance.ArrangementType.Arc || _velocity.Y >= 0.0 || Host.BottomStartOverflowTriggeredAnimations.Count != 0)
 					return;
-				KeyValuePair<AnimationInstance, Vector2> keyValuePair = this.Host.TriggeredAnimations.LastOrDefault<KeyValuePair<AnimationInstance, Vector2>>((Func<KeyValuePair<AnimationInstance, Vector2>, bool>)(a => a.Key.Index == 3));
+				KeyValuePair<AnimationInstance, Vector2> keyValuePair = Host.TriggeredAnimations.LastOrDefault<KeyValuePair<AnimationInstance, Vector2>>(a => a.Key.Index == 3);
 				if (keyValuePair.Key == null)
 					return;
-				this.Host.BottomStartOverflowTriggeredAnimations.Add(keyValuePair.Key);
+				Host.BottomStartOverflowTriggeredAnimations.Add(keyValuePair.Key);
 			}
 		}
 
 		protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 		{
-			if (this.Host._arrangementType == CPZBlobsInstance.ArrangementType.Straight)
-				this.StraightPrepareTriggers();
+			if (Host._arrangementType == CPZBlobsInstance.ArrangementType.Straight)
+				StraightPrepareTriggers();
 			IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
-			if (this.Host._arrangementType == CPZBlobsInstance.ArrangementType.Arc)
-				this.DrawArc(objectRenderer, viewOptions);
+			if (Host._arrangementType == CPZBlobsInstance.ArrangementType.Arc)
+				DrawArc(objectRenderer, viewOptions);
 			else
-				this.DrawStraight(objectRenderer, viewOptions);
+				DrawStraight(objectRenderer, viewOptions);
 		}
 
 		private void ArcPrepareTriggers()
 		{
-			Rectanglei absoluteBounds = this.CollisionRectangles[0].AbsoluteBounds;
-			Rectangle rect1 = Rectangle.FromLTRB((double)this._downX - (double)absoluteBounds.Width * 0.5, (double)(this._originalY - absoluteBounds.Height), (double)this._downX + (double)absoluteBounds.Width * 0.5, (double)this._originalY + (double)absoluteBounds.Height * 0.5);
-			Rectangle rect2 = Rectangle.FromLTRB((double)this._upX - (double)absoluteBounds.Width * 0.5, (double)(this._originalY - absoluteBounds.Height), (double)this._upX + (double)absoluteBounds.Width * 0.5, (double)this._originalY + (double)absoluteBounds.Height * 0.5);
+			Rectanglei absoluteBounds = CollisionRectangles[0].AbsoluteBounds;
+			Rectangle rect1 = Rectangle.FromLTRB(_downX - absoluteBounds.Width * 0.5, _originalY - absoluteBounds.Height, _downX + absoluteBounds.Width * 0.5, _originalY + absoluteBounds.Height * 0.5);
+			Rectangle rect2 = Rectangle.FromLTRB(_upX - absoluteBounds.Width * 0.5, _originalY - absoluteBounds.Height, _upX + absoluteBounds.Width * 0.5, _originalY + absoluteBounds.Height * 0.5);
 			Vector2i position1;
-			if (absoluteBounds.IntersectsWith((Rectanglei)rect2) && !this._leftToRight)
+			if (absoluteBounds.IntersectsWith((Rectanglei)rect2) && !_leftToRight)
 			{
-				this._startAnimation = true;
-				AnimationInstance bottomSplashStart = this._animationBottomSplashStart;
-				double x = (double)(this._upX - this.Position.X);
-				int num = this._originalY - 112 /*0x70*/;
-				position1 = this.Position;
+				_startAnimation = true;
+				AnimationInstance bottomSplashStart = _animationBottomSplashStart;
+				double x = _upX - Position.X;
+				int num = _originalY - 112 /*0x70*/;
+				position1 = Position;
 				int y1 = position1.Y;
-				double y2 = (double)(num - y1);
+				double y2 = num - y1;
 				Vector2 position2 = new Vector2(x, y2);
-				this.TriggerAnimation(bottomSplashStart, position2, true);
+				TriggerAnimation(bottomSplashStart, position2, true);
 			}
-			if (absoluteBounds.IntersectsWith((Rectanglei)rect1) && this._leftToRight)
+			if (absoluteBounds.IntersectsWith((Rectanglei)rect1) && _leftToRight)
 			{
-				this._startAnimation = true;
-				AnimationInstance bottomSplashStart = this._animationBottomSplashStart;
-				int downX = this._downX;
-				position1 = this.Position;
+				_startAnimation = true;
+				AnimationInstance bottomSplashStart = _animationBottomSplashStart;
+				int downX = _downX;
+				position1 = Position;
 				int x1 = position1.X;
-				double x2 = (double)(downX - x1);
-				int num = this._originalY - 112 /*0x70*/;
-				position1 = this.Position;
+				double x2 = downX - x1;
+				int num = _originalY - 112 /*0x70*/;
+				position1 = Position;
 				int y3 = position1.Y;
-				double y4 = (double)(num - y3);
+				double y4 = num - y3;
 				Vector2 position3 = new Vector2(x2, y4);
-				this.TriggerAnimation(bottomSplashStart, position3);
+				TriggerAnimation(bottomSplashStart, position3);
 			}
-			if (absoluteBounds.IntersectsWith((Rectanglei)rect2) && this._leftToRight)
+			if (absoluteBounds.IntersectsWith((Rectanglei)rect2) && _leftToRight)
 			{
-				if (this._index == 5)
+				if (_index == 5)
 				{
-					AnimationInstance animationBottomSplashEnd = this._animationBottomSplashEnd;
-					int upX = this._upX;
-					position1 = this.Position;
+					AnimationInstance animationBottomSplashEnd = _animationBottomSplashEnd;
+					int upX = _upX;
+					position1 = Position;
 					int x3 = position1.X;
-					double x4 = (double)(upX - x3);
-					int num = this._originalY - 120;
-					position1 = this.Position;
+					double x4 = upX - x3;
+					int num = _originalY - 120;
+					position1 = Position;
 					int y5 = position1.Y;
-					double y6 = (double)(num - y5);
+					double y6 = num - y5;
 					Vector2 position4 = new Vector2(x4, y6);
-					this.TriggerAnimation(animationBottomSplashEnd, position4, true);
+					TriggerAnimation(animationBottomSplashEnd, position4, true);
 				}
 				else
 				{
-					AnimationInstance bottomSplashStart = this._animationBottomSplashStart;
-					int upX = this._upX;
-					position1 = this.Position;
+					AnimationInstance bottomSplashStart = _animationBottomSplashStart;
+					int upX = _upX;
+					position1 = Position;
 					int x5 = position1.X;
-					double x6 = (double)(upX - x5);
-					int num = this._originalY - 112 /*0x70*/;
-					position1 = this.Position;
+					double x6 = upX - x5;
+					int num = _originalY - 112 /*0x70*/;
+					position1 = Position;
 					int y7 = position1.Y;
-					double y8 = (double)(num - y7);
+					double y8 = num - y7;
 					Vector2 position5 = new Vector2(x6, y8);
-					this.TriggerAnimation(bottomSplashStart, position5, true);
+					TriggerAnimation(bottomSplashStart, position5, true);
 				}
 			}
-			if (!absoluteBounds.IntersectsWith((Rectanglei)rect1) || this._leftToRight)
+			if (!absoluteBounds.IntersectsWith((Rectanglei)rect1) || _leftToRight)
 				return;
-			if (this._index == 5)
+			if (_index == 5)
 			{
-				AnimationInstance animationBottomSplashEnd = this._animationBottomSplashEnd;
-				int downX = this._downX;
-				position1 = this.Position;
+				AnimationInstance animationBottomSplashEnd = _animationBottomSplashEnd;
+				int downX = _downX;
+				position1 = Position;
 				int x7 = position1.X;
-				double x8 = (double)(downX - x7);
-				int num = this._originalY - 120;
-				position1 = this.Position;
+				double x8 = downX - x7;
+				int num = _originalY - 120;
+				position1 = Position;
 				int y9 = position1.Y;
-				double y10 = (double)(num - y9);
+				double y10 = num - y9;
 				Vector2 position6 = new Vector2(x8, y10);
-				this.TriggerAnimation(animationBottomSplashEnd, position6, true);
+				TriggerAnimation(animationBottomSplashEnd, position6, true);
 			}
 			else
 			{
-				AnimationInstance bottomSplashStart = this._animationBottomSplashStart;
-				int downX = this._downX;
-				position1 = this.Position;
+				AnimationInstance bottomSplashStart = _animationBottomSplashStart;
+				int downX = _downX;
+				position1 = Position;
 				int x9 = position1.X;
-				double x10 = (double)(downX - x9);
-				int num = this._originalY - 112 /*0x70*/;
-				position1 = this.Position;
+				double x10 = downX - x9;
+				int num = _originalY - 112 /*0x70*/;
+				position1 = Position;
 				int y11 = position1.Y;
-				double y12 = (double)(num - y11);
+				double y12 = num - y11;
 				Vector2 position7 = new Vector2(x10, y12);
-				this.TriggerAnimation(bottomSplashStart, position7, true);
+				TriggerAnimation(bottomSplashStart, position7, true);
 			}
 		}
 
 		private void StraightPrepareTriggers()
 		{
-			if (this._velocity.Y > 0.0 && this.Position.Y > this._originalY - 224 /*0xE0*/ && this.Position.Y < this._originalY - 14)
+			if (_velocity.Y > 0.0 && Position.Y > _originalY - 224 /*0xE0*/ && Position.Y < _originalY - 14)
 			{
-				this._startAnimation = true;
-				this.TriggerAnimation(this._animationTopSplashStart, new Vector2((double)(this._downX - this.Position.X), (double)(this._originalY - 224 /*0xE0*/ - this.Position.Y)));
+				_startAnimation = true;
+				TriggerAnimation(_animationTopSplashStart, new Vector2(_downX - Position.X, _originalY - 224 /*0xE0*/ - Position.Y));
 			}
-			if (this._velocity.Y > 0.0 && this.Position.Y > this._originalY - 14)
+			if (_velocity.Y > 0.0 && Position.Y > _originalY - 14)
 			{
-				if (this._index == 5)
-					this.TriggerAnimation(this._animationBottomSplashEnd, new Vector2((double)(this._downX - this.Position.X), (double)(this._originalY - 120 - this.Position.Y)));
+				if (_index == 5)
+					TriggerAnimation(_animationBottomSplashEnd, new Vector2(_downX - Position.X, _originalY - 120 - Position.Y));
 				else
-					this.TriggerAnimation(this._animationBottomSplashStart, new Vector2((double)(this._downX - this.Position.X), (double)(this._originalY - 112 /*0x70*/ - this.Position.Y)), true);
+					TriggerAnimation(_animationBottomSplashStart, new Vector2(_downX - Position.X, _originalY - 112 /*0x70*/ - Position.Y), true);
 			}
-			if (this._velocity.Y < 0.0 && this.Position.Y < this._originalY - 224 /*0xE0*/ - 60)
+			if (_velocity.Y < 0.0 && Position.Y < _originalY - 224 /*0xE0*/ - 60)
 			{
-				if (this._index == 5)
-					this.TriggerAnimation(this._animationTopSplashEnd, new Vector2((double)(this._upX - this.Position.X), (double)(this._originalY - 224 /*0xE0*/ - this.Position.Y + 24)), true);
+				if (_index == 5)
+					TriggerAnimation(_animationTopSplashEnd, new Vector2(_upX - Position.X, _originalY - 224 /*0xE0*/ - Position.Y + 24), true);
 				else
-					this.TriggerAnimation(this._animationTopSplashStart, new Vector2((double)(this._upX - this.Position.X), (double)(this._originalY - 224 /*0xE0*/ - this.Position.Y + 24)), true);
+					TriggerAnimation(_animationTopSplashStart, new Vector2(_upX - Position.X, _originalY - 224 /*0xE0*/ - Position.Y + 24), true);
 			}
-			if (this._velocity.Y >= 0.0 || this.Position.Y <= this._originalY - 14 || this.Position.Y <= this._originalY - 224 /*0xE0*/ - 60)
+			if (_velocity.Y >= 0.0 || Position.Y <= _originalY - 14 || Position.Y <= _originalY - 224 /*0xE0*/ - 60)
 				return;
-			this.TriggerAnimation(this._animationBottomSplashStart, new Vector2((double)(this._upX - this.Position.X), (double)(this._originalY - 112 /*0x70*/ - this.Position.Y)));
+			TriggerAnimation(_animationBottomSplashStart, new Vector2(_upX - Position.X, _originalY - 112 /*0x70*/ - Position.Y));
 		}
 
 		private void DrawArc(IObjectRenderer or, LayerViewOptions viewOptions)
@@ -462,24 +462,24 @@ public class CPZBlobsInstance : ActiveObject
 			IObjectRenderer objectRenderer = or;
 			Rectangle rectangle1 = or.ClipRectangle;
 			double x = rectangle1.X;
-			int num = this._originalY - 288 - 256 /*0x0100*/;
-			rectangle1 = this.Level.Camera.Bounds;
+			int num = _originalY - 288 - 256 /*0x0100*/;
+			rectangle1 = Level.Camera.Bounds;
 			int y1 = (int)rectangle1.Y;
-			double y2 = (double)(num - y1);
+			double y2 = num - y1;
 			rectangle1 = or.ClipRectangle;
 			double width = rectangle1.Width;
 			Rectangle rectangle2 = new Rectangle(x, y2, width, 512.0);
 			objectRenderer.ClipRectangle = rectangle2;
-			or.Render(this._animationBlob);
+			or.Render(_animationBlob);
 			or.ClipRectangle = (Rectangle)clipRectangle;
 		}
 
 		private void DrawStraight(IObjectRenderer or, LayerViewOptions viewOptions)
 		{
 			Rectangle clipRectangle = or.ClipRectangle;
-			int num = Math.Min(this._downX, this._upX);
-			or.ClipRectangle = new Rectangle((double)(num - 64 /*0x40*/ - (int)this.Level.Camera.Bounds.X), (double)(this._originalY - 288 - (int)this.Level.Camera.Bounds.Y), 512.0, 256.0);
-			or.Render(this._animationBlob);
+			int num = Math.Min(_downX, _upX);
+			or.ClipRectangle = new Rectangle(num - 64 /*0x40*/ - (int)Level.Camera.Bounds.X, _originalY - 288 - (int)Level.Camera.Bounds.Y, 512.0, 256.0);
+			or.Render(_animationBlob);
 			or.ClipRectangle = clipRectangle;
 		}
 	}
@@ -491,6 +491,6 @@ public class CPZBlobsInstance : ActiveObject
 		{
 		}
 
-		public void InitOverflow() => this._animationInstance.Index = 5;
+		public void InitOverflow() => _animationInstance.Index = 5;
 	}
 }

@@ -4,6 +4,10 @@
 // MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
 // Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
 
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using S2HD;
 using S2HD.Title;
 using SonicOrca.Audio;
@@ -11,10 +15,6 @@ using SonicOrca.Core;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
 using SonicOrca.Resources;
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 
 #nullable disable
 namespace SonicOrca;
@@ -36,7 +36,7 @@ internal class TitleGameState : IGameState, IDisposable
 	private Sample _shootingStarSample;
 	private Sample _musicSample;
 	private SampleInstance _musicInstance;
-	private IReadOnlyCollection<Tuple<int, Vector2i>> SparkleTable = (IReadOnlyCollection<Tuple<int, Vector2i>>)new Tuple<int, Vector2i>[4]
+	private IReadOnlyCollection<Tuple<int, Vector2i>> SparkleTable = new Tuple<int, Vector2i>[4]
 	{
 	new Tuple<int, Vector2i>(204, new Vector2i(-126, -320)),
 	new Tuple<int, Vector2i>(220, new Vector2i(-280, 366)),
@@ -69,159 +69,159 @@ internal class TitleGameState : IGameState, IDisposable
 
 	public TitleGameState(S2HDSonicOrcaGameContext gameContext)
 	{
-		this._gameContext = gameContext;
+		_gameContext = gameContext;
 		Version appVersion = Program.AppVersion;
-		this._versionText = $"Version {appVersion.Major}.{appVersion.Minor} Demo Build {appVersion.Build}";
+		_versionText = $"Version {appVersion.Major}.{appVersion.Minor} Demo Build {appVersion.Build}";
 	}
 
 	private void LoadResources()
 	{
-		this._resourceSession = new ResourceSession(this._gameContext.ResourceTree);
-		this._resourceSession.PushDependencies(TitleResources.AllResourceKeys);
-		this._loadingCTS = new CancellationTokenSource();
-		this._loadingTask = this._resourceSession.LoadAsync(this._loadingCTS.Token);
+		_resourceSession = new ResourceSession(_gameContext.ResourceTree);
+		_resourceSession.PushDependencies(TitleResources.AllResourceKeys);
+		_loadingCTS = new CancellationTokenSource();
+		_loadingTask = _resourceSession.LoadAsync(_loadingCTS.Token);
 	}
 
 	private void GetResourceReferences()
 	{
-		ResourceTree resourceTree = this._gameContext.ResourceTree;
-		this._font = resourceTree.GetLoadedResource<Font>("SONICORCA/FONTS/HUD");
-		this._animationGroup = resourceTree.GetLoadedResource<AnimationGroup>("SONICORCA/TITLE/ANIGROUP");
-		this._sparkleSample = resourceTree.GetLoadedResource<Sample>("SONICORCA/SOUND/SPARKLE");
-		this._shootingStarSample = resourceTree.GetLoadedResource<Sample>("SONICORCA/SOUND/SHOOTINGSTAR");
-		this._musicSample = resourceTree.GetLoadedResource<Sample>("SONICORCA/TITLE/MUSIC");
+		ResourceTree resourceTree = _gameContext.ResourceTree;
+		_font = resourceTree.GetLoadedResource<Font>("SONICORCA/FONTS/HUD");
+		_animationGroup = resourceTree.GetLoadedResource<AnimationGroup>("SONICORCA/TITLE/ANIGROUP");
+		_sparkleSample = resourceTree.GetLoadedResource<Sample>("SONICORCA/SOUND/SPARKLE");
+		_shootingStarSample = resourceTree.GetLoadedResource<Sample>("SONICORCA/SOUND/SHOOTINGSTAR");
+		_musicSample = resourceTree.GetLoadedResource<Sample>("SONICORCA/TITLE/MUSIC");
 	}
 
-	public void Dispose() => this._resourceSession.Dispose();
+	public void Dispose() => _resourceSession.Dispose();
 
 	public IEnumerable<UpdateResult> Update()
 	{
-		this._maskRenderer = this._gameContext.Renderer.GetMaskRenderer();
-		this.LoadResources();
-		while (!this._loadingTask.IsCompleted)
+		_maskRenderer = _gameContext.Renderer.GetMaskRenderer();
+		LoadResources();
+		while (!_loadingTask.IsCompleted)
 			yield return UpdateResult.Next();
-		if (!this._loadingTask.IsFaulted)
+		if (!_loadingTask.IsFaulted)
 		{
-			this.GetResourceReferences();
-			this._loaded = true;
-			this.Background = new Background(this._gameContext);
-			this._banner = new Banner(this._gameContext, this._maskRenderer);
-			this._userInterface = new UserInterface(this._gameContext, this, this._maskRenderer);
-			this.RestartEvents();
+			GetResourceReferences();
+			_loaded = true;
+			Background = new Background(_gameContext);
+			_banner = new Banner(_gameContext, _maskRenderer);
+			_userInterface = new UserInterface(_gameContext, this, _maskRenderer);
+			RestartEvents();
 			while (true)
 			{
-				if (this._fadingOut)
+				if (_fadingOut)
 				{
-					if ((double)this._fadeOutOpacity > 0.0)
+					if (_fadeOutOpacity > 0.0)
 					{
-						this._fadeOutOpacity -= 0.0166666675f;
-						this._musicInstance.Volume = (double)this._fadeOutOpacity;
+						_fadeOutOpacity -= 0.0166666675f;
+						_musicInstance.Volume = _fadeOutOpacity;
 					}
 					else
 						break;
 				}
-				if (this._ticks == 268)
+				if (_ticks == 268)
 				{
-					this._musicInstance = new SampleInstance((SonicOrcaGameContext)this._gameContext, this._musicSample);
-					this._musicInstance.Play();
+					_musicInstance = new SampleInstance(_gameContext, _musicSample);
+					_musicInstance.Play();
 				}
-				if (this._ticks == 458)
+				if (_ticks == 458)
 				{
-					this.Background.Visible = true;
-					this._banner.ShowStarLensFare = true;
-					this._userInterface.Visible = true;
+					Background.Visible = true;
+					_banner.ShowStarLensFare = true;
+					_userInterface.Visible = true;
 				}
-				this._banner.Update();
-				if (this.Background.Visible)
-					this.Background.Update();
-				this._userInterface.Update();
-				if (this._ticks >= 662)
+				_banner.Update();
+				if (Background.Visible)
+					Background.Update();
+				_userInterface.Update();
+				if (_ticks >= 662)
 				{
-					if (this._shootingStarAnimationInstance == null)
+					if (_shootingStarAnimationInstance == null)
 					{
-						this._shootingStarAnimationInstance = new AnimationInstance(this._animationGroup, 9);
-						this._shootingStarAnimationInstance.AdditiveBlending = true;
-						this._shootingStarPosition = new Vector2(1440.0, 0.0);
-						this._gameContext.Audio.PlaySound(this._shootingStarSample);
+						_shootingStarAnimationInstance = new AnimationInstance(_animationGroup, 9);
+						_shootingStarAnimationInstance.AdditiveBlending = true;
+						_shootingStarPosition = new Vector2(1440.0, 0.0);
+						_gameContext.Audio.PlaySound(_shootingStarSample);
 					}
-					this._shootingStarAnimationInstance.Animate();
-					this._shootingStarPosition += new Vector2(-16.0, 8.0);
+					_shootingStarAnimationInstance.Animate();
+					_shootingStarPosition += new Vector2(-16.0, 8.0);
 				}
-				this.UpdateSparkle();
-				++this._ticks;
+				UpdateSparkle();
+				++_ticks;
 				yield return UpdateResult.Next();
 			}
-			this._gameContext.Audio.StopAll();
+			_gameContext.Audio.StopAll();
 		}
 	}
 
 	private void RestartEvents()
 	{
-		this._ticks = 0;
-		this._sparkleAnimationInstance = (AnimationInstance)null;
-		this._fadeOutOpacity = 1f;
-		this._fadingOut = false;
-		this.Background.Reset();
-		this._banner.Reset();
-		this._userInterface.Reset();
-		this._gameContext.Audio.StopAll();
+		_ticks = 0;
+		_sparkleAnimationInstance = null;
+		_fadeOutOpacity = 1f;
+		_fadingOut = false;
+		Background.Reset();
+		_banner.Reset();
+		_userInterface.Reset();
+		_gameContext.Audio.StopAll();
 	}
 
 	public void FadeOut()
 	{
-		this._fadingOut = true;
-		this._banner.DoShine(210);
+		_fadingOut = true;
+		_banner.DoShine(210);
 	}
 
 	private void CreateSparkle(Vector2i position)
 	{
-		this._sparkleAnimationInstance = new AnimationInstance(this._animationGroup, 8);
-		this._sparkleAnimationInstance.AdditiveBlending = true;
-		this._sparklePosition = position;
-		this._gameContext.Audio.PlaySound(this._sparkleSample);
+		_sparkleAnimationInstance = new AnimationInstance(_animationGroup, 8);
+		_sparkleAnimationInstance.AdditiveBlending = true;
+		_sparklePosition = position;
+		_gameContext.Audio.PlaySound(_sparkleSample);
 	}
 
 	private void UpdateSparkle()
 	{
-		foreach (Tuple<int, Vector2i> tuple in (IEnumerable<Tuple<int, Vector2i>>)this.SparkleTable)
+		foreach (Tuple<int, Vector2i> tuple in (IEnumerable<Tuple<int, Vector2i>>)SparkleTable)
 		{
-			if (tuple.Item1 == this._ticks)
-				this.CreateSparkle(this._banner.Position + tuple.Item2);
+			if (tuple.Item1 == _ticks)
+				CreateSparkle(_banner.Position + tuple.Item2);
 		}
-		if (this._sparkleAnimationInstance == null)
+		if (_sparkleAnimationInstance == null)
 			return;
-		this._sparkleAnimationInstance.Animate();
+		_sparkleAnimationInstance.Animate();
 	}
 
 	public void Draw()
 	{
-		if (!this._loaded)
+		if (!_loaded)
 			return;
-		Renderer renderer = this._gameContext.Renderer;
-		this.DrawIntroText(renderer);
-		this.Background.Draw(renderer);
-		this.DrawShootingStar(renderer);
-		this._banner.Draw(renderer);
-		this.DrawSparkle(renderer);
-		this._userInterface.Draw(renderer);
-		if (this.Background.Visible)
-			this.DrawVersion(renderer);
-		if ((double)this._fadeOutOpacity != 1.0)
+		Renderer renderer = _gameContext.Renderer;
+		DrawIntroText(renderer);
+		Background.Draw(renderer);
+		DrawShootingStar(renderer);
+		_banner.Draw(renderer);
+		DrawSparkle(renderer);
+		_userInterface.Draw(renderer);
+		if (Background.Visible)
+			DrawVersion(renderer);
+		if (_fadeOutOpacity != 1.0)
 		{
 			renderer.DeativateRenderer();
 			IFadeTransitionRenderer fadeTransition = SharedRenderers.FadeTransition;
-			fadeTransition.Opacity = this._fadeOutOpacity - 1f;
+			fadeTransition.Opacity = _fadeOutOpacity - 1f;
 			fadeTransition.Render();
 		}
-		this._banner.DrawUnfaded(renderer);
+		_banner.DrawUnfaded(renderer);
 	}
 
 	private void DrawIntroText(Renderer renderer)
 	{
-		double valueAt = TitleGameState.IntroTextOpacity.GetValueAt(this._ticks);
+		double valueAt = TitleGameState.IntroTextOpacity.GetValueAt(_ticks);
 		if (valueAt <= 0.0)
 			return;
-		IReadOnlyList<string> stringList = (IReadOnlyList<string>)new string[4]
+		IReadOnlyList<string> stringList = new string[4]
 		{
 	  "SONIC",
 	  "AND",
@@ -233,7 +233,7 @@ internal class TitleGameState : IGameState, IDisposable
 		IFontRenderer fontRenderer = renderer.GetFontRenderer();
 		foreach (string text in (IEnumerable<string>)stringList)
 		{
-			fontRenderer.RenderStringWithShadow(text, new Rectangle(0.0, (double)y, 1920.0, 0.0), FontAlignment.Centre, this._font, colour, new int?(0));
+			fontRenderer.RenderStringWithShadow(text, new Rectangle(0.0, y, 1920.0, 0.0), FontAlignment.Centre, _font, colour, new int?(0));
 			y += 128 /*0x80*/;
 		}
 	}
@@ -241,30 +241,30 @@ internal class TitleGameState : IGameState, IDisposable
 	private void DrawSparkle(Renderer renderer)
 	{
 		I2dRenderer renderer1 = renderer.Get2dRenderer();
-		if (this._sparkleAnimationInstance == null || this._sparkleAnimationInstance.Cycles != 0)
+		if (_sparkleAnimationInstance == null || _sparkleAnimationInstance.Cycles != 0)
 			return;
-		this._sparkleAnimationInstance.Draw(renderer1, (Vector2)this._sparklePosition);
+		_sparkleAnimationInstance.Draw(renderer1, (Vector2)_sparklePosition);
 	}
 
 	private void DrawShootingStar(Renderer renderer)
 	{
 		I2dRenderer renderer1 = renderer.Get2dRenderer();
-		if (this._shootingStarAnimationInstance == null)
+		if (_shootingStarAnimationInstance == null)
 			return;
-		this._shootingStarAnimationInstance.Draw(renderer1, this._shootingStarPosition);
+		_shootingStarAnimationInstance.Draw(renderer1, _shootingStarPosition);
 	}
 
 	private void DrawVersion(Renderer renderer)
 	{
 		I2dRenderer obj = renderer.Get2dRenderer();
 		IFontRenderer fontRenderer = renderer.GetFontRenderer();
-		Colour colour = new Colour((double)this._fadeOutOpacity / 2.0, 1.0, 1.0, 1.0);
+		Colour colour = new Colour(_fadeOutOpacity / 2.0, 1.0, 1.0, 1.0);
 		using (obj.BeginMatixState())
 		{
 			obj.ModelMatrix *= Matrix4.CreateTranslation(8.0, 1072.0);
 			obj.ModelMatrix *= Matrix4.CreateScale(0.5, 0.5);
 			Rectangle boundary = new Rectangle(0.0, 0.0, 0.0, 0.0);
-			fontRenderer.RenderStringWithShadow(this._versionText.ToUpper(), boundary, FontAlignment.Bottom, this._font, colour, new int?(0));
+			fontRenderer.RenderStringWithShadow(_versionText.ToUpper(), boundary, FontAlignment.Bottom, _font, colour, new int?(0));
 		}
 	}
 

@@ -320,7 +320,7 @@ internal class LevelCompleteHud : IDisposable
 		}
 		IFontRenderer fontRenderer = renderer.GetFontRenderer();
 		fontRenderer.RenderStringWithShadow(text + " GOT", new Rectangle(valueAt, 270.0, 1920.0, 0.0), FontAlignment.MiddleX, _captionFont, 0);
-		double num = _captionFont.MeasureString("THROUGH ACT", default, FontAlignment.Left).Width + (double)(_captionFont.DefaultWidth / 2);
+		double num = _captionFont.MeasureString("THROUGH ACT", default, FontAlignment.Left).Width + _captionFont.DefaultWidth / 2;
 		double num2 = num + _captionActFont.MeasureString(_level.CurrentAct.ToString(), default, FontAlignment.Left).Width;
 		valueAt2 += (1920.0 - num2) / 2.0;
 		fontRenderer.RenderStringWithShadow("THROUGH ACT", new Rectangle(valueAt2, 270 + _captionFont.Height + 16, 1920.0, 0.0), FontAlignment.Left, _captionFont, 0);

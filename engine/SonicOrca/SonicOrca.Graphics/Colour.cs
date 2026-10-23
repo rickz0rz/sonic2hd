@@ -59,9 +59,9 @@ public struct Colour : IEquatable<Colour>
 	{
 		get
 		{
-			double num = (double)(int)Red / 255.0;
-			double num2 = (double)(int)Green / 255.0;
-			double num3 = (double)(int)Blue / 255.0;
+			double num = Red / 255.0;
+			double num2 = Green / 255.0;
+			double num3 = Blue / 255.0;
 			double num4 = Math.Max(Math.Max(num, num2), num3);
 			double num5 = Math.Min(Math.Min(num, num2), num3);
 			if ((num5 + num4) / 2.0 <= 0.0)
@@ -101,9 +101,9 @@ public struct Colour : IEquatable<Colour>
 	{
 		get
 		{
-			double val = (double)(int)Red / 255.0;
-			double val2 = (double)(int)Green / 255.0;
-			double val3 = (double)(int)Blue / 255.0;
+			double val = Red / 255.0;
+			double val2 = Green / 255.0;
+			double val3 = Blue / 255.0;
 			double num = Math.Max(Math.Max(val, val2), val3);
 			double num2 = Math.Min(Math.Min(val, val2), val3);
 			double num3 = (num2 + num) / 2.0;
@@ -128,9 +128,9 @@ public struct Colour : IEquatable<Colour>
 	{
 		get
 		{
-			double val = (double)(int)Red / 255.0;
-			double val2 = (double)(int)Green / 255.0;
-			double val3 = (double)(int)Blue / 255.0;
+			double val = Red / 255.0;
+			double val2 = Green / 255.0;
+			double val3 = Blue / 255.0;
 			double num = Math.Max(Math.Max(val, val2), val3);
 			return (Math.Min(Math.Min(val, val2), val3) + num) / 2.0;
 		}
@@ -241,7 +241,7 @@ public struct Colour : IEquatable<Colour>
 			double num6 = (num4 - num5) / num4;
 			hue *= 6.0;
 			int num7 = (int)hue;
-			double num8 = hue - (double)num7;
+			double num8 = hue - num7;
 			double num9 = num4 * num6 * num8;
 			double num10 = num5 + num9;
 			double num11 = num4 - num9;

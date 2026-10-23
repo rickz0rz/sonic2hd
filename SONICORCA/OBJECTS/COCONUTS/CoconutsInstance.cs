@@ -4,6 +4,8 @@
 // MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
 // Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
 
+using System;
+using System.Collections.Generic;
 using SonicOrca.Core;
 using SonicOrca.Core.Collision;
 using SonicOrca.Core.Objects;
@@ -11,15 +13,13 @@ using SonicOrca.Core.Objects.Base;
 using SonicOrca.Extensions;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
-using System;
-using System.Collections.Generic;
 
 #nullable disable
 namespace SONICORCA.OBJECTS.COCONUTS;
 
 public class CoconutsInstance : Badnik
 {
-	private static readonly IReadOnlyList<CoconutsInstance.ClimbDataItem> ClimbData = (IReadOnlyList<CoconutsInstance.ClimbDataItem>)new CoconutsInstance.ClimbDataItem[6]
+	private static readonly IReadOnlyList<CoconutsInstance.ClimbDataItem> ClimbData = new CoconutsInstance.ClimbDataItem[6]
 	{
 	new CoconutsInstance.ClimbDataItem(-1, 32 /*0x20*/),
 	new CoconutsInstance.ClimbDataItem(1, 24),
@@ -39,131 +39,131 @@ public class CoconutsInstance : Badnik
 	private int _climbDataIndex;
 	private bool _facingRight;
 
-	public CoconutsInstance() => this.DesignBounds = new Rectanglei(-96, -100, 192 /*0xC0*/, 200);
+	public CoconutsInstance() => DesignBounds = new Rectanglei(-96, -100, 192 /*0xC0*/, 200);
 
 	protected override void OnStart()
 	{
 		base.OnStart();
-		this._animation = new AnimationInstance(this.ResourceTree, this.Type.GetAbsolutePath("/ANIGROUP"));
-		this._animation.Index = 0;
-		this.CollisionRectangles = new CollisionRectangle[1]
+		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"));
+		_animation.Index = 0;
+		CollisionRectangles = new CollisionRectangle[1]
 		{
-	  new CollisionRectangle((ActiveObject) this, 0, -48, -64, 96 /*0x60*/, 128 /*0x80*/)
+	  new CollisionRectangle( this, 0, -48, -64, 96 /*0x60*/, 128 /*0x80*/)
 		};
 	}
 
 	protected override void OnUpdate()
 	{
 		base.OnUpdate();
-		switch (this._state)
+		switch (_state)
 		{
 			case CoconutsInstance.StateType.Resting:
-				this.UpdateResting();
+				UpdateResting();
 				break;
 			case CoconutsInstance.StateType.Climbing:
-				this.UpdateClimbing();
+				UpdateClimbing();
 				break;
 			case CoconutsInstance.StateType.PreThrowing:
-				this.UpdatePreThrowing();
+				UpdatePreThrowing();
 				break;
 			case CoconutsInstance.StateType.PostThrowing:
-				this.UpdatePostThrowing();
+				UpdatePostThrowing();
 				break;
 		}
 	}
 
 	private void UpdateResting()
 	{
-		ICharacter closestCharacterTo = this.Level.ObjectManager.GetClosestCharacterTo((Vector2)this.Position);
+		ICharacter closestCharacterTo = Level.ObjectManager.GetClosestCharacterTo((Vector2)Position);
 		if (closestCharacterTo != null)
 		{
-			bool flag = closestCharacterTo.Position.X > this.Position.X;
-			if (this._facingRight != flag)
+			bool flag = closestCharacterTo.Position.X > Position.X;
+			if (_facingRight != flag)
 			{
-				this._facingRight = flag;
-				this._animation.Index = 2;
+				_facingRight = flag;
+				_animation.Index = 2;
 			}
-			double num1 = (double)Math.Abs(this.Position.X - closestCharacterTo.Position.X);
-			double num2 = (double)Math.Abs(this.Position.Y - closestCharacterTo.Position.Y);
+			double num1 = Math.Abs(Position.X - closestCharacterTo.Position.X);
+			double num2 = Math.Abs(Position.Y - closestCharacterTo.Position.Y);
 			if (num1 < 384.0 && num2 < 400.0)
 			{
-				if (this._throwWaitDuration == 0)
+				if (_throwWaitDuration == 0)
 				{
-					this._state = CoconutsInstance.StateType.PreThrowing;
-					this._stateDuration = 8;
-					this._throwWaitDuration = 32 /*0x20*/;
-					this._animation.Index = 3;
+					_state = CoconutsInstance.StateType.PreThrowing;
+					_stateDuration = 8;
+					_throwWaitDuration = 32 /*0x20*/;
+					_animation.Index = 3;
 					return;
 				}
-				--this._throwWaitDuration;
+				--_throwWaitDuration;
 			}
 		}
-		--this._stateDuration;
-		if (this._stateDuration >= 0)
+		--_stateDuration;
+		if (_stateDuration >= 0)
 			return;
-		this._state = CoconutsInstance.StateType.Climbing;
-		this._animation.Index = 1;
-		this.UpdateClimbIndex();
+		_state = CoconutsInstance.StateType.Climbing;
+		_animation.Index = 1;
+		UpdateClimbIndex();
 	}
 
 	private void UpdateClimbing()
 	{
-		--this._stateDuration;
-		if (this._stateDuration <= 0)
+		--_stateDuration;
+		if (_stateDuration <= 0)
 		{
-			this._state = CoconutsInstance.StateType.Resting;
-			this._animation.Index = 0;
-			this._stateDuration = 16 /*0x10*/;
+			_state = CoconutsInstance.StateType.Resting;
+			_animation.Index = 0;
+			_stateDuration = 16 /*0x10*/;
 		}
 		else
-			this.Position = this.Position + new Vector2i(0, CoconutsInstance.ClimbData[this._climbDataIndex].VelocityY);
+			Position = Position + new Vector2i(0, CoconutsInstance.ClimbData[_climbDataIndex].VelocityY);
 	}
 
 	private void UpdatePreThrowing()
 	{
-		--this._stateDuration;
-		if (this._stateDuration >= 0)
+		--_stateDuration;
+		if (_stateDuration >= 0)
 			return;
-		this.FireProjectile();
-		this._state = CoconutsInstance.StateType.PostThrowing;
-		this._stateDuration = 8;
+		FireProjectile();
+		_state = CoconutsInstance.StateType.PostThrowing;
+		_stateDuration = 8;
 	}
 
 	private void UpdatePostThrowing()
 	{
-		--this._stateDuration;
-		if (this._stateDuration >= 0)
+		--_stateDuration;
+		if (_stateDuration >= 0)
 			return;
-		this._state = CoconutsInstance.StateType.Climbing;
-		this._stateDuration = 8;
-		this._animation.Index = 1;
-		this.UpdateClimbIndex();
+		_state = CoconutsInstance.StateType.Climbing;
+		_stateDuration = 8;
+		_animation.Index = 1;
+		UpdateClimbIndex();
 	}
 
 	private void UpdateClimbIndex()
 	{
-		++this._climbDataIndex;
-		if (this._climbDataIndex >= CoconutsInstance.ClimbData.Count)
-			this._climbDataIndex = 0;
-		this._stateDuration = CoconutsInstance.ClimbData[this._climbDataIndex].Duration;
+		++_climbDataIndex;
+		if (_climbDataIndex >= CoconutsInstance.ClimbData.Count)
+			_climbDataIndex = 0;
+		_stateDuration = CoconutsInstance.ClimbData[_climbDataIndex].Duration;
 	}
 
 	private void FireProjectile()
 	{
-		CoconutsInstance.Projectile projectile = this.Level.ObjectManager.AddSubObject<CoconutsInstance.Projectile>((ActiveObject)this);
-		Vector2i position = this.Position;
-		int x = position.X + (this._facingRight ? -44 : 44);
-		position = this.Position;
+		CoconutsInstance.Projectile projectile = Level.ObjectManager.AddSubObject<CoconutsInstance.Projectile>(this);
+		Vector2i position = Position;
+		int x = position.X + (_facingRight ? -44 : 44);
+		position = Position;
 		int y = position.Y - 52;
 		projectile.Position = new Vector2i(x, y);
-		projectile.Direction = this._facingRight ? 1 : -1;
+		projectile.Direction = _facingRight ? 1 : -1;
 	}
 
-	protected override void OnAnimate() => this._animation.Animate();
+	protected override void OnAnimate() => _animation.Animate();
 
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 	{
-		renderer.GetObjectRenderer().Render(this._animation, this._facingRight);
+		renderer.GetObjectRenderer().Render(_animation, _facingRight);
 	}
 
 	private struct ClimbDataItem(int velocityY, int duration)
@@ -171,13 +171,13 @@ public class CoconutsInstance : Badnik
 		private readonly int _velocityY = velocityY;
 		private readonly int _duration = duration;
 
-		public int VelocityY => this._velocityY;
+		public int VelocityY => _velocityY;
 
-		public int Duration => this._duration;
+		public int Duration => _duration;
 
 		public override string ToString()
 		{
-			return $"Velocity Y = {this._velocityY} Duration = {this._duration}";
+			return $"Velocity Y = {_velocityY} Duration = {_duration}";
 		}
 	}
 
@@ -199,39 +199,39 @@ public class CoconutsInstance : Badnik
 
 		public int Direction
 		{
-			get => Math.Sign(this._velocity.X);
-			set => this._velocity.X = 4.0 * (double)Math.Sign(value);
+			get => Math.Sign(_velocity.X);
+			set => _velocity.X = 4.0 * Math.Sign(value);
 		}
 
 		protected override void OnStart()
 		{
 			base.OnStart();
-			this._animation = new AnimationInstance(this.ResourceTree, this.Type.GetAbsolutePath("/ANIGROUP"), 4);
-			this._velocity = new Vector2(4.0, -4.0);
-			this.CollisionRectangles = new CollisionRectangle[1]
+			_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"), 4);
+			_velocity = new Vector2(4.0, -4.0);
+			CollisionRectangles = new CollisionRectangle[1]
 			{
-		new CollisionRectangle((ActiveObject) this, 0, -16, -16, 32 /*0x20*/, 32 /*0x20*/)
+		new CollisionRectangle( this, 0, -16, -16, 32 /*0x20*/, 32 /*0x20*/)
 			};
 		}
 
 		protected override void OnUpdate()
 		{
 			base.OnUpdate();
-			this.PositionPrecise = this.PositionPrecise + this._velocity;
-			this._velocity.Y += 0.5;
+			PositionPrecise = PositionPrecise + _velocity;
+			_velocity.Y += 0.5;
 		}
 
-		protected override void OnAnimate() => this._animation.Animate();
+		protected override void OnAnimate() => _animation.Animate();
 
 		protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 		{
-			renderer.GetObjectRenderer().Render(this._animation, this._velocity.X >= 0.0);
+			renderer.GetObjectRenderer().Render(_animation, _velocity.X >= 0.0);
 		}
 
 		protected override void OnStop()
 		{
 			base.OnStop();
-			this.FinishForever();
+			FinishForever();
 		}
 	}
 }

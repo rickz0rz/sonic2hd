@@ -4,10 +4,10 @@
 // MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
 // Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
 
-using SonicOrca;
-using SonicOrca.Graphics;
 using System;
 using System.Collections.Generic;
+using SonicOrca;
+using SonicOrca.Graphics;
 
 #nullable disable
 namespace S2HD.Menu;
@@ -16,65 +16,65 @@ internal class MenuViewFactory
 {
 	private S2HDSonicOrcaGameContext _gameContext;
 
-	public MenuViewFactory(S2HDSonicOrcaGameContext gameContext) => this._gameContext = gameContext;
+	public MenuViewFactory(S2HDSonicOrcaGameContext gameContext) => _gameContext = gameContext;
 
 	public IListMenuViewModel GetInGameOptionsView(bool canRestart)
 	{
 		List<IMenuItem> items = new List<IMenuItem>(4);
-		items.Add((IMenuItem)new MenuItem("RESUME", tag: (object)3));
+		items.Add(new MenuItem("RESUME", tag: 3));
 		if (canRestart)
-			items.Add((IMenuItem)new MenuItem("RESTART", (IMenuViewModel)this.GetConfirmMenu((object)2)));
-		items.Add((IMenuItem)new MenuItem("OPTIONS", this.GetOptionsView()));
-		items.Add((IMenuItem)new MenuItem("QUIT", (IMenuViewModel)this.GetConfirmMenu((object)1)));
-		return (IListMenuViewModel)new ListMenuViewModel((IEnumerable<IMenuItem>)items);
+			items.Add(new MenuItem("RESTART", GetConfirmMenu(2)));
+		items.Add(new MenuItem("OPTIONS", GetOptionsView()));
+		items.Add(new MenuItem("QUIT", GetConfirmMenu(1)));
+		return new ListMenuViewModel(items);
 	}
 
 	public IListMenuViewModel GetConfirmMenu(object confirmTag)
 	{
-		return (IListMenuViewModel)new ListMenuViewModel((IEnumerable<IMenuItem>)new IMenuItem[2]
+		return new ListMenuViewModel(new IMenuItem[2]
 		{
-	  (IMenuItem) new MenuItem("NO", tag: (object) 0),
-	  (IMenuItem) new MenuItem("YES", tag: confirmTag)
+	   new MenuItem("NO", tag:  0),
+	   new MenuItem("YES", tag: confirmTag)
 		});
 	}
 
 	public IMenuViewModel GetOptionsView()
 	{
-		return (IMenuViewModel)new ListMenuViewModel((IEnumerable<IMenuItem>)new IMenuItem[2]
+		return new ListMenuViewModel(new IMenuItem[2]
 		{
-	  (IMenuItem) new MenuItem("AUDIO", (IMenuViewModel) this.GetAudioOptions(), (object) 6),
-	  (IMenuItem) new MenuItem("VIDEO", (IMenuViewModel) this.GetVideoOptions(), (object) 7)
-		}, (object)5);
+	   new MenuItem("AUDIO",  GetAudioOptions(),  6),
+	   new MenuItem("VIDEO",  GetVideoOptions(),  7)
+		}, 5);
 	}
 
 	public ISettingListMenuViewModel GetAudioOptions()
 	{
-		return (ISettingListMenuViewModel)new SettingListMenuViewModel((IEnumerable<ISetting>)new ISetting[2]
+		return new SettingListMenuViewModel(new ISetting[2]
 		{
-	  (ISetting) new MenuViewFactory.MusicSetting(this._gameContext.Settings),
-	  (ISetting) new MenuViewFactory.SoundSetting(this._gameContext.Settings)
-		}, (object)5);
+	   new MenuViewFactory.MusicSetting(_gameContext.Settings),
+	   new MenuViewFactory.SoundSetting(_gameContext.Settings)
+		}, 5);
 	}
 
 	public ISettingListMenuViewModel GetVideoOptions()
 	{
-		S2HDSettings settings = this._gameContext.Settings;
-		return (ISettingListMenuViewModel)new SettingListMenuViewModel((IEnumerable<ISetting>)new ISetting[5]
+		S2HDSettings settings = _gameContext.Settings;
+		return new SettingListMenuViewModel(new ISetting[5]
 		{
-	  (ISetting) new StandardOptionSetting("MODE", new string[3]
+	   new StandardOptionSetting("MODE", new string[3]
 	  {
 		"WINDOW",
 		"FULLSCREEN",
 		"BORDERLESS WINDOWED"
-	  }, (Func<int>) (() => (int) settings.Mode), (Action<int>) (value => settings.Mode = (VideoMode) value)),
-	  (ISetting) new StandardOptionSetting("RESOLUTION", new string[1]
+	  },  () => (int) settings.Mode,  value => settings.Mode = (VideoMode) value),
+	   new StandardOptionSetting("RESOLUTION", new string[1]
 	  {
 		"1920 X 1080"
-	  }, (Func<int>) (() => 0), (Action<int>) (value => { })),
-	  (ISetting) new OnOffOptionSetting("SHADOWS", (Func<bool>) (() => settings.EnableShadows), (Action<bool>) (value => settings.EnableShadows = value)),
-	  (ISetting) new OnOffOptionSetting("WATER EFFECTS", (Func<bool>) (() => settings.EnableWaterEffects), (Action<bool>) (value => settings.EnableWaterEffects = value)),
-	  (ISetting) new OnOffOptionSetting("HEAT EFFECTS", (Func<bool>) (() => settings.EnableHeatEffects), (Action<bool>) (value => settings.EnableHeatEffects = value))
-		}, (object)5);
+	  },  () => 0,  value => { }),
+	   new OnOffOptionSetting("SHADOWS",  () => settings.EnableShadows,  value => settings.EnableShadows = value),
+	   new OnOffOptionSetting("WATER EFFECTS",  () => settings.EnableWaterEffects,  value => settings.EnableWaterEffects = value),
+	   new OnOffOptionSetting("HEAT EFFECTS",  () => settings.EnableHeatEffects,  value => settings.EnableHeatEffects = value)
+		}, 5);
 	}
 
 	private class MusicSetting : IAudioSliderSetting, ISetting
@@ -85,11 +85,11 @@ internal class MenuViewFactory
 
 		public double Value
 		{
-			get => this._settings.MusicVolume;
-			set => this._settings.MusicVolume = value;
+			get => _settings.MusicVolume;
+			set => _settings.MusicVolume = value;
 		}
 
-		public MusicSetting(S2HDSettings settings) => this._settings = settings;
+		public MusicSetting(S2HDSettings settings) => _settings = settings;
 	}
 
 	private class SoundSetting : IAudioSliderSetting, ISetting
@@ -100,10 +100,10 @@ internal class MenuViewFactory
 
 		public double Value
 		{
-			get => this._settings.SoundVolume;
-			set => this._settings.SoundVolume = value;
+			get => _settings.SoundVolume;
+			set => _settings.SoundVolume = value;
 		}
 
-		public SoundSetting(S2HDSettings settings) => this._settings = settings;
+		public SoundSetting(S2HDSettings settings) => _settings = settings;
 	}
 }

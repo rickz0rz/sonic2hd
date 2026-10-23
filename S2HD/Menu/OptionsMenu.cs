@@ -4,6 +4,10 @@
 // MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
 // Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
 
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using SonicOrca;
 using SonicOrca.Drawing.Renderers;
 using SonicOrca.Extensions;
@@ -11,10 +15,6 @@ using SonicOrca.Geometry;
 using SonicOrca.Graphics;
 using SonicOrca.Graphics.V2.Animation;
 using SonicOrca.Resources;
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 
 #nullable disable
 namespace S2HD.Menu;
@@ -68,80 +68,80 @@ internal class OptionsMenu : IDisposable
 
 	public OptionsMenu(S2HDSonicOrcaGameContext gameContext)
 	{
-		this._gameContext = gameContext;
-		this._graphicsContext = gameContext.Window.GraphicsContext;
-		this._settingUIResources = new SettingUIResources();
-		this._viewPresenterFactory = new MenuViewPresenterFactory(this._gameContext, (ISettingUIResources)this._settingUIResources);
+		_gameContext = gameContext;
+		_graphicsContext = gameContext.Window.GraphicsContext;
+		_settingUIResources = new SettingUIResources();
+		_viewPresenterFactory = new MenuViewPresenterFactory(_gameContext, _settingUIResources);
 	}
 
-	public void Dispose() => this._resourceSession?.Dispose();
+	public void Dispose() => _resourceSession?.Dispose();
 
 	public async Task LoadAsync(CancellationToken ct = default(CancellationToken))
 	{
-		ResourceTree resourceTree = this._gameContext.ResourceTree;
-		this._resourceSession = new ResourceSession(resourceTree);
-		this._resourceSession.PushDependenciesByAttribute((object)this);
-		this._settingUIResources.PushDependencies(this._resourceSession);
-		await this._resourceSession.LoadAsync(ct);
-		resourceTree.FullfillLoadedResourcesByAttribute((object)this);
-		this._settingUIResources.FetchResources(resourceTree);
-		this._loaded = true;
+		ResourceTree resourceTree = _gameContext.ResourceTree;
+		_resourceSession = new ResourceSession(resourceTree);
+		_resourceSession.PushDependenciesByAttribute(this);
+		_settingUIResources.PushDependencies(_resourceSession);
+		await _resourceSession.LoadAsync(ct);
+		resourceTree.FullfillLoadedResourcesByAttribute(this);
+		_settingUIResources.FetchResources(resourceTree);
+		_loaded = true;
 	}
 
 	private void Initialise()
 	{
-		this._menuPopInComposition = new CompositionInstance(this._menuPopInCompositionGroup);
-		this._menuPopOutComposition = new CompositionInstance(this._menuPopOutCompositionGroup);
-		this._subMenuAudioPopInComposition = new CompositionInstance(this._subMenuAudioPopInCompositionGroup);
-		this._subMenuAudioPopOutComposition = new CompositionInstance(this._subMenuAudioPopOutCompositionGroup);
-		this._subMenuVideoPopInComposition = new CompositionInstance(this._subMenuVideoPopInCompositionGroup);
-		this._subMenuVideoPopOutComposition = new CompositionInstance(this._subMenuVideoPopOutCompositionGroup);
-		this._subMenuOptionsPopInComposition = new CompositionInstance(this._subMenuOptionsPopInCompositionGroup);
-		this._currentComposition = this._menuPopInComposition;
-		this._compositions.Add(this._menuPopInComposition);
-		this._compositions.Add(this._menuPopOutComposition);
-		this._compositions.Add(this._subMenuAudioPopInComposition);
-		this._compositions.Add(this._subMenuAudioPopOutComposition);
-		this._compositions.Add(this._subMenuVideoPopInComposition);
-		this._compositions.Add(this._subMenuVideoPopOutComposition);
-		this._compositions.Add(this._subMenuOptionsPopInComposition);
+		_menuPopInComposition = new CompositionInstance(_menuPopInCompositionGroup);
+		_menuPopOutComposition = new CompositionInstance(_menuPopOutCompositionGroup);
+		_subMenuAudioPopInComposition = new CompositionInstance(_subMenuAudioPopInCompositionGroup);
+		_subMenuAudioPopOutComposition = new CompositionInstance(_subMenuAudioPopOutCompositionGroup);
+		_subMenuVideoPopInComposition = new CompositionInstance(_subMenuVideoPopInCompositionGroup);
+		_subMenuVideoPopOutComposition = new CompositionInstance(_subMenuVideoPopOutCompositionGroup);
+		_subMenuOptionsPopInComposition = new CompositionInstance(_subMenuOptionsPopInCompositionGroup);
+		_currentComposition = _menuPopInComposition;
+		_compositions.Add(_menuPopInComposition);
+		_compositions.Add(_menuPopOutComposition);
+		_compositions.Add(_subMenuAudioPopInComposition);
+		_compositions.Add(_subMenuAudioPopOutComposition);
+		_compositions.Add(_subMenuVideoPopInComposition);
+		_compositions.Add(_subMenuVideoPopOutComposition);
+		_compositions.Add(_subMenuOptionsPopInComposition);
 	}
 
 	public void Update()
 	{
-		if (!this._loaded)
+		if (!_loaded)
 			return;
-		if (!this._initialised)
+		if (!_initialised)
 		{
-			this._initialised = true;
-			this.Initialise();
+			_initialised = true;
+			Initialise();
 		}
-		if (!this._showing || this._currentComposition == null)
+		if (!_showing || _currentComposition == null)
 			return;
-		this._currentComposition.Animate();
-		if (!this._currentComposition.Finished || this._currentComposition == this._menuPopOutComposition)
+		_currentComposition.Animate();
+		if (!_currentComposition.Finished || _currentComposition == _menuPopOutComposition)
 			return;
-		this._circleSize = (float)this._circleTexture.Width;
-		int circleSize = (int)this._circleSize;
-		this._circleBounds = new Rectanglei(0, 0, circleSize, circleSize);
-		if (this._currentComposition == this._subMenuVideoPopInComposition)
+		_circleSize = _circleTexture.Width;
+		int circleSize = (int)_circleSize;
+		_circleBounds = new Rectanglei(0, 0, circleSize, circleSize);
+		if (_currentComposition == _subMenuVideoPopInComposition)
 		{
-			this._circleBounds.X = (1920 - circleSize) / 2;
-			this._circleBounds.Y = 337;
+			_circleBounds.X = (1920 - circleSize) / 2;
+			_circleBounds.Y = 337;
 		}
-		else if (this._currentComposition == this._subMenuAudioPopInComposition)
+		else if (_currentComposition == _subMenuAudioPopInComposition)
 		{
-			this._circleBounds.X = (1920 - circleSize) / 2;
-			this._circleBounds.Y = 400;
+			_circleBounds.X = (1920 - circleSize) / 2;
+			_circleBounds.Y = 400;
 		}
 		else
 		{
-			this._circleBounds.X = (1920 - circleSize) / 2;
-			this._circleBounds.Y = (1080 - circleSize) / 2;
+			_circleBounds.X = (1920 - circleSize) / 2;
+			_circleBounds.Y = (1080 - circleSize) / 2;
 		}
-		this._viewPresenterHost.Bounds = Rectanglei.FromLTRB(this._circleBounds.Left, this._circleBounds.Top + 60, this._circleBounds.Right, this._circleBounds.Bottom);
-		this._viewPresenterHost.Update();
-		this._viewPresenterHost.HandleInput();
+		_viewPresenterHost.Bounds = Rectanglei.FromLTRB(_circleBounds.Left, _circleBounds.Top + 60, _circleBounds.Right, _circleBounds.Bottom);
+		_viewPresenterHost.Update();
+		_viewPresenterHost.HandleInput();
 	}
 
 	private void NavigateNextHandler(object sender, NavigateNextEventArgs e)
@@ -151,74 +151,74 @@ internal class OptionsMenu : IDisposable
 		switch ((int)e.Tag)
 		{
 			case 1:
-				EventHandler onQuit = this.OnQuit;
+				EventHandler onQuit = OnQuit;
 				if (onQuit == null)
 					break;
-				onQuit((object)this, EventArgs.Empty);
+				onQuit(this, EventArgs.Empty);
 				break;
 			case 2:
-				EventHandler onRestart = this.OnRestart;
+				EventHandler onRestart = OnRestart;
 				if (onRestart == null)
 					break;
-				onRestart((object)this, EventArgs.Empty);
+				onRestart(this, EventArgs.Empty);
 				break;
 			case 3:
-				EventHandler onResume = this.OnResume;
+				EventHandler onResume = OnResume;
 				if (onResume == null)
 					break;
-				onResume((object)this, EventArgs.Empty);
+				onResume(this, EventArgs.Empty);
 				break;
 			case 4:
-				this._gameContext.Settings.Apply();
+				_gameContext.Settings.Apply();
 				break;
 			case 5:
-				this.ResetCompositions();
-				this._currentComposition = this._subMenuOptionsPopInComposition;
+				ResetCompositions();
+				_currentComposition = _subMenuOptionsPopInComposition;
 				break;
 			case 6:
-				this.ResetCompositions();
-				this._currentComposition = this._subMenuAudioPopInComposition;
+				ResetCompositions();
+				_currentComposition = _subMenuAudioPopInComposition;
 				break;
 			case 7:
-				this.ResetCompositions();
-				this._currentComposition = this._subMenuVideoPopInComposition;
+				ResetCompositions();
+				_currentComposition = _subMenuVideoPopInComposition;
 				break;
 		}
 	}
 
 	private void NavigateBackHandler(object sender, EventArgs e)
 	{
-		if (this._currentComposition == this._menuPopInComposition || this._currentComposition == this._subMenuOptionsPopInComposition)
+		if (_currentComposition == _menuPopInComposition || _currentComposition == _subMenuOptionsPopInComposition)
 			return;
-		this.ResetCompositions();
-		this._currentComposition = this._subMenuOptionsPopInComposition;
+		ResetCompositions();
+		_currentComposition = _subMenuOptionsPopInComposition;
 	}
 
 	private void ResetCompositions()
 	{
-		foreach (CompositionInstance composition in this._compositions)
+		foreach (CompositionInstance composition in _compositions)
 			composition.ResetFrame();
 	}
 
 	public void Draw(Renderer renderer)
 	{
-		if (!this._loaded || !this._showing)
+		if (!_loaded || !_showing)
 			return;
 		I2dRenderer g = renderer.Get2dRenderer();
-		this.BlurGame(renderer, g);
-		if (this._currentComposition == null)
+		BlurGame(renderer, g);
+		if (_currentComposition == null)
 			return;
-		this._currentComposition.Draw(renderer);
-		if (!this._currentComposition.Finished)
+		_currentComposition.Draw(renderer);
+		if (!_currentComposition.Finished)
 			return;
-		this.DrawViewPresenterHost(renderer);
+		DrawViewPresenterHost(renderer);
 	}
 
 	private void BlurGame(Renderer renderer, I2dRenderer g)
 	{
 		Rectanglei destination = new Rectanglei(0, 0, 1920, 1080);
 		renderer.DeativateRenderer();
-		IFramebuffer currentFramebuffer = this._graphicsContext.CurrentFramebuffer;
+		IFramebuffer currentFramebuffer = _graphicsContext.CurrentFramebuffer;
 		GaussianBlurRenderer gaussianBlurRenderer = GaussianBlurRenderer.FromRenderer(renderer);
 		gaussianBlurRenderer.Softness = 4.0;
 		gaussianBlurRenderer.Render(currentFramebuffer.Textures[0], destination);
@@ -227,21 +227,21 @@ internal class OptionsMenu : IDisposable
 		renderer.DeativateRenderer();
 	}
 
-	private void DrawViewPresenterHost(Renderer renderer) => this._viewPresenterHost.Draw(renderer);
+	private void DrawViewPresenterHost(Renderer renderer) => _viewPresenterHost.Draw(renderer);
 
 	public void Show()
 	{
-		this.ResetCompositions();
-		this._currentComposition = this._menuPopInComposition;
-		this._showing = true;
-		this._viewPresenterHost = new MenuViewPresenterHost(this._viewPresenterFactory, (IMenuViewModel)new MenuViewFactory(this._gameContext).GetInGameOptionsView(this.CanRestart), (ISettingUIResources)this._settingUIResources);
-		this._viewPresenterHost.NavigateNext += new EventHandler<NavigateNextEventArgs>(this.NavigateNextHandler);
-		this._viewPresenterHost.NavigateBack += new EventHandler(this.NavigateBackHandler);
+		ResetCompositions();
+		_currentComposition = _menuPopInComposition;
+		_showing = true;
+		_viewPresenterHost = new MenuViewPresenterHost(_viewPresenterFactory, new MenuViewFactory(_gameContext).GetInGameOptionsView(CanRestart), _settingUIResources);
+		_viewPresenterHost.NavigateNext += new EventHandler<NavigateNextEventArgs>(NavigateNextHandler);
+		_viewPresenterHost.NavigateBack += new EventHandler(NavigateBackHandler);
 	}
 
 	public void Hide()
 	{
-		this._showing = false;
-		this._viewPresenterHost = (MenuViewPresenterHost)null;
+		_showing = false;
+		_viewPresenterHost = null;
 	}
 }

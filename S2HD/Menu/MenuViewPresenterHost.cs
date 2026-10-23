@@ -4,11 +4,11 @@
 // MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
 // Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
 
+using System;
+using System.Collections.Generic;
 using SonicOrca;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
-using System;
-using System.Collections.Generic;
 
 #nullable disable
 namespace S2HD.Menu;
@@ -28,59 +28,59 @@ internal class MenuViewPresenterHost
 
 	public Rectanglei Bounds
 	{
-		get => this._bounds;
+		get => _bounds;
 		set
 		{
-			this._bounds = value;
-			if (this._viewPresenter == null)
+			_bounds = value;
+			if (_viewPresenter == null)
 				return;
-			this._viewPresenter.Bounds = value;
+			_viewPresenter.Bounds = value;
 		}
 	}
 
-	public object CurrentViewModelTag => this._viewModel.Tag;
+	public object CurrentViewModelTag => _viewModel.Tag;
 
 	public MenuViewPresenterHost(
 	  MenuViewPresenterFactory viewPresenterFactory,
 	  IMenuViewModel initialViewModel,
 	  ISettingUIResources settingUIResources)
 	{
-		this._viewPresenterFactory = viewPresenterFactory;
-		this._settingUIResources = settingUIResources;
-		this.SetViewModel(initialViewModel);
+		_viewPresenterFactory = viewPresenterFactory;
+		_settingUIResources = settingUIResources;
+		SetViewModel(initialViewModel);
 	}
 
-	public void Update() => this._viewPresenter?.Update();
+	public void Update() => _viewPresenter?.Update();
 
-	public void HandleInput() => this._viewPresenter?.HandleInput();
+	public void HandleInput() => _viewPresenter?.HandleInput();
 
 	private void SetViewModel(IMenuViewModel viewModel)
 	{
-		if (this._viewModel != null)
-			this.PlayConfirmSound();
-		this._viewModel = viewModel;
-		this._viewPresenter = this._viewPresenterFactory.Create(this._viewModel);
-		this._viewPresenter.Bounds = this._bounds;
-		this._viewPresenter.NavigateBack += new EventHandler(this.NavigateBackHandler);
-		this._viewPresenter.NavigateNext += (EventHandler<NavigateNextEventArgs>)((s, e) => this.NavigateNextHandler(s, e));
-		this._viewPresenter.Update();
+		if (_viewModel != null)
+			PlayConfirmSound();
+		_viewModel = viewModel;
+		_viewPresenter = _viewPresenterFactory.Create(_viewModel);
+		_viewPresenter.Bounds = _bounds;
+		_viewPresenter.NavigateBack += new EventHandler(NavigateBackHandler);
+		_viewPresenter.NavigateNext += (s, e) => NavigateNextHandler(s, e);
+		_viewPresenter.Update();
 	}
 
 	private void NavigateBackHandler(object sender, EventArgs e)
 	{
-		if (this._viewModelStack.Count == 0)
+		if (_viewModelStack.Count == 0)
 		{
-			EventHandler navigateBack = this.NavigateBack;
+			EventHandler navigateBack = NavigateBack;
 			if (navigateBack == null)
 				return;
-			navigateBack((object)this, EventArgs.Empty);
+			navigateBack(this, EventArgs.Empty);
 		}
 		else
 		{
-			this.SetViewModel(this._viewModelStack.Pop());
-			if (!(this.NavigateBack.Target.GetType() != typeof(OptionsGameState)))
+			SetViewModel(_viewModelStack.Pop());
+			if (!(NavigateBack.Target.GetType() != typeof(OptionsGameState)))
 				return;
-			EventHandler navigateBack = this.NavigateBack;
+			EventHandler navigateBack = NavigateBack;
 			if (navigateBack == null)
 				return;
 			navigateBack(sender, EventArgs.Empty);
@@ -91,21 +91,21 @@ internal class MenuViewPresenterHost
 	{
 		if (e.ViewModel != null)
 		{
-			this._viewModelStack.Push(this._viewModel);
-			this.SetViewModel(e.ViewModel);
+			_viewModelStack.Push(_viewModel);
+			SetViewModel(e.ViewModel);
 		}
-		if (e.Tag != null && e.Tag.Equals((object)0))
-			this.NavigateBackHandler(s, (EventArgs)e);
+		if (e.Tag != null && e.Tag.Equals(0))
+			NavigateBackHandler(s, e);
 		else if (e.ViewModel != null && e.Tag == null)
 		{
-			EventHandler<NavigateNextEventArgs> navigateNext = this.NavigateNext;
+			EventHandler<NavigateNextEventArgs> navigateNext = NavigateNext;
 			if (navigateNext == null)
 				return;
 			navigateNext(s, new NavigateNextEventArgs(e.ViewModel, e.ViewModel.Tag));
 		}
 		else
 		{
-			EventHandler<NavigateNextEventArgs> navigateNext = this.NavigateNext;
+			EventHandler<NavigateNextEventArgs> navigateNext = NavigateNext;
 			if (navigateNext == null)
 				return;
 			navigateNext(s, e);
@@ -114,24 +114,24 @@ internal class MenuViewPresenterHost
 
 	private void PlayNavigationSound()
 	{
-		if (this._settingUIResources.NavigateSample == null)
+		if (_settingUIResources.NavigateSample == null)
 			return;
-		SonicOrcaGameContext.Singleton.Audio.PlaySound(this._settingUIResources.NavigateSample);
+		SonicOrcaGameContext.Singleton.Audio.PlaySound(_settingUIResources.NavigateSample);
 	}
 
 	private void PlayConfirmSound()
 	{
-		if (this._settingUIResources.NavigateSample == null)
+		if (_settingUIResources.NavigateSample == null)
 			return;
-		SonicOrcaGameContext.Singleton.Audio.PlaySound(this._settingUIResources.ConfirmSample);
+		SonicOrcaGameContext.Singleton.Audio.PlaySound(_settingUIResources.ConfirmSample);
 	}
 
 	private void PlayBackSound()
 	{
-		if (this._settingUIResources.NavigateSample == null)
+		if (_settingUIResources.NavigateSample == null)
 			return;
-		SonicOrcaGameContext.Singleton.Audio.PlaySound(this._settingUIResources.CancelSample);
+		SonicOrcaGameContext.Singleton.Audio.PlaySound(_settingUIResources.CancelSample);
 	}
 
-	public void Draw(Renderer renderer) => this._viewPresenter?.Draw(renderer);
+	public void Draw(Renderer renderer) => _viewPresenter?.Draw(renderer);
 }

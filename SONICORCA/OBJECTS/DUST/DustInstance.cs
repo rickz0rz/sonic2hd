@@ -19,11 +19,11 @@ public class DustInstance : ParticleObject
 	{
 	}
 
-	public void SetDustAnimationIndex(int index) => this._animationInstance.Index = index;
+	public void SetDustAnimationIndex(int index) => _animationInstance.Index = index;
 
 	protected override void OnUpdate()
 	{
-		this.MovePrecise(this.Velocity);
+		MovePrecise(Velocity);
 		base.OnUpdate();
 	}
 }

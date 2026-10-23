@@ -4,12 +4,12 @@
 // MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
 // Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
 
+using System;
+using System.Collections.Generic;
 using SonicOrca;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
 using SonicOrca.Resources;
-using System;
-using System.Collections.Generic;
 
 #nullable disable
 namespace S2HD.Title;
@@ -62,120 +62,120 @@ internal class Banner
 
 	public Banner(S2HDSonicOrcaGameContext gameContext, IMaskRenderer maskRenderer)
 	{
-		this._gameContext = gameContext;
-		this._maskRenderer = maskRenderer;
-		this.GetResourceReferences();
-		this.Position = new Vector2i(960, 476);
+		_gameContext = gameContext;
+		_maskRenderer = maskRenderer;
+		GetResourceReferences();
+		Position = new Vector2i(960, 476);
 	}
 
 	private void GetResourceReferences()
 	{
-		ResourceTree resourceTree = this._gameContext.ResourceTree;
-		this._animationGroup = resourceTree.GetLoadedResource<AnimationGroup>("SONICORCA/TITLE/ANIGROUP");
-		this._bannerTexture = resourceTree.GetLoadedResource<ITexture>("SONICORCA/TITLE/FRAMES/0");
-		this._bannerInsideTexture = resourceTree.GetLoadedResource<ITexture>("SONICORCA/TITLE/FRAMES/1");
-		this._titleOutlineTexture = resourceTree.GetLoadedResource<ITexture>("SONICORCA/TITLE/ADDFRAMES/0");
-		this._maskTexture = resourceTree.GetLoadedResource<ITexture>("SONICORCA/TITLE/ADDFRAMES/1");
-		this._hdStarTexture = resourceTree.GetLoadedResource<ITexture>("SONICORCA/TITLE/ADDFRAMES/2");
+		ResourceTree resourceTree = _gameContext.ResourceTree;
+		_animationGroup = resourceTree.GetLoadedResource<AnimationGroup>("SONICORCA/TITLE/ANIGROUP");
+		_bannerTexture = resourceTree.GetLoadedResource<ITexture>("SONICORCA/TITLE/FRAMES/0");
+		_bannerInsideTexture = resourceTree.GetLoadedResource<ITexture>("SONICORCA/TITLE/FRAMES/1");
+		_titleOutlineTexture = resourceTree.GetLoadedResource<ITexture>("SONICORCA/TITLE/ADDFRAMES/0");
+		_maskTexture = resourceTree.GetLoadedResource<ITexture>("SONICORCA/TITLE/ADDFRAMES/1");
+		_hdStarTexture = resourceTree.GetLoadedResource<ITexture>("SONICORCA/TITLE/ADDFRAMES/2");
 	}
 
 	public void Reset()
 	{
-		this._ticks = 0;
-		this._preBannerStarSpin = new AnimationInstance[8];
-		this._sonicAnimationInstance = (AnimationInstance)null;
-		this._sonicHandAnimationInstance = (AnimationInstance)null;
-		this._tailsAnimationInstance = (AnimationInstance)null;
-		this._tailsTailsAnimationInstance = (AnimationInstance)null;
-		this._sonic2AnimationInstance = (AnimationInstance)null;
-		this._theHedgehogAnimationInstance = (AnimationInstance)null;
-		this._hdAnimationInstance = (AnimationInstance)null;
-		this._bannerInsideOpacity = 0.0;
-		this._bannerOpacity = 0.0;
-		this._sonic2Opacity = 0.0;
-		this._maskOffset = -1.0;
-		this.ShowStarLensFare = false;
+		_ticks = 0;
+		_preBannerStarSpin = new AnimationInstance[8];
+		_sonicAnimationInstance = null;
+		_sonicHandAnimationInstance = null;
+		_tailsAnimationInstance = null;
+		_tailsTailsAnimationInstance = null;
+		_sonic2AnimationInstance = null;
+		_theHedgehogAnimationInstance = null;
+		_hdAnimationInstance = null;
+		_bannerInsideOpacity = 0.0;
+		_bannerOpacity = 0.0;
+		_sonic2Opacity = 0.0;
+		_maskOffset = -1.0;
+		ShowStarLensFare = false;
 	}
 
 	public void DoShine(int duration)
 	{
-		this._effectEventManager.BeginEvent(this.EffectShine(duration));
+		_effectEventManager.BeginEvent(EffectShine(duration));
 	}
 
 	private IEnumerable<UpdateResult> EffectShine(int duration)
 	{
-		this._maskOffset = -1.0;
+		_maskOffset = -1.0;
 		do
 		{
 			yield return UpdateResult.Next();
-			this._maskOffset += 2.0 / (double)duration;
+			_maskOffset += 2.0 / duration;
 		}
-		while (this._maskOffset < 1.0);
-		this._maskOffset = 1.0;
+		while (_maskOffset < 1.0);
+		_maskOffset = 1.0;
 	}
 
 	public void Update()
 	{
-		if (this._ticks == 268)
-			this.DoShine(368);
-		if (this._ticks >= 296)
-			this._bannerInsideOpacity = Math.Min(1.0, this._bannerInsideOpacity + 1.0 / 72.0);
-		if (this._ticks >= 332)
-			this._bannerOpacity = Math.Min(1.0, this._bannerOpacity + 1.0 / 32.0);
-		for (int index = 0; index < this._preBannerStarSpin.Length; ++index)
+		if (_ticks == 268)
+			DoShine(368);
+		if (_ticks >= 296)
+			_bannerInsideOpacity = Math.Min(1.0, _bannerInsideOpacity + 1.0 / 72.0);
+		if (_ticks >= 332)
+			_bannerOpacity = Math.Min(1.0, _bannerOpacity + 1.0 / 32.0);
+		for (int index = 0; index < _preBannerStarSpin.Length; ++index)
 		{
-			if (this._preBannerStarSpin[index] == null)
+			if (_preBannerStarSpin[index] == null)
 			{
-				if (this._ticks >= 298 + index * 4)
-					this._preBannerStarSpin[index] = new AnimationInstance(this._animationGroup, 3);
+				if (_ticks >= 298 + index * 4)
+					_preBannerStarSpin[index] = new AnimationInstance(_animationGroup, 3);
 			}
-			else if (this._preBannerStarSpin[index].Cycles == 0)
-				this._preBannerStarSpin[index].Animate();
+			else if (_preBannerStarSpin[index].Cycles == 0)
+				_preBannerStarSpin[index].Animate();
 		}
-		if (this._ticks >= 346)
+		if (_ticks >= 346)
 		{
-			this._sonic2Opacity = Math.Min(1.0, this._sonic2Opacity + 1.0 / 16.0);
-			if (this._sonic2AnimationInstance == null)
-				this._sonic2AnimationInstance = new AnimationInstance(this._animationGroup, 2);
+			_sonic2Opacity = Math.Min(1.0, _sonic2Opacity + 1.0 / 16.0);
+			if (_sonic2AnimationInstance == null)
+				_sonic2AnimationInstance = new AnimationInstance(_animationGroup, 2);
 		}
-		if (this._ticks >= 360)
+		if (_ticks >= 360)
 		{
-			if (this._theHedgehogAnimationInstance == null)
-				this._theHedgehogAnimationInstance = new AnimationInstance(this._animationGroup, 1);
-			this._theHedgehogAnimationInstance.Animate();
+			if (_theHedgehogAnimationInstance == null)
+				_theHedgehogAnimationInstance = new AnimationInstance(_animationGroup, 1);
+			_theHedgehogAnimationInstance.Animate();
 		}
-		if (this._ticks >= 364)
+		if (_ticks >= 364)
 		{
-			if (this._sonicAnimationInstance == null)
-				this._sonicAnimationInstance = new AnimationInstance(this._animationGroup, 4);
-			this._sonicAnimationInstance.Animate();
+			if (_sonicAnimationInstance == null)
+				_sonicAnimationInstance = new AnimationInstance(_animationGroup, 4);
+			_sonicAnimationInstance.Animate();
 		}
-		if (this._ticks >= 413)
+		if (_ticks >= 413)
 		{
-			if (this._sonicHandAnimationInstance == null)
-				this._sonicHandAnimationInstance = new AnimationInstance(this._animationGroup, 5);
-			this._sonicHandAnimationInstance.Animate();
+			if (_sonicHandAnimationInstance == null)
+				_sonicHandAnimationInstance = new AnimationInstance(_animationGroup, 5);
+			_sonicHandAnimationInstance.Animate();
 		}
-		if (this._ticks >= 400)
+		if (_ticks >= 400)
 		{
-			if (this._tailsAnimationInstance == null)
+			if (_tailsAnimationInstance == null)
 			{
-				this._tailsAnimationInstance = new AnimationInstance(this._animationGroup, 6);
-				this._tailsTailsAnimationInstance = new AnimationInstance(this._animationGroup, 7);
+				_tailsAnimationInstance = new AnimationInstance(_animationGroup, 6);
+				_tailsTailsAnimationInstance = new AnimationInstance(_animationGroup, 7);
 			}
-			this._tailsAnimationInstance.Animate();
-			this._tailsTailsAnimationInstance.Animate();
+			_tailsAnimationInstance.Animate();
+			_tailsTailsAnimationInstance.Animate();
 		}
-		if (this._ticks >= 436)
-			this._sonic2AnimationInstance.Animate();
-		if (this._ticks >= 454)
+		if (_ticks >= 436)
+			_sonic2AnimationInstance.Animate();
+		if (_ticks >= 454)
 		{
-			if (this._hdAnimationInstance == null)
-				this._hdAnimationInstance = new AnimationInstance(this._animationGroup);
-			this._hdAnimationInstance.Animate();
+			if (_hdAnimationInstance == null)
+				_hdAnimationInstance = new AnimationInstance(_animationGroup);
+			_hdAnimationInstance.Animate();
 		}
-		this._effectEventManager.Update();
-		++this._ticks;
+		_effectEventManager.Update();
+		++_ticks;
 	}
 
 	public void Draw(Renderer renderer)
@@ -187,70 +187,70 @@ internal class Banner
 			I2dRenderer obj = renderer1;
 			Matrix4 modelMatrix = renderer1.ModelMatrix;
 			ref Matrix4 local = ref modelMatrix;
-			Vector2i position = this.Position;
-			double x = (double)position.X;
-			position = this.Position;
-			double y = (double)position.Y;
+			Vector2i position = Position;
+			double x = position.X;
+			position = Position;
+			double y = position.Y;
 			Matrix4 matrix4 = local.Translate(x, y);
 			obj.ModelMatrix = matrix4;
-			if (this._bannerInsideOpacity > 0.0 && this._bannerOpacity < 1.0)
+			if (_bannerInsideOpacity > 0.0 && _bannerOpacity < 1.0)
 			{
-				renderer1.Colour = new Colour(this._bannerInsideOpacity, 1.0, 1.0, 1.0);
-				renderer1.RenderTexture(this._bannerInsideTexture, new Vector2(0.0, -114.0));
+				renderer1.Colour = new Colour(_bannerInsideOpacity, 1.0, 1.0, 1.0);
+				renderer1.RenderTexture(_bannerInsideTexture, new Vector2(0.0, -114.0));
 			}
-			if (this._bannerOpacity > 0.0)
+			if (_bannerOpacity > 0.0)
 			{
-				renderer1.Colour = new Colour(this._bannerOpacity, 1.0, 1.0, 1.0);
-				renderer1.RenderTexture(this._bannerTexture, new Vector2(0.0, 0.0));
+				renderer1.Colour = new Colour(_bannerOpacity, 1.0, 1.0, 1.0);
+				renderer1.RenderTexture(_bannerTexture, new Vector2(0.0, 0.0));
 			}
 			for (int index = 0; index < 8; ++index)
 			{
-				if (this._preBannerStarSpin[index] != null && this._preBannerStarSpin[index].Cycles == 0)
-					this._preBannerStarSpin[index].Draw(renderer1, (Vector2)Banner.SpinningStarOffsets[index]);
+				if (_preBannerStarSpin[index] != null && _preBannerStarSpin[index].Cycles == 0)
+					_preBannerStarSpin[index].Draw(renderer1, (Vector2)Banner.SpinningStarOffsets[index]);
 			}
-			this.DrawSonicAndTails(renderer);
-			if (this._sonic2AnimationInstance != null)
-				this._sonic2AnimationInstance.Draw(renderer1, new Colour(this._sonic2Opacity, 1.0, 1.0, 1.0), new Vector2(0.0, 77.0));
-			if (this._theHedgehogAnimationInstance != null)
-				this._theHedgehogAnimationInstance.Draw(renderer1, new Vector2(0.0, 153.0));
-			if (this._hdAnimationInstance != null)
-				this._hdAnimationInstance.Draw(renderer1, new Vector2(0.0, 266.0));
-			if (!this.ShowStarLensFare)
+			DrawSonicAndTails(renderer);
+			if (_sonic2AnimationInstance != null)
+				_sonic2AnimationInstance.Draw(renderer1, new Colour(_sonic2Opacity, 1.0, 1.0, 1.0), new Vector2(0.0, 77.0));
+			if (_theHedgehogAnimationInstance != null)
+				_theHedgehogAnimationInstance.Draw(renderer1, new Vector2(0.0, 153.0));
+			if (_hdAnimationInstance != null)
+				_hdAnimationInstance.Draw(renderer1, new Vector2(0.0, 266.0));
+			if (!ShowStarLensFare)
 				return;
 			renderer1.BlendMode = BlendMode.Additive;
-			renderer1.RenderTexture(this._hdStarTexture, new Vector2(0.0, 188.0));
+			renderer1.RenderTexture(_hdStarTexture, new Vector2(0.0, 188.0));
 		}
 	}
 
-	public void DrawUnfaded(Renderer renderer) => this.DrawTitleShine(renderer);
+	public void DrawUnfaded(Renderer renderer) => DrawTitleShine(renderer);
 
 	private void DrawSonicAndTails(Renderer renderer)
 	{
 		I2dRenderer renderer1 = renderer.Get2dRenderer();
-		if (this._sonicAnimationInstance != null)
-			this._sonicAnimationInstance.Draw(renderer1, new Vector2(89.0, -158.0));
-		if (this._sonicHandAnimationInstance != null)
-			this._sonicHandAnimationInstance.Draw(renderer1, new Vector2(230.0, -89.0));
-		if (this._tailsTailsAnimationInstance != null)
-			this._tailsTailsAnimationInstance.Draw(renderer1, new Vector2(-264.0, -65.0));
-		if (this._tailsAnimationInstance == null)
+		if (_sonicAnimationInstance != null)
+			_sonicAnimationInstance.Draw(renderer1, new Vector2(89.0, -158.0));
+		if (_sonicHandAnimationInstance != null)
+			_sonicHandAnimationInstance.Draw(renderer1, new Vector2(230.0, -89.0));
+		if (_tailsTailsAnimationInstance != null)
+			_tailsTailsAnimationInstance.Draw(renderer1, new Vector2(-264.0, -65.0));
+		if (_tailsAnimationInstance == null)
 			return;
-		this._tailsAnimationInstance.Draw(renderer1, new Vector2(-108.0, -121.0));
+		_tailsAnimationInstance.Draw(renderer1, new Vector2(-108.0, -121.0));
 	}
 
 	private void DrawTitleShine(Renderer renderer)
 	{
-		if (this._maskOffset <= -1.0 || this._maskOffset >= 1.0)
+		if (_maskOffset <= -1.0 || _maskOffset >= 1.0)
 			return;
 		renderer.DeativateRenderer();
-		this._maskRenderer.Texture = this._titleOutlineTexture;
-		this._maskRenderer.Source = new Rectanglei(0, 0, this._titleOutlineTexture.Width, this._titleOutlineTexture.Height);
-		this._maskRenderer.Destination = new Rectanglei(this.Position.X - this._titleOutlineTexture.Width / 2, this.Position.Y - this._titleOutlineTexture.Height / 2, this._titleOutlineTexture.Width, this._titleOutlineTexture.Height);
-		this._maskTexture.Wrapping = TextureWrapping.Clamp;
-		this._maskRenderer.MaskTexture = this._maskTexture;
-		this._maskRenderer.MaskSource = new Rectanglei(0, 0, this._maskTexture.Width, this._maskTexture.Height);
-		this._maskRenderer.MaskDestination = new Rectanglei(this.Position.X + (int)(this._maskOffset * 1920.0), this.Position.Y + (int)(this._maskOffset * 1080.0), 1920, 1080);
-		this._maskRenderer.BlendMode = BlendMode.Additive;
-		this._maskRenderer.Render(true);
+		_maskRenderer.Texture = _titleOutlineTexture;
+		_maskRenderer.Source = new Rectanglei(0, 0, _titleOutlineTexture.Width, _titleOutlineTexture.Height);
+		_maskRenderer.Destination = new Rectanglei(Position.X - _titleOutlineTexture.Width / 2, Position.Y - _titleOutlineTexture.Height / 2, _titleOutlineTexture.Width, _titleOutlineTexture.Height);
+		_maskTexture.Wrapping = TextureWrapping.Clamp;
+		_maskRenderer.MaskTexture = _maskTexture;
+		_maskRenderer.MaskSource = new Rectanglei(0, 0, _maskTexture.Width, _maskTexture.Height);
+		_maskRenderer.MaskDestination = new Rectanglei(Position.X + (int)(_maskOffset * 1920.0), Position.Y + (int)(_maskOffset * 1080.0), 1920, 1080);
+		_maskRenderer.BlendMode = BlendMode.Additive;
+		_maskRenderer.Render(true);
 	}
 }

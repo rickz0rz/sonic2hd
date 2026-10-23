@@ -4,8 +4,8 @@
 // MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
 // Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
 
-using SonicOrca.Graphics;
 using System;
+using SonicOrca.Graphics;
 
 #nullable disable
 namespace S2HD;
@@ -39,12 +39,12 @@ internal static class SharedRenderers
 			if (SharedRenderers.Standard2d != null)
 			{
 				SharedRenderers.Standard2d.Dispose();
-				SharedRenderers.Standard2d = (I2dRenderer)null;
+				SharedRenderers.Standard2d = null;
 			}
 			if (SharedRenderers.FadeTransition != null)
 			{
 				SharedRenderers.FadeTransition.Dispose();
-				SharedRenderers.FadeTransition = (IFadeTransitionRenderer)null;
+				SharedRenderers.FadeTransition = null;
 			}
 			SharedRenderers.Initialised = false;
 		}

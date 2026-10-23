@@ -4,6 +4,7 @@
 // MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
 // Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
 
+using System;
 using SonicOrca.Core;
 using SonicOrca.Core.Collision;
 using SonicOrca.Core.Objects;
@@ -12,7 +13,6 @@ using SonicOrca.Extensions;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
 using SonicOrca.Resources;
-using System;
 
 #nullable disable
 namespace SONICORCA.OBJECTS.STARPOST;
@@ -38,89 +38,89 @@ public class StarpostInstance : ActiveObject
 	[StateVariable]
 	private int Index
 	{
-		get => this._index;
-		set => this._index = value;
+		get => _index;
+		set => _index = value;
 	}
 
-	public StarpostInstance() => this.DesignBounds = new Rectanglei(-50, -150, 100, 300);
+	public StarpostInstance() => DesignBounds = new Rectanglei(-50, -150, 100, 300);
 
 	protected override void OnStart()
 	{
-		AnimationGroup loadedResource = this.Level.GameContext.ResourceTree.GetLoadedResource<AnimationGroup>((ILoadedResource)this.Type, "/ANIGROUP");
-		this._standAnimation = new AnimationInstance(loadedResource);
-		this._starAnimation = new AnimationInstance(loadedResource);
-		this._starGlowAnimation = new AnimationInstance(loadedResource);
-		this._standAnimation.Index = 0;
-		this._starAnimation.Index = 1;
-		this._starGlowAnimation.Index = 3;
-		this.CollisionRectangles = new CollisionRectangle[1]
+		AnimationGroup loadedResource = Level.GameContext.ResourceTree.GetLoadedResource<AnimationGroup>(Type, "/ANIGROUP");
+		_standAnimation = new AnimationInstance(loadedResource);
+		_starAnimation = new AnimationInstance(loadedResource);
+		_starGlowAnimation = new AnimationInstance(loadedResource);
+		_standAnimation.Index = 0;
+		_starAnimation.Index = 1;
+		_starGlowAnimation.Index = 3;
+		CollisionRectangles = new CollisionRectangle[1]
 		{
-	  new CollisionRectangle((ActiveObject) this, 0, -32, (int) sbyte.MinValue, 64 /*0x40*/, 256 /*0x0100*/)
+	  new CollisionRectangle( this, 0, -32,  sbyte.MinValue, 64 /*0x40*/, 256 /*0x0100*/)
 		};
-		this._activated = this.Level.Player.IsStarpostActivated(this._index);
-		this._glowing = this._activated;
-		this.UpdateStarPosition();
+		_activated = Level.Player.IsStarpostActivated(_index);
+		_glowing = _activated;
+		UpdateStarPosition();
 	}
 
 	protected override void OnUpdate()
 	{
-		if (!this._activated && this.Level.Player.IsStarpostActivated(this._index))
+		if (!_activated && Level.Player.IsStarpostActivated(_index))
 		{
-			this._activated = true;
-			this._glowing = true;
+			_activated = true;
+			_glowing = true;
 		}
-		if (this._starSpinning)
+		if (_starSpinning)
 		{
-			this._starAngle += 2.0 * Math.PI / 15.0;
-			if (this._starAngle >= 4.0 * Math.PI)
+			_starAngle += 2.0 * Math.PI / 15.0;
+			if (_starAngle >= 4.0 * Math.PI)
 			{
-				this._starAngle = 0.0;
-				this._starSpinning = false;
-				this._glowing = true;
+				_starAngle = 0.0;
+				_starSpinning = false;
+				_glowing = true;
 			}
 		}
-		this.UpdateStarPosition();
+		UpdateStarPosition();
 	}
 
 	private void UpdateStarPosition()
 	{
-		this._starPosition = new Vector2(StarpostInstance.StarAxelMidpoint.X + Math.Sin(this._starAngle) * StarpostInstance.StarAxelRadius, StarpostInstance.StarAxelMidpoint.Y - Math.Cos(this._starAngle) * StarpostInstance.StarAxelRadius);
+		_starPosition = new Vector2(StarpostInstance.StarAxelMidpoint.X + Math.Sin(_starAngle) * StarpostInstance.StarAxelRadius, StarpostInstance.StarAxelMidpoint.Y - Math.Cos(_starAngle) * StarpostInstance.StarAxelRadius);
 	}
 
 	protected override void OnCollision(CollisionEvent e)
 	{
-		if (this._activated || e.ActiveObject.Type.Classification != ObjectClassification.Character)
+		if (_activated || e.ActiveObject.Type.Classification != ObjectClassification.Character)
 			return;
 		ICharacter activeObject = (ICharacter)e.ActiveObject;
 		if (activeObject.IsSidekick)
 			return;
-		activeObject.Player.ActivateStarpost(this._index, this.Position + new Vector2i(0, 64 /*0x40*/));
-		this._activated = true;
-		this._starSpinning = true;
-		this.Level.SoundManager.PlaySound((IActiveObject)this, this.Type.GetAbsolutePath("SONICORCA/SOUND/STARPOST"));
+		activeObject.Player.ActivateStarpost(_index, Position + new Vector2i(0, 64 /*0x40*/));
+		_activated = true;
+		_starSpinning = true;
+		Level.SoundManager.PlaySound(this, Type.GetAbsolutePath("SONICORCA/SOUND/STARPOST"));
 	}
 
 	protected override void OnAnimate()
 	{
-		if (this._glowing)
+		if (_glowing)
 		{
-			this._starAnimation.Index = 2;
-			this._starGlowAnimation.CurrentFrameIndex = this._starAnimation.CurrentFrameIndex;
+			_starAnimation.Index = 2;
+			_starGlowAnimation.CurrentFrameIndex = _starAnimation.CurrentFrameIndex;
 		}
-		this._standAnimation.Animate();
-		this._starAnimation.Animate();
-		this._starGlowAnimation.Animate();
+		_standAnimation.Animate();
+		_starAnimation.Animate();
+		_starGlowAnimation.Animate();
 	}
 
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 	{
 		IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
-		objectRenderer.Render(this._standAnimation);
-		objectRenderer.Render(this._starAnimation, this._starPosition);
-		if (!this._glowing)
+		objectRenderer.Render(_standAnimation);
+		objectRenderer.Render(_starAnimation, _starPosition);
+		if (!_glowing)
 			return;
 		objectRenderer.BlendMode = BlendMode.Additive;
 		objectRenderer.EmitsLight = true;
-		objectRenderer.Render(this._starGlowAnimation, this._starPosition);
+		objectRenderer.Render(_starGlowAnimation, _starPosition);
 	}
 }

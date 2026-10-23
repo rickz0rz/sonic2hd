@@ -119,13 +119,13 @@ public class ParticleManager : IDisposable
 							break;
 						}
 						renderer.DeativateRenderer();
-						Rectanglei destination = ((Rectanglei)new Rectangle(particle.Position.X - (double)(_heatParticleTexture.Width / 2), particle.Position.Y - (double)(_heatParticleTexture.Height / 2), _heatParticleTexture.Width, _heatParticleTexture.Height)).OffsetBy(viewport.Bounds.TopLeft * -1);
+						Rectanglei destination = ((Rectanglei)new Rectangle(particle.Position.X - _heatParticleTexture.Width / 2, particle.Position.Y - _heatParticleTexture.Height / 2, _heatParticleTexture.Width, _heatParticleTexture.Height)).OffsetBy(viewport.Bounds.TopLeft * -1);
 						if (destination.IntersectsWith(new Rectanglei(0, 0, currentFramebuffer.Width, currentFramebuffer.Height)))
 						{
-							heatRenderer.DistortionAmount = 1.0 / (double)_heatParticleTexture.Width * 8.0;
+							heatRenderer.DistortionAmount = 1.0 / _heatParticleTexture.Width * 8.0;
 							if (particle.Time < 60)
 							{
-								heatRenderer.DistortionAmount *= (double)particle.Time / 60.0;
+								heatRenderer.DistortionAmount *= particle.Time / 60.0;
 							}
 							_workCanvas.Activate();
 							i2dRenderer.BlendMode = BlendMode.Opaque;
@@ -142,9 +142,9 @@ public class ParticleManager : IDisposable
 				case ParticleType.Smoke:
 					{
 						Vector2 vector2 = particle.Position - viewport.Bounds.TopLeft;
-						if (((Rectanglei)new Rectangle(vector2.X - (double)(_smokeParticleTexture.Width / 2), vector2.Y - (double)(_smokeParticleTexture.Height / 2), _smokeParticleTexture.Width, _smokeParticleTexture.Height)).IntersectsWith(new Rectanglei(0, 0, currentFramebuffer.Width, currentFramebuffer.Height)))
+						if (((Rectanglei)new Rectangle(vector2.X - _smokeParticleTexture.Width / 2, vector2.Y - _smokeParticleTexture.Height / 2, _smokeParticleTexture.Width, _smokeParticleTexture.Height)).IntersectsWith(new Rectanglei(0, 0, currentFramebuffer.Width, currentFramebuffer.Height)))
 						{
-							double a = ((particle.Time < 120) ? ((double)particle.Time / 120.0) : 1.0) * 0.2;
+							double a = ((particle.Time < 120) ? (particle.Time / 120.0) : 1.0) * 0.2;
 							currentFramebuffer.Activate();
 							i2dRenderer.BlendMode = BlendMode.Alpha;
 							i2dRenderer.Colour = new Colour(a, 1.0, 1.0, 1.0);
@@ -160,7 +160,7 @@ public class ParticleManager : IDisposable
 						if (customTexture != null)
 						{
 							Vector2 vector = particle.Position - viewport.Bounds.TopLeft;
-							if (((Rectanglei)new Rectangle(vector.X - (double)(customTexture.Width / 2), vector.Y - (double)(customTexture.Height / 2), customTexture.Width, customTexture.Height)).IntersectsWith(new Rectanglei(0, 0, currentFramebuffer.Width, currentFramebuffer.Height)))
+							if (((Rectanglei)new Rectangle(vector.X - customTexture.Width / 2, vector.Y - customTexture.Height / 2, customTexture.Width, customTexture.Height)).IntersectsWith(new Rectanglei(0, 0, currentFramebuffer.Width, currentFramebuffer.Height)))
 							{
 								currentFramebuffer.Activate();
 								i2dRenderer.BlendMode = BlendMode.Alpha;

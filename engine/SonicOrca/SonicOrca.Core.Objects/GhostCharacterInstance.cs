@@ -57,7 +57,7 @@ internal class GhostCharacterInstance : ActiveObject
 			}
 			Animation.Frame currentFrame = _animation.CurrentFrame;
 			Vector2 vector = currentFrame.Offset;
-			Rectangle destination = new Rectangle(vector.X - (double)(currentFrame.Source.Width / 2), vector.Y - (double)(currentFrame.Source.Height / 2), currentFrame.Source.Width, currentFrame.Source.Height);
+			Rectangle destination = new Rectangle(vector.X - currentFrame.Source.Width / 2, vector.Y - currentFrame.Source.Height / 2, currentFrame.Source.Width, currentFrame.Source.Height);
 			characterRenderer.RenderTextureGhost(_animation.AnimationGroup.Textures[1], _animation.AnimationGroup.Textures[0], currentFrame.Source, destination, !State.HasFlag(CharacterState.Left), State.HasFlag(CharacterState.Left) && _animation.Index == 16);
 		}
 	}

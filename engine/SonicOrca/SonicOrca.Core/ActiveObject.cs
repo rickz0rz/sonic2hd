@@ -88,7 +88,7 @@ public abstract class ActiveObject : IActiveObject
 		get
 		{
 			Vector2 lifeRadius = Type.GetLifeRadius((IActiveObject)Entry.State);
-			Vector2 vector = new Vector2((double)Position.X - lifeRadius.X, (double)Position.Y - lifeRadius.Y);
+			Vector2 vector = new Vector2(Position.X - lifeRadius.X, Position.Y - lifeRadius.Y);
 			return new Rectangle(vector.X, vector.Y, lifeRadius.X * 2.0, lifeRadius.Y * 2.0);
 		}
 	}
@@ -197,7 +197,7 @@ public abstract class ActiveObject : IActiveObject
 		I2dRenderer i2dRenderer = renderer.Get2dRenderer();
 		using (i2dRenderer.BeginMatixState())
 		{
-			i2dRenderer.ModelMatrix *= Matrix4.CreateTranslation((double)(_position.X - viewport.Bounds.X + vector2i.X) * viewport.Scale.X, (double)(_position.Y - viewport.Bounds.Y + vector2i.Y) * viewport.Scale.Y);
+			i2dRenderer.ModelMatrix *= Matrix4.CreateTranslation((_position.X - viewport.Bounds.X + vector2i.X) * viewport.Scale.X, (_position.Y - viewport.Bounds.Y + vector2i.Y) * viewport.Scale.Y);
 			IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
 			objectRenderer.ClipRectangle = viewport.Destination;
 			objectRenderer.ModelMatrix = i2dRenderer.ModelMatrix;

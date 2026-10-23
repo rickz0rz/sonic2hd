@@ -24,33 +24,33 @@ public class HTZVineLiftPillarInstance : ActiveObject
 	[StateVariable]
 	private bool FlipX
 	{
-		get => this._flipX;
-		set => this._flipX = value;
+		get => _flipX;
+		set => _flipX = value;
 	}
 
 	[StateVariable]
 	private bool Bottom
 	{
-		get => this._bottom;
-		set => this._bottom = value;
+		get => _bottom;
+		set => _bottom = value;
 	}
 
 	public HTZVineLiftPillarInstance()
 	{
-		this.DesignBounds = new Rectanglei(-64, -170, 128 /*0x80*/, 340);
+		DesignBounds = new Rectanglei(-64, -170, 128 /*0x80*/, 340);
 	}
 
 	protected override void OnStart()
 	{
 		base.OnStart();
-		this._animation = new AnimationInstance(this.ResourceTree, this.Type.GetAbsolutePath("//ANIGROUP"), this._bottom ? 3 : 2);
-		this.Priority = -256;
+		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("//ANIGROUP"), _bottom ? 3 : 2);
+		Priority = -256;
 	}
 
-	protected override void OnAnimate() => this._animation.Animate();
+	protected override void OnAnimate() => _animation.Animate();
 
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 	{
-		renderer.GetObjectRenderer().Render(this._animation, this._flipX);
+		renderer.GetObjectRenderer().Render(_animation, _flipX);
 	}
 }

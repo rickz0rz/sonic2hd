@@ -206,7 +206,7 @@ public class SDL2InputContext : InputContext, IDisposable
 
 	private double GetGameControllerAxis(IntPtr controller, SDL.SDL_GameControllerAxis axis, double minTolerance, double maxTolerance)
 	{
-		double value = (double)SDL.SDL_GameControllerGetAxis(controller, axis) / 32767.0;
+		double value = SDL.SDL_GameControllerGetAxis(controller, axis) / 32767.0;
 		double num = Math.Abs(value);
 		if (num < minTolerance)
 		{
@@ -214,9 +214,9 @@ public class SDL2InputContext : InputContext, IDisposable
 		}
 		if (num > maxTolerance)
 		{
-			return 1.0 * (double)Math.Sign(value);
+			return 1.0 * Math.Sign(value);
 		}
-		return (num - minTolerance) / (maxTolerance - minTolerance) * (double)Math.Sign(value);
+		return (num - minTolerance) / (maxTolerance - minTolerance) * Math.Sign(value);
 	}
 
 	public override char GetKeyCode(int scancode)

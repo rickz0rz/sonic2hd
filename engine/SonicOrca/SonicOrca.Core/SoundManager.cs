@@ -226,7 +226,7 @@ public class SoundManager
 			_musicInstance.Volume = 0.0;
 			_musicInstance.Play();
 			_musicFadeState = MusicFadeState.FadingIn;
-			_musicFadeAmount = 1.0 / (double)fadeDuration;
+			_musicFadeAmount = 1.0 / fadeDuration;
 		}
 	}
 
@@ -234,7 +234,7 @@ public class SoundManager
 	{
 		_musicFadeState = MusicFadeState.FadingOut;
 		_musicFadeVolume = CurrentInstance.Volume;
-		_musicFadeAmount = 1.0 / (double)fadeDuration;
+		_musicFadeAmount = 1.0 / fadeDuration;
 	}
 
 	public void MuteMusic()

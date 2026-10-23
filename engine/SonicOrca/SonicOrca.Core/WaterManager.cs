@@ -171,11 +171,11 @@ public class WaterManager
 		bounds.X -= viewport.Bounds.X;
 		bounds.Y -= viewport.Bounds.Y;
 		Vector2 scale = viewport.Scale;
-		bounds.X = (int)((double)bounds.X * scale.X);
-		bounds.Y = (int)((double)bounds.Y * scale.Y);
-		bounds.Width = (int)((double)bounds.Width * scale.X);
-		bounds.Height = (int)((double)bounds.Height * scale.Y);
-		if (bounds.Width >= 0 && !((double)bounds.Height < 0.0 - (WavePhase + (double)waterArea.Y / 1080.0 * (Math.PI * 2.0))))
+		bounds.X = (int)(bounds.X * scale.X);
+		bounds.Y = (int)(bounds.Y * scale.Y);
+		bounds.Width = (int)(bounds.Width * scale.X);
+		bounds.Height = (int)(bounds.Height * scale.Y);
+		if (bounds.Width >= 0 && !(bounds.Height < 0.0 - (WavePhase + waterArea.Y / 1080.0 * (Math.PI * 2.0))))
 		{
 			IWaterRenderer waterRenderer = renderer.GetWaterRenderer();
 			waterRenderer.HueTarget = HueTarget;

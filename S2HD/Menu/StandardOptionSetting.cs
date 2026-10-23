@@ -18,21 +18,21 @@ internal class StandardOptionSetting : ISpinnerSetting, ISetting
 
 	public string Name { get; }
 
-	public IReadOnlyList<string> Values => (IReadOnlyList<string>)this._valueStrings;
+	public IReadOnlyList<string> Values => _valueStrings;
 
 	public int SelectedIndex
 	{
-		get => this._getter();
-		set => this._setter(value);
+		get => _getter();
+		set => _setter(value);
 	}
 
 	public StandardOptionSetting(string name, string[] values, Func<int> getter, Action<int> setter)
 	{
-		this.Name = name;
-		this._valueStrings = values;
-		this._getter = getter;
-		this._setter = setter;
+		Name = name;
+		_valueStrings = values;
+		_getter = getter;
+		_setter = setter;
 	}
 
-	public override string ToString() => $"{this.Name}: {this.Values[this.SelectedIndex]}";
+	public override string ToString() => $"{Name}: {Values[SelectedIndex]}";
 }

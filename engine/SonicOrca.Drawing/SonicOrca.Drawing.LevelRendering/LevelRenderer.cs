@@ -376,7 +376,7 @@ public class LevelRenderer : ILevelRenderer, IDisposable
 		RenderingHelpers.RenderToFramebuffer(renderer, texture, _effectFramebuffer, BlendMode.Opaque);
 		_waterfallDistortionTexture.Wrapping = TextureWrapping.Repeat;
 		WaterfallRenderer waterfallRenderer = WaterfallRenderer.FromRenderer(renderer);
-		waterfallRenderer.DistortionOffset = new Vector2(0.0, (double)(_level.Ticks % 60) / -60.0);
+		waterfallRenderer.DistortionOffset = new Vector2(0.0, _level.Ticks % 60 / -60.0);
 		waterfallRenderer.DistortionTexture = _waterfallDistortionTexture;
 		waterfallRenderer.DistortionAmount = 16.0;
 		waterfallRenderer.NonDistortionRadius = new Vector2i(4, 24);

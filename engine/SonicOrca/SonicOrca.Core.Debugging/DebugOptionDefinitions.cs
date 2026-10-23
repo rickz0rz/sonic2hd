@@ -21,7 +21,7 @@ internal static class DebugOptionDefinitions
 			IPlatform platform = Context.Level.GameContext.Platform;
 			IGraphicsContext graphicsContext = platform.Window.GraphicsContext;
 			double num = platform.TotalMemory;
-			double num2 = (double)Environment.WorkingSet / 1048576.0;
+			double num2 = Environment.WorkingSet / 1048576.0;
 			int num3 = (int)Math.Ceiling(num2 / num * 100.0);
 			return new KeyValuePair<string, object>[10][]
 			{
@@ -115,7 +115,7 @@ internal static class DebugOptionDefinitions
 				new KeyValuePair<string, object>[2]
 				{
 					new KeyValuePair<string, object>("TICKS", level.Ticks),
-					new KeyValuePair<string, object>("TIME", $"{level.Time}, {TimeSpan.FromSeconds((double)level.Time / 60.0):mm':'ss':'fff}")
+					new KeyValuePair<string, object>("TIME", $"{level.Time}, {TimeSpan.FromSeconds(level.Time / 60.0):mm':'ss':'fff}")
 				},
 				new KeyValuePair<string, object>[2]
 				{
@@ -173,7 +173,7 @@ internal static class DebugOptionDefinitions
 				new KeyValuePair<string, object>[2]
 				{
 					new KeyValuePair<string, object>("STARPOST ID", player.StarpostIndex),
-					new KeyValuePair<string, object>("STARPOST TIME", $"{player.StarpostTime}, {TimeSpan.FromSeconds((double)player.StarpostTime / 60.0):mm':'ss':'fff}")
+					new KeyValuePair<string, object>("STARPOST TIME", $"{player.StarpostTime}, {TimeSpan.FromSeconds(player.StarpostTime / 60.0):mm':'ss':'fff}")
 				},
 				new KeyValuePair<string, object>[2]
 				{
@@ -187,7 +187,7 @@ internal static class DebugOptionDefinitions
 	public class ShowHud : DiscreteDebugOption<bool>
 	{
 		public ShowHud(DebugContext context)
-			: base(context, "LEVEL", "", "SHOW HUD", (IEnumerable<KeyValuePair<string, bool>>)new KeyValuePair<string, bool>[2]
+			: base(context, "LEVEL", "", "SHOW HUD", new KeyValuePair<string, bool>[2]
 			{
 				new KeyValuePair<string, bool>("YES", value: true),
 				new KeyValuePair<string, bool>("NO", value: false)
@@ -205,7 +205,7 @@ internal static class DebugOptionDefinitions
 	public class ClassicDebugMode : DiscreteDebugOption<bool>
 	{
 		public ClassicDebugMode(DebugContext context)
-			: base(context, "LEVEL", "", "CLASSIC DEBUG MODE", (IEnumerable<KeyValuePair<string, bool>>)new KeyValuePair<string, bool>[2]
+			: base(context, "LEVEL", "", "CLASSIC DEBUG MODE", new KeyValuePair<string, bool>[2]
 			{
 				new KeyValuePair<string, bool>("YES", value: true),
 				new KeyValuePair<string, bool>("NO", value: false)
@@ -249,7 +249,7 @@ internal static class DebugOptionDefinitions
 	public class CameraShowInfo : DiscreteDebugOption<bool>
 	{
 		public CameraShowInfo(DebugContext context)
-			: base(context, "CAMERA", "", "SHOW INFO", (IEnumerable<KeyValuePair<string, bool>>)new KeyValuePair<string, bool>[2]
+			: base(context, "CAMERA", "", "SHOW INFO", new KeyValuePair<string, bool>[2]
 			{
 				new KeyValuePair<string, bool>("YES", value: true),
 				new KeyValuePair<string, bool>("NO", value: false)
@@ -266,7 +266,7 @@ internal static class DebugOptionDefinitions
 	public class CameraMode : DiscreteDebugOption<int>
 	{
 		public CameraMode(DebugContext context)
-			: base(context, "CAMERA", "", "MODE", (IEnumerable<KeyValuePair<string, int>>)new KeyValuePair<string, int>[2]
+			: base(context, "CAMERA", "", "MODE", new KeyValuePair<string, int>[2]
 			{
 				new KeyValuePair<string, int>("TRACK", 0),
 				new KeyValuePair<string, int>("FREECAM", 1)
@@ -283,7 +283,7 @@ internal static class DebugOptionDefinitions
 	public class CameraZoom : DiscreteDebugOption<double>
 	{
 		public CameraZoom(DebugContext context)
-			: base(context, "CAMERA", "", "ZOOM", (IEnumerable<KeyValuePair<string, double>>)new KeyValuePair<string, double>[5]
+			: base(context, "CAMERA", "", "ZOOM", new KeyValuePair<string, double>[5]
 			{
 				new KeyValuePair<string, double>("0.25", 0.25),
 				new KeyValuePair<string, double>("0.50", 0.5),
@@ -330,7 +330,7 @@ internal static class DebugOptionDefinitions
 	public class LandscapeVisible : DiscreteDebugOption<bool>
 	{
 		public LandscapeVisible(DebugContext context)
-			: base(context, "LANDSCAPE", "", "VISIBLE", (IEnumerable<KeyValuePair<string, bool>>)new KeyValuePair<string, bool>[2]
+			: base(context, "LANDSCAPE", "", "VISIBLE", new KeyValuePair<string, bool>[2]
 			{
 				new KeyValuePair<string, bool>("YES", value: true),
 				new KeyValuePair<string, bool>("NO", value: false)
@@ -347,7 +347,7 @@ internal static class DebugOptionDefinitions
 	public class LandscapeAnimate : DiscreteDebugOption<bool>
 	{
 		public LandscapeAnimate(DebugContext context)
-			: base(context, "LANDSCAPE", "", "ANIMATE", (IEnumerable<KeyValuePair<string, bool>>)new KeyValuePair<string, bool>[2]
+			: base(context, "LANDSCAPE", "", "ANIMATE", new KeyValuePair<string, bool>[2]
 			{
 				new KeyValuePair<string, bool>("YES", value: true),
 				new KeyValuePair<string, bool>("NO", value: false)
@@ -384,7 +384,7 @@ internal static class DebugOptionDefinitions
 	public class CollisionShowLandscape : DiscreteDebugOption<bool>
 	{
 		public CollisionShowLandscape(DebugContext context)
-			: base(context, "COLLISION", "", "SHOW LANDSCAPE", (IEnumerable<KeyValuePair<string, bool>>)new KeyValuePair<string, bool>[2]
+			: base(context, "COLLISION", "", "SHOW LANDSCAPE", new KeyValuePair<string, bool>[2]
 			{
 				new KeyValuePair<string, bool>("YES", value: true),
 				new KeyValuePair<string, bool>("NO", value: false)
@@ -402,7 +402,7 @@ internal static class DebugOptionDefinitions
 	public class CollisionShowObjects : DiscreteDebugOption<bool>
 	{
 		public CollisionShowObjects(DebugContext context)
-			: base(context, "COLLISION", "", "SHOW OBJECTS", (IEnumerable<KeyValuePair<string, bool>>)new KeyValuePair<string, bool>[2]
+			: base(context, "COLLISION", "", "SHOW OBJECTS", new KeyValuePair<string, bool>[2]
 			{
 				new KeyValuePair<string, bool>("YES", value: true),
 				new KeyValuePair<string, bool>("NO", value: false)
@@ -420,7 +420,7 @@ internal static class DebugOptionDefinitions
 	public class ObjectsVisible : DiscreteDebugOption<bool>
 	{
 		public ObjectsVisible(DebugContext context)
-			: base(context, "OBJECTS", "", "VISIBLE", (IEnumerable<KeyValuePair<string, bool>>)new KeyValuePair<string, bool>[2]
+			: base(context, "OBJECTS", "", "VISIBLE", new KeyValuePair<string, bool>[2]
 			{
 				new KeyValuePair<string, bool>("YES", value: true),
 				new KeyValuePair<string, bool>("NO", value: false)
@@ -437,7 +437,7 @@ internal static class DebugOptionDefinitions
 	public class ObjectsAnimate : DiscreteDebugOption<bool>
 	{
 		public ObjectsAnimate(DebugContext context)
-			: base(context, "OBJECTS", "", "ANIMATE", (IEnumerable<KeyValuePair<string, bool>>)new KeyValuePair<string, bool>[2]
+			: base(context, "OBJECTS", "", "ANIMATE", new KeyValuePair<string, bool>[2]
 			{
 				new KeyValuePair<string, bool>("YES", value: true),
 				new KeyValuePair<string, bool>("NO", value: false)
@@ -454,7 +454,7 @@ internal static class DebugOptionDefinitions
 	public class ObjectsShowCharacterInfo : DiscreteDebugOption<bool>
 	{
 		public ObjectsShowCharacterInfo(DebugContext context)
-			: base(context, "OBJECTS", "", "SHOW CHARACTER INFO", (IEnumerable<KeyValuePair<string, bool>>)new KeyValuePair<string, bool>[2]
+			: base(context, "OBJECTS", "", "SHOW CHARACTER INFO", new KeyValuePair<string, bool>[2]
 			{
 				new KeyValuePair<string, bool>("YES", value: true),
 				new KeyValuePair<string, bool>("NO", value: false)
@@ -472,7 +472,7 @@ internal static class DebugOptionDefinitions
 	public class ObjectsShowSidekickIntel : DiscreteDebugOption<bool>
 	{
 		public ObjectsShowSidekickIntel(DebugContext context)
-			: base(context, "OBJECTS", "", "SHOW SIDEKICK INTELLIGENCE", (IEnumerable<KeyValuePair<string, bool>>)new KeyValuePair<string, bool>[2]
+			: base(context, "OBJECTS", "", "SHOW SIDEKICK INTELLIGENCE", new KeyValuePair<string, bool>[2]
 			{
 				new KeyValuePair<string, bool>("YES", value: true),
 				new KeyValuePair<string, bool>("NO", value: false)
@@ -552,7 +552,7 @@ internal static class DebugOptionDefinitions
 	public class WaterVisible : DiscreteDebugOption<bool>
 	{
 		public WaterVisible(DebugContext context)
-			: base(context, "WATER", "", "VISIBLE", (IEnumerable<KeyValuePair<string, bool>>)new KeyValuePair<string, bool>[2]
+			: base(context, "WATER", "", "VISIBLE", new KeyValuePair<string, bool>[2]
 			{
 				new KeyValuePair<string, bool>("YES", value: true),
 				new KeyValuePair<string, bool>("NO", value: false)

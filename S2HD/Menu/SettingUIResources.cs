@@ -46,11 +46,11 @@ internal class SettingUIResources : IControlResources, ISettingUIResources
 
 	public void PushDependencies(ResourceSession resourceSession)
 	{
-		resourceSession.PushDependenciesByAttribute((object)this);
+		resourceSession.PushDependenciesByAttribute(this);
 	}
 
 	public void FetchResources(ResourceTree resourceTree)
 	{
-		resourceTree.FullfillLoadedResourcesByAttribute((object)this);
+		resourceTree.FullfillLoadedResourcesByAttribute(this);
 	}
 }

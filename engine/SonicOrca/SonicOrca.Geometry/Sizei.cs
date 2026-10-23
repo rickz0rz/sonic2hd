@@ -8,7 +8,7 @@ public struct Sizei : IComparable<Sizei>, IEquatable<Sizei>
 
 	public int Height { get; set; }
 
-	public long Area => (long)Width * (long)Height;
+	public long Area => Width * (long)Height;
 
 	public Sizei(int width, int height)
 	{

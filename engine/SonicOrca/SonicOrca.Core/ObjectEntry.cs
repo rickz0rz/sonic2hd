@@ -82,7 +82,7 @@ public class ObjectEntry
 		get
 		{
 			Vector2 lifeRadius = _type.GetLifeRadius((IActiveObject)_state);
-			Vector2 vector = new Vector2((double)Position.X - lifeRadius.X, (double)Position.Y - lifeRadius.Y);
+			Vector2 vector = new Vector2(Position.X - lifeRadius.X, Position.Y - lifeRadius.Y);
 			return new Rectangle(vector.X, vector.Y, lifeRadius.X * 2.0, lifeRadius.Y * 2.0);
 		}
 	}

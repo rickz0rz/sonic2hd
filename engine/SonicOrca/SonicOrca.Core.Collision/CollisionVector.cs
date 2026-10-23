@@ -151,12 +151,12 @@ public class CollisionVector : IBounds
 	{
 	}
 
-	public CollisionVector(Vector2i a, Vector2i b, uint paths = uint.MaxValue, CollisionFlags flags = (CollisionFlags)0)
+	public CollisionVector(Vector2i a, Vector2i b, uint paths = uint.MaxValue, CollisionFlags flags = 0)
 		: this(null, a, b, paths, flags)
 	{
 	}
 
-	public CollisionVector(ActiveObject owner, Vector2i a, Vector2i b, uint paths = uint.MaxValue, CollisionFlags flags = (CollisionFlags)0)
+	public CollisionVector(ActiveObject owner, Vector2i a, Vector2i b, uint paths = uint.MaxValue, CollisionFlags flags = 0)
 	{
 		Owner = owner;
 		RelativeA = a;
@@ -170,7 +170,7 @@ public class CollisionVector : IBounds
 		return FromRectangle(null, rect);
 	}
 
-	public static CollisionVector[] FromRectangle(ActiveObject owner, Rectanglei rect, uint paths = uint.MaxValue, CollisionFlags flags = (CollisionFlags)0)
+	public static CollisionVector[] FromRectangle(ActiveObject owner, Rectanglei rect, uint paths = uint.MaxValue, CollisionFlags flags = 0)
 	{
 		return new CollisionVector[4]
 		{
@@ -309,19 +309,19 @@ public class CollisionVector : IBounds
 		double num = Angle;
 		double num2 = sensorPosition.X - Math.Sin(num) * sensorSize;
 		double num3 = AbsoluteA.Y;
-		if (GetConnectionB(path) != null && (num2 - (double)AbsoluteB.X) * (double)FlipX > 0.0)
+		if (GetConnectionB(path) != null && (num2 - AbsoluteB.X) * FlipX > 0.0)
 		{
 			num2 = AbsoluteB.X;
 			flag = true;
 		}
-		else if (GetConnectionA(path) != null && (num2 - (double)AbsoluteA.X) * (double)FlipX < 0.0)
+		else if (GetConnectionA(path) != null && (num2 - AbsoluteA.X) * FlipX < 0.0)
 		{
 			num2 = AbsoluteA.X;
 			flag = true;
 		}
 		if (flag)
 		{
-			num = Math.Asin(MathX.Clamp(-1.0, (num2 - sensorPosition.X) / sensorSize, 1.0)) * (double)FlipX;
+			num = Math.Asin(MathX.Clamp(-1.0, (num2 - sensorPosition.X) / sensorSize, 1.0)) * FlipX;
 			if (FlipX < 0)
 			{
 				num += Math.PI;
@@ -329,11 +329,11 @@ public class CollisionVector : IBounds
 		}
 		if (Height > 0)
 		{
-			num3 += (num2 - (double)AbsoluteA.X) / Ratio;
+			num3 += (num2 - AbsoluteA.X) / Ratio;
 		}
 		double num4 = num3 - Math.Cos(num) * sensorSize - sensorPosition.Y;
 		info = new CollisionInfo(this, new Vector2(num2, num3), num4, num);
-		return num4 * (double)FlipX < 0.0;
+		return num4 * FlipX < 0.0;
 	}
 
 	public bool FindWall(Vector2 sensorPosition, double sensorSize, int path, out CollisionInfo info)
@@ -342,19 +342,19 @@ public class CollisionVector : IBounds
 		double num = Angle;
 		double num2 = AbsoluteA.X;
 		double num3 = sensorPosition.Y + Math.Cos(num) * sensorSize;
-		if (GetConnectionB(path) != null && (num3 - (double)AbsoluteB.Y) * (double)FlipY > 0.0)
+		if (GetConnectionB(path) != null && (num3 - AbsoluteB.Y) * FlipY > 0.0)
 		{
 			num3 = AbsoluteB.Y;
 			flag = true;
 		}
-		else if (GetConnectionA(path) != null && (num3 - (double)AbsoluteA.Y) * (double)FlipY < 0.0)
+		else if (GetConnectionA(path) != null && (num3 - AbsoluteA.Y) * FlipY < 0.0)
 		{
 			num3 = AbsoluteA.Y;
 			flag = true;
 		}
 		if (flag)
 		{
-			num = Math.Asin(MathX.Clamp(-1.0, (num3 - sensorPosition.Y) / sensorSize, 1.0)) * (double)FlipY;
+			num = Math.Asin(MathX.Clamp(-1.0, (num3 - sensorPosition.Y) / sensorSize, 1.0)) * FlipY;
 			if (FlipY > 0)
 			{
 				num += Math.PI;
@@ -363,11 +363,11 @@ public class CollisionVector : IBounds
 		}
 		if (Width > 0)
 		{
-			num2 += (num3 - (double)AbsoluteA.Y) * Ratio;
+			num2 += (num3 - AbsoluteA.Y) * Ratio;
 		}
 		double num4 = num2 + Math.Sin(num) * sensorSize - sensorPosition.X;
 		info = new CollisionInfo(this, new Vector2(num2, num3), num4, num);
-		return num4 * (double)FlipY > 0.0;
+		return num4 * FlipY > 0.0;
 	}
 
 	public static bool TestConnection(CollisionVector a, CollisionVector b)

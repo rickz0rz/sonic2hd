@@ -23,7 +23,7 @@ public class BasicSampleMixer : ISampleMixer
 				for (int num2 = 0; num2 < num; num2 += 2)
 				{
 					short a = BitConverter.ToInt16(buffer, num2);
-					short b = (short)((double)BitConverter.ToInt16(array, num2) * calculatedVolume);
+					short b = (short)(BitConverter.ToInt16(array, num2) * calculatedVolume);
 					short num3 = MixSample(a, b);
 					buffer[num2] = (byte)(num3 & 0xFF);
 					buffer[num2 + 1] = (byte)((num3 >> 8) & 0xFF);

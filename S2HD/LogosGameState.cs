@@ -4,16 +4,16 @@
 // MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
 // Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
 
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using SonicOrca;
 using SonicOrca.Extensions;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
 using SonicOrca.Menu;
 using SonicOrca.Resources;
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 
 #nullable disable
 namespace S2HD;
@@ -39,72 +39,72 @@ internal class LogosGameState : IGameState, IDisposable
 	private int _sonicVX;
 	private int _sonicFrame;
 
-	public LogosGameState(SonicOrcaGameContext context) => this._gameContext = context;
+	public LogosGameState(SonicOrcaGameContext context) => _gameContext = context;
 
 	private void LoadResources()
 	{
-		this._resourceSession = new ResourceSession(this._gameContext.ResourceTree);
-		this._resourceSession.PushDependenciesByAttribute((object)this);
-		this._loadingCTS = new CancellationTokenSource();
-		this._loadingTask = this._resourceSession.LoadAsync(this._loadingCTS.Token);
+		_resourceSession = new ResourceSession(_gameContext.ResourceTree);
+		_resourceSession.PushDependenciesByAttribute(this);
+		_loadingCTS = new CancellationTokenSource();
+		_loadingTask = _resourceSession.LoadAsync(_loadingCTS.Token);
 	}
 
 	public void Dispose()
 	{
-		if (this._loadingTask != null && !this._loadingTask.IsCompleted)
+		if (_loadingTask != null && !_loadingTask.IsCompleted)
 		{
-			this._loadingCTS.Cancel();
-			this._loadingTask.Wait();
+			_loadingCTS.Cancel();
+			_loadingTask.Wait();
 		}
-		if (this._resourceSession == null)
+		if (_resourceSession == null)
 			return;
-		this._resourceSession.Dispose();
-		this._resourceSession = (ResourceSession)null;
+		_resourceSession.Dispose();
+		_resourceSession = null;
 	}
 
 	public IEnumerable<UpdateResult> Update()
 	{
-		this.LoadResources();
-		while (!this._loadingTask.IsCompleted)
+		LoadResources();
+		while (!_loadingTask.IsCompleted)
 			yield return UpdateResult.Next();
-		if (!this._loadingTask.IsFaulted)
+		if (!_loadingTask.IsFaulted)
 		{
-			this._gameContext.ResourceTree.FullfillLoadedResourcesByAttribute((object)this);
-			this._loaded = true;
-			this._smallSonic = true;
-			this._sonicX = -256;
-			this._sonicVX = 100;
+			_gameContext.ResourceTree.FullfillLoadedResourcesByAttribute(this);
+			_loaded = true;
+			_smallSonic = true;
+			_sonicX = -256;
+			_sonicVX = 100;
 			yield return UpdateResult.Wait(8);
-			while (this._sonicX < 2176)
+			while (_sonicX < 2176)
 			{
-				this._sonicX += this._sonicVX;
-				this._sonicFrame = (this._sonicFrame + 1) % 8;
+				_sonicX += _sonicVX;
+				_sonicFrame = (_sonicFrame + 1) % 8;
 				yield return UpdateResult.Next();
 			}
-			this._smallSonic = false;
-			this._sonicX = 2944;
-			this._sonicVX = -266;
+			_smallSonic = false;
+			_sonicX = 2944;
+			_sonicVX = -266;
 			yield return UpdateResult.Wait(8);
-			while (this._sonicX > -1024)
+			while (_sonicX > -1024)
 			{
-				this._sonicX += this._sonicVX;
-				this._sonicFrame = (this._sonicFrame + 1) % 8;
+				_sonicX += _sonicVX;
+				_sonicFrame = (_sonicFrame + 1) % 8;
 				yield return UpdateResult.Next();
 			}
-			this._sonicX = -1024;
-			this._sonicVX = 200;
+			_sonicX = -1024;
+			_sonicVX = 200;
 			yield return UpdateResult.Wait(16 /*0x10*/);
-			while (this._sonicX < 2944)
+			while (_sonicX < 2944)
 			{
-				this._sonicX += this._sonicVX;
-				this._sonicFrame = (this._sonicFrame + 1) % 8;
+				_sonicX += _sonicVX;
+				_sonicFrame = (_sonicFrame + 1) % 8;
 				yield return UpdateResult.Next();
 			}
 			yield return UpdateResult.Wait(90);
-			this._fadeTransition.BeginFadeOut();
-			while (!this._fadeTransition.Finished)
+			_fadeTransition.BeginFadeOut();
+			while (!_fadeTransition.Finished)
 			{
-				this._fadeTransition.Update();
+				_fadeTransition.Update();
 				yield return UpdateResult.Next();
 			}
 		}
@@ -112,87 +112,87 @@ internal class LogosGameState : IGameState, IDisposable
 
 	public void Draw()
 	{
-		if (!this._loaded)
+		if (!_loaded)
 			return;
 		I2dRenderer standard2d = SharedRenderers.Standard2d;
-		Renderer renderer = this._gameContext.Renderer;
+		Renderer renderer = _gameContext.Renderer;
 		I2dRenderer g = renderer.Get2dRenderer();
-		this.DrawPoweredBy(g);
-		if (this._smallSonic)
+		DrawPoweredBy(g);
+		if (_smallSonic)
 		{
-			this.DrawSmallSonic(g);
+			DrawSmallSonic(g);
 		}
 		else
 		{
-			this.DrawEngineLogo(g);
-			this.DrawSonic(g);
+			DrawEngineLogo(g);
+			DrawSonic(g);
 		}
-		this._fadeTransition.Draw(renderer);
+		_fadeTransition.Draw(renderer);
 	}
 
 	private void DrawPoweredBy(I2dRenderer g)
 	{
 		Rectangle clipRectangle = g.ClipRectangle;
-		if (this._smallSonic)
-			g.ClipRectangle = new Rectangle(0.0, 0.0, (double)this._sonicX, 1080.0);
+		if (_smallSonic)
+			g.ClipRectangle = new Rectangle(0.0, 0.0, _sonicX, 1080.0);
 		g.RenderText(new TextRenderInfo()
 		{
-			Font = this._font,
+			Font = _font,
 			Text = "POWERED BY",
 			Bounds = new Rectangle(0.0, 120.0, 1920.0, 120.0),
 			Alignment = FontAlignment.Centre,
 			Overlay = new int?(0)
 		});
-		if (!this._smallSonic)
+		if (!_smallSonic)
 			return;
 		g.ClipRectangle = clipRectangle;
 	}
 
 	private void DrawEngineLogo(I2dRenderer g)
 	{
-		Sizei sizei = new Sizei(this._engineTexture.Width, this._engineTexture.Height);
+		Sizei sizei = new Sizei(_engineTexture.Width, _engineTexture.Height);
 		Rectanglei destination = new Rectanglei(960 - sizei.Width / 2, 540 - sizei.Height / 2, sizei.Width, sizei.Height);
-		destination.Left = Math.Max(destination.Left, this._sonicX);
+		destination.Left = Math.Max(destination.Left, _sonicX);
 		Rectanglei source;
 		if (destination.Width > 0)
 		{
 			source = new Rectanglei(sizei.Width - destination.Width, 0, destination.Width, sizei.Height);
 			g.BlendMode = BlendMode.Alpha;
 			g.Colour = Colours.White;
-			g.RenderTexture(this._enginePartialTexture, (Rectangle)source, (Rectangle)destination);
+			g.RenderTexture(_enginePartialTexture, (Rectangle)source, (Rectangle)destination);
 		}
-		if (this._sonicVX < 0)
+		if (_sonicVX < 0)
 			return;
 		destination = new Rectanglei(960 - sizei.Width / 2, 540 - sizei.Height / 2, sizei.Width, sizei.Height);
-		destination.Right = Math.Min(destination.Right, this._sonicX);
+		destination.Right = Math.Min(destination.Right, _sonicX);
 		if (destination.Width <= 0)
 			return;
 		source = new Rectanglei(0, 0, destination.Width, sizei.Height);
 		g.BlendMode = BlendMode.Alpha;
 		g.Colour = Colours.White;
-		g.RenderTexture(this._engineTexture, (Rectangle)source, (Rectangle)destination);
+		g.RenderTexture(_engineTexture, (Rectangle)source, (Rectangle)destination);
 	}
 
 	private void DrawSmallSonic(I2dRenderer g)
 	{
-		Rectanglei source = new Rectanglei(this._sonicFrame * 1024 /*0x0400*/, 0, 1024 /*0x0400*/, 1120);
-		Rectanglei destination = new Rectanglei(this._sonicX - 128 /*0x80*/, 40, 256 /*0x0100*/, 280);
+		Rectanglei source = new Rectanglei(_sonicFrame * 1024 /*0x0400*/, 0, 1024 /*0x0400*/, 1120);
+		Rectanglei destination = new Rectanglei(_sonicX - 128 /*0x80*/, 40, 256 /*0x0100*/, 280);
 		if (destination.Right <= 0 || destination.Left >= 1920)
 			return;
 		g.BlendMode = BlendMode.Alpha;
 		g.Colour = Colours.White;
-		g.RenderTexture(this._engineSonicTexture, (Rectangle)source, (Rectangle)destination, this._sonicVX >= 0);
+		g.RenderTexture(_engineSonicTexture, (Rectangle)source, (Rectangle)destination, _sonicVX >= 0);
 	}
 
 	private void DrawSonic(I2dRenderer g)
 	{
-		Rectanglei source = new Rectanglei(this._sonicFrame * 1024 /*0x0400*/, 0, 1024 /*0x0400*/, 1120);
-		Rectanglei destination = new Rectanglei(this._sonicX - 512 /*0x0200*/, -20, 1024 /*0x0400*/, 1120);
+		Rectanglei source = new Rectanglei(_sonicFrame * 1024 /*0x0400*/, 0, 1024 /*0x0400*/, 1120);
+		Rectanglei destination = new Rectanglei(_sonicX - 512 /*0x0200*/, -20, 1024 /*0x0400*/, 1120);
 		if (destination.Right <= 0 || destination.Left >= 1920)
 			return;
 		g.BlendMode = BlendMode.Alpha;
 		g.Colour = Colours.White;
-		g.RenderTexture(this._engineSonicTexture, (Rectangle)source, (Rectangle)destination, this._sonicVX >= 0);
+		g.RenderTexture(_engineSonicTexture, (Rectangle)source, (Rectangle)destination, _sonicVX >= 0);
 	}
 
 	private static class ResourceKeys

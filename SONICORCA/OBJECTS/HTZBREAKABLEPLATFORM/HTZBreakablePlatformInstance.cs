@@ -4,6 +4,8 @@
 // MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
 // Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
 
+using System.Collections.Generic;
+using System.Linq;
 using SonicOrca.Core;
 using SonicOrca.Core.Collision;
 using SonicOrca.Core.Objects;
@@ -12,15 +14,13 @@ using SonicOrca.Core.Objects.Metadata;
 using SonicOrca.Extensions;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
-using System.Collections.Generic;
-using System.Linq;
 
 #nullable disable
 namespace SONICORCA.OBJECTS.HTZBREAKABLEPLATFORM;
 
 public class HTZBreakablePlatformInstance : ActiveObject
 {
-	private static readonly IReadOnlyCollection<Vector2> ParticleVelocities = (IReadOnlyCollection<Vector2>)new Vector2[6]
+	private static readonly IReadOnlyCollection<Vector2> ParticleVelocities = new Vector2[6]
 	{
 	new Vector2(-6.0, -14.0),
 	new Vector2(-4.0, -18.0),
@@ -45,70 +45,70 @@ public class HTZBreakablePlatformInstance : ActiveObject
 
 	public HTZBreakablePlatformInstance()
 	{
-		this.DesignBounds = new Rectanglei(-64, -160, 128 /*0x80*/, 384);
+		DesignBounds = new Rectanglei(-64, -160, 128 /*0x80*/, 384);
 	}
 
 	protected override void OnStart()
 	{
-		this._animation = new AnimationInstance(this.ResourceTree, this.Type.GetAbsolutePath("/ANIGROUP"), 5 - this.RemainingBlocks);
-		this.CollisionVectors = CollisionVector.FromRectangle((ActiveObject)this, new Rectanglei());
-		this.CollisionVectors[1].Id = 1;
-		this.CollisionVectors[1].Flags = CollisionFlags.NoAngle | CollisionFlags.NoBalance;
-		this.UpdateBlockCollision();
+		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"), 5 - RemainingBlocks);
+		CollisionVectors = CollisionVector.FromRectangle(this, new Rectanglei());
+		CollisionVectors[1].Id = 1;
+		CollisionVectors[1].Flags = CollisionFlags.NoAngle | CollisionFlags.NoBalance;
+		UpdateBlockCollision();
 	}
 
 	protected override void OnUpdate()
 	{
-		if (this.RemainingBlocks == 0)
+		if (RemainingBlocks == 0)
 		{
-			this.FinishForever();
+			FinishForever();
 		}
 		else
 		{
-			if (this._breakBlockOff)
+			if (_breakBlockOff)
 			{
 				foreach (Vector2 particleVelocity in (IEnumerable<Vector2>)HTZBreakablePlatformInstance.ParticleVelocities)
-					this.Level.ObjectManager.AddObject(new ObjectPlacement(this.Type.GetAbsolutePath("SONICORCA/OBJECTS/HTZROCK/PARTICLE"), this.Level.Map.Layers.IndexOf(this.Level.Map.Layers.Last<LevelLayer>()), this.Position, (object)new
+					Level.ObjectManager.AddObject(new ObjectPlacement(Type.GetAbsolutePath("SONICORCA/OBJECTS/HTZROCK/PARTICLE"), Level.Map.Layers.IndexOf(Level.Map.Layers.Last<LevelLayer>()), Position, new
 					{
 						Velocity = new Vector2(particleVelocity.X, particleVelocity.Y)
 					}));
-				this.Level.SoundManager.PlaySound((IActiveObject)this, this.Type.GetAbsolutePath("SONICORCA/SOUND/BREAKABLE"));
-				this.Level.CreateScoreObject(this._playerThatBroke.AwardChainedScore(), this.Position);
-				--this.RemainingBlocks;
-				(this.Entry.State as HTZBreakablePlatformInstance).RemainingBlocks = this.RemainingBlocks;
-				this._breakBlockOff = false;
-				if (this.RemainingBlocks == 0)
+				Level.SoundManager.PlaySound(this, Type.GetAbsolutePath("SONICORCA/SOUND/BREAKABLE"));
+				Level.CreateScoreObject(_playerThatBroke.AwardChainedScore(), Position);
+				--RemainingBlocks;
+				(Entry.State as HTZBreakablePlatformInstance).RemainingBlocks = RemainingBlocks;
+				_breakBlockOff = false;
+				if (RemainingBlocks == 0)
 				{
-					this.FinishForever();
-					this.CollisionVectors = new CollisionVector[0];
+					FinishForever();
+					CollisionVectors = new CollisionVector[0];
 				}
 				else
 				{
-					++this._animation.Index;
-					foreach (ICharacter standingCharacter in this.GetStandingCharacters())
+					++_animation.Index;
+					foreach (ICharacter standingCharacter in GetStandingCharacters())
 						standingCharacter.LeaveGround();
 				}
 			}
-			this.UpdateBlockCollision();
+			UpdateBlockCollision();
 		}
 	}
 
 	private void UpdateBlockCollision()
 	{
-		if (this.RemainingBlocks <= 0 || this.CollisionVectors.Length == 0)
+		if (RemainingBlocks <= 0 || CollisionVectors.Length == 0)
 			return;
-		int height = this.RemainingBlocks * 64 /*0x40*/;
-		CollisionVector.UpdateRectangle(this.CollisionVectors, new Rectanglei(-64, 160 /*0xA0*/ - height, 128 /*0x80*/, height));
-		this.RegisterCollisionUpdate();
+		int height = RemainingBlocks * 64 /*0x40*/;
+		CollisionVector.UpdateRectangle(CollisionVectors, new Rectanglei(-64, 160 /*0xA0*/ - height, 128 /*0x80*/, height));
+		RegisterCollisionUpdate();
 	}
 
 	private List<ICharacter> GetStandingCharacters()
 	{
 		List<ICharacter> standingCharacters = new List<ICharacter>();
-		foreach (Character character in this.Level.ObjectManager.Characters)
+		foreach (Character character in Level.ObjectManager.Characters)
 		{
-			if (character.GroundVector == this.CollisionVectors[1])
-				standingCharacters.Add((ICharacter)character);
+			if (character.GroundVector == CollisionVectors[1])
+				standingCharacters.Add(character);
 		}
 		return standingCharacters;
 	}
@@ -118,19 +118,19 @@ public class HTZBreakablePlatformInstance : ActiveObject
 		if (e.Id != 1 || e.ActiveObject.Type.Classification != ObjectClassification.Character)
 			return;
 		ICharacter activeObject = (ICharacter)e.ActiveObject;
-		if (this.RemainingBlocks == 5)
+		if (RemainingBlocks == 5)
 		{
-			if (((long)this.Paths & (long)(1 << activeObject.Path)) == 0L)
+			if ((Paths & 1 << activeObject.Path) == 0L)
 				return;
 			if (activeObject.IsSpinball)
 			{
-				this.BreakBlocks(e, activeObject);
+				BreakBlocks(e, activeObject);
 			}
 			else
 			{
-				if (this.ResetPath == -1)
+				if (ResetPath == -1)
 					return;
-				activeObject.Path = this.ResetPath;
+				activeObject.Path = ResetPath;
 				if (activeObject.Mode == CollisionMode.Top)
 					return;
 				activeObject.GroundVelocity = 0.0;
@@ -141,23 +141,23 @@ public class HTZBreakablePlatformInstance : ActiveObject
 		{
 			if (!activeObject.IsSpinball)
 				return;
-			this.BreakBlocks(e, activeObject);
+			BreakBlocks(e, activeObject);
 		}
 	}
 
 	private void BreakBlocks(CollisionEvent e, ICharacter character)
 	{
-		this._breakBlockOff = true;
-		this._playerThatBroke = character.Player;
+		_breakBlockOff = true;
+		_playerThatBroke = character.Player;
 		character.LeaveGround();
 		character.Velocity = new Vector2(character.Velocity.X, -1.0);
 		e.MaintainVelocity = true;
 	}
 
-	protected override void OnAnimate() => this._animation.Animate();
+	protected override void OnAnimate() => _animation.Animate();
 
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 	{
-		renderer.GetObjectRenderer().Render(this._animation);
+		renderer.GetObjectRenderer().Render(_animation);
 	}
 }

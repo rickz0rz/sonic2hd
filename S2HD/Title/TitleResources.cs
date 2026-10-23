@@ -47,7 +47,7 @@ internal static class TitleResources
 	public const int MiniSonicReadyAnimationIndex = 12;
 	public const int MiniTailsIdleAnimationIndex = 13;
 	public const int MiniTailsReadyAnimationIndex = 14;
-	public static readonly IEnumerable<string> AllResourceKeys = (IEnumerable<string>)new string[21]
+	public static readonly IEnumerable<string> AllResourceKeys = new string[21]
 	{
 	"SONICORCA/TITLE/ANIGROUP",
 	"SONICORCA/FONTS/HUD",

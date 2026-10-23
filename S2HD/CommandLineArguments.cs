@@ -4,8 +4,8 @@
 // MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
 // Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
 
-using SonicOrca.Extensions;
 using System.Collections.Generic;
+using SonicOrca.Extensions;
 
 #nullable disable
 namespace S2HD;
@@ -24,7 +24,7 @@ internal class CommandLineArguments
 	public CommandLineArguments(string[] args)
 	{
 		List<string> stringList = new List<string>();
-		this._commandLine = string.Join(" ", args);
+		_commandLine = string.Join(" ", args);
 		for (int index = 0; index < args.Length; ++index)
 		{
 			string str1 = args[index];
@@ -42,27 +42,27 @@ internal class CommandLineArguments
 					}
 					stringList.Add(str2);
 				}
-				this._options.Add(key, stringList.ToArray());
+				_options.Add(key, stringList.ToArray());
 			}
 			else if (str1.StartsWith("-"))
 			{
 				foreach (char ch in str1.Substring(1))
-					this._flags.Add(ch);
+					_flags.Add(ch);
 			}
 		}
 	}
 
-	public bool HasFlag(char c) => this._flags.Contains(c);
+	public bool HasFlag(char c) => _flags.Contains(c);
 
-	public bool HasOption(string option) => this._options.ContainsKey(option);
+	public bool HasOption(string option) => _options.ContainsKey(option);
 
 	public string[] GetOptionValues(string option)
 	{
 		string[] optionValues;
-		if (!this._options.TryGetValue(option, out optionValues))
+		if (!_options.TryGetValue(option, out optionValues))
 			optionValues = new string[0];
 		return optionValues;
 	}
 
-	public override string ToString() => this._commandLine;
+	public override string ToString() => _commandLine;
 }

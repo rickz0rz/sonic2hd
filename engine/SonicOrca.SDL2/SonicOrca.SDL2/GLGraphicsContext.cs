@@ -176,7 +176,7 @@ internal class GLGraphicsContext : IGraphicsContext
 		{
 			if (autoResetEvent != null)
 			{
-				((IDisposable)autoResetEvent).Dispose();
+				autoResetEvent.Dispose();
 			}
 		}
 		return texture;

@@ -15,7 +15,7 @@ public class RickyInstance : Animal
 	public RickyInstance()
 	  : base("/ANIGROUP")
 	{
-		this.JumpVelocity = new Vector2(-14.0, -14.0);
-		this.JumpGravity = 0.875;
+		JumpVelocity = new Vector2(-14.0, -14.0);
+		JumpGravity = 0.875;
 	}
 }

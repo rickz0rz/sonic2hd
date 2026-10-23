@@ -81,7 +81,7 @@ internal class CharacterSynchronisationPacket : Packet
 				characters[num].StateFlags = characterState.StateFlags;
 				characters[num].PositionPrecise = characterState.PositionPrecise;
 				characters[num].Velocity = characterState.Velocity;
-				double num2 = (double)roundTripTime / 16.666666666666668;
+				double num2 = roundTripTime / 16.666666666666668;
 				characters[num].PositionPrecise += characterState.Velocity * (num2 / 2.0);
 			}
 			num++;

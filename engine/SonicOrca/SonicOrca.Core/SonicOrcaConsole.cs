@@ -141,8 +141,8 @@ public class SonicOrcaConsole : IDisposable
 		if (_resourcesLoaded && _opacity != 0f)
 		{
 			int height = _font.Height;
-			Colour colour = new Colour(0.8 * (double)_opacity, 0.1, 0.1, 0.1);
-			Colour colour2 = new Colour(1.0 * (double)_opacity, 1.0, 1.0, 1.0);
+			Colour colour = new Colour(0.8 * _opacity, 0.1, 0.1, 0.1);
+			Colour colour2 = new Colour(1.0 * _opacity, 1.0, 1.0, 1.0);
 			Vector2i clientSize = renderer.Window.ClientSize;
 			Rectanglei rectanglei = new Rectanglei(8, 8, clientSize.X - 16, 6 * height);
 			Rectanglei rectanglei2 = new Rectangle(8.0, rectanglei.Bottom + 8, clientSize.X - 16, height);

@@ -58,7 +58,7 @@ public class FadeTransition
 	{
 		if (UpdatesRemaining > 0)
 		{
-			Opacity = (float)UpdatesRemaining / (float)Duration;
+			Opacity = UpdatesRemaining / (float)Duration;
 			if (!_decreasingOpacity)
 			{
 				Opacity = 1.0 - Opacity;

@@ -15,7 +15,7 @@ internal class AudioSliderOptionSetting : IAudioSliderSetting, ISetting
 
 	public AudioSliderOptionSetting(string name, double value)
 	{
-		this.Name = name;
-		this.Value = value;
+		Name = name;
+		Value = value;
 	}
 }

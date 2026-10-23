@@ -112,7 +112,7 @@ public class AnimationInstance
 	public void Draw(I2dRenderer renderer, Colour colour, Vector2 position = default(Vector2), bool flipX = false, bool flipY = false)
 	{
 		Animation.Frame currentFrame = CurrentFrame;
-		Rectangle destination = new Rectangle(position.X - (double)(currentFrame.Source.Width / 2), position.Y - (double)(currentFrame.Source.Height / 2), currentFrame.Source.Width, currentFrame.Source.Height);
+		Rectangle destination = new Rectangle(position.X - currentFrame.Source.Width / 2, position.Y - currentFrame.Source.Height / 2, currentFrame.Source.Width, currentFrame.Source.Height);
 		Draw(renderer, colour, destination, flipX, flipY);
 	}
 

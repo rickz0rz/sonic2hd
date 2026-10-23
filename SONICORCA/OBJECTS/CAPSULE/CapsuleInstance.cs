@@ -4,15 +4,15 @@
 // MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
 // Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using SonicOrca.Core;
 using SonicOrca.Core.Collision;
 using SonicOrca.Core.Objects.Metadata;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
 using SonicOrca.Resources;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 
 #nullable disable
 namespace SONICORCA.OBJECTS.CAPSULE;
@@ -48,78 +48,78 @@ public class CapsuleInstance : ActiveObject
 	[StateVariable]
 	private bool Unlocked
 	{
-		get => this._unlocked;
-		set => this._unlocked = value;
+		get => _unlocked;
+		set => _unlocked = value;
 	}
 
 	public CapsuleInstance()
 	{
-		this.DesignBounds = new Rectanglei((int)sbyte.MinValue, -160, 256 /*0x0100*/, 320);
+		DesignBounds = new Rectanglei(sbyte.MinValue, -160, 256 /*0x0100*/, 320);
 	}
 
 	protected override void OnStart()
 	{
-		AnimationGroup loadedResource = this.ResourceTree.GetLoadedResource<AnimationGroup>((ILoadedResource)this.Type, "/ANIGROUP");
-		this._animationButton = new AnimationInstance(loadedResource, 7);
-		this._animationMain = new AnimationInstance(loadedResource);
-		if ((this.Entry.State as CapsuleInstance).Unlocked)
+		AnimationGroup loadedResource = ResourceTree.GetLoadedResource<AnimationGroup>(Type, "/ANIGROUP");
+		_animationButton = new AnimationInstance(loadedResource, 7);
+		_animationMain = new AnimationInstance(loadedResource);
+		if ((Entry.State as CapsuleInstance).Unlocked)
 		{
-			this._buttonPressed = true;
-			this._doorOpened = true;
-			this._animationLights = (AnimationInstance)null;
-			this._animationDoorLights = (AnimationInstance)null;
+			_buttonPressed = true;
+			_doorOpened = true;
+			_animationLights = null;
+			_animationDoorLights = null;
 		}
 		else
 		{
-			this._animationLights = new AnimationInstance(loadedResource, 1);
-			this._animationDoor = new AnimationInstance(loadedResource, 2);
-			this._animationDoorLights = new AnimationInstance(loadedResource, 4);
-			this._animationMiddle = new AnimationInstance(loadedResource, 5);
+			_animationLights = new AnimationInstance(loadedResource, 1);
+			_animationDoor = new AnimationInstance(loadedResource, 2);
+			_animationDoorLights = new AnimationInstance(loadedResource, 4);
+			_animationMiddle = new AnimationInstance(loadedResource, 5);
 		}
-		this._lock = this.Level.ObjectManager.AddSubObject<CapsuleInstance.Lock>((ActiveObject)this);
-		this._lock.Position = this.Position + new Vector2i(0, -46);
-		this._lock.LockLifetime = true;
-		CollisionVector[] second = CollisionVector.FromRectangle((ActiveObject)this, new Rectanglei(-64, this._buttonY - 158, 128 /*0x80*/, 64 /*0x40*/));
+		_lock = Level.ObjectManager.AddSubObject<CapsuleInstance.Lock>(this);
+		_lock.Position = Position + new Vector2i(0, -46);
+		_lock.LockLifetime = true;
+		CollisionVector[] second = CollisionVector.FromRectangle(this, new Rectanglei(-64, _buttonY - 158, 128 /*0x80*/, 64 /*0x40*/));
 		second[1].Flags = CollisionFlags.Conveyor;
-		this.CollisionVectors = ((IEnumerable<CollisionVector>)new CollisionVector[10]
+		CollisionVectors = (new CollisionVector[10]
 		{
-	  new CollisionVector((ActiveObject) this, new Vector2i((int) sbyte.MinValue, -42), new Vector2i(-100, -64)),
-	  new CollisionVector((ActiveObject) this, new Vector2i(-100, -64), new Vector2i(-64, -82)),
-	  new CollisionVector((ActiveObject) this, new Vector2i(-64, -82), new Vector2i(-28, -94)),
-	  new CollisionVector((ActiveObject) this, new Vector2i(-28, -94), new Vector2i(28, -94)),
-	  new CollisionVector((ActiveObject) this, new Vector2i(28, -94), new Vector2i(64 /*0x40*/, -82)),
-	  new CollisionVector((ActiveObject) this, new Vector2i(64 /*0x40*/, -82), new Vector2i(100, -64)),
-	  new CollisionVector((ActiveObject) this, new Vector2i(100, -64), new Vector2i(128 /*0x80*/, -42)),
-	  new CollisionVector((ActiveObject) this, new Vector2i(128 /*0x80*/, -42), new Vector2i(128 /*0x80*/, 160 /*0xA0*/)),
-	  new CollisionVector((ActiveObject) this, new Vector2i(128 /*0x80*/, 160 /*0xA0*/), new Vector2i((int) sbyte.MinValue, 160 /*0xA0*/)),
-	  new CollisionVector((ActiveObject) this, new Vector2i((int) sbyte.MinValue, 160 /*0xA0*/), new Vector2i((int) sbyte.MinValue, -42))
-		}).Concat<CollisionVector>((IEnumerable<CollisionVector>)second).ToArray<CollisionVector>();
+	  new CollisionVector( this, new Vector2i( sbyte.MinValue, -42), new Vector2i(-100, -64)),
+	  new CollisionVector( this, new Vector2i(-100, -64), new Vector2i(-64, -82)),
+	  new CollisionVector( this, new Vector2i(-64, -82), new Vector2i(-28, -94)),
+	  new CollisionVector( this, new Vector2i(-28, -94), new Vector2i(28, -94)),
+	  new CollisionVector( this, new Vector2i(28, -94), new Vector2i(64 /*0x40*/, -82)),
+	  new CollisionVector( this, new Vector2i(64 /*0x40*/, -82), new Vector2i(100, -64)),
+	  new CollisionVector( this, new Vector2i(100, -64), new Vector2i(128 /*0x80*/, -42)),
+	  new CollisionVector( this, new Vector2i(128 /*0x80*/, -42), new Vector2i(128 /*0x80*/, 160 /*0xA0*/)),
+	  new CollisionVector( this, new Vector2i(128 /*0x80*/, 160 /*0xA0*/), new Vector2i( sbyte.MinValue, 160 /*0xA0*/)),
+	  new CollisionVector( this, new Vector2i( sbyte.MinValue, 160 /*0xA0*/), new Vector2i( sbyte.MinValue, -42))
+		}).Concat<CollisionVector>(second).ToArray<CollisionVector>();
 		for (int index = 0; index < 10; ++index)
-			this.CollisionVectors[index].Flags |= CollisionFlags.NoAngle;
-		this.CollisionVectors[7].Flags |= CollisionFlags.NoPathFollowing;
-		this.CollisionVectors[9].Flags |= CollisionFlags.NoPathFollowing;
+			CollisionVectors[index].Flags |= CollisionFlags.NoAngle;
+		CollisionVectors[7].Flags |= CollisionFlags.NoPathFollowing;
+		CollisionVectors[9].Flags |= CollisionFlags.NoPathFollowing;
 	}
 
 	protected override void OnStop()
 	{
-		if (this._buttonPressed)
+		if (_buttonPressed)
 			return;
-		this._lock.Finish();
+		_lock.Finish();
 	}
 
 	protected override void OnUpdate()
 	{
-		this.UpdateButton();
-		this.UpdateDoor();
-		this.UpdateButtonCollision();
+		UpdateButton();
+		UpdateDoor();
+		UpdateButtonCollision();
 	}
 
 	private void UpdateButtonCollision()
 	{
-		Vector2i vector2i = new Vector2i(0, this._buttonY - this._lastButtonY);
+		Vector2i vector2i = new Vector2i(0, _buttonY - _lastButtonY);
 		for (int index = 10; index < 14; ++index)
 		{
-			CollisionVector collisionVector = this.CollisionVectors[index];
+			CollisionVector collisionVector = CollisionVectors[index];
 			collisionVector.RelativeA += vector2i;
 			collisionVector.RelativeB += vector2i;
 		}
@@ -127,112 +127,112 @@ public class CapsuleInstance : ActiveObject
 
 	private void UpdateButton()
 	{
-		this._lastButtonY = this._buttonY;
-		if (this.Level.ObjectManager.IsCharacterStandingOn(this.CollisionVectors[11]))
+		_lastButtonY = _buttonY;
+		if (Level.ObjectManager.IsCharacterStandingOn(CollisionVectors[11]))
 		{
-			int buttonY = this._buttonY;
-			this._buttonY = Math.Min(this._buttonY + 8, 24);
-			int num = this._buttonY - buttonY;
-			if (this._buttonY != 24 || this._buttonPressed)
+			int buttonY = _buttonY;
+			_buttonY = Math.Min(_buttonY + 8, 24);
+			int num = _buttonY - buttonY;
+			if (_buttonY != 24 || _buttonPressed)
 				return;
-			this.OnButtonPress();
+			OnButtonPress();
 		}
 		else
-			this._buttonY = Math.Max(0, this._buttonY - 8);
+			_buttonY = Math.Max(0, _buttonY - 8);
 	}
 
 	private void OnButtonPress()
 	{
-		this.Level.JustAboutToCompleteLevel();
-		(this.Entry.State as CapsuleInstance).Unlocked = true;
-		this._animationLights = (AnimationInstance)null;
-		this._animationDoorLights = (AnimationInstance)null;
-		this._lock.Break();
-		this._lock.LockLifetime = false;
-		this._buttonPressed = true;
-		this._openDoorDelay = 60;
-		this.LockLifetime = true;
+		Level.JustAboutToCompleteLevel();
+		(Entry.State as CapsuleInstance).Unlocked = true;
+		_animationLights = null;
+		_animationDoorLights = null;
+		_lock.Break();
+		_lock.LockLifetime = false;
+		_buttonPressed = true;
+		_openDoorDelay = 60;
+		LockLifetime = true;
 	}
 
 	private void UpdateDoor()
 	{
-		if (!this._doorOpened)
+		if (!_doorOpened)
 		{
-			if (!this._buttonPressed || this._openDoorDelay <= 0)
+			if (!_buttonPressed || _openDoorDelay <= 0)
 				return;
-			--this._openDoorDelay;
-			if (this._openDoorDelay != 0)
+			--_openDoorDelay;
+			if (_openDoorDelay != 0)
 				return;
-			this.OpenDoor();
+			OpenDoor();
 		}
 		else
 		{
-			if (this._completeLevelDelay <= 0)
+			if (_completeLevelDelay <= 0)
 				return;
-			--this._completeLevelDelay;
-			if (this._completeLevelDelay != 0)
+			--_completeLevelDelay;
+			if (_completeLevelDelay != 0)
 				return;
-			this.Level.CompleteLevel();
-			this.LockLifetime = false;
+			Level.CompleteLevel();
+			LockLifetime = false;
 		}
 	}
 
 	private void OpenDoor()
 	{
-		this._doorOpened = true;
-		this._animationDoor.Index = 3;
-		this._animationMiddle.Index = 6;
-		this._animationDoor.Cycles = 0;
-		this._animationMiddle.Cycles = 0;
-		this.CreateAnimals();
+		_doorOpened = true;
+		_animationDoor.Index = 3;
+		_animationMiddle.Index = 6;
+		_animationDoor.Cycles = 0;
+		_animationMiddle.Cycles = 0;
+		CreateAnimals();
 	}
 
 	private void CreateAnimals()
 	{
-		int[] array = Enumerable.Range(0, 32 /*0x20*/).Select<int, int>((Func<int, int>)(x => (int)((double)x * 6.0) - 96 /*0x60*/)).OrderBy<int, int>((Func<int, int>)(x => this.Level.Random.Next())).ToArray<int>();
+		int[] array = Enumerable.Range(0, 32 /*0x20*/).Select<int, int>(x => (int)(x * 6.0) - 96 /*0x60*/).OrderBy<int, int>(x => Level.Random.Next()).ToArray<int>();
 		int delay = 60;
 		for (int index = 0; index < 32 /*0x20*/; ++index)
 		{
 			Vector2i vector2i = new Vector2i(array[index], 32 /*0x20*/);
-			this.Level.CreateRandomAnimalObject(this.Level.Map.Layers.IndexOf(this.Layer), this.Position + vector2i, vector2i.X <= 0 ? -1 : 1, delay);
-			delay += this.Level.Random.Next(5, 10);
+			Level.CreateRandomAnimalObject(Level.Map.Layers.IndexOf(Layer), Position + vector2i, vector2i.X <= 0 ? -1 : 1, delay);
+			delay += Level.Random.Next(5, 10);
 		}
-		this._completeLevelDelay = delay + 120;
+		_completeLevelDelay = delay + 120;
 	}
 
 	protected override void OnAnimate()
 	{
-		this._animationButton.Animate();
-		this._animationMain.Animate();
-		if (this._animationLights != null)
-			this._animationLights.Animate();
-		if (this._animationDoor != null)
-			this._animationDoor.Animate();
-		if (this._animationDoorLights != null)
-			this._animationDoorLights.Animate();
-		if (this._animationMiddle == null)
+		_animationButton.Animate();
+		_animationMain.Animate();
+		if (_animationLights != null)
+			_animationLights.Animate();
+		if (_animationDoor != null)
+			_animationDoor.Animate();
+		if (_animationDoorLights != null)
+			_animationDoorLights.Animate();
+		if (_animationMiddle == null)
 			return;
-		this._animationMiddle.Animate();
+		_animationMiddle.Animate();
 	}
 
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 	{
 		IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
-		objectRenderer.Render(this._animationButton, new Vector2(0.0, (double)(this._buttonY - 128 /*0x80*/)));
-		objectRenderer.Render(this._animationMain);
-		if (!viewOptions.Shadows && this._animationLights != null)
-			objectRenderer.Render(this._animationLights);
-		if (this._animationDoor != null && this._animationDoor.Cycles == 0 || !this._doorOpened)
-			objectRenderer.Render(this._animationDoor, new Vector2(0.0, 16.0));
-		if (!viewOptions.Shadows && this._animationDoorLights != null)
+		objectRenderer.Render(_animationButton, new Vector2(0.0, _buttonY - 128 /*0x80*/));
+		objectRenderer.Render(_animationMain);
+		if (!viewOptions.Shadows && _animationLights != null)
+			objectRenderer.Render(_animationLights);
+		if (_animationDoor != null && _animationDoor.Cycles == 0 || !_doorOpened)
+			objectRenderer.Render(_animationDoor, new Vector2(0.0, 16.0));
+		if (!viewOptions.Shadows && _animationDoorLights != null)
 		{
 			objectRenderer.EmitsLight = true;
-			objectRenderer.Render(this._animationDoorLights, new Vector2(0.0, 16.0));
+			objectRenderer.Render(_animationDoorLights, new Vector2(0.0, 16.0));
 			objectRenderer.EmitsLight = false;
 		}
-		if ((this._animationMiddle == null || this._animationMiddle.Cycles != 0) && this._doorOpened)
+		if ((_animationMiddle == null || _animationMiddle.Cycles != 0) && _doorOpened)
 			return;
-		objectRenderer.Render(this._animationMiddle, new Vector2(0.0, 16.0));
+		objectRenderer.Render(_animationMiddle, new Vector2(0.0, 16.0));
 	}
 
 	private class Lock : ActiveObject
@@ -245,39 +245,39 @@ public class CapsuleInstance : ActiveObject
 
 		protected override void OnStart()
 		{
-			AnimationGroup loadedResource = this.ResourceTree.GetLoadedResource<AnimationGroup>((ILoadedResource)this.Type, "/ANIGROUP");
-			this._animation = new AnimationInstance(loadedResource, 8);
-			this._animationLight = new AnimationInstance(loadedResource, 9);
+			AnimationGroup loadedResource = ResourceTree.GetLoadedResource<AnimationGroup>(Type, "/ANIGROUP");
+			_animation = new AnimationInstance(loadedResource, 8);
+			_animationLight = new AnimationInstance(loadedResource, 9);
 		}
 
 		protected override void OnUpdate()
 		{
 			base.OnUpdate();
-			if (!this._broken)
+			if (!_broken)
 				return;
-			this.PositionPrecise = this.PositionPrecise + this._velocity;
-			this._velocity += new Vector2(0.0, 0.875);
+			PositionPrecise = PositionPrecise + _velocity;
+			_velocity += new Vector2(0.0, 0.875);
 		}
 
 		public void Break()
 		{
-			this._broken = true;
-			this._animation.Index = 10;
-			this.CreateExplosionObject();
+			_broken = true;
+			_animation.Index = 10;
+			CreateExplosionObject();
 		}
 
 		private void CreateExplosionObject()
 		{
-			this.Level.ObjectManager.AddObject(new ObjectPlacement(this.Level.CommonResources.GetResourcePath("badnikexplosionobject"), this.Level.Map.Layers.IndexOf(this.Layer), this.Position));
+			Level.ObjectManager.AddObject(new ObjectPlacement(Level.CommonResources.GetResourcePath("badnikexplosionobject"), Level.Map.Layers.IndexOf(Layer), Position));
 		}
 
 		protected override void OnAnimate()
 		{
-			this._animation.Animate();
-			this._animationLight.Animate();
-			if (!this._broken)
+			_animation.Animate();
+			_animationLight.Animate();
+			if (!_broken)
 				return;
-			this._rotation += Math.PI / 32.0;
+			_rotation += Math.PI / 32.0;
 		}
 
 		protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
@@ -285,13 +285,13 @@ public class CapsuleInstance : ActiveObject
 			IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
 			using (objectRenderer.BeginMatixState())
 			{
-				if (this._rotation != 0.0)
-					objectRenderer.ModelMatrix = objectRenderer.ModelMatrix.RotateZ(this._rotation);
-				objectRenderer.Render(this._animation, (Vector2)new Vector2i(-2, 0));
-				if (viewOptions.Shadows || this._broken)
+				if (_rotation != 0.0)
+					objectRenderer.ModelMatrix = objectRenderer.ModelMatrix.RotateZ(_rotation);
+				objectRenderer.Render(_animation, (Vector2)new Vector2i(-2, 0));
+				if (viewOptions.Shadows || _broken)
 					return;
 				objectRenderer.EmitsLight = true;
-				objectRenderer.Render(this._animationLight, (Vector2)new Vector2i(-2, 0));
+				objectRenderer.Render(_animationLight, (Vector2)new Vector2i(-2, 0));
 			}
 		}
 	}

@@ -99,8 +99,8 @@ public class Fragment : ActiveObject
 			objectRenderer.BlendMode = ((!AdditiveBlending) ? BlendMode.Alpha : BlendMode.Additive);
 			objectRenderer.ModelMatrix = objectRenderer.ModelMatrix.RotateZ(Angle);
 			Rectanglei source = _animationInstance.CurrentFrame.Source;
-			int num = (int)((double)source.Width * Scale);
-			int num2 = (int)((double)source.Height * Scale);
+			int num = (int)(source.Width * Scale);
+			int num2 = (int)(source.Height * Scale);
 			Rectanglei rectanglei = new Rectanglei(-num / 2, -num2 / 2, num, num2);
 			objectRenderer.Texture = _animationInstance.CurrentTexture;
 			objectRenderer.Render(source, rectanglei, FlipX, FlipY);
