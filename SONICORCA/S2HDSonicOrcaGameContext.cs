@@ -264,6 +264,7 @@ internal class S2HDSonicOrcaGameContext(IPlatform platform) : SonicOrcaGameConte
 
   protected override void OnDraw()
   {
+    SonicOrca.Core.Debugging.TestHooks.DrawnLevelTick = -1;
     I2dRenderer obj1 = this.Renderer.Get2dRenderer();
     obj1.ClipRectangle = new Rectangle(0.0, 0.0, 1920.0, 1080.0);
     if (this.ForceHD)
@@ -277,6 +278,12 @@ internal class S2HDSonicOrcaGameContext(IPlatform platform) : SonicOrcaGameConte
     this.Renderer.DeativateRenderer();
     if (SonicOrcaGameContext.Singleton.Input.Pressed.Keyboard[67] || SonicOrca.Core.Debugging.FrameProfiler.IsCaptureFrame(this.DrawCount))
       ScreenshotRenderer.GrabScreenshot(this.UserDataDirectory);
+    if (SonicOrca.Core.Debugging.TestHooks.TakeLevelTickCapture(out string captureFilename))
+    {
+      ScreenshotRenderer.GrabScreenshot(this.UserDataDirectory, captureFilename);
+      if (SonicOrca.Core.Debugging.TestHooks.ExitAfterCaptures && SonicOrca.Core.Debugging.TestHooks.AllCapturesTaken)
+        this.Finish = true;
+    }
     if (!this.ForceHD)
       return;
     this.Window.GraphicsContext.RenderToBackBuffer();

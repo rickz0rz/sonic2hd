@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Tests for the resource file format, and a screenshot regression test that plays the attract demo -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" Version="4.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../engine/SonicOrca.Resources/SonicOrca.Resources.csproj" />
+    <!-- For the PNG reader used to compare screenshots -->
+    <ProjectReference Include="../../engine/SonicOrca/SonicOrca.csproj" />
+  </ItemGroup>
+
+</Project>

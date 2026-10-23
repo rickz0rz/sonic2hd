@@ -19,7 +19,7 @@ public class ParticleManager : IDisposable
 
 	private readonly Level _level;
 
-	private readonly Random _random = new Random();
+	private readonly Random _random = SonicOrca.Core.Debugging.TestHooks.CreateRandom();
 
 	private readonly List<Particle> _particles = new List<Particle>();
 

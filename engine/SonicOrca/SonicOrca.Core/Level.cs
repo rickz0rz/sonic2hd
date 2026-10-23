@@ -28,7 +28,7 @@ public class Level : IDisposable
 
 	private readonly Player _player;
 
-	private readonly Random _random = new Random();
+	private readonly Random _random = SonicOrca.Core.Debugging.TestHooks.CreateRandom();
 
 	private readonly FadeTransition _fadeTransition = new FadeTransition(60);
 
@@ -780,6 +780,7 @@ public class Level : IDisposable
 
 	public void Draw(Renderer renderer)
 	{
+		SonicOrca.Core.Debugging.TestHooks.DrawnLevelTick = Ticks;
 		Viewport viewport = new Viewport(new Rectangle(0.0, 0.0, 1920.0, 1080.0));
 		viewport.Bounds = _camera.Bounds;
 		_levelRenderer.Render(renderer, viewport, _layerViewOptions);

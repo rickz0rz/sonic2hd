@@ -36,6 +36,10 @@ public static class Program
   {
     get
     {
+      // Tests point this at a scratch directory so they do not touch the player's settings
+      string overridePath = Environment.GetEnvironmentVariable("S2HD_USER_DATA_DIR");
+      if (!string.IsNullOrEmpty(overridePath))
+        return overridePath;
       // ~/Library/Application Support on macOS; Documents on Windows (unchanged from the original)
       Environment.SpecialFolder folder = OperatingSystem.IsMacOS() ? Environment.SpecialFolder.LocalApplicationData : Environment.SpecialFolder.Personal;
       return Path.Combine(Environment.GetFolderPath(folder), "SonicOrca");
