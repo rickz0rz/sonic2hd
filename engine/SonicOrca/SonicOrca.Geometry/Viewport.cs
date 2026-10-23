@@ -3,6 +3,9 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.Geometry;
 
+/// <summary>
+/// Maps a logical area (<see cref="Bounds"/>) to an area on the screen (<see cref="Destination"/>).
+/// </summary>
 public class Viewport
 {
 	private Rectanglei _bounds;
@@ -81,10 +84,10 @@ public class Viewport
 	public IDisposable ApplyRendererState(Renderer renderer)
 	{
 		I2dRenderer i2dRenderer = renderer.Get2dRenderer();
-		IDisposable result = i2dRenderer.BeginMatixState();
+		IDisposable matrixState = i2dRenderer.BeginMatixState();
 		i2dRenderer.ClipRectangle = Destination;
 		Vector2 scale = Scale;
 		i2dRenderer.ModelMatrix = Matrix4.CreateTranslation(Destination.X, Destination.Y) * Matrix4.CreateScale(scale.X, scale.Y);
-		return result;
+		return matrixState;
 	}
 }

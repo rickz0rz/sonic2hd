@@ -3,8 +3,17 @@ using System.Text;
 
 namespace SonicOrca.Geometry;
 
+/// <summary>
+/// A 4 x 4 transformation matrix with double precision.
+/// </summary>
+/// <remarks>
+/// The indexer and the Row properties use the field Mxy as the element in column x and row y.
+/// <see cref="CreateTranslation(double, double, double)"/> puts the translation in M14, M24 and M34.
+/// </remarks>
 public struct Matrix4 : IEquatable<Matrix4>
 {
+	private const int Dimension = 4;
+
 	public double M11;
 
 	public double M21;
@@ -99,159 +108,89 @@ public struct Matrix4 : IEquatable<Matrix4>
 		}
 	}
 
+	/// <summary>
+	/// Gets or sets the element in column <paramref name="x"/> and row <paramref name="y"/>, both from 0 to 3.
+	/// </summary>
 	public double this[int x, int y]
 	{
 		get
 		{
-			if (x == 0 && y == 0)
+			return (x, y) switch
 			{
-				return M11;
-			}
-			if (x == 1 && y == 0)
-			{
-				return M21;
-			}
-			if (x == 2 && y == 0)
-			{
-				return M31;
-			}
-			if (x == 3 && y == 0)
-			{
-				return M41;
-			}
-			if (x == 0 && y == 1)
-			{
-				return M12;
-			}
-			if (x == 1 && y == 1)
-			{
-				return M22;
-			}
-			if (x == 2 && y == 1)
-			{
-				return M32;
-			}
-			if (x == 3 && y == 1)
-			{
-				return M42;
-			}
-			if (x == 0 && y == 2)
-			{
-				return M13;
-			}
-			if (x == 1 && y == 2)
-			{
-				return M23;
-			}
-			if (x == 2 && y == 2)
-			{
-				return M33;
-			}
-			if (x == 3 && y == 2)
-			{
-				return M43;
-			}
-			if (x == 0 && y == 3)
-			{
-				return M14;
-			}
-			if (x == 1 && y == 3)
-			{
-				return M24;
-			}
-			if (x == 2 && y == 3)
-			{
-				return M34;
-			}
-			if (x == 3 && y == 3)
-			{
-				return M44;
-			}
-			throw new ArgumentOutOfRangeException();
+				(0, 0) => M11,
+				(1, 0) => M21,
+				(2, 0) => M31,
+				(3, 0) => M41,
+				(0, 1) => M12,
+				(1, 1) => M22,
+				(2, 1) => M32,
+				(3, 1) => M42,
+				(0, 2) => M13,
+				(1, 2) => M23,
+				(2, 2) => M33,
+				(3, 2) => M43,
+				(0, 3) => M14,
+				(1, 3) => M24,
+				(2, 3) => M34,
+				(3, 3) => M44,
+				_ => throw new ArgumentOutOfRangeException(),
+			};
 		}
 		set
 		{
-			if (x == 0 && y == 0)
+			switch (x, y)
 			{
-				M11 = value;
-				return;
+				case (0, 0):
+					M11 = value;
+					break;
+				case (1, 0):
+					M21 = value;
+					break;
+				case (2, 0):
+					M31 = value;
+					break;
+				case (3, 0):
+					M41 = value;
+					break;
+				case (0, 1):
+					M12 = value;
+					break;
+				case (1, 1):
+					M22 = value;
+					break;
+				case (2, 1):
+					M32 = value;
+					break;
+				case (3, 1):
+					M42 = value;
+					break;
+				case (0, 2):
+					M13 = value;
+					break;
+				case (1, 2):
+					M23 = value;
+					break;
+				case (2, 2):
+					M33 = value;
+					break;
+				case (3, 2):
+					M43 = value;
+					break;
+				case (0, 3):
+					M14 = value;
+					break;
+				case (1, 3):
+					M24 = value;
+					break;
+				case (2, 3):
+					M34 = value;
+					break;
+				case (3, 3):
+					M44 = value;
+					break;
+				default:
+					throw new ArgumentOutOfRangeException();
 			}
-			if (x == 1 && y == 0)
-			{
-				M21 = value;
-				return;
-			}
-			if (x == 2 && y == 0)
-			{
-				M31 = value;
-				return;
-			}
-			if (x == 3 && y == 0)
-			{
-				M41 = value;
-				return;
-			}
-			if (x == 0 && y == 1)
-			{
-				M12 = value;
-				return;
-			}
-			if (x == 1 && y == 1)
-			{
-				M22 = value;
-				return;
-			}
-			if (x == 2 && y == 1)
-			{
-				M32 = value;
-				return;
-			}
-			if (x == 3 && y == 1)
-			{
-				M42 = value;
-				return;
-			}
-			if (x == 0 && y == 2)
-			{
-				M13 = value;
-				return;
-			}
-			if (x == 1 && y == 2)
-			{
-				M23 = value;
-				return;
-			}
-			if (x == 2 && y == 2)
-			{
-				M33 = value;
-				return;
-			}
-			if (x == 3 && y == 2)
-			{
-				M43 = value;
-				return;
-			}
-			if (x == 0 && y == 3)
-			{
-				M14 = value;
-				return;
-			}
-			if (x == 1 && y == 3)
-			{
-				M24 = value;
-				return;
-			}
-			if (x == 2 && y == 3)
-			{
-				M34 = value;
-				return;
-			}
-			if (x == 3 && y == 3)
-			{
-				M44 = value;
-				return;
-			}
-			throw new ArgumentOutOfRangeException();
 		}
 	}
 
@@ -285,34 +224,37 @@ public struct Matrix4 : IEquatable<Matrix4>
 
 	public override string ToString()
 	{
-		Func<Vector4, string> func = (Vector4 v) => $"({v.X},{v.Y},{v.Z},{v.W})";
-		return string.Join(Environment.NewLine, func(Row1), func(Row2), func(Row3), func(Row4));
+		static string FormatRow(Vector4 v) => $"({v.X},{v.Y},{v.Z},{v.W})";
+		return string.Join(Environment.NewLine, FormatRow(Row1), FormatRow(Row2), FormatRow(Row3), FormatRow(Row4));
 	}
 
+	/// <summary>
+	/// Gets the matrix as text, with each column aligned to the right.
+	/// </summary>
 	public string GetFormattedString()
 	{
-		string[,] array = new string[4, 4];
-		int[] array2 = new int[4];
-		for (int i = 0; i < 4; i++)
+		string[,] cells = new string[Dimension, Dimension];
+		int[] columnWidths = new int[Dimension];
+		for (int row = 0; row < Dimension; row++)
 		{
-			for (int j = 0; j < 4; j++)
+			for (int column = 0; column < Dimension; column++)
 			{
-				array[j, i] = this[j, i].ToString();
-				array2[j] = Math.Max(array2[j], array[j, i].Length);
+				cells[column, row] = this[column, row].ToString();
+				columnWidths[column] = Math.Max(columnWidths[column], cells[column, row].Length);
 			}
 		}
 		StringBuilder stringBuilder = new StringBuilder();
-		for (int k = 0; k < 4; k++)
+		for (int row = 0; row < Dimension; row++)
 		{
-			for (int l = 0; l < 4; l++)
+			for (int column = 0; column < Dimension; column++)
 			{
-				int count = array2[l] - array[l, k].Length;
+				int padding = columnWidths[column] - cells[column, row].Length;
 				stringBuilder.Append(' ');
-				stringBuilder.Append(new string(' ', count));
-				stringBuilder.Append(array[l, k]);
+				stringBuilder.Append(new string(' ', padding));
+				stringBuilder.Append(cells[column, row]);
 				stringBuilder.Append(' ');
 			}
-			if (k < 3)
+			if (row < Dimension - 1)
 			{
 				stringBuilder.AppendLine();
 			}
@@ -395,7 +337,11 @@ public struct Matrix4 : IEquatable<Matrix4>
 
 	public static Vector4 operator *(Matrix4 mat, Vector4 vec)
 	{
-		return new Vector4(vec.X * mat.Row1.X + vec.Y * mat.Row2.X + vec.Z * mat.Row3.X + vec.W * mat.Row4.X, vec.X * mat.Row1.Y + vec.Y * mat.Row2.Y + vec.Z * mat.Row3.Y + vec.W * mat.Row4.Y, vec.X * mat.Row1.Z + vec.Y * mat.Row2.Z + vec.Z * mat.Row3.Z + vec.W * mat.Row4.Z, vec.X * mat.Row1.W + vec.Y * mat.Row2.W + vec.Z * mat.Row3.W + vec.W * mat.Row4.W);
+		return new Vector4(
+			vec.X * mat.Row1.X + vec.Y * mat.Row2.X + vec.Z * mat.Row3.X + vec.W * mat.Row4.X,
+			vec.X * mat.Row1.Y + vec.Y * mat.Row2.Y + vec.Z * mat.Row3.Y + vec.W * mat.Row4.Y,
+			vec.X * mat.Row1.Z + vec.Y * mat.Row2.Z + vec.Z * mat.Row3.Z + vec.W * mat.Row4.Z,
+			vec.X * mat.Row1.W + vec.Y * mat.Row2.W + vec.Z * mat.Row3.W + vec.W * mat.Row4.W);
 	}
 
 	public static bool operator ==(Matrix4 lhs, Matrix4 rhs)
@@ -416,27 +362,31 @@ public struct Matrix4 : IEquatable<Matrix4>
 	public static Matrix4 CreateOrthographicOffCenter(double left, double right, double bottom, double top, double zNear, double zFar)
 	{
 		Matrix4 result = default;
-		double num = 1.0 / (right - left);
-		double num2 = 1.0 / (top - bottom);
-		double num3 = 1.0 / (zFar - zNear);
-		result.M11 = 2.0 * num;
-		result.M22 = 2.0 * num2;
-		result.M33 = -2.0 * num3;
-		result.M14 = (0.0 - (right + left)) * num;
-		result.M24 = (0.0 - (top + bottom)) * num2;
-		result.M34 = (0.0 - (zFar + zNear)) * num3;
+		double inverseWidth = 1.0 / (right - left);
+		double inverseHeight = 1.0 / (top - bottom);
+		double inverseDepth = 1.0 / (zFar - zNear);
+		result.M11 = 2.0 * inverseWidth;
+		result.M22 = 2.0 * inverseHeight;
+		result.M33 = -2.0 * inverseDepth;
+		result.M14 = (0.0 - (right + left)) * inverseWidth;
+		result.M24 = (0.0 - (top + bottom)) * inverseHeight;
+		result.M34 = (0.0 - (zFar + zNear)) * inverseDepth;
 		result.M44 = 1.0;
 		return result;
 	}
 
 	public static Matrix4 LookAt(Vector3 eye, Vector3 target, Vector3 up)
 	{
-		Vector3 normalised = (eye - target).Normalised;
-		Vector3 normalised2 = up.Cross(normalised).Normalised;
-		Vector3 normalised3 = normalised.Cross(normalised2).Normalised;
-		Matrix4 matrix = new Matrix4(new Vector4(normalised2.X, normalised3.X, normalised.X, 0.0), new Vector4(normalised2.Y, normalised3.Y, normalised.Y, 0.0), new Vector4(normalised2.Z, normalised3.Z, normalised.Z, 0.0), Vector4.UnitW);
-		Matrix4 matrix2 = CreateTranslation(-eye);
-		return matrix * matrix2;
+		Vector3 forward = (eye - target).Normalised;
+		Vector3 right = up.Cross(forward).Normalised;
+		Vector3 cameraUp = forward.Cross(right).Normalised;
+		Matrix4 rotation = new Matrix4(
+			new Vector4(right.X, cameraUp.X, forward.X, 0.0),
+			new Vector4(right.Y, cameraUp.Y, forward.Y, 0.0),
+			new Vector4(right.Z, cameraUp.Z, forward.Z, 0.0),
+			Vector4.UnitW);
+		Matrix4 translation = CreateTranslation(-eye);
+		return rotation * translation;
 	}
 
 	public static Matrix4 LookAt(double eyeX, double eyeY, double eyeZ, double targetX, double targetY, double targetZ, double upX, double upY, double upZ)
@@ -446,89 +396,95 @@ public struct Matrix4 : IEquatable<Matrix4>
 
 	public static Matrix4 Frustum(double left, double right, double bottom, double top, double near, double far)
 	{
-		double num = 1.0 / (right - left);
-		double num2 = 1.0 / (top - bottom);
-		double num3 = 1.0 / (far - near);
-		return new Matrix4(new Vector4(2.0 * near * num, 0.0, 0.0, 0.0), new Vector4(0.0, 2.0 * near * num2, 0.0, 0.0), new Vector4((right + left) * num, (top + bottom) * num2, (0.0 - (far + near)) * num3, -1.0), new Vector4(0.0, 0.0, -2.0 * far * near * num3, 0.0));
+		double inverseWidth = 1.0 / (right - left);
+		double inverseHeight = 1.0 / (top - bottom);
+		double inverseDepth = 1.0 / (far - near);
+		return new Matrix4(
+			new Vector4(2.0 * near * inverseWidth, 0.0, 0.0, 0.0),
+			new Vector4(0.0, 2.0 * near * inverseHeight, 0.0, 0.0),
+			new Vector4((right + left) * inverseWidth, (top + bottom) * inverseHeight, (0.0 - (far + near)) * inverseDepth, -1.0),
+			new Vector4(0.0, 0.0, -2.0 * far * near * inverseDepth, 0.0));
 	}
 
 	public static Matrix4 Perspective(double fovy, double aspect, double near, double far)
 	{
-		double num = near * Math.Tan(0.5 * fovy);
-		double num2 = 0.0 - num;
-		double left = num2 * aspect;
-		double right = num * aspect;
-		return Frustum(left, right, num2, num, near, far);
+		double top = near * Math.Tan(0.5 * fovy);
+		double bottom = 0.0 - top;
+		double left = bottom * aspect;
+		double right = top * aspect;
+		return Frustum(left, right, bottom, top, near, far);
 	}
 
 	public static Matrix4 CreateTranslation(Vector2 value)
 	{
-		Matrix4 identity = Identity;
-		identity.M14 = value.X;
-		identity.M24 = value.Y;
-		return identity;
+		Matrix4 matrix = Identity;
+		matrix.M14 = value.X;
+		matrix.M24 = value.Y;
+		return matrix;
 	}
 
 	public static Matrix4 CreateTranslation(Vector3 value)
 	{
-		Matrix4 identity = Identity;
-		identity.M14 = value.X;
-		identity.M24 = value.Y;
-		identity.M34 = value.Z;
-		return identity;
+		Matrix4 matrix = Identity;
+		matrix.M14 = value.X;
+		matrix.M24 = value.Y;
+		matrix.M34 = value.Z;
+		return matrix;
 	}
 
 	public static Matrix4 CreateTranslation(double x, double y, double z = 0.0)
 	{
-		Matrix4 identity = Identity;
-		identity.M14 = x;
-		identity.M24 = y;
-		identity.M34 = z;
-		return identity;
+		Matrix4 matrix = Identity;
+		matrix.M14 = x;
+		matrix.M24 = y;
+		matrix.M34 = z;
+		return matrix;
 	}
 
 	public static Matrix4 CreateScale(double x, double y, double z = 1.0)
 	{
-		Matrix4 identity = Identity;
-		identity.M11 = x;
-		identity.M22 = y;
-		identity.M33 = z;
-		return identity;
+		Matrix4 matrix = Identity;
+		matrix.M11 = x;
+		matrix.M22 = y;
+		matrix.M33 = z;
+		return matrix;
 	}
 
+	// Note: this does not make a correct rotation about the X axis. It sets M21 to cos, M22 to -sin,
+	// and M31 and M32 to sin, and it leaves M33 at 1.
 	public static Matrix4 CreateRotationX(double angle)
 	{
-		double m = Math.Cos(angle);
-		double num = Math.Sin(angle);
-		Matrix4 identity = Identity;
-		identity.M21 = m;
-		identity.M31 = num;
-		identity.M22 = 0.0 - num;
-		identity.M32 = num;
-		return identity;
+		double cos = Math.Cos(angle);
+		double sin = Math.Sin(angle);
+		Matrix4 matrix = Identity;
+		matrix.M21 = cos;
+		matrix.M31 = sin;
+		matrix.M22 = 0.0 - sin;
+		matrix.M32 = sin;
+		return matrix;
 	}
 
 	public static Matrix4 CreateRotationY(double angle)
 	{
-		double num = Math.Cos(angle);
-		double num2 = Math.Sin(angle);
-		Matrix4 identity = Identity;
-		identity.M11 = num;
-		identity.M31 = 0.0 - num2;
-		identity.M13 = num2;
-		identity.M33 = num;
-		return identity;
+		double cos = Math.Cos(angle);
+		double sin = Math.Sin(angle);
+		Matrix4 matrix = Identity;
+		matrix.M11 = cos;
+		matrix.M31 = 0.0 - sin;
+		matrix.M13 = sin;
+		matrix.M33 = cos;
+		return matrix;
 	}
 
 	public static Matrix4 CreateRotationZ(double angle)
 	{
-		double num = Math.Cos(angle);
-		double num2 = Math.Sin(angle);
-		Matrix4 identity = Identity;
-		identity.M11 = num;
-		identity.M21 = num2;
-		identity.M12 = 0.0 - num2;
-		identity.M22 = num;
-		return identity;
+		double cos = Math.Cos(angle);
+		double sin = Math.Sin(angle);
+		Matrix4 matrix = Identity;
+		matrix.M11 = cos;
+		matrix.M21 = sin;
+		matrix.M12 = 0.0 - sin;
+		matrix.M22 = cos;
+		return matrix;
 	}
 }

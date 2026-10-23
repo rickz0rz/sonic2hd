@@ -6,8 +6,17 @@ using System.Linq;
 
 namespace SonicOrca.Geometry;
 
+/// <summary>
+/// A collection that sorts items into a tree of rectangular areas, so that a query for an area is fast.
+/// </summary>
+/// <remarks>
+/// When an item is outside the bounds of the tree, the tree grows to contain the item and builds all nodes again.
+/// </remarks>
 public class QuadTree<T> : ICollection<T>, IEnumerable<T>, IEnumerable where T : IBounds
 {
+	/// <summary>
+	/// One area of the tree. A node keeps the items that do not fit fully in one of its four children.
+	/// </summary>
 	private class Node
 	{
 		private readonly QuadTree<T> _quadTree;
@@ -24,13 +33,12 @@ public class QuadTree<T> : ICollection<T>, IEnumerable<T>, IEnumerable where T :
 		{
 			get
 			{
-				int num = _items.Count;
-				Node[] children = _children;
-				foreach (Node node in children)
+				int count = _items.Count;
+				foreach (Node child in _children)
 				{
-					num += node.Count;
+					count += child.Count;
 				}
-				return num;
+				return count;
 			}
 		}
 
@@ -42,12 +50,11 @@ public class QuadTree<T> : ICollection<T>, IEnumerable<T>, IEnumerable where T :
 				{
 					yield return item;
 				}
-				Node[] children = _children;
-				foreach (Node node in children)
+				foreach (Node child in _children)
 				{
-					foreach (T item2 in node.Items)
+					foreach (T childItem in child.Items)
 					{
-						yield return item2;
+						yield return childItem;
 					}
 				}
 			}
@@ -59,6 +66,7 @@ public class QuadTree<T> : ICollection<T>, IEnumerable<T>, IEnumerable where T :
 			_bounds = bounds;
 		}
 
+		/// <returns><c>false</c> when the item is not fully inside the bounds of this node.</returns>
 		public bool Add(T item)
 		{
 			if (!_bounds.Contains(item.Bounds))
@@ -67,6 +75,7 @@ public class QuadTree<T> : ICollection<T>, IEnumerable<T>, IEnumerable where T :
 			}
 			if (_children.Length == 0)
 			{
+				// A leaf keeps items until it has more than the target count. Then it tries to subdivide.
 				if (_items.Count <= _quadTree._subdivideTargetCount)
 				{
 					_items.Add(item);
@@ -74,15 +83,14 @@ public class QuadTree<T> : ICollection<T>, IEnumerable<T>, IEnumerable where T :
 				}
 				ReStructure();
 			}
-			Node[] children = _children;
-			foreach (Node node in children)
+			foreach (Node child in _children)
 			{
-				if (node._bounds.Contains(item.Bounds))
+				if (child._bounds.Contains(item.Bounds))
 				{
 					Trace.Indent();
-					bool result = node.Add(item);
+					bool added = child.Add(item);
 					Trace.Unindent();
-					return result;
+					return added;
 				}
 			}
 			_items.Add(item);
@@ -95,10 +103,9 @@ public class QuadTree<T> : ICollection<T>, IEnumerable<T>, IEnumerable where T :
 			{
 				return true;
 			}
-			Node[] children = _children;
-			for (int i = 0; i < children.Length; i++)
+			foreach (Node child in _children)
 			{
-				if (children[i].Remove(item))
+				if (child.Remove(item))
 				{
 					return true;
 				}
@@ -110,14 +117,12 @@ public class QuadTree<T> : ICollection<T>, IEnumerable<T>, IEnumerable where T :
 		{
 			foreach (T item in _items)
 			{
-				_ = item.Bounds;
 				if (queryBounds.IntersectsWith(item.Bounds))
 				{
 					yield return item;
 				}
 			}
-			Node[] children = _children;
-			foreach (Node child in children)
+			foreach (Node child in _children)
 			{
 				if (child._items.Count == 0 && child._children.Length == 0)
 				{
@@ -125,40 +130,40 @@ public class QuadTree<T> : ICollection<T>, IEnumerable<T>, IEnumerable where T :
 				}
 				if (child._bounds.Contains(queryBounds))
 				{
-					foreach (T item2 in child.Query(queryBounds))
+					// The query is fully inside this child, so no other child can have a match.
+					foreach (T childItem in child.Query(queryBounds))
 					{
-						yield return item2;
+						yield return childItem;
 					}
 					break;
 				}
 				if (queryBounds.Contains(child._bounds))
 				{
-					foreach (T item3 in child.Items)
+					// The child is fully inside the query, so all its items match.
+					foreach (T childItem in child.Items)
 					{
-						yield return item3;
+						yield return childItem;
 					}
 				}
-				else
+				else if (child._bounds.IntersectsWith(queryBounds))
 				{
-					if (!child._bounds.IntersectsWith(queryBounds))
+					foreach (T childItem in child.Query(queryBounds))
 					{
-						continue;
-					}
-					foreach (T item4 in child.Query(queryBounds))
-					{
-						yield return item4;
+						yield return childItem;
 					}
 				}
 			}
 		}
 
+		/// <summary>
+		/// Creates the children and adds the items of this node again, so that they move into the children.
+		/// </summary>
 		private void ReStructure()
 		{
-			T[] array = _items.ToArray();
+			T[] items = _items.ToArray();
 			_items.Clear();
 			CreateChildren();
-			T[] array2 = array;
-			foreach (T item in array2)
+			foreach (T item in items)
 			{
 				Add(item);
 			}
@@ -166,15 +171,16 @@ public class QuadTree<T> : ICollection<T>, IEnumerable<T>, IEnumerable where T :
 
 		private void CreateChildren()
 		{
+			// Note: the minimum node size is compared with the area of the node, not with its width or height.
 			if (_bounds.Area > _quadTree._minNodeSize)
 			{
-				int num = _bounds.Width / 2;
-				int num2 = _bounds.Height / 2;
+				int halfWidth = _bounds.Width / 2;
+				int halfHeight = _bounds.Height / 2;
 				_children = new Node[4];
-				_children[0] = new Node(_quadTree, new Rectanglei(_bounds.X, _bounds.Y, num, num2));
-				_children[1] = new Node(_quadTree, new Rectanglei(_bounds.X, _bounds.Y + num2, num, num2));
-				_children[2] = new Node(_quadTree, new Rectanglei(_bounds.X + num, _bounds.Y, num, num2));
-				_children[3] = new Node(_quadTree, new Rectanglei(_bounds.X + num, _bounds.Y + num2, num, num2));
+				_children[0] = new Node(_quadTree, new Rectanglei(_bounds.X, _bounds.Y, halfWidth, halfHeight));
+				_children[1] = new Node(_quadTree, new Rectanglei(_bounds.X, _bounds.Y + halfHeight, halfWidth, halfHeight));
+				_children[2] = new Node(_quadTree, new Rectanglei(_bounds.X + halfWidth, _bounds.Y, halfWidth, halfHeight));
+				_children[3] = new Node(_quadTree, new Rectanglei(_bounds.X + halfWidth, _bounds.Y + halfHeight, halfWidth, halfHeight));
 			}
 		}
 
@@ -184,7 +190,7 @@ public class QuadTree<T> : ICollection<T>, IEnumerable<T>, IEnumerable where T :
 			{
 				return 1;
 			}
-			return _children.Select((Node x) => x.GetDepth()).Max();
+			return _children.Select(x => x.GetDepth()).Max();
 		}
 
 		public override string ToString()
@@ -213,26 +219,28 @@ public class QuadTree<T> : ICollection<T>, IEnumerable<T>, IEnumerable where T :
 		_root = new Node(this, _bounds);
 	}
 
+	/// <summary>
+	/// Creates a tree with bounds that contain all the given items, and adds the items.
+	/// </summary>
 	public QuadTree(IEnumerable<T> items, int minNodeSize = 4096, int subdivideTargetCount = 4)
 	{
 		_minNodeSize = minNodeSize;
 		_subdivideTargetCount = subdivideTargetCount;
-		T[] array = items.ToArray();
-		if (array.Length == 0)
+		T[] itemArray = items.ToArray();
+		if (itemArray.Length == 0)
 		{
 			_bounds = new Rectanglei(0, 0, minNodeSize, minNodeSize);
 			_root = new Node(this, _bounds);
 			return;
 		}
-		int num = array.Min((T i) => i.Bounds.Left);
-		int num2 = array.Min((T i) => i.Bounds.Top);
-		int num3 = array.Max((T i) => i.Bounds.Right);
-		int num4 = array.Max((T i) => i.Bounds.Bottom);
-		_bounds = new Rectanglei(num, num2, num3 - num, num4 - num2);
+		int left = itemArray.Min(i => i.Bounds.Left);
+		int top = itemArray.Min(i => i.Bounds.Top);
+		int right = itemArray.Max(i => i.Bounds.Right);
+		int bottom = itemArray.Max(i => i.Bounds.Bottom);
+		_bounds = new Rectanglei(left, top, right - left, bottom - top);
 		_root = new Node(this, _bounds);
 		Trace.WriteLine("QuadTree bounds: " + _bounds);
-		T[] array2 = array;
-		foreach (T item in array2)
+		foreach (T item in itemArray)
 		{
 			Add(item);
 		}
@@ -245,29 +253,20 @@ public class QuadTree<T> : ICollection<T>, IEnumerable<T>, IEnumerable where T :
 
 	public void AddRange(IEnumerable<T> items)
 	{
-		T[] array = items.ToArray();
-		T[] array2;
-		if (array.Any((T x) => !_bounds.Contains(x.Bounds)))
+		T[] newItems = items.ToArray();
+		if (newItems.Any(x => !_bounds.Contains(x.Bounds)))
 		{
+			// Grow the bounds one time for all the new items, then build the tree again.
 			Trace.WriteLine("Resizing quad tree");
-			array2 = array;
-			for (int num = 0; num < array2.Length; num++)
+			foreach (T item in newItems)
 			{
-				T val = array2[num];
-				_bounds = _bounds.Union(val.Bounds);
+				_bounds = _bounds.Union(item.Bounds);
 			}
-			T[] array3 = _root.Items.ToArray();
-			_root = new Node(this, _bounds);
-			array2 = array3;
-			foreach (T item in array2)
-			{
-				_root.Add(item);
-			}
+			RebuildRoot();
 		}
-		array2 = array;
-		foreach (T item2 in array2)
+		foreach (T item in newItems)
 		{
-			Add(item2);
+			Add(item);
 		}
 	}
 
@@ -282,13 +281,20 @@ public class QuadTree<T> : ICollection<T>, IEnumerable<T>, IEnumerable where T :
 		{
 			Trace.WriteLine("Resizing quad tree");
 			_bounds = _bounds.Union(item.Bounds);
-			T[] array = _root.Items.ToArray();
-			_root = new Node(this, _bounds);
-			T[] array2 = array;
-			foreach (T item2 in array2)
-			{
-				_root.Add(item2);
-			}
+			RebuildRoot();
+			_root.Add(item);
+		}
+	}
+
+	/// <summary>
+	/// Replaces the root with a new node for the current bounds, and adds all the existing items to it.
+	/// </summary>
+	private void RebuildRoot()
+	{
+		T[] existingItems = _root.Items.ToArray();
+		_root = new Node(this, _bounds);
+		foreach (T item in existingItems)
+		{
 			_root.Add(item);
 		}
 	}

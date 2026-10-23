@@ -3,6 +3,9 @@ using System.Globalization;
 
 namespace SonicOrca.Geometry;
 
+/// <summary>
+/// A two-dimensional vector or point with double precision.
+/// </summary>
 public struct Vector2 : IEquatable<Vector2>
 {
 	public double X { get; set; }
@@ -13,6 +16,7 @@ public struct Vector2 : IEquatable<Vector2>
 
 	public double Length => Math.Sqrt(X * X + Y * Y);
 
+	// Note: this squares the sum of the squares, so the result is the length to the power of 4.
 	public double LengthSquared => Math.Pow(X * X + Y * Y, 2.0);
 
 	public double Angle => Math.Atan2(Y, X);
@@ -50,16 +54,18 @@ public struct Vector2 : IEquatable<Vector2>
 
 	public override string ToString()
 	{
-		return string.Format(CultureInfo.InvariantCulture, "X = {0}, Y = {1}", new object[2] { X, Y });
+		return string.Format(CultureInfo.InvariantCulture, "X = {0}, Y = {1}", X, Y);
 	}
 
 	public Vector2 Rotate(double radians)
 	{
-		double num = Math.Cos(radians);
-		double num2 = Math.Sin(radians);
-		return new Vector2(X * num - Y * num2, X * num2 + Y * num);
+		double cos = Math.Cos(radians);
+		double sin = Math.Sin(radians);
+		return new Vector2(X * cos - Y * sin, X * sin + Y * cos);
 	}
 
+	// Note: this adds the origin before the rotation and subtracts it after. A rotation about the origin
+	// usually does the opposite.
 	public Vector2 Rotate(double radians, Vector2 origin)
 	{
 		return (this + origin).Rotate(radians) - origin;
@@ -84,11 +90,11 @@ public struct Vector2 : IEquatable<Vector2>
 	{
 		double x = point.X;
 		double y = point.Y;
-		double x2 = relative.X;
-		double y2 = relative.Y;
-		double x3 = Math.Cos(theta) * (x - x2) - Math.Sin(theta) * (y - y2) + x2;
-		double y3 = Math.Sin(theta) * (x - x2) + Math.Cos(theta) * (y - y2) + y2;
-		return new Vector2(x3, y3);
+		double originX = relative.X;
+		double originY = relative.Y;
+		double rotatedX = Math.Cos(theta) * (x - originX) - Math.Sin(theta) * (y - originY) + originX;
+		double rotatedY = Math.Sin(theta) * (x - originX) + Math.Cos(theta) * (y - originY) + originY;
+		return new Vector2(rotatedX, rotatedY);
 	}
 
 	public static Vector2 FromAngle(double radians)
@@ -101,35 +107,41 @@ public struct Vector2 : IEquatable<Vector2>
 		return Math.Sqrt(Math.Pow(pointB.X - pointA.X, 2.0) + Math.Pow(pointB.Y - pointA.Y, 2.0));
 	}
 
+	/// <summary>
+	/// Tests if the line segment from <paramref name="line0point0"/> to <paramref name="line0point1"/> crosses
+	/// the line segment from <paramref name="line1point0"/> to <paramref name="line1point1"/>.
+	/// </summary>
 	public static bool Intersects(Vector2 line0point0, Vector2 line0point1, Vector2 line1point0, Vector2 line1point1)
 	{
-		Vector2 vector = new Vector2(line0point1.X - line0point0.X, line0point1.Y - line0point0.Y);
-		Vector2 vector2 = new Vector2(line1point1.X - line1point0.X, line1point1.Y - line1point0.Y);
-		double num = ((0.0 - vector.Y) * (line0point0.X - line1point0.X) + vector.X * (line0point0.Y - line1point0.Y)) / ((0.0 - vector2.X) * vector.Y + vector.X * vector2.Y);
-		double num2 = (vector2.X * (line0point0.Y - line1point0.Y) - vector2.Y * (line0point0.X - line1point0.X)) / ((0.0 - vector2.X) * vector.Y + vector.X * vector2.Y);
-		if (num >= 0.0 && num <= 1.0 && num2 >= 0.0 && num2 <= 1.0)
-		{
-			return true;
-		}
-		return false;
+		Vector2 direction0 = new Vector2(line0point1.X - line0point0.X, line0point1.Y - line0point0.Y);
+		Vector2 direction1 = new Vector2(line1point1.X - line1point0.X, line1point1.Y - line1point0.Y);
+		// s and t are the positions of the crossing point along each segment, from 0 to 1.
+		double s = ((0.0 - direction0.Y) * (line0point0.X - line1point0.X) + direction0.X * (line0point0.Y - line1point0.Y)) / ((0.0 - direction1.X) * direction0.Y + direction0.X * direction1.Y);
+		double t = (direction1.X * (line0point0.Y - line1point0.Y) - direction1.Y * (line0point0.X - line1point0.X)) / ((0.0 - direction1.X) * direction0.Y + direction0.X * direction1.Y);
+		return s >= 0.0 && s <= 1.0 && t >= 0.0 && t <= 1.0;
 	}
 
+	/// <summary>
+	/// Gets the point where the infinite line through A and B crosses the infinite line through C and D.
+	/// </summary>
+	/// <returns><c>false</c> when the lines are parallel.</returns>
 	public static bool GetLineIntersection(Vector2 A, Vector2 B, Vector2 C, Vector2 D, out Vector2 intersection)
 	{
-		double num = B.Y - A.Y;
-		double num2 = A.X - B.X;
-		double num3 = num * A.X + num2 * A.Y;
-		double num4 = D.Y - C.Y;
-		double num5 = C.X - D.X;
-		double num6 = num4 * C.X + num5 * C.Y;
-		double num7 = num * num5 - num4 * num2;
-		if (num7 == 0.0)
+		// Each line in the form a * x + b * y = c.
+		double a1 = B.Y - A.Y;
+		double b1 = A.X - B.X;
+		double c1 = a1 * A.X + b1 * A.Y;
+		double a2 = D.Y - C.Y;
+		double b2 = C.X - D.X;
+		double c2 = a2 * C.X + b2 * C.Y;
+		double determinant = a1 * b2 - a2 * b1;
+		if (determinant == 0.0)
 		{
 			intersection = new Vector2(double.MaxValue, double.MaxValue);
 			return false;
 		}
-		double x = (num5 * num3 - num2 * num6) / num7;
-		double y = (num * num6 - num4 * num3) / num7;
+		double x = (b2 * c1 - b1 * c2) / determinant;
+		double y = (a1 * c2 - a2 * c1) / determinant;
 		intersection = new Vector2(x, y);
 		return true;
 	}
@@ -179,6 +191,7 @@ public struct Vector2 : IEquatable<Vector2>
 		return new Vector2(v.X / x, v.Y / x);
 	}
 
+	// Note: this operator divides the vector by the scalar, not the scalar by the vector.
 	public static Vector2 operator /(double x, Vector2 v)
 	{
 		return new Vector2(v.X / x, v.Y / x);

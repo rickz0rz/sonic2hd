@@ -4,31 +4,44 @@ using System.Linq;
 
 namespace SonicOrca.Extensions;
 
+/// <summary>
+/// Contains more LINQ-style operations on sequences.
+/// </summary>
 public static class LinqExtensions
 {
+	private const int HashSeed = 27;
+
+	private const int HashMultiplier = 13;
+
+	/// <summary>
+	/// The hash code that a null element adds to a collection hash code.
+	/// </summary>
+	private const int NullElementHashCode = -1;
+
 	public static T[] AsArray<T>(this IEnumerable<T> items)
 	{
-		T[] array = items as T[];
-		if (array == null)
-		{
-			array = items.ToArray();
-		}
-		return array;
+		return items as T[] ?? items.ToArray();
 	}
 
 	public static int GetCollectionHashCode<T>(this IEnumerable<T> e)
 	{
 		IEnumerator<T> enumerator = e.GetEnumerator();
-		int num = 27;
+		int hash = HashSeed;
 		if (enumerator.MoveNext())
 		{
-			num *= ((enumerator.Current == null) ? (-1.GetHashCode()) : enumerator.Current.GetHashCode());
+			// The first element multiplies the seed. Each element after it is added.
+			hash *= GetElementHashCode(enumerator.Current);
 		}
 		while (enumerator.MoveNext())
 		{
-			num = 13 * num + ((enumerator.Current == null) ? (-1.GetHashCode()) : enumerator.Current.GetHashCode());
+			hash = HashMultiplier * hash + GetElementHashCode(enumerator.Current);
 		}
-		return num;
+		return hash;
+	}
+
+	private static int GetElementHashCode<T>(T element)
+	{
+		return element == null ? NullElementHashCode : element.GetHashCode();
 	}
 
 	public static int GetCollectionHashCode(params object[] items)
@@ -36,54 +49,57 @@ public static class LinqExtensions
 		return items.GetCollectionHashCode();
 	}
 
+	/// <summary>
+	/// Tests if the two sequences contain the same elements the same number of times, in any order.
+	/// </summary>
 	public static bool HasSameElementsAs<T>(this IEnumerable<T> first, IEnumerable<T> second)
 	{
-		Dictionary<T, int> firstMap = (from x in first
-									   group x by x).ToDictionary((IGrouping<T, T> x) => x.Key, (IGrouping<T, T> x) => x.Count());
-		Dictionary<T, int> secondMap = (from x in second
-										group x by x).ToDictionary((IGrouping<T, T> x) => x.Key, (IGrouping<T, T> x) => x.Count());
-		if (firstMap.Keys.All((T x) => secondMap.Keys.Contains(x) && firstMap[x] == secondMap[x]))
+		Dictionary<T, int> firstMap = first.GroupBy(x => x).ToDictionary(x => x.Key, x => x.Count());
+		Dictionary<T, int> secondMap = second.GroupBy(x => x).ToDictionary(x => x.Key, x => x.Count());
+		if (firstMap.Keys.All(x => secondMap.Keys.Contains(x) && firstMap[x] == secondMap[x]))
 		{
-			return secondMap.Keys.All((T x) => firstMap.Keys.Contains(x) && secondMap[x] == firstMap[x]);
+			return secondMap.Keys.All(x => firstMap.Keys.Contains(x) && secondMap[x] == firstMap[x]);
 		}
 		return false;
 	}
 
+	/// <summary>
+	/// Joins the items as text in the form "a, b and c".
+	/// </summary>
 	public static string CommaAndConcatenation<T>(this IEnumerable<T> strings)
 	{
-		T[] array = strings.ToArray();
-		if (array.Length == 0)
+		T[] items = strings.ToArray();
+		switch (items.Length)
 		{
-			return string.Empty;
+			case 0:
+				return string.Empty;
+			case 1:
+				return items[0].ToString();
+			case 2:
+				return $"{items[0]} and {items[1]}";
+			default:
+				return string.Format("{0} and {1}", string.Join(", ", items.Take(items.Length - 1)), items.Last());
 		}
-		if (array.Length == 1)
-		{
-			return array[0].ToString();
-		}
-		if (array.Length == 2)
-		{
-			return $"{array[0]} and {array[1]}";
-		}
-		return string.Format("{0} and {1}", string.Join(", ", array.Take(array.Length - 1)), array.Last());
 	}
 
 	public static IEnumerable<T> TakeAllButLast<T>(this IEnumerable<T> source)
 	{
 		IEnumerator<T> it = source.GetEnumerator();
-		bool flag = true;
-		T val = default;
+		bool isFirst = true;
+		T previous = default;
 		bool hasRemainingItems;
 		do
 		{
 			hasRemainingItems = it.MoveNext();
 			if (hasRemainingItems)
 			{
-				if (!flag)
+				// Give the previous item only when a next item exists, so the last item is never given.
+				if (!isFirst)
 				{
-					yield return val;
+					yield return previous;
 				}
-				val = it.Current;
-				flag = false;
+				previous = it.Current;
+				isFirst = false;
 			}
 		}
 		while (hasRemainingItems);
@@ -91,18 +107,21 @@ public static class LinqExtensions
 
 	public static IEnumerable<T> Intersperse<T>(this IEnumerable<T> source, T separator)
 	{
-		bool flag = true;
+		bool isFirst = true;
 		foreach (T value in source)
 		{
-			if (!flag)
+			if (!isFirst)
 			{
 				yield return separator;
 			}
 			yield return value;
-			flag = false;
+			isFirst = false;
 		}
 	}
 
+	/// <summary>
+	/// Splits the sequence into groups. Each item for which <paramref name="shouldSplit"/> is true starts a new group.
+	/// </summary>
 	public static IEnumerable<IEnumerable<T>> SplitWhen<T>(this IEnumerable<T> source, Func<T, bool> shouldSplit)
 	{
 		List<T> currentGroup = new List<T>();
@@ -123,16 +142,16 @@ public static class LinqExtensions
 
 	public static bool Contains(this IEnumerable<string> items, string query, bool ignoreCase = false)
 	{
-		return items.Any((string x) => string.Compare(x, query, ignoreCase) == 0);
+		return items.Any(x => string.Compare(x, query, ignoreCase) == 0);
 	}
 
 	public static string FirstOrDefault(this IEnumerable<string> items, string query, bool ignoreCase = false)
 	{
-		return items.FirstOrDefault((string x) => string.Compare(x, query, ignoreCase) == 0);
+		return items.FirstOrDefault(x => string.Compare(x, query, ignoreCase) == 0);
 	}
 
 	public static IEnumerable<string> Surround(this IEnumerable<string> strings, string surrounder)
 	{
-		return strings.Select((string x) => surrounder + x + surrounder);
+		return strings.Select(x => surrounder + x + surrounder);
 	}
 }

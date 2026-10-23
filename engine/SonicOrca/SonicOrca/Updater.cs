@@ -2,6 +2,9 @@ using System.Collections.Generic;
 
 namespace SonicOrca;
 
+/// <summary>
+/// Runs an update sequence one step for each call to <see cref="Update"/>, and skips calls while a wait is active.
+/// </summary>
 public class Updater
 {
 	private readonly IEnumerator<UpdateResult> _updateStateEnumerator;
@@ -13,6 +16,7 @@ public class Updater
 		_updateStateEnumerator = updateMethod.GetEnumerator();
 	}
 
+	/// <returns><c>false</c> when the update sequence has no more steps.</returns>
 	public bool Update()
 	{
 		if (_updateStateWaitTicks > 0)
@@ -23,12 +27,10 @@ public class Updater
 		if (_updateStateEnumerator.MoveNext())
 		{
 			UpdateResult current = _updateStateEnumerator.Current;
-			UpdateResultType type = current.Type;
-			if (type == UpdateResultType.Next || type != UpdateResultType.Wait)
+			if (current.Type == UpdateResultType.Wait)
 			{
-				return true;
+				_updateStateWaitTicks = current.WaitTicks;
 			}
-			_updateStateWaitTicks = current.WaitTicks;
 			return true;
 		}
 		return false;

@@ -1,5 +1,8 @@
 namespace SonicOrca;
 
+/// <summary>
+/// Keeps an instance together with the object that callers lock to get access to that instance.
+/// </summary>
 public sealed class Lockable<T> where T : class
 {
 	private readonly T _instance;

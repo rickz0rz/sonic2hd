@@ -3,6 +3,9 @@ using System.Text;
 
 namespace SonicOrca.Extensions;
 
+/// <summary>
+/// Reads and writes null-terminated strings with binary readers and writers.
+/// </summary>
 public static class BinaryReaderWriterExtensions
 {
 	public static string ReadNullTerminatedString(this BinaryReader br)

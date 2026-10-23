@@ -13,8 +13,33 @@ using SonicOrca.Resources;
 
 namespace SonicOrca;
 
+/// <summary>
+/// The base class of a game. It owns the platform services and the controllers, and runs the main loop of
+/// update, draw and frame timing.
+/// </summary>
 public abstract class SonicOrcaGameContext : IDisposable
 {
+	private const int MaxControllers = 4;
+
+	private const int DefaultTargetFrameRate = 60;
+
+	/// <summary>
+	/// The frame rate that the frame timer waits for when vsync does not pace the frames.
+	/// </summary>
+	private const int TimerFrameRate = 60;
+
+	/// <summary>
+	/// The frame timer sleeps until the frame is 1/70 second long. After that, it spins for accuracy.
+	/// </summary>
+	private const int TimerSleepFrameRate = 70;
+
+	/// <summary>
+	/// A frame that is shorter than 1/75 second was not paced by vsync, even when vsync is on.
+	/// </summary>
+	private const int MaxVSyncFrameRate = 75;
+
+	private const int FrameRateMeasureIntervalMs = 1000;
+
 	private readonly IPlatform _platform;
 
 	private readonly ResourceTree _resourceTree;
@@ -47,13 +72,13 @@ public abstract class SonicOrcaGameContext : IDisposable
 
 	protected IFramebuffer _canvas;
 
-	private Controller[] _controllersCurrent = new Controller[4];
+	private Controller[] _controllersCurrent = new Controller[MaxControllers];
 
-	private Controller[] _controllersPressed = new Controller[4];
+	private Controller[] _controllersPressed = new Controller[MaxControllers];
 
-	private Controller[] _controllersReleased = new Controller[4];
+	private Controller[] _controllersReleased = new Controller[MaxControllers];
 
-	private GamePadOutputState[] _controllersOutput = new GamePadOutputState[4];
+	private GamePadOutputState[] _controllersOutput = new GamePadOutputState[MaxControllers];
 
 	public static SonicOrcaGameContext Singleton { get; private set; }
 
@@ -125,9 +150,9 @@ public abstract class SonicOrcaGameContext : IDisposable
 		Singleton = this;
 		_platform = platform;
 		_resourceTree = new ResourceTree();
-		TargetFrameRate = 60;
+		TargetFrameRate = DefaultTargetFrameRate;
 		ForceHD = true;
-		for (int i = 0; i < 4; i++)
+		for (int i = 0; i < MaxControllers; i++)
 		{
 			_controllersCurrent[i] = new Controller(this, i, InputStateEventType.Current);
 			_controllersPressed[i] = new Controller(this, i, InputStateEventType.Pressed);
@@ -174,11 +199,7 @@ public abstract class SonicOrcaGameContext : IDisposable
 
 	private void MainLoopIteration()
 	{
-		_ = Environment.TickCount;
-		if (_stopwatch == null)
-		{
-			_stopwatch = new Stopwatch();
-		}
+		_stopwatch ??= new Stopwatch();
 		_stopwatch.Start();
 		FrameProfiler.BeginFrame();
 		if (_catchup)
@@ -197,12 +218,12 @@ public abstract class SonicOrcaGameContext : IDisposable
 		MeasureFrameRate();
 		// With vsync on a 60 Hz display the swap already waited for the refresh. Still fall back to the timer when
 		// a frame finished implausibly fast, e.g. drivers that stop blocking while the window is minimised.
-		bool pacedByVSync = Window.IsPacedByVSync && _stopwatch.ElapsedTicks >= Stopwatch.Frequency / 75;
+		bool pacedByVSync = Window.IsPacedByVSync && _stopwatch.ElapsedTicks >= Stopwatch.Frequency / MaxVSyncFrameRate;
 		if (!IsMaxPerformance && !pacedByVSync && !ExternalPacing)
 		{
-			while (_stopwatch.ElapsedTicks <= Stopwatch.Frequency / 60)
+			while (_stopwatch.ElapsedTicks <= Stopwatch.Frequency / TimerFrameRate)
 			{
-				if (_stopwatch.ElapsedTicks < Stopwatch.Frequency / 70)
+				if (_stopwatch.ElapsedTicks < Stopwatch.Frequency / TimerSleepFrameRate)
 				{
 					Thread.Sleep(1);
 				}
@@ -215,7 +236,7 @@ public abstract class SonicOrcaGameContext : IDisposable
 
 	private void MeasureFrameRate()
 	{
-		if (Environment.TickCount - _fpsMonitorLastTick > 1000)
+		if (Environment.TickCount - _fpsMonitorLastTick > FrameRateMeasureIntervalMs)
 		{
 			_fpsMonitorLastUps = UpdateCount - _fpsMonitorUpdateCount;
 			_fpsMonitorLastFps = DrawCount - _fpsMonitorDrawCount;
@@ -230,10 +251,15 @@ public abstract class SonicOrcaGameContext : IDisposable
 		_catchupTick = Environment.TickCount;
 	}
 
+	/// <summary>
+	/// Runs as many updates as the elapsed time needs at <see cref="TargetFrameRate"/>. When the game is too far
+	/// behind, it runs one update and starts to count again.
+	/// </summary>
 	private void UpdateCatchup()
 	{
-		int num = (Environment.TickCount - _catchupTick) * TargetFrameRate / 1000;
-		if (num > _lastFrameTick + TargetFrameRate * 2)
+		int expectedUpdates = (Environment.TickCount - _catchupTick) * TargetFrameRate / 1000;
+		// Note: _lastFrameTick is never set, so this test is against two seconds of updates from the start of the count.
+		if (expectedUpdates > _lastFrameTick + TargetFrameRate * 2)
 		{
 			_lastUpdateTick = 0;
 			_catchupTick = Environment.TickCount;
@@ -241,7 +267,7 @@ public abstract class SonicOrcaGameContext : IDisposable
 		}
 		else
 		{
-			while (num > _lastUpdateTick)
+			while (expectedUpdates > _lastUpdateTick)
 			{
 				Update();
 				_lastUpdateTick++;

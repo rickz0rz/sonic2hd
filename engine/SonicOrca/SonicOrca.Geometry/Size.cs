@@ -2,6 +2,9 @@ using System;
 
 namespace SonicOrca.Geometry;
 
+/// <summary>
+/// A width and a height with double precision. Sizes compare by area.
+/// </summary>
 public struct Size : IComparable<Size>, IEquatable<Size>
 {
 	public double Width { get; set; }

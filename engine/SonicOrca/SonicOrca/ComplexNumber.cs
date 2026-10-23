@@ -2,6 +2,9 @@ using System;
 
 namespace SonicOrca;
 
+/// <summary>
+/// A complex number with double precision.
+/// </summary>
 public struct ComplexNumber : IEquatable<ComplexNumber>
 {
 	public double Real { get; set; }

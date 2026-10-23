@@ -2,13 +2,22 @@ using System;
 
 namespace SonicOrca.Extensions;
 
+/// <summary>
+/// Gets random values of more types and ranges from a <see cref="Random"/>.
+/// </summary>
 public static class RandomExtensions
 {
+	/// <summary>
+	/// Gets a random value from -1.0 to 1.0.
+	/// </summary>
 	public static double NextSignedDouble(this Random random)
 	{
 		return random.NextDouble() * 2.0 - 1.0;
 	}
 
+	/// <summary>
+	/// Gets a random angle from -PI to PI radians.
+	/// </summary>
 	public static double NextRadians(this Random random)
 	{
 		return random.NextSignedDouble() * Math.PI;

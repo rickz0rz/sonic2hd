@@ -8,8 +8,15 @@ using SonicOrca.Extensions;
 
 namespace SonicOrca;
 
+/// <summary>
+/// Reads and writes an INI configuration file. It keeps the original lines, so that comments and layout stay
+/// the same when the file is saved.
+/// </summary>
 public class IniConfiguration
 {
+	/// <summary>
+	/// A section of the file and the indexes of its header lines.
+	/// </summary>
 	private class Section
 	{
 		private readonly string _name;
@@ -33,6 +40,9 @@ public class IniConfiguration
 		}
 	}
 
+	/// <summary>
+	/// A property value and the indexes of the lines that set it.
+	/// </summary>
 	private class Property
 	{
 		private readonly string _name;
@@ -78,10 +88,10 @@ public class IniConfiguration
 		_path = path;
 		using (StreamReader streamReader = new StreamReader(new FileStream(path, FileMode.Open, FileAccess.Read)))
 		{
-			string item;
-			while ((item = streamReader.ReadLine()) != null)
+			string line;
+			while ((line = streamReader.ReadLine()) != null)
 			{
-				_lines.Add(item);
+				_lines.Add(line);
 			}
 		}
 		Parse();
@@ -135,7 +145,7 @@ public class IniConfiguration
 		{
 			return defaultValue;
 		}
-		if (!bool.TryParse(property, out var result))
+		if (!bool.TryParse(property, out bool result))
 		{
 			return defaultValue;
 		}
@@ -153,7 +163,7 @@ public class IniConfiguration
 		{
 			return defaultValue;
 		}
-		if (!double.TryParse(properties[propertyName].Value, NumberStyles.Any, CultureInfo.InvariantCulture, out var result))
+		if (!double.TryParse(properties[propertyName].Value, NumberStyles.Any, CultureInfo.InvariantCulture, out double result))
 		{
 			return defaultValue;
 		}
@@ -162,23 +172,26 @@ public class IniConfiguration
 
 	public void SetProperty(string sectionName, string propertyName, string value)
 	{
-		Section orAddSection = GetOrAddSection(sectionName);
+		Section section = GetOrAddSection(sectionName);
 		Property property;
-		if (orAddSection.Properties.ContainsKey(propertyName))
+		if (section.Properties.ContainsKey(propertyName))
 		{
-			property = orAddSection.Properties[propertyName];
+			// Replace the last line that sets the property.
+			property = section.Properties[propertyName];
 			property.Value = value;
 			int index = property.Lines.Last();
 			_lines[index] = GetPropertySetValueLine(propertyName, value);
 			return;
 		}
-		property = (orAddSection.Properties[propertyName] = new Property(propertyName));
+		property = (section.Properties[propertyName] = new Property(propertyName));
 		property.Value = value;
-		if (orAddSection.Lines.Count > 0)
+		if (section.Lines.Count > 0)
 		{
-			int num = orAddSection.Lines.Last() + 1;
-			_lines.Insert(num, GetPropertySetValueLine(propertyName, value));
-			property.Lines.Add(num);
+			// Insert the new line directly after the section header.
+			// Note: the line indexes that other sections and properties keep do not move, so they can become wrong.
+			int lineIndex = section.Lines.Last() + 1;
+			_lines.Insert(lineIndex, GetPropertySetValueLine(propertyName, value));
+			property.Lines.Add(lineIndex);
 			return;
 		}
 		if (_lines.Count > 0 && !string.IsNullOrWhiteSpace(_lines.Last()))
@@ -192,24 +205,6 @@ public class IniConfiguration
 	private string GetPropertySetValueLine(string propertyName, string value)
 	{
 		return propertyName + " = " + value;
-	}
-
-	private void InsertLine(int index, string line)
-	{
-		foreach (Section value in _sections.Values)
-		{
-			foreach (Property value2 in value.Properties.Values)
-			{
-				for (int i = 0; i < value2.Lines.Count; i++)
-				{
-					if (value2.Lines[i] <= index)
-					{
-						value2.Lines[i]++;
-					}
-				}
-			}
-		}
-		_lines.Insert(index, line);
 	}
 
 	private Section GetOrAddSection(string sectionName)
@@ -249,6 +244,7 @@ public class IniConfiguration
 			}
 			catch
 			{
+				// Ignore a line that is not valid and continue with the next line.
 			}
 		}
 	}
@@ -257,7 +253,7 @@ public class IniConfiguration
 	{
 		StringReader reader = new StringReader(line);
 		reader.SkipWhitespace();
-		if (!reader.TryRead(out var c))
+		if (!reader.TryRead(out char c))
 		{
 			return;
 		}
@@ -265,46 +261,47 @@ public class IniConfiguration
 		{
 			case '[':
 				{
-					StringBuilder stringBuilder2 = new StringBuilder();
+					StringBuilder sectionNameBuilder = new StringBuilder();
 					while (reader.TryRead(out c) && c != ']')
 					{
-						stringBuilder2.Append(c);
+						sectionNameBuilder.Append(c);
 					}
 					if (c != ']')
 					{
 						throw new Exception("Invalid section name");
 					}
-					currentSectionName = stringBuilder2.ToString().Trim();
-					if (!_sections.TryGetValue(currentSectionName, out var value2))
+					currentSectionName = sectionNameBuilder.ToString().Trim();
+					if (!_sections.TryGetValue(currentSectionName, out Section section))
 					{
-						value2 = new Section(currentSectionName);
-						_sections.Add(currentSectionName, value2);
+						section = new Section(currentSectionName);
+						_sections.Add(currentSectionName, section);
 					}
-					value2.Lines.Add(lineIndex);
+					section.Lines.Add(lineIndex);
 					break;
 				}
+			case '#':
+			case ';':
+				// A comment line.
+				break;
 			default:
 				{
-					StringBuilder stringBuilder = new StringBuilder();
-					stringBuilder.Append(c);
+					StringBuilder propertyNameBuilder = new StringBuilder();
+					propertyNameBuilder.Append(c);
 					while (reader.TryRead(out c) && c != '=' && c != ':')
 					{
-						stringBuilder.Append(c);
+						propertyNameBuilder.Append(c);
 					}
 					if (c != '=' && c != ':')
 					{
 						throw new Exception("Expected = or : after property name");
 					}
-					string propertyName = stringBuilder.ToString().Trim();
+					string propertyName = propertyNameBuilder.ToString().Trim();
 					string value = ReadPropertyValue(reader);
-					Property orAddProperty = GetOrAddProperty(currentSectionName, propertyName);
-					orAddProperty.Value = value;
-					orAddProperty.Lines.Add(lineIndex);
+					Property property = GetOrAddProperty(currentSectionName, propertyName);
+					property.Value = value;
+					property.Lines.Add(lineIndex);
 					break;
 				}
-			case '#':
-			case ';':
-				break;
 		}
 	}
 
@@ -312,20 +309,20 @@ public class IniConfiguration
 	{
 		reader.SkipWhitespace();
 		StringBuilder stringBuilder = new StringBuilder();
-		bool flag = false;
-		bool flag2 = false;
-		bool flag3 = false;
-		if (!reader.TryRead(out var c))
+		bool inSingleQuotes = false;
+		bool inDoubleQuotes = false;
+		bool isQuoted = false;
+		if (!reader.TryRead(out char c))
 		{
 			return null;
 		}
 		switch (c)
 		{
 			case '\'':
-				flag = (flag3 = true);
+				inSingleQuotes = (isQuoted = true);
 				break;
 			case '"':
-				flag2 = (flag3 = true);
+				inDoubleQuotes = (isQuoted = true);
 				break;
 			default:
 				stringBuilder.Append(c);
@@ -338,27 +335,28 @@ public class IniConfiguration
 				stringBuilder.Append(ReadEscapedCharacter(reader));
 				continue;
 			}
-			if ((c == ';' || c == '#') && !flag3)
+			// In a value that is not in quotes, ';' or '#' starts a comment.
+			if ((c == ';' || c == '#') && !isQuoted)
 			{
 				break;
 			}
-			if ((c == '\'') & flag)
+			if (c == '\'' && inSingleQuotes)
 			{
-				flag = false;
+				inSingleQuotes = false;
 				break;
 			}
-			if ((c == '"') & flag2)
+			if (c == '"' && inDoubleQuotes)
 			{
-				flag2 = false;
+				inDoubleQuotes = false;
 				break;
 			}
 			stringBuilder.Append(c);
 		}
-		if (flag | flag2)
+		if (inSingleQuotes || inDoubleQuotes)
 		{
 			throw new Exception("No end quote(s)");
 		}
-		if (!flag3)
+		if (!isQuoted)
 		{
 			return stringBuilder.ToString().TrimEnd();
 		}
@@ -367,7 +365,7 @@ public class IniConfiguration
 
 	private char ReadEscapedCharacter(TextReader reader)
 	{
-		if (!reader.TryRead(out var c))
+		if (!reader.TryRead(out char c))
 		{
 			throw new Exception("Expected escape character");
 		}
@@ -383,12 +381,13 @@ public class IniConfiguration
 				return '\n';
 			case 'x':
 				{
-					char[] array = new char[4];
-					if (reader.ReadBlock(array, 0, 4) != 4)
+					// "\x" is followed by exactly 4 hexadecimal digits.
+					char[] hexDigits = new char[4];
+					if (reader.ReadBlock(hexDigits, 0, 4) != 4)
 					{
 						throw new Exception("Wrong format for escaped unicode character.");
 					}
-					return (char)int.Parse(new string(array), NumberStyles.AllowHexSpecifier);
+					return (char)int.Parse(new string(hexDigits), NumberStyles.AllowHexSpecifier);
 				}
 			default:
 				return c;

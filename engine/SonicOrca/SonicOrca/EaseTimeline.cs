@@ -3,8 +3,14 @@ using System.Linq;
 
 namespace SonicOrca;
 
+/// <summary>
+/// A list of values at points in time. It gives the value at any time by linear interpolation.
+/// </summary>
 public class EaseTimeline
 {
+	/// <summary>
+	/// A value at a point in time.
+	/// </summary>
 	public class Entry
 	{
 		private readonly int _time;
@@ -39,7 +45,7 @@ public class EaseTimeline
 			{
 				return 0;
 			}
-			return _entries.Max((Entry x) => x.Time);
+			return _entries.Max(x => x.Time);
 		}
 	}
 
@@ -57,24 +63,20 @@ public class EaseTimeline
 		_entries.AddRange(entries);
 	}
 
+	/// <summary>
+	/// Gets the value at <paramref name="time"/>. Before the first entry, the value comes from the first entry.
+	/// After the last entry, the value comes from the last entry.
+	/// </summary>
 	public double GetValueAt(int time)
 	{
-		Entry[] source = _entries.OrderBy((Entry x) => x.Time).ToArray();
-		Entry entry = source.LastOrDefault((Entry x) => x.Time <= time);
-		Entry entry2 = source.FirstOrDefault((Entry x) => x.Time >= time);
-		if (entry == null)
+		Entry[] sortedEntries = _entries.OrderBy(x => x.Time).ToArray();
+		Entry previous = sortedEntries.LastOrDefault(x => x.Time <= time) ?? sortedEntries.First();
+		Entry next = sortedEntries.FirstOrDefault(x => x.Time >= time) ?? sortedEntries.Last();
+		if (previous == next)
 		{
-			entry = source.First();
+			return previous.Value;
 		}
-		if (entry2 == null)
-		{
-			entry2 = source.Last();
-		}
-		if (entry == entry2)
-		{
-			return entry.Value;
-		}
-		double num = (entry2.Value - entry.Value) / (entry2.Time - entry.Time);
-		return entry.Value + num * (time - entry.Time);
+		double slope = (next.Value - previous.Value) / (next.Time - previous.Time);
+		return previous.Value + slope * (time - previous.Time);
 	}
 }
