@@ -7,8 +7,18 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// Writes a level map to a map XML file.
+/// </summary>
 public class LevelMapWriter
 {
+	// Tile value flags. They must agree with the flags that LevelMapResourceType reads.
+	private const int FlipHorizontalFlag = 0x4000;
+
+	private const int FlipVerticalFlag = 0x8000;
+
+	private const int TileIndexMask = 0xFFF;
+
 	private readonly LevelMap _levelMap;
 
 	public LevelMapWriter(LevelMap map)
@@ -160,7 +170,7 @@ public class LevelMapWriter
 				}
 				if (!shadow.Objects)
 				{
-					xmlWriter.WriteAttributeString("tiles", "false");
+					xmlWriter.WriteAttributeString("objects", "false");
 				}
 				xmlWriter.WriteAttributeString("layerIndexOffset", shadow.LayerIndexOffset.ToString());
 				xmlWriter.WriteAttributeString("dx", shadow.Displacement.X.ToString());
@@ -204,9 +214,10 @@ public class LevelMapWriter
 			for (y = 0; y < layer.Rows; y++)
 			{
 				xmlWriter.WriteStartElement("row");
-				IEnumerable<int> source = from x in Enumerable.Range(0, layer.Columns)
-										  select layer.Tiles[x, y];
-				xmlWriter.WriteString(string.Join(",", source.Select((int tileIndex) => (((tileIndex & 0x4000) != 0) ? "h" : string.Empty) + (((tileIndex & 0x8000) != 0) ? "v" : string.Empty) + (tileIndex & 0xFFF))));
+				// Write each tile as an optional "h" and "v" flip prefix, then the tile index.
+				IEnumerable<int> rowTiles = from x in Enumerable.Range(0, layer.Columns)
+											select layer.Tiles[x, y];
+				xmlWriter.WriteString(string.Join(",", rowTiles.Select(tileIndex => (((tileIndex & FlipHorizontalFlag) != 0) ? "h" : string.Empty) + (((tileIndex & FlipVerticalFlag) != 0) ? "v" : string.Empty) + (tileIndex & TileIndexMask))));
 				xmlWriter.WriteEndElement();
 			}
 			xmlWriter.WriteEndElement();

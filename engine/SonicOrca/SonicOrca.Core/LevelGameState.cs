@@ -6,8 +6,13 @@ using SonicOrca.Geometry;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// The game state that loads and runs a level. It handles death, restart and act changes.
+/// </summary>
 public class LevelGameState : IGameState, IDisposable
 {
+	private const int NetworkNotificationInterval = 3000;
+
 	private readonly SonicOrcaGameContext _gameContext;
 
 	private readonly LevelLoader _levelLoader;
@@ -167,46 +172,21 @@ public class LevelGameState : IGameState, IDisposable
 
 	private void OnPlayerDeath()
 	{
-		if (_level.PlayRecorder != null)
-		{
-			if (_level.PlayRecorder.Recording)
-			{
-				PrepareSettings.RecordedPlayWritePath = null;
-			}
-			if (_level.PlayRecorder.Playing)
-			{
-				if (!string.IsNullOrEmpty(PrepareSettings.RecordedPlayReadPath))
-				{
-					_finished = true;
-					return;
-				}
-				if (!PrepareSettings.TimeTrial && _level.Player.StarpostIndex != -1)
-				{
-					PrepareSettings.RecordedPlayGhostReadPath = null;
-				}
-			}
-		}
-		_draw = false;
-		_level.State = LevelState.Null;
-		_levelLoader.UnloadLevel();
-		PrepareSettings.Seamless = false;
-		if (PrepareSettings.TimeTrial)
-		{
-			_level.Time = 0;
-			_level.RingsCollected = 0;
-			_level.Player.StarpostIndex = -1;
-		}
-		else if (_level.Player.Lives == 0)
-		{
-			_finished = true;
-			return;
-		}
-		_levelLoader.LoadLevel();
+		ReloadLevel(false);
 	}
 
 	private void OnPlayerRestart()
 	{
-		bool flag = _level.State == LevelState.RestartCheckpoint;
+		bool fromCheckpoint = _level.State == LevelState.RestartCheckpoint;
+		ReloadLevel(!fromCheckpoint);
+	}
+
+	/// <summary>
+	/// Unloads the level and loads it again. In a time trial, or when <paramref name="restartFromBeginning"/> is true,
+	/// the time, the rings and the starpost are reset. Otherwise the game ends when the player has no lives.
+	/// </summary>
+	private void ReloadLevel(bool restartFromBeginning)
+	{
 		if (_level.PlayRecorder != null)
 		{
 			if (_level.PlayRecorder.Recording)
@@ -230,7 +210,7 @@ public class LevelGameState : IGameState, IDisposable
 		_level.State = LevelState.Null;
 		_levelLoader.UnloadLevel();
 		PrepareSettings.Seamless = false;
-		if (PrepareSettings.TimeTrial || !flag)
+		if (PrepareSettings.TimeTrial || restartFromBeginning)
 		{
 			_level.Time = 0;
 			_level.RingsCollected = 0;
@@ -279,7 +259,7 @@ public class LevelGameState : IGameState, IDisposable
 			if (networkManager.Hosting)
 			{
 				networkManager.Server.Level = _level;
-				if (networkManager.Server.NetworkPlayers.All((NetworkPlayer x) => x.Ready))
+				if (networkManager.Server.NetworkPlayers.All(x => x.Ready))
 				{
 					networkManager.Server.SendPacketToAllClients(new NotifyPacket(PacketType.ReadyToStartLevel));
 					result = false;
@@ -292,7 +272,7 @@ public class LevelGameState : IGameState, IDisposable
 				{
 					result = false;
 				}
-				else if (Environment.TickCount > _lastNotificationTickCount + 3000)
+				else if (Environment.TickCount > _lastNotificationTickCount + NetworkNotificationInterval)
 				{
 					networkManager.Client.SendPacket(new NotifyPacket(PacketType.ReadyToStartLevel));
 					_lastNotificationTickCount = Environment.TickCount;

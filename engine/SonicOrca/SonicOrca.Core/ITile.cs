@@ -3,6 +3,9 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// A tile that a level layer can draw.
+/// </summary>
 public interface ITile
 {
 	int Id { get; }

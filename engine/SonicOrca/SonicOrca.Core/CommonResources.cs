@@ -10,8 +10,14 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// Loads the resources that levels share. Each level scheme adds its own resources to the resources that all schemes use.
+/// </summary>
 public class CommonResources : IDisposable
 {
+	/// <summary>
+	/// One resource path, with the scheme and the key that find it.
+	/// </summary>
 	private class CommonResourceEntry
 	{
 		private readonly string _scheme;
@@ -68,29 +74,30 @@ public class CommonResources : IDisposable
 	{
 		ResourceTree resourceTree = _gameContext.ResourceTree;
 		using ResourceSession resourceSession = new ResourceSession(resourceTree);
-		resourceSession.PushDependency("SONICORCA/LEVELS/COMMONRESOURCES");
+		resourceSession.PushDependency(EntriesResourcePath);
 		await resourceSession.LoadAsync(ct);
-		XmlNode resourcesNode = _gameContext.ResourceTree.GetLoadedResource<XmlLoadedResource>("SONICORCA/LEVELS/COMMONRESOURCES").XmlDocument.SelectSingleNode("resources");
-		foreach (IGrouping<string, CommonResourceEntry> item in from x in ParseEntriesFromXmlNode(resourcesNode)
-																group x by x.Scheme)
+		XmlNode resourcesNode = _gameContext.ResourceTree.GetLoadedResource<XmlLoadedResource>(EntriesResourcePath).XmlDocument.SelectSingleNode("resources");
+		foreach (IGrouping<string, CommonResourceEntry> schemeEntries in from x in ParseEntriesFromXmlNode(resourcesNode)
+																		 group x by x.Scheme)
 		{
-			_entries[item.Key] = item.ToArray();
+			_entries[schemeEntries.Key] = schemeEntries.ToArray();
 		}
 	}
 
 	private IEnumerable<CommonResourceEntry> ParseEntriesFromXmlNode(XmlNode resourcesNode)
 	{
-		foreach (XmlNode item in resourcesNode.SelectNodes("resource"))
+		foreach (XmlNode resourceNode in resourcesNode.SelectNodes("resource"))
 		{
+			// A resource without a scheme is common to all schemes.
 			string scheme = string.Empty;
-			XmlAttribute xmlAttribute = item.Attributes["scheme"];
-			if (xmlAttribute != null)
+			XmlAttribute schemeAttribute = resourceNode.Attributes["scheme"];
+			if (schemeAttribute != null)
 			{
-				scheme = xmlAttribute.Value;
+				scheme = schemeAttribute.Value;
 			}
-			string value = item.Attributes["key"].Value;
-			string value2 = item.Attributes["path"].Value;
-			yield return new CommonResourceEntry(scheme, value, value2);
+			string key = resourceNode.Attributes["key"].Value;
+			string path = resourceNode.Attributes["path"].Value;
+			yield return new CommonResourceEntry(scheme, key, path);
 		}
 	}
 
@@ -130,20 +137,20 @@ public class CommonResources : IDisposable
 
 	private IEnumerable<string> GetResourcePaths(string scheme)
 	{
-		if (_entries.TryGetValue(string.Empty, out var value))
+		if (_entries.TryGetValue(string.Empty, out IEnumerable<CommonResourceEntry> entries))
 		{
-			foreach (CommonResourceEntry item in value)
+			foreach (CommonResourceEntry entry in entries)
 			{
-				yield return item.Path;
+				yield return entry.Path;
 			}
 		}
-		if (!_entries.TryGetValue(scheme, out value))
+		if (!_entries.TryGetValue(scheme, out entries))
 		{
 			yield break;
 		}
-		foreach (CommonResourceEntry item2 in value)
+		foreach (CommonResourceEntry entry in entries)
 		{
-			yield return item2.Path;
+			yield return entry.Path;
 		}
 	}
 
@@ -154,14 +161,15 @@ public class CommonResources : IDisposable
 
 	public string GetResourcePath(string scheme, string key)
 	{
-		CommonResourceEntry commonResourceEntry;
-		if (_entries.TryGetValue(scheme, out var value) && (commonResourceEntry = value.FirstOrDefault((CommonResourceEntry x) => x.Key == key)) != null)
+		// Look in the scheme first, then in the resources that are common to all schemes.
+		CommonResourceEntry entry;
+		if (_entries.TryGetValue(scheme, out IEnumerable<CommonResourceEntry> entries) && (entry = entries.FirstOrDefault(x => x.Key == key)) != null)
 		{
-			return commonResourceEntry.Path;
+			return entry.Path;
 		}
-		if (_entries.TryGetValue(string.Empty, out value) && (commonResourceEntry = value.FirstOrDefault((CommonResourceEntry x) => x.Key == key)) != null)
+		if (_entries.TryGetValue(string.Empty, out entries) && (entry = entries.FirstOrDefault(x => x.Key == key)) != null)
 		{
-			return commonResourceEntry.Path;
+			return entry.Path;
 		}
 		throw new ResourceException(key + " not found in the level common resources.");
 	}

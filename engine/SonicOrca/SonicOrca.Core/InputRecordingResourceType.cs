@@ -5,6 +5,9 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// Loads an input recording resource.
+/// </summary>
 public class InputRecordingResourceType : ResourceType
 {
 	public override string Name => "recording, rec";

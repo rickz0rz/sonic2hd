@@ -1,5 +1,8 @@
 namespace SonicOrca.Core;
 
+/// <summary>
+/// The light settings of a level layer.
+/// </summary>
 public class LevelLayerLighting
 {
 	public LevelLayerLightingType Type { get; set; }

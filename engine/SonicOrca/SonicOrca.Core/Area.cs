@@ -6,6 +6,9 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// The base class for the script of a level area. A level area prepares the level and reacts to level events.
+/// </summary>
 public abstract class Area : IDisposable, ILoadedResource
 {
 	private readonly string[] _dependencies;

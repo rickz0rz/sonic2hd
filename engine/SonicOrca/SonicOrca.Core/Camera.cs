@@ -4,8 +4,22 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// Moves the view of a level. It follows a tracked object, or the player moves it freely in spy mode.
+/// </summary>
 public class Camera
 {
+	private const double DefaultWidth = 1920.0;
+
+	private const double DefaultHeight = 1080.0;
+
+	private const double SpyModeAcceleration = 0.5;
+
+	// This is the value of 0.02f after conversion to double. Keep it, so that the result does not change.
+	private const double SafeAreaMarginRatio = 0.019999999552965164;
+
+	private const double TrackingMarkerHalfLength = 16.0;
+
 	private readonly Level _level;
 
 	private Rectangle _bounds;
@@ -49,9 +63,9 @@ public class Camera
 	public Camera(Level level)
 	{
 		_level = level;
-		_trackBounds = new Rectangle(0.0, 0.0, 1920.0, 1080.0);
-		_bounds = new Rectangle(0.0, 0.0, 1920.0, 1080.0);
-		ScreenBounds = new Rectangle(0.0, 0.0, 1920.0, 1080.0);
+		_trackBounds = new Rectangle(0.0, 0.0, DefaultWidth, DefaultHeight);
+		_bounds = new Rectangle(0.0, 0.0, DefaultWidth, DefaultHeight);
+		ScreenBounds = new Rectangle(0.0, 0.0, DefaultWidth, DefaultHeight);
 		Acceleration = new Vector2(0.0, 0.0);
 		Deceleration = new Vector2(0.5, 0.5);
 		_velocity = new Vector2(0.0, 0.0);
@@ -84,9 +98,9 @@ public class Camera
 		if (ObjectToTrack != null)
 		{
 			CameraProperties cameraProperties = ObjectToTrack.CameraProperties;
-			Vector2 vector = ObjectToTrack.Position;
-			_trackBounds.X = vector.X - _trackBounds.Width / 2.0;
-			_trackBounds.Y = vector.Y - _trackBounds.Height / 2.0;
+			Vector2 objectPosition = ObjectToTrack.Position;
+			_trackBounds.X = objectPosition.X - _trackBounds.Width / 2.0;
+			_trackBounds.Y = objectPosition.Y - _trackBounds.Height / 2.0;
 			_bounds.X = _trackBounds.X + cameraProperties.Offset.X;
 			_bounds.Y = _trackBounds.Y + cameraProperties.Offset.Y;
 			ApplyBounds();
@@ -119,19 +133,21 @@ public class Camera
 
 	protected void ApplyBounds()
 	{
-		double x = Bounds.X;
-		double y = Bounds.Y;
-		Rectanglei rectanglei = ((Limits == Rectanglei.Empty) ? _level.Bounds : Limits);
-		_bounds.X = Math.Max(Bounds.X, rectanglei.X);
-		_bounds.Y = Math.Max(Bounds.Y, rectanglei.Y);
-		_bounds.X = Math.Min(Bounds.Right, rectanglei.Right) - Bounds.Width;
-		_bounds.Y = Math.Min(Bounds.Bottom, rectanglei.Bottom) - Bounds.Height;
+		double oldX = Bounds.X;
+		double oldY = Bounds.Y;
+		Rectanglei limits = (Limits == Rectanglei.Empty) ? _level.Bounds : Limits;
+		_bounds.X = Math.Max(Bounds.X, limits.X);
+		_bounds.Y = Math.Max(Bounds.Y, limits.Y);
+		_bounds.X = Math.Min(Bounds.Right, limits.Right) - Bounds.Width;
+		_bounds.Y = Math.Min(Bounds.Bottom, limits.Bottom) - Bounds.Height;
+		// Known defect: this code sets a copy of the velocity, not _velocity. Thus it has no effect.
+		// It is kept as it is, because a fix would change the camera movement.
 		Vector2 velocity = Velocity;
-		if (Bounds.X != x)
+		if (Bounds.X != oldX)
 		{
 			velocity.X = 0.0;
 		}
-		if (Bounds.Y != y)
+		if (Bounds.Y != oldY)
 		{
 			velocity.Y = 0.0;
 		}
@@ -144,7 +160,7 @@ public class Camera
 		{
 			double x = _level.GameContext.Current[0].DirectionLeft.X;
 			double y = _level.GameContext.Current[0].DirectionLeft.Y;
-			Acceleration = new Vector2(x * 0.5, y * 0.5);
+			Acceleration = new Vector2(x * SpyModeAcceleration, y * SpyModeAcceleration);
 		}
 		ApplyMovement();
 		ApplyBounds();
@@ -161,18 +177,19 @@ public class Camera
 		Rectangle box = cameraProperties.Box;
 		box.X += _trackBounds.Width / 2.0;
 		box.Y += _trackBounds.Height / 2.0;
-		Vector2 vector = ObjectToTrack.Position;
-		vector.X -= _trackBounds.X;
-		vector.Y -= _trackBounds.Y;
+		// Position of the object relative to the track bounds. The camera moves when the object leaves the box.
+		Vector2 relativePosition = ObjectToTrack.Position;
+		relativePosition.X -= _trackBounds.X;
+		relativePosition.Y -= _trackBounds.Y;
 		if (cameraProperties.Delay.X == 0)
 		{
-			if (vector.X < box.X)
+			if (relativePosition.X < box.X)
 			{
-				_velocity.X = vector.X - box.X;
+				_velocity.X = relativePosition.X - box.X;
 			}
-			else if (vector.X > box.Right)
+			else if (relativePosition.X > box.Right)
 			{
-				_velocity.X = vector.X - box.Right;
+				_velocity.X = relativePosition.X - box.Right;
 			}
 			_velocity.X = MathX.Clamp(_velocity.X, cameraProperties.MaxVelocity.X);
 		}
@@ -182,13 +199,13 @@ public class Camera
 		}
 		if (cameraProperties.Delay.Y == 0)
 		{
-			if (vector.Y < box.Y)
+			if (relativePosition.Y < box.Y)
 			{
-				_velocity.Y = vector.Y - box.Y;
+				_velocity.Y = relativePosition.Y - box.Y;
 			}
-			else if (vector.Y > box.Bottom)
+			else if (relativePosition.Y > box.Bottom)
 			{
-				_velocity.Y = vector.Y - box.Bottom;
+				_velocity.Y = relativePosition.Y - box.Bottom;
 			}
 			_velocity.Y = MathX.Clamp(_velocity.Y, cameraProperties.MaxVelocity.Y);
 		}
@@ -249,25 +266,25 @@ public class Camera
 	protected void DrawSafeAreaGuides(Renderer renderer)
 	{
 		I2dRenderer i2dRenderer = renderer.Get2dRenderer();
-		double num = ScreenBounds.Width * 0.019999999552965164;
-		double num2 = Math.Min(ScreenBounds.Width, ScreenBounds.Height) / 3.0;
-		Rectangle rectangle = new Rectangle(ScreenBounds.X + num, ScreenBounds.Y + num, ScreenBounds.Width - num * 2.0, ScreenBounds.Height - num * 2.0);
-		i2dRenderer.RenderLine(Colours.White, new Vector2(rectangle.X, rectangle.Y), new Vector2(rectangle.X + num2, rectangle.Y), 1.0);
-		i2dRenderer.RenderLine(Colours.White, new Vector2(rectangle.X, rectangle.Y), new Vector2(rectangle.X, rectangle.Y + num2), 1.0);
-		i2dRenderer.RenderLine(Colours.White, new Vector2(rectangle.Right, rectangle.Y), new Vector2(rectangle.Right - num2, rectangle.Y), 1.0);
-		i2dRenderer.RenderLine(Colours.White, new Vector2(rectangle.Right, rectangle.Y), new Vector2(rectangle.Right, rectangle.Y + num2), 1.0);
-		i2dRenderer.RenderLine(Colours.White, new Vector2(rectangle.X, rectangle.Bottom), new Vector2(rectangle.X, rectangle.Bottom - num2), 1.0);
-		i2dRenderer.RenderLine(Colours.White, new Vector2(rectangle.X, rectangle.Bottom), new Vector2(rectangle.X + num2, rectangle.Bottom), 1.0);
-		i2dRenderer.RenderLine(Colours.White, new Vector2(rectangle.Right, rectangle.Bottom), new Vector2(rectangle.Right - num2, rectangle.Bottom), 1.0);
-		i2dRenderer.RenderLine(Colours.White, new Vector2(rectangle.Right, rectangle.Bottom), new Vector2(rectangle.Right, rectangle.Bottom - num2), 1.0);
+		double margin = ScreenBounds.Width * SafeAreaMarginRatio;
+		double cornerLength = Math.Min(ScreenBounds.Width, ScreenBounds.Height) / 3.0;
+		Rectangle rectangle = new Rectangle(ScreenBounds.X + margin, ScreenBounds.Y + margin, ScreenBounds.Width - margin * 2.0, ScreenBounds.Height - margin * 2.0);
+		i2dRenderer.RenderLine(Colours.White, new Vector2(rectangle.X, rectangle.Y), new Vector2(rectangle.X + cornerLength, rectangle.Y), 1.0);
+		i2dRenderer.RenderLine(Colours.White, new Vector2(rectangle.X, rectangle.Y), new Vector2(rectangle.X, rectangle.Y + cornerLength), 1.0);
+		i2dRenderer.RenderLine(Colours.White, new Vector2(rectangle.Right, rectangle.Y), new Vector2(rectangle.Right - cornerLength, rectangle.Y), 1.0);
+		i2dRenderer.RenderLine(Colours.White, new Vector2(rectangle.Right, rectangle.Y), new Vector2(rectangle.Right, rectangle.Y + cornerLength), 1.0);
+		i2dRenderer.RenderLine(Colours.White, new Vector2(rectangle.X, rectangle.Bottom), new Vector2(rectangle.X, rectangle.Bottom - cornerLength), 1.0);
+		i2dRenderer.RenderLine(Colours.White, new Vector2(rectangle.X, rectangle.Bottom), new Vector2(rectangle.X + cornerLength, rectangle.Bottom), 1.0);
+		i2dRenderer.RenderLine(Colours.White, new Vector2(rectangle.Right, rectangle.Bottom), new Vector2(rectangle.Right - cornerLength, rectangle.Bottom), 1.0);
+		i2dRenderer.RenderLine(Colours.White, new Vector2(rectangle.Right, rectangle.Bottom), new Vector2(rectangle.Right, rectangle.Bottom - cornerLength), 1.0);
 	}
 
 	protected void DrawCrossHair(Renderer renderer)
 	{
 		I2dRenderer i2dRenderer = renderer.Get2dRenderer();
-		double num = Math.Min(ScreenBounds.Width, ScreenBounds.Height) / 3.0;
-		i2dRenderer.RenderLine(Colours.White, new Vector2(ScreenBounds.CentreX, ScreenBounds.CentreY - num), new Vector2(ScreenBounds.CentreX, ScreenBounds.CentreY + num), 1.0);
-		i2dRenderer.RenderLine(Colours.White, new Vector2(ScreenBounds.CentreX - num, ScreenBounds.CentreY), new Vector2(ScreenBounds.CentreX + num, ScreenBounds.CentreY), 1.0);
+		double halfLength = Math.Min(ScreenBounds.Width, ScreenBounds.Height) / 3.0;
+		i2dRenderer.RenderLine(Colours.White, new Vector2(ScreenBounds.CentreX, ScreenBounds.CentreY - halfLength), new Vector2(ScreenBounds.CentreX, ScreenBounds.CentreY + halfLength), 1.0);
+		i2dRenderer.RenderLine(Colours.White, new Vector2(ScreenBounds.CentreX - halfLength, ScreenBounds.CentreY), new Vector2(ScreenBounds.CentreX + halfLength, ScreenBounds.CentreY), 1.0);
 	}
 
 	protected void DrawTracking(Renderer renderer)
@@ -277,20 +294,20 @@ public class Camera
 			Rectangle box = ObjectToTrack.CameraProperties.Box;
 			box.X += _trackBounds.X - _bounds.X + _trackBounds.Width / 2.0;
 			box.Y += _trackBounds.Y - _bounds.Y + _trackBounds.Height / 2.0;
-			Vector2 vector = ObjectToTrack.Position;
-			vector.X -= _bounds.X;
-			vector.Y -= _bounds.Y;
+			Vector2 screenPosition = ObjectToTrack.Position;
+			screenPosition.X -= _bounds.X;
+			screenPosition.Y -= _bounds.Y;
 			I2dRenderer i2dRenderer = renderer.Get2dRenderer();
 			i2dRenderer.RenderRectangle(Colours.White, box, 1.0);
-			i2dRenderer.RenderLine(Colours.White, new Vector2(vector.X, vector.Y - 16.0), new Vector2(vector.X, vector.Y + 16.0), 1.0);
-			i2dRenderer.RenderLine(Colours.White, new Vector2(vector.X - 16.0, vector.Y), new Vector2(vector.X + 16.0, vector.Y), 1.0);
+			i2dRenderer.RenderLine(Colours.White, new Vector2(screenPosition.X, screenPosition.Y - TrackingMarkerHalfLength), new Vector2(screenPosition.X, screenPosition.Y + TrackingMarkerHalfLength), 1.0);
+			i2dRenderer.RenderLine(Colours.White, new Vector2(screenPosition.X - TrackingMarkerHalfLength, screenPosition.Y), new Vector2(screenPosition.X + TrackingMarkerHalfLength, screenPosition.Y), 1.0);
 		}
 	}
 
 	protected void DrawPosition(Renderer renderer)
 	{
 		_level.DebugContext.DrawText(renderer, $"{_bounds.Left:0.0}, {_bounds.Top:0.0}", FontAlignment.Left, ScreenBounds.Left + 8.0, ScreenBounds.Top + 8.0, 0.75, 0);
-		_level.DebugContext.DrawText(renderer, $"{_bounds.Right:0.0}, {_bounds.Bottom:0.0}", (FontAlignment)10, ScreenBounds.Right - 8.0, ScreenBounds.Bottom - 8.0, 0.75, 0);
+		_level.DebugContext.DrawText(renderer, $"{_bounds.Right:0.0}, {_bounds.Bottom:0.0}", FontAlignment.Right | FontAlignment.Bottom, ScreenBounds.Right - 8.0, ScreenBounds.Bottom - 8.0, 0.75, 0);
 	}
 
 	protected void DrawSpyCameraModeLabel(Renderer renderer)

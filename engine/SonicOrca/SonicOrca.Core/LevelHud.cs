@@ -8,6 +8,9 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// Shows the score, time, rings and lives while the level runs. In debug mode it shows positions.
+/// </summary>
 internal class LevelHud : IDisposable
 {
 	private const string HudFontResourceKey = "SONICORCA/FONTS/HUD";
@@ -33,6 +36,13 @@ internal class LevelHud : IDisposable
 	private const string szTime = "TIME";
 
 	private const string szRings = "RINGS";
+
+	private const int TicksPerSecond = 60;
+
+	// At 9 minutes the time flashes red, because the time limit is near.
+	private const int TimeWarningMinutes = 9;
+
+	private const double RedAnimationSpeed = 0.05;
 
 	private readonly Level _level;
 
@@ -71,18 +81,18 @@ internal class LevelHud : IDisposable
 	public async Task LoadAsync(CancellationToken ct = default(CancellationToken))
 	{
 		ResourceTree resourceTree = _level.GameContext.ResourceTree;
-		_fontResourceKey = (ItalicFont ? "SONICORCA/FONTS/HUDITALIC" : "SONICORCA/FONTS/HUD");
+		_fontResourceKey = ItalicFont ? HudItalicFontResourceKey : HudFontResourceKey;
 		_resourceSession = new ResourceSession(resourceTree);
-		_resourceSession.PushDependencies(_fontResourceKey, "SONICORCA/HUD/CHECKERED", "SONICORCA/HUD/CHECKERED/TAILS", "SONICORCA/HUD/TRIANGLE", "SONICORCA/HUD/TRIANGLE/TAILS", "SONICORCA/HUD/TRIANGLE/KNUCKLES", "SONICORCA/HUD/LIFE/SONIC", "SONICORCA/HUD/LIFE/TAILS");
+		_resourceSession.PushDependencies(_fontResourceKey, SonicCheckeredResourceKey, TailsCheckeredResourceKey, SonicTriangleResourceKey, TailsTriangleResourceKey, KnucklesTriangleResourceKey, SonicLifeResourceKey, TailsLifeResourceKey);
 		await _resourceSession.LoadAsync(ct);
 		_font = resourceTree.GetLoadedResource<Font>(_fontResourceKey);
-		_checkeredTextureSonic = resourceTree.GetLoadedResource<ITexture>("SONICORCA/HUD/CHECKERED");
-		_checkeredTextureTails = resourceTree.GetLoadedResource<ITexture>("SONICORCA/HUD/CHECKERED/TAILS");
-		_triangleTextureSonic = resourceTree.GetLoadedResource<ITexture>("SONICORCA/HUD/TRIANGLE");
-		_triangleTextureTails = resourceTree.GetLoadedResource<ITexture>("SONICORCA/HUD/TRIANGLE/TAILS");
-		_triangleTextureKnuckles = resourceTree.GetLoadedResource<ITexture>("SONICORCA/HUD/TRIANGLE/KNUCKLES");
-		_lifeTextureSonic = resourceTree.GetLoadedResource<ITexture>("SONICORCA/HUD/LIFE/SONIC");
-		_lifeTextureTails = resourceTree.GetLoadedResource<ITexture>("SONICORCA/HUD/LIFE/TAILS");
+		_checkeredTextureSonic = resourceTree.GetLoadedResource<ITexture>(SonicCheckeredResourceKey);
+		_checkeredTextureTails = resourceTree.GetLoadedResource<ITexture>(TailsCheckeredResourceKey);
+		_triangleTextureSonic = resourceTree.GetLoadedResource<ITexture>(SonicTriangleResourceKey);
+		_triangleTextureTails = resourceTree.GetLoadedResource<ITexture>(TailsTriangleResourceKey);
+		_triangleTextureKnuckles = resourceTree.GetLoadedResource<ITexture>(KnucklesTriangleResourceKey);
+		_lifeTextureSonic = resourceTree.GetLoadedResource<ITexture>(SonicLifeResourceKey);
+		_lifeTextureTails = resourceTree.GetLoadedResource<ITexture>(TailsLifeResourceKey);
 	}
 
 	public void Dispose()
@@ -95,7 +105,7 @@ internal class LevelHud : IDisposable
 
 	public void Animate()
 	{
-		_redAnimation = (_redAnimation + 0.05) % 2.0;
+		_redAnimation = (_redAnimation + RedAnimationSpeed) % 2.0;
 	}
 
 	public void Draw(Renderer renderer)
@@ -113,19 +123,20 @@ internal class LevelHud : IDisposable
 
 	private void DrawNormal(Renderer renderer)
 	{
-		DrawTLInfo(renderer, 226.0, 610.0, 98.0, "SCORE", _level.Player.Score.ToString());
-		int num = _level.Time / 60 / 60;
-		int num2 = _level.Time / 60 % 60;
-		int num3 = _level.Time % 60 * 100 / 60;
+		DrawTLInfo(renderer, 226.0, 610.0, 98.0, szScore, _level.Player.Score.ToString());
+		// The level time is in ticks. The hundredths come from the ticks that are left after the full seconds.
+		int minutes = _level.Time / TicksPerSecond / 60;
+		int seconds = _level.Time / TicksPerSecond % 60;
+		int hundredths = _level.Time % TicksPerSecond * 100 / TicksPerSecond;
 		if (ShowMiliseconds)
 		{
-			DrawTLInfo(renderer, 226.0, 400.0, 162.0, "TIME", $"{num}'{num2:00}\"{num3:00}", num >= 9, rightAligned: false);
+			DrawTLInfo(renderer, 226.0, 400.0, 162.0, szTime, $"{minutes}'{seconds:00}\"{hundredths:00}", minutes >= TimeWarningMinutes, rightAligned: false);
 		}
 		else
 		{
-			DrawTLInfo(renderer, 226.0, 400.0, 162.0, "TIME", $"{num}:{num2:00}", num >= 9, rightAligned: false);
+			DrawTLInfo(renderer, 226.0, 400.0, 162.0, szTime, $"{minutes}:{seconds:00}", minutes >= TimeWarningMinutes, rightAligned: false);
 		}
-		DrawTLInfo(renderer, 226.0, 516.0, 226.0, "RINGS", _level.Player.CurrentRings.ToString(), _level.Player.CurrentRings == 0);
+		DrawTLInfo(renderer, 226.0, 516.0, 226.0, szRings, _level.Player.CurrentRings.ToString(), _level.Player.CurrentRings == 0);
 		if (_level.Player.Lives >= 0)
 		{
 			DrawLives(renderer);
@@ -172,28 +183,29 @@ internal class LevelHud : IDisposable
 			fontRenderer.RenderStringWithShadow(value, new Rectangle(valueRight, top, 0.0, 0.0), FontAlignment.Left, _font, 0);
 		}
 		Rectangle boundary = new Rectangle(captionLeft, top, 0.0, 0.0);
-		FontAlignment fontAlignment = FontAlignment.Left;
-		Rectangle rectangle = _font.MeasureString(caption, boundary, fontAlignment);
+		FontAlignment captionAlignment = FontAlignment.Left;
+		Rectangle captionBounds = _font.MeasureString(caption, boundary, captionAlignment);
 		i2dRenderer.Colour = new Colour(155, byte.MaxValue, byte.MaxValue, byte.MaxValue);
 		if (_level.Player.ProtagonistCharacterType == CharacterType.Sonic)
 		{
-			i2dRenderer.RenderTexture(_triangleTextureSonic, new Vector2(rectangle.Right - 8.0, rectangle.Bottom - 4.0));
+			i2dRenderer.RenderTexture(_triangleTextureSonic, new Vector2(captionBounds.Right - 8.0, captionBounds.Bottom - 4.0));
 		}
 		else if (_level.Player.ProtagonistCharacterType == CharacterType.Tails)
 		{
-			i2dRenderer.RenderTexture(_triangleTextureTails, new Vector2(rectangle.Right - 8.0, rectangle.Bottom - 4.0));
+			i2dRenderer.RenderTexture(_triangleTextureTails, new Vector2(captionBounds.Right - 8.0, captionBounds.Bottom - 4.0));
 		}
 		else
 		{
-			i2dRenderer.RenderTexture(_triangleTextureKnuckles, new Vector2(rectangle.Right - 8.0, rectangle.Bottom - 4.0));
+			i2dRenderer.RenderTexture(_triangleTextureKnuckles, new Vector2(captionBounds.Right - 8.0, captionBounds.Bottom - 4.0));
 		}
 		Colour colour = Colours.White;
 		if (redAnimate)
 		{
-			double num = ((_redAnimation > 1.0) ? (2.0 - _redAnimation) : _redAnimation);
-			colour = new Colour(1.0, 1.0 - num, 1.0 - num);
+			// _redAnimation goes from 0 to 2. Make a triangle wave from 0 to 1 and back, and fade from white to red.
+			double redAmount = (_redAnimation > 1.0) ? (2.0 - _redAnimation) : _redAnimation;
+			colour = new Colour(1.0, 1.0 - redAmount, 1.0 - redAmount);
 		}
-		fontRenderer.RenderStringWithShadow(caption, new Rectangle(captionLeft, top, 0.0, 0.0), fontAlignment, _font, colour, 1);
+		fontRenderer.RenderStringWithShadow(caption, new Rectangle(captionLeft, top, 0.0, 0.0), captionAlignment, _font, colour, 1);
 	}
 
 	private void DrawLives(Renderer renderer)
@@ -201,18 +213,7 @@ internal class LevelHud : IDisposable
 		I2dRenderer i2dRenderer = renderer.Get2dRenderer();
 		IFontRenderer fontRenderer = renderer.GetFontRenderer();
 		i2dRenderer.Colour = Colours.White;
-		if (_level.Player.ProtagonistCharacterType == CharacterType.Sonic)
-		{
-			i2dRenderer.RenderTexture(_lifeTextureSonic, new Vector2(264.0, 958.0));
-		}
-		else
-		{
-			if (_level.Player.ProtagonistCharacterType != CharacterType.Tails)
-			{
-				throw new NotImplementedException();
-			}
-			i2dRenderer.RenderTexture(_lifeTextureTails, new Vector2(264.0, 958.0));
-		}
+		DrawLifeIcon(i2dRenderer);
 		fontRenderer.RenderStringWithShadow("×", new Rectangle(300.0, 934.0, 0.0, 0.0), FontAlignment.Left, _font, 1);
 		fontRenderer.RenderStringWithShadow(_level.Player.Lives.ToString(), new Rectangle(370.0, 934.0, 0.0, 0.0), FontAlignment.Left, _font, 0);
 	}
@@ -222,18 +223,27 @@ internal class LevelHud : IDisposable
 		I2dRenderer i2dRenderer = renderer.Get2dRenderer();
 		IFontRenderer fontRenderer = renderer.GetFontRenderer();
 		i2dRenderer.Colour = Colours.White;
+		DrawLifeIcon(i2dRenderer);
+		fontRenderer.RenderStringWithShadow(text, new Rectangle(310.0, 934.0, 0.0, 0.0), FontAlignment.Left, _font, 1);
+	}
+
+	/// <summary>
+	/// Draws the life icon of the protagonist at the bottom left of the screen.
+	/// </summary>
+	private void DrawLifeIcon(I2dRenderer i2dRenderer)
+	{
 		if (_level.Player.ProtagonistCharacterType == CharacterType.Sonic)
 		{
 			i2dRenderer.RenderTexture(_lifeTextureSonic, new Vector2(264.0, 958.0));
 		}
 		else
 		{
+			// There is no life icon for Knuckles.
 			if (_level.Player.ProtagonistCharacterType != CharacterType.Tails)
 			{
 				throw new NotImplementedException();
 			}
 			i2dRenderer.RenderTexture(_lifeTextureTails, new Vector2(264.0, 958.0));
 		}
-		fontRenderer.RenderStringWithShadow(text, new Rectangle(310.0, 934.0, 0.0, 0.0), FontAlignment.Left, _font, 1);
 	}
 }

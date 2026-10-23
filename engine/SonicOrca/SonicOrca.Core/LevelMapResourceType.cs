@@ -16,8 +16,19 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// Loads a level map from a map XML file: the layer tree, the collision paths and vectors, and the markers.
+/// </summary>
 internal class LevelMapResourceType : ResourceType
 {
+	// Tile value flags. A tile value in the file can start with "H" or "V" to flip the tile.
+	private const int FlipHorizontalFlag = 0x4000;
+
+	private const int FlipVerticalFlag = 0x8000;
+
+	// StringReader.Peek returns -1 at the end of the text. As a char, this is '\uffff'.
+	private const char EndOfText = '\uffff';
+
 	public override string Name => "map, xml";
 
 	public override string DefaultExtension => ".map.xml";
@@ -38,26 +49,24 @@ internal class LevelMapResourceType : ResourceType
 		});
 		LevelMap map = new LevelMap();
 		map.Resource = e.Resource;
-		XmlNode parent = xmlDocument.SelectSingleNode("map/tiles");
-		ILevelLayerTreeNode[] items = GetLevelLayersFromXmlNode(parent, map).ToArray();
+		XmlNode tilesNode = xmlDocument.SelectSingleNode("map/tiles");
+		ILevelLayerTreeNode[] layerTreeNodes = GetLevelLayersFromXmlNode(tilesNode, map).ToArray();
 		map.LayerTree.Children.Clear();
-		map.LayerTree.Children.AddRange(items);
-		LevelLayer[] items2 = (from x in map.LayerTree.GetDescendantsOrdered()
-							   select x as LevelLayer into x
-							   where x != null
-							   select x).ToArray();
+		map.LayerTree.Children.AddRange(layerTreeNodes);
+		// The flat layer list holds the layers of the tree in order, without the groups.
+		LevelLayer[] layers = map.LayerTree.GetDescendantsOrdered().OfType<LevelLayer>().ToArray();
 		map.Layers.Clear();
-		map.Layers.AddRange(items2);
-		XmlNode xmlNode = xmlDocument.SelectSingleNode("map/collision");
-		if (xmlNode != null)
+		map.Layers.AddRange(layers);
+		XmlNode collisionNode = xmlDocument.SelectSingleNode("map/collision");
+		if (collisionNode != null)
 		{
-			map.CollisionPathLayers.AddRange(GetCollisionPathsFromXmlNode(xmlNode.SelectSingleNode("paths")));
-			map.CollisionVectors.AddRange(GetCollisionVectorsFromXmlNode(xmlNode.SelectSingleNode("vectors")));
+			map.CollisionPathLayers.AddRange(GetCollisionPathsFromXmlNode(collisionNode.SelectSingleNode("paths")));
+			map.CollisionVectors.AddRange(GetCollisionVectorsFromXmlNode(collisionNode.SelectSingleNode("vectors")));
 		}
-		XmlNode xmlNode2 = xmlDocument.SelectSingleNode("map/markers");
-		if (xmlNode2 != null)
+		XmlNode markersNode = xmlDocument.SelectSingleNode("map/markers");
+		if (markersNode != null)
 		{
-			map.Markers.AddRange(from x in xmlNode2.SelectNodes("marker").OfType<XmlNode>()
+			map.Markers.AddRange(from x in markersNode.SelectNodes("marker").OfType<XmlNode>()
 								 select GetMarkerFromXmlNode(map, x));
 		}
 		return map;
@@ -69,14 +78,14 @@ internal class LevelMapResourceType : ResourceType
 		{
 			if (node.Name == "layergroup")
 			{
-				if (!node.TryGetAttributeValue("name", out var value))
+				if (!node.TryGetAttributeValue("name", out string groupName))
 				{
-					value = string.Empty;
+					groupName = string.Empty;
 				}
-				LevelLayerGroup levelLayerGroup = new LevelLayerGroup(value);
-				foreach (ILevelLayerTreeNode item in GetLevelLayersFromXmlNode(node, map))
+				LevelLayerGroup levelLayerGroup = new LevelLayerGroup(groupName);
+				foreach (ILevelLayerTreeNode childNode in GetLevelLayersFromXmlNode(node, map))
 				{
-					levelLayerGroup.Children.Add(item);
+					levelLayerGroup.Children.Add(childNode);
 				}
 				yield return levelLayerGroup;
 			}
@@ -90,25 +99,25 @@ internal class LevelMapResourceType : ResourceType
 	private LevelLayer GetLevelLayerFromXmlNode(XmlNode node, LevelMap map)
 	{
 		LevelLayer levelLayer = new LevelLayer(map);
-		if (node.TryGetAttributeValue("name", out var value))
+		if (node.TryGetAttributeValue("name", out string value))
 		{
 			levelLayer.Name = value;
 		}
-		if (node.TryGetAttributeValue("minimap_colour", out value) && Colour.TryParseHex(value, out var result))
+		if (node.TryGetAttributeValue("minimap_colour", out value) && Colour.TryParseHex(value, out Colour miniMapColour))
 		{
-			levelLayer.MiniMapColour = result;
+			levelLayer.MiniMapColour = miniMapColour;
 		}
 		levelLayer.LayerRowDefinitions.AddRange(from x in node.SelectNodes("rowdefinitions/rowdefinition").OfType<XmlNode>()
 												select GetRowDefinitionFromXmlNode(x));
-		XmlNode xmlNode = node.SelectSingleNode("lighting");
-		if (xmlNode != null)
+		XmlNode lightingNode = node.SelectSingleNode("lighting");
+		if (lightingNode != null)
 		{
 			LevelLayerLighting levelLayerLighting = new LevelLayerLighting();
-			if (xmlNode.TryGetAttributeValue("type", out value) && Enum.TryParse<LevelLayerLightingType>(value, ignoreCase: true, out var result2))
+			if (lightingNode.TryGetAttributeValue("type", out value) && Enum.TryParse(value, ignoreCase: true, out LevelLayerLightingType lightingType))
 			{
-				levelLayerLighting.Type = result2;
+				levelLayerLighting.Type = lightingType;
 			}
-			if (xmlNode.TryGetAttributeValue("light", out value))
+			if (lightingNode.TryGetAttributeValue("light", out value))
 			{
 				levelLayerLighting.Light = double.Parse(value, CultureInfo.InvariantCulture);
 			}
@@ -116,14 +125,14 @@ internal class LevelMapResourceType : ResourceType
 		}
 		levelLayer.Shadows.AddRange(from x in node.SelectNodes("shadows/shadow").OfType<XmlNode>()
 									select GetShadowFromXmlNode(x));
-		XmlNode xmlNode2 = node.SelectSingleNode("tiles");
-		if (xmlNode2 != null)
+		XmlNode tilesNode = node.SelectSingleNode("tiles");
+		if (tilesNode != null)
 		{
-			if (xmlNode2.TryGetAttributeValue("offset_y", out value))
+			if (tilesNode.TryGetAttributeValue("offset_y", out value))
 			{
 				levelLayer.OffsetY = int.Parse(value);
 			}
-			if (xmlNode2.TryGetAttributeValue("parallax_y", out value))
+			if (tilesNode.TryGetAttributeValue("parallax_y", out value))
 			{
 				if (value.Equals("auto", StringComparison.OrdinalIgnoreCase))
 				{
@@ -134,25 +143,25 @@ internal class LevelMapResourceType : ResourceType
 					levelLayer.ParallaxY = double.Parse(value, CultureInfo.InvariantCulture);
 				}
 			}
-			if (xmlNode2.TryGetAttributeValue("wrap_x", out value))
+			if (tilesNode.TryGetAttributeValue("wrap_x", out value))
 			{
 				levelLayer.WrapX = value.Equals("true", StringComparison.OrdinalIgnoreCase);
 			}
-			if (xmlNode2.TryGetAttributeValue("wrap_y", out value))
+			if (tilesNode.TryGetAttributeValue("wrap_y", out value))
 			{
 				levelLayer.WrapY = value.Equals("true", StringComparison.OrdinalIgnoreCase);
 			}
 		}
-		int[][] array = (from x in node.SelectNodes("tiles/row").OfType<XmlNode>()
-						 select ReadTileValues(x.InnerText)).ToArray();
-		if (array.Length != 0)
+		int[][] tileRows = (from x in node.SelectNodes("tiles/row").OfType<XmlNode>()
+							select ReadTileValues(x.InnerText)).ToArray();
+		if (tileRows.Length != 0)
 		{
-			levelLayer.Resize(array.Max((int[] x) => x.Length), array.Length);
-			for (int num = 0; num < array.Length; num++)
+			levelLayer.Resize(tileRows.Max(x => x.Length), tileRows.Length);
+			for (int y = 0; y < tileRows.Length; y++)
 			{
-				for (int num2 = 0; num2 < Math.Min(levelLayer.Columns, array[num].Length); num2++)
+				for (int x = 0; x < Math.Min(levelLayer.Columns, tileRows[y].Length); x++)
 				{
-					levelLayer.Tiles[num2, num] = array[num][num2];
+					levelLayer.Tiles[x, y] = tileRows[y][x];
 				}
 			}
 		}
@@ -162,7 +171,7 @@ internal class LevelMapResourceType : ResourceType
 	private LayerRowDefinition GetRowDefinitionFromXmlNode(XmlNode node)
 	{
 		LayerRowDefinition layerRowDefinition = new LayerRowDefinition();
-		if (node.TryGetAttributeValue("width", out var value))
+		if (node.TryGetAttributeValue("width", out string value))
 		{
 			layerRowDefinition.Width = int.Parse(value);
 		}
@@ -188,7 +197,7 @@ internal class LevelMapResourceType : ResourceType
 	private LevelLayerShadow GetShadowFromXmlNode(XmlNode node)
 	{
 		LevelLayerShadow levelLayerShadow = new LevelLayerShadow();
-		if (node.TryGetAttributeValue("tiles", out var value))
+		if (node.TryGetAttributeValue("tiles", out string value))
 		{
 			levelLayerShadow.Tiles = bool.Parse(value);
 		}
@@ -208,9 +217,9 @@ internal class LevelMapResourceType : ResourceType
 		}
 		if (node.TryGetAttributeValue("dy", out value))
 		{
-			Vector2i displacement2 = levelLayerShadow.Displacement;
-			displacement2.Y = int.Parse(value);
-			levelLayerShadow.Displacement = displacement2;
+			Vector2i displacement = levelLayerShadow.Displacement;
+			displacement.Y = int.Parse(value);
+			levelLayerShadow.Displacement = displacement;
 		}
 		if (node.TryGetAttributeValue("softness", out value))
 		{
@@ -223,56 +232,46 @@ internal class LevelMapResourceType : ResourceType
 		return levelLayerShadow;
 	}
 
-	private void ReadXYAttribute(string attributeValue, out bool x, out bool y)
-	{
-		string[] array = attributeValue.Split(',');
-		x = array[0] == "true";
-		y = array[1] == "true";
-	}
-
-	private void ReadXYAttribute(string attributeValue, out Vector2 result)
-	{
-		string[] array = attributeValue.Split(',');
-		result = new Vector2(double.Parse(array[0], CultureInfo.InvariantCulture), double.Parse(array[1], CultureInfo.InvariantCulture));
-	}
-
+	/// <summary>
+	/// Reads a row of tile values in the form "12,h13,v14,hv15". The flip prefixes become flag bits.
+	/// </summary>
 	private int[] ReadTileValues(string text)
 	{
-		StringBuilder stringBuilder = new StringBuilder();
-		List<int> list = new List<int>();
+		StringBuilder digits = new StringBuilder();
+		List<int> tileValues = new List<int>();
 		StringReader stringReader = new StringReader(text);
 		while (stringReader.CanRead())
 		{
-			int num = 0;
+			int tileValue = 0;
 			char c = (char)stringReader.Peek();
 			if (char.ToUpper(c) == 'H')
 			{
-				num |= 0x4000;
+				tileValue |= FlipHorizontalFlag;
 				stringReader.Read();
 				c = (char)stringReader.Peek();
 			}
 			if (char.ToUpper(c) == 'V')
 			{
-				num |= 0x8000;
+				tileValue |= FlipVerticalFlag;
 				stringReader.Read();
 				c = (char)stringReader.Peek();
 			}
-			stringBuilder.Clear();
+			digits.Clear();
 			while (char.IsNumber(c))
 			{
 				stringReader.Read();
-				stringBuilder.Append(c);
+				digits.Append(c);
 				c = (char)stringReader.Peek();
 			}
-			num |= int.Parse(stringBuilder.ToString());
-			list.Add(num);
-			if (c != ',' && c != '\uffff')
+			tileValue |= int.Parse(digits.ToString());
+			tileValues.Add(tileValue);
+			if (c != ',' && c != EndOfText)
 			{
 				throw new Exception();
 			}
 			stringReader.Read();
 		}
-		return list.ToArray();
+		return tileValues.ToArray();
 	}
 
 	private LevelMarker GetMarkerFromXmlNode(LevelMap map, XmlNode node)
@@ -282,7 +281,7 @@ internal class LevelMapResourceType : ResourceType
 			X = int.Parse(node.Attributes["x"].Value),
 			Y = int.Parse(node.Attributes["y"].Value)
 		};
-		if (node.TryGetAttributeValue("width", out var value))
+		if (node.TryGetAttributeValue("width", out string value))
 		{
 			bounds.Width = int.Parse(value);
 		}
@@ -312,9 +311,10 @@ internal class LevelMapResourceType : ResourceType
 	{
 		foreach (XmlNode childNode in parent.ChildNodes)
 		{
-			if (!(childNode.Name != "vector") && TryGetAttributeXY(childNode, "a", out var xy) && TryGetAttributeXY(childNode, "b", out var xy2) && childNode.TryGetAttributeValue("paths", out var value) && uint.TryParse(value, out var result) && childNode.TryGetAttributeValue("flags", out value) && int.TryParse(value, out var result2))
+			// Skip a vector that has a missing or bad attribute.
+			if (childNode.Name == "vector" && TryGetAttributeXY(childNode, "a", out Vector2i a) && TryGetAttributeXY(childNode, "b", out Vector2i b) && childNode.TryGetAttributeValue("paths", out string value) && uint.TryParse(value, out uint paths) && childNode.TryGetAttributeValue("flags", out value) && int.TryParse(value, out int flags))
 			{
-				yield return new CollisionVector(xy, xy2, result, (CollisionFlags)result2);
+				yield return new CollisionVector(a, b, paths, (CollisionFlags)flags);
 			}
 		}
 	}
@@ -323,17 +323,17 @@ internal class LevelMapResourceType : ResourceType
 	{
 		foreach (XmlNode childNode in parent.ChildNodes)
 		{
-			if (!(childNode.Name != "path"))
+			if (childNode.Name == "path")
 			{
-				if (!childNode.TryGetAttributeValue("layer", out var value))
+				if (!childNode.TryGetAttributeValue("layer", out string value))
 				{
 					throw new Exception();
 				}
-				if (!int.TryParse(value, out var result))
+				if (!int.TryParse(value, out int layerIndex))
 				{
 					throw new Exception();
 				}
-				yield return result;
+				yield return layerIndex;
 			}
 		}
 	}
@@ -341,24 +341,24 @@ internal class LevelMapResourceType : ResourceType
 	private bool TryGetAttributeXY(XmlNode node, string name, out Vector2i xy)
 	{
 		xy = default;
-		if (!node.TryGetAttributeValue(name, out var value))
+		if (!node.TryGetAttributeValue(name, out string value))
 		{
 			return false;
 		}
-		string[] array = value.Split(',');
-		if (array.Length != 2)
+		string[] parts = value.Split(',');
+		if (parts.Length != 2)
 		{
 			return false;
 		}
-		if (!int.TryParse(array[0], out var result))
+		if (!int.TryParse(parts[0], out int x))
 		{
 			return false;
 		}
-		if (!int.TryParse(array[1], out var result2))
+		if (!int.TryParse(parts[1], out int y))
 		{
 			return false;
 		}
-		xy = new Vector2i(result, result2);
+		xy = new Vector2i(x, y);
 		return true;
 	}
 }

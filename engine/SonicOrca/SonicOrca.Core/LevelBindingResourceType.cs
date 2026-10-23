@@ -12,6 +12,9 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// Loads a level binding file. A level binding file holds the object placements of a level.
+/// </summary>
 public class LevelBindingResourceType : ResourceType
 {
 	public override string Name => "binding, xml";
@@ -34,49 +37,49 @@ public class LevelBindingResourceType : ResourceType
 		});
 		LevelBinding levelBinding = new LevelBinding();
 		levelBinding.Resource = e.Resource;
-		XmlNode xmlNode = xmlDocument.SelectSingleNode("Binding/Definitions");
-		if (!xmlNode.TryGetAttributeValue("DefaultLayer", out var value) || !int.TryParse(value, out var defaultLayerIndex))
+		XmlNode definitionsNode = xmlDocument.SelectSingleNode("Binding/Definitions");
+		if (!definitionsNode.TryGetAttributeValue("DefaultLayer", out string defaultLayerText) || !int.TryParse(defaultLayerText, out int defaultLayerIndex))
 		{
 			defaultLayerIndex = 0;
 		}
-		levelBinding.ObjectPlacements.AddRange(from x in xmlNode.SelectNodes("Definition").OfType<XmlNode>()
+		levelBinding.ObjectPlacements.AddRange(from x in definitionsNode.SelectNodes("Definition").OfType<XmlNode>()
 											   select GetObjectPlacementFromXmlNode(x, defaultLayerIndex));
-		e.PushDependencies(levelBinding.ObjectPlacements.Select((ObjectPlacement x) => x.Key).Distinct());
+		e.PushDependencies(levelBinding.ObjectPlacements.Select(x => x.Key).Distinct());
 		return levelBinding;
 	}
 
 	private ObjectPlacement GetObjectPlacementFromXmlNode(XmlNode node, int defaultLayerIndex)
 	{
-		XmlNode xmlNode = node.SelectSingleNode("Common");
-		XmlNode xmlNode2 = node.SelectSingleNode("Behaviour");
-		XmlNode xmlNode3 = node.SelectSingleNode("Mappings");
-		XmlNode xmlNode4 = xmlNode.SelectSingleNode("Key");
-		XmlNode xmlNode5 = xmlNode.SelectSingleNode("Uid");
-		XmlNode xmlNode6 = xmlNode.SelectSingleNode("Name");
-		XmlNode xmlNode7 = xmlNode.SelectSingleNode("Layer");
-		XmlNode xmlNode8 = xmlNode.SelectSingleNode("Position");
-		if (xmlNode7 == null || !xmlNode.TryGetNodeInnerText("Layer", out var value) || !int.TryParse(value, out var result))
+		XmlNode commonNode = node.SelectSingleNode("Common");
+		XmlNode behaviourNode = node.SelectSingleNode("Behaviour");
+		XmlNode mappingsNode = node.SelectSingleNode("Mappings");
+		XmlNode keyNode = commonNode.SelectSingleNode("Key");
+		XmlNode uidNode = commonNode.SelectSingleNode("Uid");
+		XmlNode nameNode = commonNode.SelectSingleNode("Name");
+		XmlNode layerNode = commonNode.SelectSingleNode("Layer");
+		XmlNode positionNode = commonNode.SelectSingleNode("Position");
+		if (layerNode == null || !commonNode.TryGetNodeInnerText("Layer", out string layerText) || !int.TryParse(layerText, out int layerIndex))
 		{
-			result = defaultLayerIndex;
+			layerIndex = defaultLayerIndex;
 		}
-		Guid result2 = default;
-		Guid.TryParse(xmlNode5.InnerText, out result2);
-		dynamic val = new { };
-		if (xmlNode2 != null && xmlNode2.HasChildNodes)
+		Guid.TryParse(uidNode.InnerText, out Guid uid);
+		// This must stay dynamic: the ObjectPlacement constructor is then bound at run time.
+		dynamic behaviour = new { };
+		if (behaviourNode != null && behaviourNode.HasChildNodes)
 		{
-			IEnumerable<KeyValuePair<string, object>> enumerable = ParseBehaviour(xmlNode2);
+			IEnumerable<KeyValuePair<string, object>> behaviourValues = ParseBehaviour(behaviourNode);
 			ExpandoObject expandoObject = new ExpandoObject();
-			ICollection<KeyValuePair<string, object>> collection = expandoObject;
-			foreach (KeyValuePair<string, object> item in enumerable)
+			ICollection<KeyValuePair<string, object>> expandoValues = expandoObject;
+			foreach (KeyValuePair<string, object> behaviourValue in behaviourValues)
 			{
-				collection.Add(item);
+				expandoValues.Add(behaviourValue);
 			}
-			val = expandoObject;
+			behaviour = expandoObject;
 		}
-		ObjectPlacement objectPlacement = new ObjectPlacement(xmlNode4.InnerText, result2, xmlNode6.InnerText, result, new Vector2i(int.Parse(xmlNode8.Attributes["X"].Value), int.Parse(xmlNode8.Attributes["Y"].Value)), val);
-		if (xmlNode3 != null && xmlNode3.HasChildNodes)
+		ObjectPlacement objectPlacement = new ObjectPlacement(keyNode.InnerText, uid, nameNode.InnerText, layerIndex, new Vector2i(int.Parse(positionNode.Attributes["X"].Value), int.Parse(positionNode.Attributes["Y"].Value)), behaviour);
+		if (mappingsNode != null && mappingsNode.HasChildNodes)
 		{
-			objectPlacement.Mappings = new List<KeyValuePair<string, object>>(ParseBehaviour(xmlNode3));
+			objectPlacement.Mappings = new List<KeyValuePair<string, object>>(ParseBehaviour(mappingsNode));
 		}
 		return objectPlacement;
 	}
@@ -89,38 +92,36 @@ public class LevelBindingResourceType : ResourceType
 			object value = ParseBehaviourValue(attribute.Value);
 			yield return new KeyValuePair<string, object>(name, value);
 		}
-		foreach (XmlNode item in entryNode)
+		// A child element without attributes or child elements is a simple value. Other child elements are nested behaviours.
+		foreach (XmlNode childNode in entryNode)
 		{
-			if (item.NodeType == XmlNodeType.Element)
+			if (childNode.NodeType == XmlNodeType.Element)
 			{
-				string name2 = item.Name;
-				(from x in item.ChildNodes.OfType<XmlNode>()
-				 where x.NodeType == XmlNodeType.Element
-				 select x).ToArray();
-				KeyValuePair<string, object>[] array = ParseBehaviour(item).ToArray();
-				object value2 = ((array.Length == 0) ? ParseBehaviourValue(item.InnerText) : array);
-				yield return new KeyValuePair<string, object>(name2, value2);
+				string childName = childNode.Name;
+				KeyValuePair<string, object>[] childValues = ParseBehaviour(childNode).ToArray();
+				object childValue = (childValues.Length == 0) ? ParseBehaviourValue(childNode.InnerText) : childValues;
+				yield return new KeyValuePair<string, object>(childName, childValue);
 			}
 		}
 	}
 
 	public static object ParseBehaviourValue(string value)
 	{
-		if (int.TryParse(value, out var result))
+		if (int.TryParse(value, out int intValue))
 		{
-			return result;
+			return intValue;
 		}
-		if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var result2))
+		if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double doubleValue))
 		{
-			return result2;
+			return doubleValue;
 		}
-		if (bool.TryParse(value, out var result3))
+		if (bool.TryParse(value, out bool boolValue))
 		{
-			return result3;
+			return boolValue;
 		}
-		if (Guid.TryParse(value, out var result4))
+		if (Guid.TryParse(value, out Guid guidValue))
 		{
-			return result4;
+			return guidValue;
 		}
 		return value;
 	}
@@ -129,57 +130,57 @@ public class LevelBindingResourceType : ResourceType
 	{
 		if (type == typeof(int))
 		{
-			if (int.TryParse(value, out var result))
+			if (int.TryParse(value, out int intValue))
 			{
-				return result;
+				return intValue;
 			}
 			return 0;
 		}
 		if (type == typeof(uint))
 		{
-			if (uint.TryParse(value, out var result2))
+			if (uint.TryParse(value, out uint uintValue))
 			{
-				return result2;
+				return uintValue;
 			}
 			return 0u;
 		}
 		if (type == typeof(double))
 		{
-			if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var result3))
+			if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double doubleValue))
 			{
-				return result3;
+				return doubleValue;
 			}
 			return 0.0;
 		}
 		if (type == typeof(bool))
 		{
-			if (bool.TryParse(value, out var result4))
+			if (bool.TryParse(value, out bool boolValue))
 			{
-				return result4;
+				return boolValue;
 			}
 			return false;
 		}
 		if (type == typeof(Vector2))
 		{
-			string s = value.Trim('{', '}', ' ').Replace(" ", "").Split(',')[0].Split('=')[1];
-			string s2 = value.Trim('{', '}', ' ').Replace(" ", "").Split(',')[1].Split('=')[1];
-			double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var result5);
-			double.TryParse(s2, NumberStyles.Float, CultureInfo.InvariantCulture, out var result6);
-			return new Vector2(result5, result6);
+			string xText = GetVectorComponentText(value, 0);
+			string yText = GetVectorComponentText(value, 1);
+			double.TryParse(xText, NumberStyles.Float, CultureInfo.InvariantCulture, out double x);
+			double.TryParse(yText, NumberStyles.Float, CultureInfo.InvariantCulture, out double y);
+			return new Vector2(x, y);
 		}
 		if (type == typeof(Vector2i))
 		{
-			string s3 = value.Trim('{', '}', ' ').Replace(" ", "").Split(',')[0].Split('=')[1];
-			string s4 = value.Trim('{', '}', ' ').Replace(" ", "").Split(',')[1].Split('=')[1];
-			int.TryParse(s3, out var result7);
-			int.TryParse(s4, out var result8);
-			return new Vector2i(result7, result8);
+			string xText = GetVectorComponentText(value, 0);
+			string yText = GetVectorComponentText(value, 1);
+			int.TryParse(xText, out int x);
+			int.TryParse(yText, out int y);
+			return new Vector2i(x, y);
 		}
 		if (type == typeof(Guid))
 		{
-			if (Guid.TryParse(value, out var result9))
+			if (Guid.TryParse(value, out Guid guidValue))
 			{
-				return result9;
+				return guidValue;
 			}
 			return default(Guid);
 		}
@@ -188,5 +189,13 @@ public class LevelBindingResourceType : ResourceType
 			return Enum.Parse(type, value, ignoreCase: true);
 		}
 		return value;
+	}
+
+	/// <summary>
+	/// Gets the text of one component of a vector in the form "{X=1, Y=2}".
+	/// </summary>
+	private static string GetVectorComponentText(string value, int componentIndex)
+	{
+		return value.Trim('{', '}', ' ').Replace(" ", "").Split(',')[componentIndex].Split('=')[1];
 	}
 }

@@ -3,20 +3,24 @@ using SonicOrca.Core.Objects.Base;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// Simple computer control for a character.
+/// </summary>
 public static class CharacterIntelligence
 {
 	public static void SimpleMoveRightJumpObsticals(ICharacter character)
 	{
-		CharacterInputState characterInputState = new CharacterInputState();
-		characterInputState.HorizontalDirection = 1;
+		// Move right. Jump when the character pushes against an obstacle, and hold the jump while airborne.
+		CharacterInputState input = new CharacterInputState();
+		input.HorizontalDirection = 1;
 		if (character.IsAirborne)
 		{
-			characterInputState.A = CharacterInputButtonState.Down;
+			input.A = CharacterInputButtonState.Down;
 		}
 		else if (!character.IsAirborne && character.IsPushing)
 		{
-			characterInputState.A = CharacterInputButtonState.Pressed;
+			input.A = CharacterInputButtonState.Pressed;
 		}
-		character.Input = characterInputState;
+		character.Input = input;
 	}
 }

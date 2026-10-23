@@ -3,6 +3,9 @@ using System.Xml;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// Writes a level dependencies file from the object placements of a level binding.
+/// </summary>
 public class LevelDependenciesWriter
 {
 	private readonly LevelBinding _binding;
@@ -21,11 +24,11 @@ public class LevelDependenciesWriter
 		using XmlWriter xmlWriter = XmlWriter.Create(path, settings);
 		xmlWriter.WriteStartDocument();
 		xmlWriter.WriteStartElement("Dependencies");
-		foreach (string item in _binding.ObjectPlacements.Select((ObjectPlacement p) => p.Key).Distinct())
+		foreach (string key in _binding.ObjectPlacements.Select(p => p.Key).Distinct())
 		{
 			xmlWriter.WriteStartElement("Dependency");
 			xmlWriter.WriteStartElement("Key");
-			xmlWriter.WriteString(item.ToString());
+			xmlWriter.WriteString(key.ToString());
 			xmlWriter.WriteEndElement();
 			xmlWriter.WriteEndElement();
 		}

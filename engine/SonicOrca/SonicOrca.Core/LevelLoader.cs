@@ -5,6 +5,9 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// Loads an area and its level in the background. The caller polls <see cref="HasLoadedArea"/> and <see cref="HasLoadedLevel"/>.
+/// </summary>
 public class LevelLoader
 {
 	private readonly SonicOrcaGameContext _gameContext;
@@ -27,6 +30,8 @@ public class LevelLoader
 
 	public Level Level => _level;
 
+	// When the load task completes, the first call returns false and clears the loading flag.
+	// The next call gives the real result. A fault in the load task is thrown again here.
 	public bool HasLoadedArea
 	{
 		get

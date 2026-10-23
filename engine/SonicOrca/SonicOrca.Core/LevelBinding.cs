@@ -4,6 +4,9 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// The object placements of a level.
+/// </summary>
 public class LevelBinding : ILoadedResource, IDisposable
 {
 	private readonly List<ObjectPlacement> _objectPlacements = new List<ObjectPlacement>();

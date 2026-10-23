@@ -9,6 +9,9 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// Shows the act clear screen. It counts the time, ring and perfect bonuses into the score.
+/// </summary>
 internal class LevelCompleteHud : IDisposable
 {
 	private enum State
@@ -38,18 +41,39 @@ internal class LevelCompleteHud : IDisposable
 
 	private const string TallySwitchResourceKey = "SONICORCA/SOUND/TALLY/SWITCH";
 
-	private const string TalleEndResourceKey = "SONICORCA/SOUND/TALLY/END";
+	private const string TallyEndResourceKey = "SONICORCA/SOUND/TALLY/END";
 
-	private static IReadOnlyList<int> TimeBonusScores = new int[21]
+	// The time bonus for each 15 seconds of level time. The last value applies to all longer times.
+	private static readonly IReadOnlyList<int> TimeBonusScores = new int[21]
 	{
 		50000, 50000, 10000, 5000, 4000, 4000, 3000, 3000, 2000, 2000,
 		2000, 2000, 1000, 1000, 1000, 1000, 500, 500, 500, 500,
 		0
 	};
 
-	private const int BankFrequency = 120;
-
 	private const int BankAmount = 100;
+
+	private const int TicksPerSecond = 60;
+
+	private const int TimeBonusStepSeconds = 15;
+
+	private const int PointsPerRing = 100;
+
+	private const int PerfectBonusPoints = 50000;
+
+	private const int MusicFadeOutDuration = 60;
+
+	private const int PreDelayTime = 90;
+
+	private const int FlyInTime = 340;
+
+	private const int PostBankWaitTime = 120;
+
+	private const int FlyOutTime = 75;
+
+	private const double ScreenWidth = 1920.0;
+
+	private const double CaptionY = 270.0;
 
 	private readonly Level _level;
 
@@ -144,17 +168,17 @@ internal class LevelCompleteHud : IDisposable
 	{
 		ResourceTree resourceTree = _level.GameContext.ResourceTree;
 		_resourceSession = new ResourceSession(resourceTree);
-		_resourceSession.PushDependencies("SONICORCA/FONTS/TITLE/S2/NAME", "SONICORCA/FONTS/TITLE/S2/ACT", "SONICORCA/FONTS/HUD", "SONICORCA/HUD/TRIANGLE", "SONICORCA/HUD/TRIANGLE/TAILS", "SONICORCA/HUD/TRIANGLE/KNUCKLES", "SONICORCA/MUSIC/JINGLE/STAGECLEAR/S1", "SONICORCA/SOUND/TALLY/SWITCH", "SONICORCA/SOUND/TALLY/END");
+		_resourceSession.PushDependencies(CaptionFontResourceKey, CaptionActFontResourceKey, StatisticsFontResourceKey, SonicTriangleResourceKey, TailsTriangleResourceKey, KnucklesTriangleResourceKey, JingleResourceKey, TallySwitchResourceKey, TallyEndResourceKey);
 		await _resourceSession.LoadAsync(ct);
-		_captionFont = resourceTree.GetLoadedResource<Font>("SONICORCA/FONTS/TITLE/S2/NAME");
-		_captionActFont = resourceTree.GetLoadedResource<Font>("SONICORCA/FONTS/TITLE/S2/ACT");
-		_statisticsFont = resourceTree.GetLoadedResource<Font>("SONICORCA/FONTS/HUD");
-		_triangleTextureSonic = resourceTree.GetLoadedResource<ITexture>("SONICORCA/HUD/TRIANGLE");
-		_triangleTextureTails = resourceTree.GetLoadedResource<ITexture>("SONICORCA/HUD/TRIANGLE/TAILS");
-		_triangleTextureKnuckles = resourceTree.GetLoadedResource<ITexture>("SONICORCA/HUD/TRIANGLE/KNUCKLES");
-		_jingleSample = resourceTree.GetLoadedResource<Sample>("SONICORCA/MUSIC/JINGLE/STAGECLEAR/S1");
-		_tallySwitchSample = resourceTree.GetLoadedResource<Sample>("SONICORCA/SOUND/TALLY/SWITCH");
-		_tallyEndSample = resourceTree.GetLoadedResource<Sample>("SONICORCA/SOUND/TALLY/END");
+		_captionFont = resourceTree.GetLoadedResource<Font>(CaptionFontResourceKey);
+		_captionActFont = resourceTree.GetLoadedResource<Font>(CaptionActFontResourceKey);
+		_statisticsFont = resourceTree.GetLoadedResource<Font>(StatisticsFontResourceKey);
+		_triangleTextureSonic = resourceTree.GetLoadedResource<ITexture>(SonicTriangleResourceKey);
+		_triangleTextureTails = resourceTree.GetLoadedResource<ITexture>(TailsTriangleResourceKey);
+		_triangleTextureKnuckles = resourceTree.GetLoadedResource<ITexture>(KnucklesTriangleResourceKey);
+		_jingleSample = resourceTree.GetLoadedResource<Sample>(JingleResourceKey);
+		_tallySwitchSample = resourceTree.GetLoadedResource<Sample>(TallySwitchResourceKey);
+		_tallyEndSample = resourceTree.GetLoadedResource<Sample>(TallyEndResourceKey);
 	}
 
 	public void Dispose()
@@ -167,8 +191,8 @@ internal class LevelCompleteHud : IDisposable
 
 	public void Start()
 	{
-		TimeBonus = TimeBonusScores[Math.Min(_level.Time / 60 / 15, TimeBonusScores.Count - 1)];
-		RingBonus = _level.Player.CurrentRings * 100;
+		TimeBonus = TimeBonusScores[Math.Min(_level.Time / TicksPerSecond / TimeBonusStepSeconds, TimeBonusScores.Count - 1)];
+		RingBonus = _level.Player.CurrentRings * PointsPerRing;
 		if (_level.RingsCollected < _level.RingsPerfectTarget)
 		{
 			_achievedPerfect = false;
@@ -177,11 +201,11 @@ internal class LevelCompleteHud : IDisposable
 		else
 		{
 			_achievedPerfect = true;
-			PerfectBonus = 50000;
+			PerfectBonus = PerfectBonusPoints;
 		}
 		_total = 0;
 		_state = State.PreDelay;
-		_level.SoundManager.FadeOutMusic(60);
+		_level.SoundManager.FadeOutMusic(MusicFadeOutDuration);
 	}
 
 	public void Update()
@@ -190,7 +214,7 @@ internal class LevelCompleteHud : IDisposable
 		{
 			case State.PreDelay:
 				_ticks++;
-				if (_ticks >= 90)
+				if (_ticks >= PreDelayTime)
 				{
 					_state = State.FlyIn;
 					_flyTicks = 0;
@@ -200,7 +224,7 @@ internal class LevelCompleteHud : IDisposable
 				break;
 			case State.FlyIn:
 				_flyTicks++;
-				if (_flyTicks >= 340)
+				if (_flyTicks >= FlyInTime)
 				{
 					_state = State.Banking;
 					_bankPointsDelay = 0;
@@ -218,7 +242,7 @@ internal class LevelCompleteHud : IDisposable
 					else
 					{
 						_state = State.PostBankWait;
-						_bankPointsDelay = 120;
+						_bankPointsDelay = PostBankWaitTime;
 						_shineTicks = 0;
 					}
 				}
@@ -237,7 +261,7 @@ internal class LevelCompleteHud : IDisposable
 				break;
 			case State.FlyOut:
 				_flyTicks++;
-				if (_flyTicks >= 75)
+				if (_flyTicks >= FlyOutTime)
 				{
 					_level.SoundManager.StopAll();
 					_state = State.Finished;
@@ -273,20 +297,22 @@ internal class LevelCompleteHud : IDisposable
 
 	private bool BankPoints()
 	{
-		int num = Math.Min(TimeBonus, 100);
-		int num2 = Math.Min(RingBonus, 100);
-		int num3 = Math.Min(PerfectBonus, 100);
-		int num4 = num + num2 + num3;
-		if (num4 == 0)
+		// Move up to BankAmount points from each bonus into the total. Return false when all bonuses are empty.
+		int timePoints = Math.Min(TimeBonus, BankAmount);
+		int ringPoints = Math.Min(RingBonus, BankAmount);
+		int perfectPoints = Math.Min(PerfectBonus, BankAmount);
+		int bankedPoints = timePoints + ringPoints + perfectPoints;
+		if (bankedPoints == 0)
 		{
 			_level.SoundManager.PlaySound(_tallyEndSample);
 			return false;
 		}
-		TimeBonus -= num;
-		RingBonus -= num2;
-		PerfectBonus -= num3;
-		_total += num4;
-		_level.Player.Score += num4;
+		TimeBonus -= timePoints;
+		RingBonus -= ringPoints;
+		PerfectBonus -= perfectPoints;
+		_total += bankedPoints;
+		_level.Player.Score += bankedPoints;
+		// Play the tally sound on every second bank only.
 		_tallySwitchDelay = (_tallySwitchDelay + 1) % 2;
 		if (_tallySwitchDelay == 0)
 		{
@@ -306,25 +332,26 @@ internal class LevelCompleteHud : IDisposable
 
 	private void DrawCaption(Renderer renderer)
 	{
-		double valueAt = _captionAFly.GetValueAt(_flyTicks);
-		double valueAt2 = _captionBFly.GetValueAt(_flyTicks);
-		string text = "SONIC";
+		double captionAX = _captionAFly.GetValueAt(_flyTicks);
+		double captionBX = _captionBFly.GetValueAt(_flyTicks);
+		string characterName = "SONIC";
 		switch (_level.Player.ProtagonistCharacterType)
 		{
 			case CharacterType.Tails:
-				text = "TAILS";
+				characterName = "TAILS";
 				break;
 			case CharacterType.Knuckles:
-				text = "KNUCKLES";
+				characterName = "KNUCKLES";
 				break;
 		}
 		IFontRenderer fontRenderer = renderer.GetFontRenderer();
-		fontRenderer.RenderStringWithShadow(text + " GOT", new Rectangle(valueAt, 270.0, 1920.0, 0.0), FontAlignment.MiddleX, _captionFont, 0);
-		double num = _captionFont.MeasureString("THROUGH ACT", default, FontAlignment.Left).Width + _captionFont.DefaultWidth / 2;
-		double num2 = num + _captionActFont.MeasureString(_level.CurrentAct.ToString(), default, FontAlignment.Left).Width;
-		valueAt2 += (1920.0 - num2) / 2.0;
-		fontRenderer.RenderStringWithShadow("THROUGH ACT", new Rectangle(valueAt2, 270 + _captionFont.Height + 16, 1920.0, 0.0), FontAlignment.Left, _captionFont, 0);
-		fontRenderer.RenderStringWithShadow(_level.CurrentAct.ToString(), new Rectangle(valueAt2 + num, 270 + _captionFont.Height + 16, 0.0, 0.0), FontAlignment.Left, _captionActFont, 0);
+		fontRenderer.RenderStringWithShadow(characterName + " GOT", new Rectangle(captionAX, CaptionY, ScreenWidth, 0.0), FontAlignment.MiddleX, _captionFont, 0);
+		// Centre "THROUGH ACT n" as one line. The act number uses a different font.
+		double actNumberOffset = _captionFont.MeasureString("THROUGH ACT", default, FontAlignment.Left).Width + _captionFont.DefaultWidth / 2;
+		double lineWidth = actNumberOffset + _captionActFont.MeasureString(_level.CurrentAct.ToString(), default, FontAlignment.Left).Width;
+		captionBX += (ScreenWidth - lineWidth) / 2.0;
+		fontRenderer.RenderStringWithShadow("THROUGH ACT", new Rectangle(captionBX, 270 + _captionFont.Height + 16, ScreenWidth, 0.0), FontAlignment.Left, _captionFont, 0);
+		fontRenderer.RenderStringWithShadow(_level.CurrentAct.ToString(), new Rectangle(captionBX + actNumberOffset, 270 + _captionFont.Height + 16, 0.0, 0.0), FontAlignment.Left, _captionActFont, 0);
 	}
 
 	private void DrawScoreLabels(Renderer renderer)
@@ -343,21 +370,21 @@ internal class LevelCompleteHud : IDisposable
 	{
 		DrawCaption(renderer, caption, new Rectangle(480.0 + offsetX, y, 480.0, 0.0), FontAlignment.MiddleX);
 		IFontRenderer fontRenderer = renderer.GetFontRenderer();
-		FontAlignment fontAlignment = FontAlignment.Right;
+		FontAlignment valueAlignment = FontAlignment.Right;
 		Rectangle boundary = new Rectangle(1380.0 + offsetX, y, 0.0, 0.0);
 		if (highlight > 0)
 		{
-			fontRenderer.RenderStringWithShadow(value.ToString(), boundary, fontAlignment, _statisticsFont, Colours.White, null, _statisticsFont.DefaultShadow, new Colour(highlight, highlight, highlight));
+			fontRenderer.RenderStringWithShadow(value.ToString(), boundary, valueAlignment, _statisticsFont, Colours.White, null, _statisticsFont.DefaultShadow, new Colour(highlight, highlight, highlight));
 		}
 		else
 		{
-			fontRenderer.RenderStringWithShadow(value.ToString(), boundary, fontAlignment, _statisticsFont, 0);
+			fontRenderer.RenderStringWithShadow(value.ToString(), boundary, valueAlignment, _statisticsFont, 0);
 		}
 	}
 
 	private void DrawCaption(Renderer renderer, string text, Rectangle boundary, FontAlignment textAlignment)
 	{
-		Rectangle rectangle = _statisticsFont.MeasureString(text, boundary, textAlignment);
+		Rectangle textBounds = _statisticsFont.MeasureString(text, boundary, textAlignment);
 		ITexture texture = _triangleTextureSonic;
 		switch (_level.Player.ProtagonistCharacterType)
 		{
@@ -368,7 +395,7 @@ internal class LevelCompleteHud : IDisposable
 				texture = _triangleTextureKnuckles;
 				break;
 		}
-		renderer.Get2dRenderer().RenderTexture(texture, new Vector2(rectangle.Right - 8.0, rectangle.Bottom - 7.0));
+		renderer.Get2dRenderer().RenderTexture(texture, new Vector2(textBounds.Right - 8.0, textBounds.Bottom - 7.0));
 		renderer.GetFontRenderer().RenderStringWithShadow(text, boundary, textAlignment, _statisticsFont, 1);
 	}
 }
