@@ -8,6 +8,9 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// Shows the "GAME OVER" or "TIME OVER" text and plays the game over jingle.
+/// </summary>
 public class GameOverHud : IDisposable
 {
 	public enum Reason
@@ -24,9 +27,16 @@ public class GameOverHud : IDisposable
 
 	private const int FlyTime = 15;
 
-	private static readonly EaseTimeline LeftFly = new EaseTimeline(new EaseTimeline.Entry(0, 0.0), new EaseTimeline.Entry(15, 960.0), new EaseTimeline.Entry(885, 960.0), new EaseTimeline.Entry(900, 0.0));
+	private const double ScreenWidth = 1920.0;
 
-	private static readonly EaseTimeline RightFly = new EaseTimeline(new EaseTimeline.Entry(0, 1920.0), new EaseTimeline.Entry(15, 960.0), new EaseTimeline.Entry(885, 960.0), new EaseTimeline.Entry(900, 1920.0));
+	private const double ScreenHeight = 1080.0;
+
+	private const double ScreenCentreX = 960.0;
+
+	// The two words fly in from the screen edges to the centre, stay, then fly out again.
+	private static readonly EaseTimeline LeftFly = new EaseTimeline(new EaseTimeline.Entry(0, 0.0), new EaseTimeline.Entry(FlyTime, ScreenCentreX), new EaseTimeline.Entry(TotalTime - FlyTime, ScreenCentreX), new EaseTimeline.Entry(TotalTime, 0.0));
+
+	private static readonly EaseTimeline RightFly = new EaseTimeline(new EaseTimeline.Entry(0, ScreenWidth), new EaseTimeline.Entry(FlyTime, ScreenCentreX), new EaseTimeline.Entry(TotalTime - FlyTime, ScreenCentreX), new EaseTimeline.Entry(TotalTime, ScreenWidth));
 
 	private readonly Level _level;
 
@@ -51,10 +61,10 @@ public class GameOverHud : IDisposable
 	public async Task LoadAsync(CancellationToken ct = default(CancellationToken))
 	{
 		ResourceTree resourceTree = _resourceSession.ResourceTree;
-		_resourceSession.PushDependencies("SONICORCA/FONTS/METALIC", "SONICORCA/MUSIC/JINGLE/GAMEOVER/S1");
+		_resourceSession.PushDependencies(FontResourceKey, JingleResourceKey);
 		await _resourceSession.LoadAsync(ct);
-		_font = resourceTree.GetLoadedResource<Font>("SONICORCA/FONTS/METALIC");
-		_jingle = resourceTree.GetLoadedResource<Sample>("SONICORCA/MUSIC/JINGLE/GAMEOVER/S1");
+		_font = resourceTree.GetLoadedResource<Font>(FontResourceKey);
+		_jingle = resourceTree.GetLoadedResource<Sample>(JingleResourceKey);
 	}
 
 	public void Dispose()
@@ -74,7 +84,7 @@ public class GameOverHud : IDisposable
 	public void Update()
 	{
 		_ticks++;
-		if (_ticks >= 900)
+		if (_ticks >= TotalTime)
 		{
 			Finished = true;
 		}
@@ -83,8 +93,8 @@ public class GameOverHud : IDisposable
 	public void Draw(Renderer renderer)
 	{
 		IFontRenderer fontRenderer = renderer.GetFontRenderer();
-		int num = _font.DefaultWidth / 2;
-		fontRenderer.RenderStringWithShadow((_reason == Reason.GameOver) ? "GAME" : "TIME", new Rectangle(LeftFly.GetValueAt(_ticks) - num, 0.0, 0.0, 1080.0), (FontAlignment)6, _font, Colours.White);
-		fontRenderer.RenderStringWithShadow("OVER", new Rectangle(RightFly.GetValueAt(_ticks) + num, 0.0, 0.0, 1080.0), FontAlignment.MiddleY, _font, Colours.White);
+		int halfFontWidth = _font.DefaultWidth / 2;
+		fontRenderer.RenderStringWithShadow((_reason == Reason.GameOver) ? "GAME" : "TIME", new Rectangle(LeftFly.GetValueAt(_ticks) - halfFontWidth, 0.0, 0.0, ScreenHeight), FontAlignment.Right | FontAlignment.MiddleY, _font, Colours.White);
+		fontRenderer.RenderStringWithShadow("OVER", new Rectangle(RightFly.GetValueAt(_ticks) + halfFontWidth, 0.0, 0.0, ScreenHeight), FontAlignment.MiddleY, _font, Colours.White);
 	}
 }

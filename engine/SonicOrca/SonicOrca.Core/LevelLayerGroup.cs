@@ -2,6 +2,9 @@ using System.Collections.Generic;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// A named group of level layers in the layer tree.
+/// </summary>
 public class LevelLayerGroup : ILevelLayerTreeNode
 {
 	private readonly List<ILevelLayerTreeNode> _children = new List<ILevelLayerTreeNode>();

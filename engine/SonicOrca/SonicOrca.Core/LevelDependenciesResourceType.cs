@@ -6,6 +6,9 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// Loads a level dependencies file and pushes each resource key in it as a dependency.
+/// </summary>
 public class LevelDependenciesResourceType : ResourceType
 {
 	public override string Name => "dependencies, xml";
@@ -30,8 +33,8 @@ public class LevelDependenciesResourceType : ResourceType
 		{
 			Resource = e.Resource
 		};
-		XmlNode xmlNode = xmlDocument.SelectSingleNode("Dependencies");
-		e.PushDependencies((from x in xmlNode.SelectNodes("Dependency").OfType<XmlNode>()
+		XmlNode dependenciesNode = xmlDocument.SelectSingleNode("Dependencies");
+		e.PushDependencies((from x in dependenciesNode.SelectNodes("Dependency").OfType<XmlNode>()
 							select x.SelectSingleNode("Key").InnerText).Distinct());
 		return result;
 	}

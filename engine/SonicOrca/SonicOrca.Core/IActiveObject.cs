@@ -2,6 +2,9 @@ using SonicOrca.Geometry;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// An object that is alive in a level.
+/// </summary>
 public interface IActiveObject
 {
 	Level Level { get; }

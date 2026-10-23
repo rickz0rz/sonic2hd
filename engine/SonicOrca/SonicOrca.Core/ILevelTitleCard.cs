@@ -6,6 +6,9 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// The title card that shows when a level starts.
+/// </summary>
 public interface ILevelTitleCard : IDisposable
 {
 	bool AllowLevelToStart { get; }

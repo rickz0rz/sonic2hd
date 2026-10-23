@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using SonicOrca.Core.Collision;
 using SonicOrca.Core.Lighting;
 using SonicOrca.Core.Objects.Metadata;
@@ -9,8 +8,13 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// The base class for an object that is alive in a level. It has a position, collision data and a life cycle.
+/// </summary>
 public abstract class ActiveObject : IActiveObject
 {
+	private const int DefaultPriority = 256;
+
 	private Vector2i _position;
 
 	private Vector2 _positionPrecise;
@@ -18,8 +22,6 @@ public abstract class ActiveObject : IActiveObject
 	private Vector2i _lastPosition;
 
 	private Vector2 _lastPositionPrecise;
-
-	private bool[] _activeLayers;
 
 	public string Name { get; set; }
 
@@ -88,8 +90,8 @@ public abstract class ActiveObject : IActiveObject
 		get
 		{
 			Vector2 lifeRadius = Type.GetLifeRadius((IActiveObject)Entry.State);
-			Vector2 vector = new Vector2(Position.X - lifeRadius.X, Position.Y - lifeRadius.Y);
-			return new Rectangle(vector.X, vector.Y, lifeRadius.X * 2.0, lifeRadius.Y * 2.0);
+			Vector2 topLeft = new Vector2(Position.X - lifeRadius.X, Position.Y - lifeRadius.Y);
+			return new Rectangle(topLeft.X, topLeft.Y, lifeRadius.X * 2.0, lifeRadius.Y * 2.0);
 		}
 	}
 
@@ -113,9 +115,7 @@ public abstract class ActiveObject : IActiveObject
 		Position = entry.Position;
 		Name = entry.Name;
 		Uid = entry.Uid;
-		_activeLayers = (from x in Enumerable.Range(0, Level.Map.Layers.Count)
-						 select true).ToArray();
-		Priority = 256;
+		Priority = DefaultPriority;
 		CameraProperties = new CameraProperties();
 		CameraProperties.Box = new Rectangle(-64.0, -192.0, 64.0, 256.0);
 		CameraProperties.Delay = new Vector2i(0, 0);
@@ -180,7 +180,8 @@ public abstract class ActiveObject : IActiveObject
 
 	public void Draw(Renderer renderer, Viewport viewport, LayerViewOptions viewOptions)
 	{
-		Vector2i vector2i = default;
+		// In the shadow pass, draw the object again at its shadow offset. Draw nothing when there is no offset.
+		Vector2i shadowOffset = default;
 		if (viewOptions.Shadows)
 		{
 			IShadowInfo shadowInfo = ShadowInfo;
@@ -188,8 +189,8 @@ public abstract class ActiveObject : IActiveObject
 			{
 				return;
 			}
-			vector2i = Level.LightingManager.GetShadowOffset(Position, shadowInfo);
-			if (vector2i == default(Vector2i))
+			shadowOffset = Level.LightingManager.GetShadowOffset(Position, shadowInfo);
+			if (shadowOffset == default(Vector2i))
 			{
 				return;
 			}
@@ -197,7 +198,7 @@ public abstract class ActiveObject : IActiveObject
 		I2dRenderer i2dRenderer = renderer.Get2dRenderer();
 		using (i2dRenderer.BeginMatixState())
 		{
-			i2dRenderer.ModelMatrix *= Matrix4.CreateTranslation((_position.X - viewport.Bounds.X + vector2i.X) * viewport.Scale.X, (_position.Y - viewport.Bounds.Y + vector2i.Y) * viewport.Scale.Y);
+			i2dRenderer.ModelMatrix *= Matrix4.CreateTranslation((_position.X - viewport.Bounds.X + shadowOffset.X) * viewport.Scale.X, (_position.Y - viewport.Bounds.Y + shadowOffset.Y) * viewport.Scale.Y);
 			IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
 			objectRenderer.ClipRectangle = viewport.Destination;
 			objectRenderer.ModelMatrix = i2dRenderer.ModelMatrix;
@@ -239,44 +240,45 @@ public abstract class ActiveObject : IActiveObject
 		{
 			collisionVectors[i].UpdateDerrivedFields();
 		}
-		int count = Level.Map.CollisionPathLayers.Count;
+		// Connect each pair of vectors that share an end point, on each collision path that the other vector is on.
+		int pathCount = Level.Map.CollisionPathLayers.Count;
 		collisionVectors = CollisionVectors;
 		foreach (CollisionVector collisionVector in collisionVectors)
 		{
-			CollisionVector[] collisionVectors2 = CollisionVectors;
-			foreach (CollisionVector collisionVector2 in collisionVectors2)
+			CollisionVector[] otherVectors = CollisionVectors;
+			foreach (CollisionVector otherVector in otherVectors)
 			{
-				if (collisionVector == collisionVector2)
+				if (collisionVector == otherVector)
 				{
 					continue;
 				}
-				if (collisionVector.AbsoluteA == collisionVector2.AbsoluteB && CollisionVector.TestConnection(collisionVector, collisionVector2))
+				if (collisionVector.AbsoluteA == otherVector.AbsoluteB && CollisionVector.TestConnection(collisionVector, otherVector))
 				{
-					for (int k = 0; k < count; k++)
+					for (int path = 0; path < pathCount; path++)
 					{
-						if (collisionVector2.HasPath(k))
+						if (otherVector.HasPath(path))
 						{
-							collisionVector.SetConnectionA(k, collisionVector2);
+							collisionVector.SetConnectionA(path, otherVector);
 						}
-						if (collisionVector.HasPath(k))
+						if (collisionVector.HasPath(path))
 						{
-							collisionVector2.SetConnectionB(k, collisionVector);
+							otherVector.SetConnectionB(path, collisionVector);
 						}
 					}
 				}
-				if (!(collisionVector.AbsoluteB == collisionVector2.AbsoluteA) || !CollisionVector.TestConnection(collisionVector, collisionVector2))
+				if (!(collisionVector.AbsoluteB == otherVector.AbsoluteA) || !CollisionVector.TestConnection(collisionVector, otherVector))
 				{
 					continue;
 				}
-				for (int l = 0; l < count; l++)
+				for (int path = 0; path < pathCount; path++)
 				{
-					if (collisionVector2.HasPath(l))
+					if (otherVector.HasPath(path))
 					{
-						collisionVector.SetConnectionB(l, collisionVector2);
+						collisionVector.SetConnectionB(path, otherVector);
 					}
-					if (collisionVector.HasPath(l))
+					if (collisionVector.HasPath(path))
 					{
-						collisionVector2.SetConnectionA(l, collisionVector);
+						otherVector.SetConnectionA(path, collisionVector);
 					}
 				}
 			}

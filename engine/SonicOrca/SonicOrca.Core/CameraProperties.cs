@@ -2,6 +2,9 @@ using SonicOrca.Geometry;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// The settings that an object gives to the camera when the camera tracks it.
+/// </summary>
 public class CameraProperties
 {
 	public Rectangle Box { get; set; }

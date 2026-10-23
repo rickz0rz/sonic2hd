@@ -3,6 +3,9 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// The settings of the shadow that a level layer casts.
+/// </summary>
 public class LevelLayerShadow
 {
 	public static readonly Colour DefaultShadowColour = new Colour(128, 0, 0, 0);

@@ -12,7 +12,6 @@ using SonicOrca.Core.Debugging;
 using SonicOrca.Core.Lighting;
 using SonicOrca.Core.Objects;
 using SonicOrca.Core.Objects.Base;
-using SonicOrca.Extensions;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
 using SonicOrca.Input;
@@ -20,9 +19,28 @@ using SonicOrca.Menu;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// A playable level. It owns the map, the objects, the camera, the HUDs and the level state, and it runs the level loop.
+/// </summary>
 public class Level : IDisposable
 {
-	private int TimeBeforeDeath = 36000;
+	// 10 minutes at 60 ticks each second.
+	private const int TimeBeforeDeath = 36000;
+
+	private const int FadeDuration = 60;
+
+	private const double ScreenWidth = 1920.0;
+
+	private const double ScreenHeight = 1080.0;
+
+	private const double CameraMaxVelocity = 64.0;
+
+	private const double CameraVelocityRecovery = 0.5;
+
+	// An object stays alive when it is in this distance of a character or of the camera.
+	private const int ObjectLifeRadius = 1024;
+
+	private const double EarthquakeMaxShake = 16.0;
 
 	private readonly SonicOrcaGameContext _gameContext;
 
@@ -30,7 +48,7 @@ public class Level : IDisposable
 
 	private readonly Random _random = SonicOrca.Core.Debugging.TestHooks.CreateRandom();
 
-	private readonly FadeTransition _fadeTransition = new FadeTransition(60);
+	private readonly FadeTransition _fadeTransition = new FadeTransition(FadeDuration);
 
 	private readonly ObjectManager _objectManager;
 
@@ -389,24 +407,26 @@ public class Level : IDisposable
 	private void SetupCharacters()
 	{
 		Vector2i playerStartPosition = GetPlayerStartPosition();
-		Vector2i position = playerStartPosition + new Vector2i(-64, 0);
-		CharacterType characterType = PrepareSettings.ProtagonistCharacter;
-		CharacterType characterType2 = PrepareSettings.SidekickCharacter;
-		if (characterType == CharacterType.Null)
+		// The sidekick starts a short distance behind the protagonist.
+		Vector2i sidekickStartPosition = playerStartPosition + new Vector2i(-64, 0);
+		CharacterType protagonistType = PrepareSettings.ProtagonistCharacter;
+		CharacterType sidekickType = PrepareSettings.SidekickCharacter;
+		if (protagonistType == CharacterType.Null)
 		{
-			characterType = CharacterType.Sonic;
-			characterType2 = CharacterType.Tails;
+			protagonistType = CharacterType.Sonic;
+			sidekickType = CharacterType.Tails;
 		}
-		string resourceKey = CharacterTypeResourceKeys[(int)characterType];
-		string resourceKey2 = CharacterTypeResourceKeys[(int)characterType2];
-		ICharacter sidekick = ((characterType2 != CharacterType.Null) ? CreateCharacter(resourceKey2, position) : null);
-		ICharacter character = CreateCharacter(resourceKey, playerStartPosition);
-		SetupCharacters(character, sidekick);
-		Player.ProtagonistCharacterType = characterType;
-		Player.SidekickCharacterType = characterType2;
+		string protagonistResourceKey = CharacterTypeResourceKeys[(int)protagonistType];
+		string sidekickResourceKey = CharacterTypeResourceKeys[(int)sidekickType];
+		// Create the sidekick first, so that the protagonist is added after it.
+		ICharacter sidekick = (sidekickType != CharacterType.Null) ? CreateCharacter(sidekickResourceKey, sidekickStartPosition) : null;
+		ICharacter protagonist = CreateCharacter(protagonistResourceKey, playerStartPosition);
+		SetupCharacters(protagonist, sidekick);
+		Player.ProtagonistCharacterType = protagonistType;
+		Player.SidekickCharacterType = sidekickType;
 		if (!string.IsNullOrEmpty(PrepareSettings.RecordedPlayGhostReadPath))
 		{
-			_ghostCharacter = CreateGhostCharacter(character, playerStartPosition);
+			_ghostCharacter = CreateGhostCharacter(protagonist, playerStartPosition);
 		}
 	}
 
@@ -441,10 +461,10 @@ public class Level : IDisposable
 	private GhostCharacterInstance CreateGhostCharacter(ICharacter character, Vector2i position)
 	{
 		ObjectEntry objectEntry = new ObjectEntry(this, new GhostCharacterType(), Map.Layers[StartLayerIndex], position);
-		GhostCharacterInstance ghostCharacterInstance = (GhostCharacterInstance)_objectManager.ActivateObjectEntry(objectEntry);
-		ghostCharacterInstance.LockLifetime = true;
-		ghostCharacterInstance.Initialise(character.Animation.AnimationGroup);
-		return ghostCharacterInstance;
+		GhostCharacterInstance ghostCharacter = (GhostCharacterInstance)_objectManager.ActivateObjectEntry(objectEntry);
+		ghostCharacter.LockLifetime = true;
+		ghostCharacter.Initialise(character.Animation.AnimationGroup);
+		return ghostCharacter;
 	}
 
 	public Vector2i GetPlayerStartPosition()
@@ -529,21 +549,22 @@ public class Level : IDisposable
 				FadeOut(LevelState.Dead);
 			}
 		}
-		PlayRecorder.Entry entry = null;
+		PlayRecorder.Entry playbackEntry = null;
 		if (_playRecorder.Playing)
 		{
-			entry = _playRecorder.GetNextEntry();
+			playbackEntry = _playRecorder.GetNextEntry();
 		}
 		if (StateFlags.HasFlag(LevelStateFlags.Updating))
 		{
-			if (entry != null)
+			if (playbackEntry != null)
 			{
+				// A recording without a ghost controls the protagonist. A ghost recording moves the ghost only.
 				if (string.IsNullOrEmpty(PrepareSettings.RecordedPlayGhostReadPath))
 				{
 					CharacterInputState input = _player.Protagonist.Input;
-					input.Throttle = entry.Direction.X;
-					input.VerticalDirection = Math.Sign(entry.Direction.Y);
-					if (entry.Action)
+					input.Throttle = playbackEntry.Direction.X;
+					input.VerticalDirection = Math.Sign(playbackEntry.Direction.Y);
+					if (playbackEntry.Action)
 					{
 						if (input.A == CharacterInputButtonState.Up || input.A == CharacterInputButtonState.Released)
 						{
@@ -565,7 +586,7 @@ public class Level : IDisposable
 				}
 				else
 				{
-					_ghostCharacter.Set(entry);
+					_ghostCharacter.Set(playbackEntry);
 					ReadPlayerInput();
 				}
 			}
@@ -641,11 +662,11 @@ public class Level : IDisposable
 		}
 		if (_playRecorder.Recording)
 		{
-			CharacterInputState input2 = _player.Protagonist.Input;
+			CharacterInputState recordedInput = _player.Protagonist.Input;
 			_playRecorder.WriteEntry(new PlayRecorder.Entry
 			{
-				Direction = new Vector2(input2.Throttle, input2.VerticalDirection),
-				Action = input2.ABC.HasFlag(CharacterInputButtonState.Down),
+				Direction = new Vector2(recordedInput.Throttle, recordedInput.VerticalDirection),
+				Action = recordedInput.ABC.HasFlag(CharacterInputButtonState.Down),
 				Position = _player.Protagonist.Position,
 				LayerIndex = Map.Layers.IndexOf(_player.Protagonist.Layer),
 				State = (int)_player.Protagonist.StateFlags,
@@ -701,8 +722,9 @@ public class Level : IDisposable
 		{
 			return;
 		}
-		LevelStateFlags levelStateFlags = LevelStateFlags.FadingIn | LevelStateFlags.FadingOut | LevelStateFlags.CompletingStage | LevelStateFlags.Restarting | LevelStateFlags.TitleCardActive | LevelStateFlags.Dead | LevelStateFlags.StageCompleted | LevelStateFlags.TimeOver | LevelStateFlags.GameOver | LevelStateFlags.TimeUp;
-		if ((StateFlags & levelStateFlags) == 0)
+		// The player cannot pause while one of these states is active.
+		LevelStateFlags blockingFlags = LevelStateFlags.FadingIn | LevelStateFlags.FadingOut | LevelStateFlags.CompletingStage | LevelStateFlags.Restarting | LevelStateFlags.TitleCardActive | LevelStateFlags.Dead | LevelStateFlags.StageCompleted | LevelStateFlags.TimeOver | LevelStateFlags.GameOver | LevelStateFlags.TimeUp;
+		if ((StateFlags & blockingFlags) == 0)
 		{
 			StateFlags |= LevelStateFlags.Paused;
 			SoundManager.PauseAll();
@@ -733,32 +755,27 @@ public class Level : IDisposable
 	{
 		if (!_gameContext.Console.IsOpen && StateFlags.HasFlag(LevelStateFlags.AllowCharacterControl))
 		{
-			Controller controller = _gameContext.Current[_player.ProtagonistGamepadIndex];
-			Controller controller2 = _gameContext.Pressed[_player.ProtagonistGamepadIndex];
-			Controller controller3 = _gameContext.Released[_player.ProtagonistGamepadIndex];
-			_player.Protagonist.Input = new CharacterInputState
-			{
-				Throttle = controller.DirectionLeft.X,
-				VerticalDirection = Math.Sign(controller.DirectionLeft.Y),
-				A = GetButtonState(controller.Action1, controller2.Action1, controller3.Action1),
-				B = GetButtonState(controller.Action2, controller2.Action2, controller3.Action2),
-				C = GetButtonState(controller.Action3, controller2.Action3, controller3.Action3)
-			};
-			controller = _gameContext.Current[_player.SidekickGamepadIndex];
-			controller2 = _gameContext.Pressed[_player.SidekickGamepadIndex];
-			controller3 = _gameContext.Released[_player.SidekickGamepadIndex];
+			_player.Protagonist.Input = ReadCharacterInput(_player.ProtagonistGamepadIndex);
 			if (_player.Sidekick != null)
 			{
-				_player.Sidekick.Input = new CharacterInputState
-				{
-					Throttle = controller.DirectionLeft.X,
-					VerticalDirection = Math.Sign(controller.DirectionLeft.Y),
-					A = GetButtonState(controller.Action1, controller2.Action1, controller3.Action1),
-					B = GetButtonState(controller.Action2, controller2.Action2, controller3.Action2),
-					C = GetButtonState(controller.Action3, controller2.Action3, controller3.Action3)
-				};
+				_player.Sidekick.Input = ReadCharacterInput(_player.SidekickGamepadIndex);
 			}
 		}
+	}
+
+	private CharacterInputState ReadCharacterInput(int gamepadIndex)
+	{
+		Controller current = _gameContext.Current[gamepadIndex];
+		Controller pressed = _gameContext.Pressed[gamepadIndex];
+		Controller released = _gameContext.Released[gamepadIndex];
+		return new CharacterInputState
+		{
+			Throttle = current.DirectionLeft.X,
+			VerticalDirection = Math.Sign(current.DirectionLeft.Y),
+			A = GetButtonState(current.Action1, pressed.Action1, released.Action1),
+			B = GetButtonState(current.Action2, pressed.Action2, released.Action2),
+			C = GetButtonState(current.Action3, pressed.Action3, released.Action3)
+		};
 	}
 
 	private static CharacterInputButtonState GetButtonState(bool down, bool pressed, bool released)
@@ -781,7 +798,7 @@ public class Level : IDisposable
 	public void Draw(Renderer renderer)
 	{
 		SonicOrca.Core.Debugging.TestHooks.DrawnLevelTick = Ticks;
-		Viewport viewport = new Viewport(new Rectangle(0.0, 0.0, 1920.0, 1080.0));
+		Viewport viewport = new Viewport(new Rectangle(0.0, 0.0, ScreenWidth, ScreenHeight));
 		viewport.Bounds = _camera.Bounds;
 		_levelRenderer.Render(renderer, viewport, _layerViewOptions);
 		_camera.Draw(renderer);
@@ -805,39 +822,6 @@ public class Level : IDisposable
 		renderer.DeativateRenderer();
 		_fadeTransitionRenderer.Opacity = (float)(0.0 - _fadeTransition.Opacity);
 		_fadeTransitionRenderer.Render();
-	}
-
-	private void DrawMusicFrequency(Renderer renderer)
-	{
-		if (_soundManager == null || _soundManager.MusicInstance == null || _soundManager.MusicInstance.LastReadBytes == null || _soundManager.MusicInstance.LastReadBytes.Count == 0)
-		{
-			return;
-		}
-		int num = Sample.PCMToSamples(_soundManager.MusicInstance.LastReadBytes.ToArray(), out var leftSamples, out var _);
-		ComplexNumber[] array = new ComplexNumber[num];
-		for (int i = 0; i < num; i++)
-		{
-			array[i] = new ComplexNumber(leftSamples[i], 0.0);
-		}
-		num = 256;
-		array = array.GetRange(0, num);
-		FastFourierTransform.TimeToFrequency((int)Math.Log(array.Length, 2.0), array);
-		int num2 = 1024 / (num / 2);
-		I2dRenderer i2dRenderer = renderer.Get2dRenderer();
-		i2dRenderer.RenderQuad(new Colour(76, 0, 0, 0), new Rectangle(0.0, 0.0, 1024.0, 1024.0));
-		for (int j = 0; j < array.Length / 2; j++)
-		{
-			ComplexNumber complexNumber = array[j];
-			double num3 = 10.0 * Math.Log10(complexNumber.Magnitude);
-			double num4 = -90.0;
-			if (num3 < num4)
-			{
-				num3 = num4;
-			}
-			num3 = num3 / num4 * 1024.0;
-			num3 = 1024.0 - num3;
-			i2dRenderer.RenderQuad(Colours.White, new Rectangle(j * num2, 1024.0 - num3, num2, num3));
-		}
 	}
 
 	private void DrawDebugThings(Renderer renderer)
@@ -878,7 +862,7 @@ public class Level : IDisposable
 
 	public void FadeOut(LevelState finishingState)
 	{
-		_soundManager.FadeOutMusic(60);
+		_soundManager.FadeOutMusic(FadeDuration);
 		_fadeTransition.BeginFadeOut();
 		StateFlags |= LevelStateFlags.FadingOut;
 		_fadeOutToState = finishingState;
@@ -915,11 +899,12 @@ public class Level : IDisposable
 
 	private void UpdateInverals()
 	{
-		foreach (Tuple<int, Action> item in _intervals.Where((Tuple<int, Action> x) => x.Item1 <= Ticks))
+		// Item1 is the tick at which the callback runs. Item2 is the callback.
+		foreach (Tuple<int, Action> interval in _intervals.Where(x => x.Item1 <= Ticks))
 		{
-			item.Item2();
+			interval.Item2();
 		}
-		_intervals.RemoveAll((Tuple<int, Action> x) => x.Item1 == Ticks);
+		_intervals.RemoveAll(x => x.Item1 == Ticks);
 	}
 
 	public void ScrollBoundsTo(Rectanglei newBounds, int speed)
@@ -934,9 +919,10 @@ public class Level : IDisposable
 		if (!_cameraLockedSeamless)
 		{
 			Vector2 maxVelocity = Camera.MaxVelocity;
-			if (maxVelocity.X < 64.0)
+			// After a seamless act change, the camera speed limit goes back up a little on each tick.
+			if (maxVelocity.X < CameraMaxVelocity)
 			{
-				maxVelocity.X = Math.Min(maxVelocity.X + 0.5, 64.0);
+				maxVelocity.X = Math.Min(maxVelocity.X + CameraVelocityRecovery, CameraMaxVelocity);
 				maxVelocity.Y = maxVelocity.X;
 				Camera.MaxVelocity = maxVelocity;
 			}
@@ -959,12 +945,11 @@ public class Level : IDisposable
 	private void SetObjectLifetimeArea()
 	{
 		_objectManager.ResetLifetimeArea();
-		int num = 1024;
 		foreach (ICharacter character in _objectManager.Characters)
 		{
-			_objectManager.AddLifeArea(new Rectanglei(character.Position.X - num, character.Position.Y - num, num * 2, num * 2));
+			_objectManager.AddLifeArea(new Rectanglei(character.Position.X - ObjectLifeRadius, character.Position.Y - ObjectLifeRadius, ObjectLifeRadius * 2, ObjectLifeRadius * 2));
 		}
-		Rectanglei area = ((Rectanglei)_camera.Bounds).Inflate(new Vector2i(num, num));
+		Rectanglei area = ((Rectanglei)_camera.Bounds).Inflate(new Vector2i(ObjectLifeRadius, ObjectLifeRadius));
 		_objectManager.AddLifeArea(area);
 	}
 
@@ -997,17 +982,17 @@ public class Level : IDisposable
 
 	private string GetRandomAnimalResourceKey()
 	{
-		string[] array = AnimalResourceKeys.ToArray();
-		if (array.Length != 0)
+		string[] keys = AnimalResourceKeys.ToArray();
+		if (keys.Length != 0)
 		{
-			return array[_random.Next(array.Length)];
+			return keys[_random.Next(keys.Length)];
 		}
 		return null;
 	}
 
 	public LevelMarker GetMarker(string name)
 	{
-		if (TryGetMarker(name, out var marker))
+		if (TryGetMarker(name, out LevelMarker marker))
 		{
 			return marker;
 		}
@@ -1032,15 +1017,15 @@ public class Level : IDisposable
 
 	public LevelMarker[] GetMarkersWithTag(string tag)
 	{
-		List<LevelMarker> list = new List<LevelMarker>();
+		List<LevelMarker> markers = new List<LevelMarker>();
 		foreach (LevelMarker marker in Map.Markers)
 		{
 			if (string.Compare(tag, marker.Tag, ignoreCase: true) == 0)
 			{
-				list.Add(marker);
+				markers.Add(marker);
 			}
 		}
-		return list.ToArray();
+		return markers.ToArray();
 	}
 
 	private void InitialiseEarthquake()
@@ -1072,8 +1057,8 @@ public class Level : IDisposable
 		{
 			if (_earthquakeSampleInstance == null)
 			{
-				SampleInfo loadedResource = _gameContext.ResourceTree.GetLoadedResource<SampleInfo>(_commonResources.GetResourcePath("earthquakesample"));
-				_earthquakeSampleInstance = new SampleInstance(_gameContext, loadedResource);
+				SampleInfo sampleInfo = _gameContext.ResourceTree.GetLoadedResource<SampleInfo>(_commonResources.GetResourcePath("earthquakesample"));
+				_earthquakeSampleInstance = new SampleInstance(_gameContext, sampleInfo);
 			}
 			if (!_earthquakeSampleInstance.Playing)
 			{
@@ -1081,11 +1066,11 @@ public class Level : IDisposable
 				_earthquakeSampleInstance.Play();
 			}
 			_earthquakeIsCurrentlyActive = true;
-			_earthquakeFade = Math.Min(_earthquakeFade + 1.0 / 90.0, 1.0);
+			_earthquakeFade = Math.Min(_earthquakeFade + EarthquakeFadeAmount, 1.0);
 		}
 		else if (_earthquakeIsCurrentlyActive && _earthquakeFade > 0.0)
 		{
-			_earthquakeFade -= 1.0 / 90.0;
+			_earthquakeFade -= EarthquakeFadeAmount;
 			if (_earthquakeFade <= 0.0)
 			{
 				_earthquakeFade = 0.0;
@@ -1098,13 +1083,14 @@ public class Level : IDisposable
 			}
 		}
 		_earthquakeSampleInstance.Volume = _earthquakeFade;
-		int num = (int)(_earthquakeFade * 16.0);
-		_camera.Shift(_random.Next(-num, num), _random.Next(-num, num));
-		double val = _earthquakeFade * 1.0;
+		// Shake the camera and vibrate the gamepad by an amount that follows the fade.
+		int shake = (int)(_earthquakeFade * EarthquakeMaxShake);
+		_camera.Shift(_random.Next(-shake, shake), _random.Next(-shake, shake));
+		double maxVibration = _earthquakeFade;
 		GameContext.Output[0] = new GamePadOutputState
 		{
-			LeftVibration = Math.Min(val, 0.5 + _random.NextDouble() * 0.5),
-			RightVibration = Math.Min(val, 0.5 + _random.NextDouble() * 0.5)
+			LeftVibration = Math.Min(maxVibration, 0.5 + _random.NextDouble() * 0.5),
+			RightVibration = Math.Min(maxVibration, 0.5 + _random.NextDouble() * 0.5)
 		};
 	}
 }

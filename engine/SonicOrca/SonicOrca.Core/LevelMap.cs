@@ -7,8 +7,14 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// The map of a level: the layers of tiles, the collision vectors and the markers.
+/// </summary>
 public class LevelMap : ILoadedResource, IDisposable
 {
+	// The width and height of a tile in pixels.
+	private const int TileSize = 64;
+
 	private readonly ILevelLayerTreeNode _layerTree = new LevelLayerGroup(null);
 
 	private readonly List<LevelLayer> _layers = new List<LevelLayer>();
@@ -16,8 +22,6 @@ public class LevelMap : ILoadedResource, IDisposable
 	private readonly List<CollisionVector> _collisionVectors = new List<CollisionVector>();
 
 	private readonly List<int> _collisionPathLayers = new List<int>();
-
-	private readonly List<ObjectPlacement> _objectPlacements = new List<ObjectPlacement>();
 
 	private readonly List<LevelMarker> _markers = new List<LevelMarker>();
 
@@ -43,7 +47,7 @@ public class LevelMap : ILoadedResource, IDisposable
 			{
 				return 0;
 			}
-			return Layers.Max((LevelLayer x) => x.Columns);
+			return Layers.Max(x => x.Columns);
 		}
 	}
 
@@ -55,11 +59,11 @@ public class LevelMap : ILoadedResource, IDisposable
 			{
 				return 0;
 			}
-			return Layers.Max((LevelLayer x) => x.Rows);
+			return Layers.Max(x => x.Rows);
 		}
 	}
 
-	public Rectanglei Bounds => new Rectanglei(0, 0, MaxColumns * 64, MaxRows * 64);
+	public Rectanglei Bounds => new Rectanglei(0, 0, MaxColumns * TileSize, MaxRows * TileSize);
 
 	public void Update()
 	{
@@ -87,6 +91,6 @@ public class LevelMap : ILoadedResource, IDisposable
 
 	public LevelLayer FindLayer(string name)
 	{
-		return _layers.FirstOrDefault((LevelLayer x) => x.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+		return _layers.FirstOrDefault(x => x.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
 	}
 }

@@ -6,8 +6,14 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// One layer of tiles in a level map. It can scroll with parallax, wrap, and have rows that scroll at their own speed.
+/// </summary>
 public class LevelLayer : ILevelLayerTreeNode
 {
+	// The width and height of a tile in pixels.
+	private const int TileSize = 64;
+
 	private readonly LevelMap _map;
 
 	private readonly List<LayerRowDefinition> _layerRowDefinitions = new List<LayerRowDefinition>();
@@ -77,19 +83,19 @@ public class LevelLayer : ILevelLayerTreeNode
 
 	public void Resize(int columns, int rows)
 	{
-		int num = Math.Min(rows, Rows);
-		int num2 = Math.Min(columns, Columns);
-		int[,] array = new int[columns, rows];
-		for (int i = 0; i < num; i++)
+		int rowsToCopy = Math.Min(rows, Rows);
+		int columnsToCopy = Math.Min(columns, Columns);
+		int[,] newTiles = new int[columns, rows];
+		for (int y = 0; y < rowsToCopy; y++)
 		{
-			for (int j = 0; j < num2; j++)
+			for (int x = 0; x < columnsToCopy; x++)
 			{
-				array[j, i] = Tiles[j, i];
+				newTiles[x, y] = Tiles[x, y];
 			}
 		}
 		Columns = columns;
 		Rows = rows;
-		Tiles = array;
+		Tiles = newTiles;
 	}
 
 	public void Update()
@@ -147,24 +153,25 @@ public class LevelLayer : ILevelLayerTreeNode
 
 	public void DrawNonLayerTiles(Renderer renderer, Viewport viewport, LayerViewOptions viewOptions)
 	{
-		int num = Math.Max(0, Columns * 64 - viewport.Bounds.X);
-		int num2 = Math.Max(0, Rows * 64 - viewport.Bounds.Y);
-		num = (int)(num * viewport.Scale.X);
-		num2 = (int)(num2 * viewport.Scale.Y);
-		List<Rectanglei> list = new List<Rectanglei>(2);
-		if (num < viewport.Destination.Width)
+		// Mark the screen areas to the right of and below the layer, in screen pixels.
+		int layerRight = Math.Max(0, Columns * TileSize - viewport.Bounds.X);
+		int layerBottom = Math.Max(0, Rows * TileSize - viewport.Bounds.Y);
+		layerRight = (int)(layerRight * viewport.Scale.X);
+		layerBottom = (int)(layerBottom * viewport.Scale.Y);
+		List<Rectanglei> areas = new List<Rectanglei>(2);
+		if (layerRight < viewport.Destination.Width)
 		{
-			Rectanglei item = new Rectanglei(num, 0, viewport.Destination.Width - num, viewport.Destination.Height);
-			list.Add(item);
+			Rectanglei rightArea = new Rectanglei(layerRight, 0, viewport.Destination.Width - layerRight, viewport.Destination.Height);
+			areas.Add(rightArea);
 		}
-		if (num2 < viewport.Destination.Height && num > 0)
+		if (layerBottom < viewport.Destination.Height && layerRight > 0)
 		{
-			Rectanglei item2 = new Rectanglei(0, num2, Math.Min(viewport.Destination.Width, num), viewport.Destination.Height - num2);
-			list.Add(item2);
+			Rectanglei bottomArea = new Rectanglei(0, layerBottom, Math.Min(viewport.Destination.Width, layerRight), viewport.Destination.Height - layerBottom);
+			areas.Add(bottomArea);
 		}
-		if (list.Count > 0)
+		if (areas.Count > 0)
 		{
-			renderer.GetNonLayerRenderer().Render(list);
+			renderer.GetNonLayerRenderer().Render(areas);
 		}
 	}
 
@@ -174,32 +181,33 @@ public class LevelLayer : ILevelLayerTreeNode
 		{
 			return;
 		}
-		bool flag = !Editing && WrapY;
-		int num = ((!Editing) ? OffsetY : 0);
-		double num2 = (Editing ? 1.0 : ParallaxY);
-		int num3 = (int)(Rows * 64 * viewport.Scale.Y);
-		int num4 = (int)(viewport.Bounds.Y * viewport.Scale.Y * num2);
-		if (!flag && num4 >= num3)
+		// Draw the layer in horizontal strips from the top of the screen down. DrawTilesHorizontal sets the strip height.
+		bool wrap = !Editing && WrapY;
+		int offsetY = (!Editing) ? OffsetY : 0;
+		double parallax = Editing ? 1.0 : ParallaxY;
+		int layerHeight = (int)(Rows * TileSize * viewport.Scale.Y);
+		int scrollY = (int)(viewport.Bounds.Y * viewport.Scale.Y * parallax);
+		if (!wrap && scrollY >= layerHeight)
 		{
 			return;
 		}
-		int num5 = num4 % num3;
-		int num6 = viewport.Destination.Y + num;
-		while (num6 < viewport.Destination.Bottom)
+		int sourceY = scrollY % layerHeight;
+		int destinationY = viewport.Destination.Y + offsetY;
+		while (destinationY < viewport.Destination.Bottom)
 		{
-			int val = num3 - num5;
-			int val2 = viewport.Destination.Bottom - num6;
-			int height = Math.Min(val, val2);
-			DrawTilesHorizontal(renderer, viewport, viewOptions, num5, num6, ref height);
+			int heightLeftInLayer = layerHeight - sourceY;
+			int heightLeftOnScreen = viewport.Destination.Bottom - destinationY;
+			int height = Math.Min(heightLeftInLayer, heightLeftOnScreen);
+			DrawTilesHorizontal(renderer, viewport, viewOptions, sourceY, destinationY, ref height);
 			if (height > 0)
 			{
-				num5 += height;
-				num6 += height;
-				if (flag)
+				sourceY += height;
+				destinationY += height;
+				if (wrap)
 				{
-					num5 %= num3;
+					sourceY %= layerHeight;
 				}
-				else if (num5 > num3)
+				else if (sourceY > layerHeight)
 				{
 					break;
 				}
@@ -211,23 +219,26 @@ public class LevelLayer : ILevelLayerTreeNode
 
 	private void DrawTilesHorizontal(Renderer renderer, Viewport viewport, LayerViewOptions viewOptions, int sourceY, int destinationY, ref int height)
 	{
-		int num = (int)(64.0 * viewport.Scale.X);
-		int num2 = Columns * num;
-		int num3 = Rows * num;
-		bool flag = !Editing && WrapX;
-		double num4 = (Editing ? 1.0 : ParallaxY);
-		int num5 = 0;
-		LayerRowDefinition rowDefinitionAt = GetRowDefinitionAt((int)(sourceY / viewport.Scale.Y), out var top);
-		if (rowDefinitionAt != null && !Editing)
+		// Note: the vertical layer size uses the horizontal scale. This is correct only when both scales are equal.
+		int scaledTileSize = (int)(64.0 * viewport.Scale.X);
+		int layerWidth = Columns * scaledTileSize;
+		int layerHeight = Rows * scaledTileSize;
+		bool wrap = !Editing && WrapX;
+		// Note: the horizontal parallax starts at ParallaxY. A row definition can replace it.
+		double parallax = Editing ? 1.0 : ParallaxY;
+		int rowOffset = 0;
+		LayerRowDefinition rowDefinition = GetRowDefinitionAt((int)(sourceY / viewport.Scale.Y), out int top);
+		if (rowDefinition != null && !Editing)
 		{
-			num4 = rowDefinitionAt.Parallax;
-			num5 = (int)rowDefinitionAt.CurrentOffset;
-			if (rowDefinitionAt.Width != 0)
+			parallax = rowDefinition.Parallax;
+			rowOffset = (int)rowDefinition.CurrentOffset;
+			if (rowDefinition.Width != 0)
 			{
-				num2 = (int)(rowDefinitionAt.Width * viewport.Scale.X);
+				layerWidth = (int)(rowDefinition.Width * viewport.Scale.X);
 			}
+			// Do not let the strip go past the end of the row definition or of the tile.
 			top = (int)(top * viewport.Scale.Y);
-			height = Math.Min(height, top + (int)(rowDefinitionAt.Height * viewport.Scale.Y) - sourceY);
+			height = Math.Min(height, top + (int)(rowDefinition.Height * viewport.Scale.Y) - sourceY);
 			height = Math.Min(height, 64 - sourceY % 64);
 			if (height <= 0)
 			{
@@ -235,52 +246,53 @@ public class LevelLayer : ILevelLayerTreeNode
 				return;
 			}
 		}
-		if (height > num)
+		if (height > scaledTileSize)
 		{
-			height = num - sourceY % num;
+			height = scaledTileSize - sourceY % scaledTileSize;
 		}
 		if (destinationY + height < viewport.Destination.Top)
 		{
 			return;
 		}
-		int i = (int)(viewport.Bounds.X * viewport.Scale.X * num4) - num5;
-		if (flag)
+		int scrollX = (int)(viewport.Bounds.X * viewport.Scale.X * parallax) - rowOffset;
+		if (wrap)
 		{
-			for (; i < 0; i += num2)
+			while (scrollX < 0)
 			{
+				scrollX += layerWidth;
 			}
 		}
-		if (!flag && i > num2)
+		if (!wrap && scrollX > layerWidth)
 		{
 			return;
 		}
-		if (flag)
+		if (wrap)
 		{
-			i %= num2;
+			scrollX %= layerWidth;
 		}
-		int num6 = i;
-		int num7 = viewport.Destination.X;
-		while (num7 < viewport.Destination.Right)
+		int sourceX = scrollX;
+		int destinationX = viewport.Destination.X;
+		while (destinationX < viewport.Destination.Right)
 		{
-			int index = 0;
-			if (num6 >= 0 && sourceY >= 0 && num6 < num2 && sourceY < num3)
+			int tileIndex = 0;
+			if (sourceX >= 0 && sourceY >= 0 && sourceX < layerWidth && sourceY < layerHeight)
 			{
-				index = Tiles[num6 / num, sourceY / num];
+				tileIndex = Tiles[sourceX / scaledTileSize, sourceY / scaledTileSize];
 			}
-			int num8 = -(num6 % num);
-			int num9 = num - num6 % num;
-			if (num9 != 0)
+			int tileOffsetX = -(sourceX % scaledTileSize);
+			int widthLeftInTile = scaledTileSize - sourceX % scaledTileSize;
+			if (widthLeftInTile != 0)
 			{
-				Rectanglei source = new Rectanglei(0, (int)(sourceY % num / viewport.Scale.Y), 64, (int)(height / viewport.Scale.Y));
-				Rectanglei destination = new Rectanglei(num7 + num8, destinationY, num, height);
-				Level.TileSet.DrawTile(renderer, index, source, destination);
-				num6 += num9;
-				num7 += num9;
-				if (flag)
+				Rectanglei source = new Rectanglei(0, (int)(sourceY % scaledTileSize / viewport.Scale.Y), TileSize, (int)(height / viewport.Scale.Y));
+				Rectanglei destination = new Rectanglei(destinationX + tileOffsetX, destinationY, scaledTileSize, height);
+				Level.TileSet.DrawTile(renderer, tileIndex, source, destination);
+				sourceX += widthLeftInTile;
+				destinationX += widthLeftInTile;
+				if (wrap)
 				{
-					num6 %= num2;
+					sourceX %= layerWidth;
 				}
-				else if (num6 > num2)
+				else if (sourceX > layerWidth)
 				{
 					break;
 				}
@@ -292,15 +304,15 @@ public class LevelLayer : ILevelLayerTreeNode
 
 	public LayerRowDefinition GetRowDefinitionAt(int y, out int top)
 	{
-		int num = 0;
+		int rowTop = 0;
 		foreach (LayerRowDefinition layerRowDefinition in _layerRowDefinitions)
 		{
-			if (y >= num && y < num + layerRowDefinition.Height)
+			if (y >= rowTop && y < rowTop + layerRowDefinition.Height)
 			{
-				top = num;
+				top = rowTop;
 				return layerRowDefinition;
 			}
-			num += layerRowDefinition.Height;
+			rowTop += layerRowDefinition.Height;
 		}
 		top = 0;
 		return null;
@@ -308,25 +320,26 @@ public class LevelLayer : ILevelLayerTreeNode
 
 	public void Merge(LevelLayer layer)
 	{
-		int num = Math.Max(Columns, layer.Columns);
-		int num2 = Math.Max(Rows, layer.Rows);
-		int[,] array = new int[num, num2];
-		for (int i = 0; i < num2; i++)
+		// The tiles of the other layer replace the tiles of this layer, except where the other tile is empty (0).
+		int columns = Math.Max(Columns, layer.Columns);
+		int rows = Math.Max(Rows, layer.Rows);
+		int[,] mergedTiles = new int[columns, rows];
+		for (int y = 0; y < rows; y++)
 		{
-			for (int j = 0; j < num; j++)
+			for (int x = 0; x < columns; x++)
 			{
-				if (Columns > j && Rows > i)
+				if (Columns > x && Rows > y)
 				{
-					array[j, i] = Tiles[j, i];
+					mergedTiles[x, y] = Tiles[x, y];
 				}
-				if (layer.Columns > j && layer.Rows > i && layer.Tiles[j, i] != 0)
+				if (layer.Columns > x && layer.Rows > y && layer.Tiles[x, y] != 0)
 				{
-					array[j, i] = layer.Tiles[j, i];
+					mergedTiles[x, y] = layer.Tiles[x, y];
 				}
 			}
 		}
-		Columns = num;
-		Rows = num2;
-		Tiles = array;
+		Columns = columns;
+		Rows = rows;
+		Tiles = mergedTiles;
 	}
 }

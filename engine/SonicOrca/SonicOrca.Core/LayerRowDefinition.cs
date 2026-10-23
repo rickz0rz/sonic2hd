@@ -1,5 +1,8 @@
 namespace SonicOrca.Core;
 
+/// <summary>
+/// The scroll settings of one row in a level layer, for example for parallax.
+/// </summary>
 public class LayerRowDefinition
 {
 	public int Width { get; set; }

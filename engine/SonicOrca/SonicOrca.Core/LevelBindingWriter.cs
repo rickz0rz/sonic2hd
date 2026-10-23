@@ -6,6 +6,9 @@ using System.Xml;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// Writes a level binding file from the object placements of a level binding.
+/// </summary>
 public class LevelBindingWriter
 {
 	private readonly LevelBinding _binding;
@@ -24,12 +27,13 @@ public class LevelBindingWriter
 		using XmlWriter xmlWriter = XmlWriter.Create(path, settings);
 		xmlWriter.WriteStartDocument();
 		xmlWriter.WriteStartElement("Binding");
-		int key = (from x in _binding.ObjectPlacements
-				   group x by x.Layer into x
-				   orderby x.Count() descending
-				   select x).First().Key;
+		// The default layer is the layer with the most objects. A placement on that layer does not write its layer.
+		int defaultLayer = (from x in _binding.ObjectPlacements
+							group x by x.Layer into layerGroup
+							orderby layerGroup.Count() descending
+							select layerGroup).First().Key;
 		xmlWriter.WriteStartElement("Definitions");
-		xmlWriter.WriteAttributeString("DefaultLayer", key.ToString());
+		xmlWriter.WriteAttributeString("DefaultLayer", defaultLayer.ToString());
 		foreach (ObjectPlacement objectPlacement in _binding.ObjectPlacements)
 		{
 			xmlWriter.WriteStartElement("Definition");
@@ -43,7 +47,7 @@ public class LevelBindingWriter
 			xmlWriter.WriteStartElement("Name");
 			xmlWriter.WriteString(objectPlacement.Name.ToString());
 			xmlWriter.WriteEndElement();
-			if (objectPlacement.Layer != key)
+			if (objectPlacement.Layer != defaultLayer)
 			{
 				xmlWriter.WriteStartElement("Layer");
 				xmlWriter.WriteString(objectPlacement.Layer.ToString());
@@ -75,16 +79,16 @@ public class LevelBindingWriter
 
 	private void WriteObjectBehaviour(XmlWriter writer, IEnumerable<KeyValuePair<string, object>> behaviour)
 	{
-		foreach (KeyValuePair<string, object> item in behaviour)
+		foreach (KeyValuePair<string, object> behaviourValue in behaviour)
 		{
-			writer.WriteStartElement(item.Key);
-			if (item.Value is IEnumerable<KeyValuePair<string, object>>)
+			writer.WriteStartElement(behaviourValue.Key);
+			if (behaviourValue.Value is IEnumerable<KeyValuePair<string, object>> childValues)
 			{
-				WriteObjectBehaviour(writer, (IEnumerable<KeyValuePair<string, object>>)item.Value);
+				WriteObjectBehaviour(writer, childValues);
 			}
 			else
 			{
-				writer.WriteString(Convert.ToString(item.Value, CultureInfo.InvariantCulture));
+				writer.WriteString(Convert.ToString(behaviourValue.Value, CultureInfo.InvariantCulture));
 			}
 			writer.WriteEndElement();
 		}
@@ -93,14 +97,14 @@ public class LevelBindingWriter
 	public void ConvertObjectEntriesToPlacements()
 	{
 		_binding.ObjectPlacements.Clear();
-		foreach (ObjectEntry item2 in _binding.Level.ObjectManager.ObjectEntryTable)
+		foreach (ObjectEntry entry in _binding.Level.ObjectManager.ObjectEntryTable)
 		{
-			ObjectPlacement objectPlacement = new ObjectPlacement(item2.Type.ResourceKey, item2.Uid, item2.Name, item2.Layer, item2.Position, item2.State);
-			foreach (ObjectMapping mapping in item2.Mappings)
+			ObjectPlacement objectPlacement = new ObjectPlacement(entry.Type.ResourceKey, entry.Uid, entry.Name, entry.Layer, entry.Position, entry.State);
+			foreach (ObjectMapping mapping in entry.Mappings)
 			{
-				List<KeyValuePair<string, object>> obj = objectPlacement.Mappings as List<KeyValuePair<string, object>>;
-				KeyValuePair<string, object> item = new KeyValuePair<string, object>(mapping.Field, mapping.Target);
-				obj.Add(item);
+				List<KeyValuePair<string, object>> mappings = objectPlacement.Mappings as List<KeyValuePair<string, object>>;
+				KeyValuePair<string, object> mappingValue = new KeyValuePair<string, object>(mapping.Field, mapping.Target);
+				mappings.Add(mappingValue);
 			}
 			_binding.ObjectPlacements.Add(objectPlacement);
 		}

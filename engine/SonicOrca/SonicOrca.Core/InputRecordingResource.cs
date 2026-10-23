@@ -4,6 +4,9 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// The raw data of a recording of player input.
+/// </summary>
 public class InputRecordingResource : ILoadedResource, IDisposable
 {
 	public byte[] Data { get; }

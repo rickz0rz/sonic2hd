@@ -1,5 +1,8 @@
 namespace SonicOrca.Core;
 
+/// <summary>
+/// The settings that control what a level layer draws.
+/// </summary>
 public class LayerViewOptions
 {
 	public bool ShowLandscape { get; set; }

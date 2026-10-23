@@ -2,6 +2,9 @@ using System.Collections.Generic;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// A node in the tree of level layers and layer groups.
+/// </summary>
 public interface ILevelLayerTreeNode
 {
 	string Name { get; set; }
