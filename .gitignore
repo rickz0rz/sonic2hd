@@ -9,3 +9,6 @@ publish/
 # Game files copied into the checkout (see README)
 /data/
 /credits.film
+
+# Golden screenshots for the regression test (made from the game files, so not committed)
+/tests/golden/

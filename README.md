@@ -13,6 +13,7 @@ non-profit fan project, not affiliated with SEGA or Sonic Team.
 | `engine/` | Decompiled SonicOrca engine projects |
 | `assets/` | Shaders (patched for core-profile OpenGL) and the app icon |
 | `lib/` | `SDL2-CS.dll`; FFmpeg for Windows is downloaded into `lib/ffmpeg` |
+| `tests/` | Tests: the resource file format and a screenshot regression test |
 | `tools/` | Release scripts |
 
 ## Game files
@@ -100,3 +101,32 @@ vsync=1
 Set the environment variable `S2HD_PROFILE=1` before launching. The game then logs a frame-time summary every
 300 frames (update, CPU draw, GPU wait, swap and pacing wait), notes shader compiles and slow texture uploads, and
 writes one row per frame to `profile.csv` next to the log.
+
+## Tests
+
+```sh
+dotnet test --project tests/S2HD.Tests --filter-not-trait "Category=Regression"   # fast tests
+dotnet test --project tests/S2HD.Tests                                             # all tests
+```
+
+The resource file tests make their own small files. The game data tests read the real `sonicorca.dat` and are
+skipped when the game files are not found. Set `S2HD_GAME_DIR` if they are not in the default location.
+
+The regression test plays the Emerald Hill attract demo in the release build. It saves screenshots at fixed level
+ticks and compares them with golden screenshots. The golden screenshots come from the game files, so Git ignores
+them (`tests/golden/`). Record them once from a known-good build:
+
+1. Build the game for your platform, as the sections above describe.
+2. Run `S2HD_RECORD_GOLDEN=1 dotnet test --project tests/S2HD.Tests --filter-trait "Category=Regression"`.
+
+After a change, build the game again and run the tests. The test copies screenshots that do not match to
+`tests/golden/actual`. Set `S2HD_EXE` to test a build in a different location.
+
+The test uses these environment variables, which you can also set by hand:
+
+| Variable | Effect |
+|---|---|
+| `S2HD_USER_DATA_DIR` | Uses this folder for the log, settings and screenshots |
+| `S2HD_RANDOM_SEED` | Seeds the random number generators of the level and the particles |
+| `S2HD_CAPTURE_LEVEL_TICKS` | Saves a screenshot at these level ticks, for example `60,600` |
+| `S2HD_EXIT_AFTER_CAPTURES` | With `1`, quits after the last screenshot |
