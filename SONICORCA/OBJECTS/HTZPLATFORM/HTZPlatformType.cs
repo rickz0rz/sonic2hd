@@ -12,6 +12,7 @@ using SonicOrca.Geometry;
 #nullable disable
 namespace SONICORCA.OBJECTS.HTZPLATFORM;
 
+/// <summary>The object type of the floating platform from Hill Top Zone.</summary>
 [SonicOrca.Core.Objects.Metadata.Name("Floating platform")]
 [Description("Floating platform from Hill Top Zone, Sonic 2")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Platform)]
@@ -23,10 +24,6 @@ public class HTZPlatformType : ObjectType
 
 	public Vector2 GetLifeRadius(Platform state)
 	{
-		Vector2 movementRadius = state.MovementRadius;
-		double x = movementRadius.X;
-		movementRadius = state.MovementRadius;
-		double y = movementRadius.Y;
-		return new Vector2(x, y);
+		return state.MovementRadius;
 	}
 }

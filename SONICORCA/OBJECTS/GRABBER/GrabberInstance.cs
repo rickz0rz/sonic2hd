@@ -17,6 +17,11 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.GRABBER;
 
+/// <summary>
+/// The Grabber spider badnik from Chemical Plant Zone. It patrols left and right. When a character is below it, it
+/// goes down on a thread to grab the character. A grabbed character that does not escape gets hurt when the Grabber
+/// explodes.
+/// </summary>
 public class GrabberInstance : Badnik
 {
 	private const int AnimationBodyStationary = 0;
@@ -34,6 +39,34 @@ public class GrabberInstance : Badnik
 	private const int AnimationWheels = 12;
 	private const int AnimationThread = 13;
 	private const int AnimationBodyExplode = 14;
+
+	private const int CollisionIdBody = 0;
+	private const int CollisionIdClaws = 1;
+
+	private const int MoveSpeed = 1;
+	private const int LowerSpeed = 8;
+
+	/// <summary>The maximum distance that the Grabber goes down on its thread.</summary>
+	private const int MaximumLowerDistance = 264;
+
+	/// <summary>The number of ticks that the Grabber moves in one direction before it turns.</summary>
+	private const int PatrolTicks = 255;
+
+	/// <summary>The number of ticks between the detection of a character and the start of the descent.</summary>
+	private const int DetectDelayTicks = 16;
+
+	/// <summary>The number of ticks that the Grabber waits after a grab before it goes up.</summary>
+	private const int GrabHoldTicks = 20;
+
+	/// <summary>The number of ticks that the Grabber holds a character at the top before it explodes.</summary>
+	private const int ExplodeDelayTicks = 130;
+
+	/// <summary>The number of ticks after an escape before the Grabber can grab again.</summary>
+	private const int RegrabDelayTicks = 30;
+
+	/// <summary>The number of changes of horizontal input that a character needs to escape.</summary>
+	private const int EscapeInputChanges = 8;
+
 	private AnimationGroup _animationGroup;
 	private AnimationInstance _animationBody;
 	private AnimationInstance _animationLegs;
@@ -41,14 +74,11 @@ public class GrabberInstance : Badnik
 	private AnimationInstance _animationThread;
 	private AnimationInstance _animationBodyExplode;
 	private bool _showLegs;
-	private GrabberInstance.Legs _legsSubObject;
 	private float _explodeOpacity;
 	private float _explodeOpacityAngle;
 	private float _explodeOpacityAngleVelocity;
-	private const int MoveSpeed = 1;
-	private const int LowerSpeed = 8;
-	private readonly Vector2i CharacterGrabOffset = new Vector2i(-8, 64 /*0x40*/);
-	private GrabberInstance.StatusType _status;
+	private readonly Vector2i CharacterGrabOffset = new Vector2i(-8, 64);
+	private StatusType _status;
 	private int _direction;
 	private int _patrolTicks;
 	private int _ticksRemaining;
@@ -65,11 +95,11 @@ public class GrabberInstance : Badnik
 
 	public GrabberInstance()
 	{
-		DesignBounds = new Rectanglei(sbyte.MinValue, sbyte.MinValue, 256 /*0x0100*/, 256 /*0x0100*/);
+		DesignBounds = new Rectanglei(-128, -128, 256, 256);
 		CollisionRectangles = new CollisionRectangle[2]
 		{
-	  new CollisionRectangle( this, 0, -16, -16, 32 /*0x20*/, 32 /*0x20*/),
-	  new CollisionRectangle( this, 1, CharacterGrabOffset.X - 16 /*0x10*/, CharacterGrabOffset.Y - 8, 32 /*0x20*/, 32 /*0x20*/)
+			new CollisionRectangle(this, CollisionIdBody, -16, -16, 32, 32),
+			new CollisionRectangle(this, CollisionIdClaws, CharacterGrabOffset.X - 16, CharacterGrabOffset.Y - 8, 32, 32)
 		};
 	}
 
@@ -83,15 +113,15 @@ public class GrabberInstance : Badnik
 		_lastEscapeProtagonistInput = 0;
 		_grabEscapeSidekickCounter = 0;
 		_lastEscapeSidekickInput = 0;
-		_patrolTicks = byte.MaxValue;
+		_patrolTicks = PatrolTicks;
 		_direction = -1;
 		_animationGroup = ResourceTree.GetLoadedResource<AnimationGroup>(Type.GetAbsolutePath("/ANIGROUP"));
 		_animationBody = new AnimationInstance(_animationGroup);
-		_animationLegs = new AnimationInstance(_animationGroup, 7);
-		_animationWheels = new AnimationInstance(_animationGroup, 12);
-		_animationThread = new AnimationInstance(_animationGroup, 13);
-		_animationBodyExplode = new AnimationInstance(_animationGroup, 14);
-		_legsSubObject = Level.ObjectManager.AddSubObject<GrabberInstance.Legs>(this);
+		_animationLegs = new AnimationInstance(_animationGroup, AnimationLegsStationary);
+		_animationWheels = new AnimationInstance(_animationGroup, AnimationWheels);
+		_animationThread = new AnimationInstance(_animationGroup, AnimationThread);
+		_animationBodyExplode = new AnimationInstance(_animationGroup, AnimationBodyExplode);
+		Level.ObjectManager.AddSubObject<Legs>(this);
 	}
 
 	protected override void OnStop()
@@ -105,41 +135,11 @@ public class GrabberInstance : Badnik
 		base.OnUpdate();
 		if (_grabbedCharacter != null)
 		{
-			if (_grabbedCharacter == Level.Player.Protagonist)
-			{
-				if (Level.Player.Protagonist.Input.HorizontalDirection != _lastEscapeProtagonistInput)
-				{
-					_lastEscapeProtagonistInput = Level.Player.Protagonist.Input.HorizontalDirection;
-					++_grabEscapeProtagonistCounter;
-				}
-				if (_grabEscapeProtagonistCounter >= 8)
-					ReleaseCharacter();
-			}
-			if (Level.Player.Sidekick != null && _grabbedCharacter == Level.Player.Sidekick)
-			{
-				if (Level.Player.Sidekick.Input.HorizontalDirection != _lastEscapeSidekickInput)
-				{
-					_lastEscapeSidekickInput = Level.Player.Sidekick.Input.HorizontalDirection;
-					++_grabEscapeSidekickCounter;
-				}
-				if (_lastEscapeSidekickInput >= 8)
-					ReleaseCharacter();
-			}
-			if (_grabbedCharacter == null)
-			{
-				_lastEscapeSidekickInput = 0;
-				_lastEscapeProtagonistInput = 0;
-				_grabEscapeProtagonistCounter = 0;
-				_lastEscapeSidekickInput = 0;
-				_status = GrabberInstance.StatusType.Raising;
-				_regrabTicksCounter = 0;
-				_playerEscaped = true;
-				_canGrabAgain = false;
-			}
+			UpdateEscape();
 		}
 		if (_playerEscaped)
 		{
-			if (_regrabTicksCounter <= 30)
+			if (_regrabTicksCounter <= RegrabDelayTicks)
 			{
 				++_regrabTicksCounter;
 			}
@@ -154,7 +154,7 @@ public class GrabberInstance : Badnik
 			if (_grabbedCharacter.ObjectLink != this || _grabbedCharacter.IsDebug)
 			{
 				ReleaseCharacter();
-				_status = GrabberInstance.StatusType.Raising;
+				_status = StatusType.Raising;
 			}
 			else
 			{
@@ -162,43 +162,89 @@ public class GrabberInstance : Badnik
 				_grabbedCharacter.Facing = _direction * -1;
 			}
 		}
+		UpdateStatus();
+	}
+
+	/// <summary>
+	/// Counts the changes of horizontal input of the grabbed character, and releases the character when it has
+	/// enough of them.
+	/// </summary>
+	private void UpdateEscape()
+	{
+		if (_grabbedCharacter == Level.Player.Protagonist)
+		{
+			if (Level.Player.Protagonist.Input.HorizontalDirection != _lastEscapeProtagonistInput)
+			{
+				_lastEscapeProtagonistInput = Level.Player.Protagonist.Input.HorizontalDirection;
+				++_grabEscapeProtagonistCounter;
+			}
+			if (_grabEscapeProtagonistCounter >= EscapeInputChanges)
+				ReleaseCharacter();
+		}
+		if (Level.Player.Sidekick != null && _grabbedCharacter == Level.Player.Sidekick)
+		{
+			if (Level.Player.Sidekick.Input.HorizontalDirection != _lastEscapeSidekickInput)
+			{
+				_lastEscapeSidekickInput = Level.Player.Sidekick.Input.HorizontalDirection;
+				++_grabEscapeSidekickCounter;
+			}
+			// The original code compares the last input, not the counter, so the sidekick cannot escape this way.
+			if (_lastEscapeSidekickInput >= EscapeInputChanges)
+				ReleaseCharacter();
+		}
+		if (_grabbedCharacter == null)
+		{
+			// The original code resets _lastEscapeSidekickInput two times and never resets _grabEscapeSidekickCounter.
+			_lastEscapeSidekickInput = 0;
+			_lastEscapeProtagonistInput = 0;
+			_grabEscapeProtagonistCounter = 0;
+			_lastEscapeSidekickInput = 0;
+			_status = StatusType.Raising;
+			_regrabTicksCounter = 0;
+			_playerEscaped = true;
+			_canGrabAgain = false;
+		}
+	}
+
+	private void UpdateStatus()
+	{
 		switch (_status)
 		{
-			case GrabberInstance.StatusType.Patroling:
+			case StatusType.Patroling:
 				if (DetectPlayer())
 				{
-					_status = GrabberInstance.StatusType.Detected;
-					_ticksRemaining = 16 /*0x10*/;
+					_status = StatusType.Detected;
+					_ticksRemaining = DetectDelayTicks;
 					break;
 				}
 				if (_patrolTicks == 0)
 				{
 					_direction *= -1;
-					_patrolTicks = byte.MaxValue;
+					_patrolTicks = PatrolTicks;
 				}
 				else
 					--_patrolTicks;
-				Move(_direction, 0);
+				Move(_direction * MoveSpeed, 0);
 				break;
-			case GrabberInstance.StatusType.Detected:
+			case StatusType.Detected:
 				--_ticksRemaining;
 				if (_ticksRemaining > 0)
 					break;
-				_status = GrabberInstance.StatusType.Lowering;
+				_status = StatusType.Lowering;
 				break;
-			case GrabberInstance.StatusType.Lowering:
-				if (_lowerY < 264 && _grabbedCharacter == null)
+			case StatusType.Lowering:
+				if (_lowerY < MaximumLowerDistance && _grabbedCharacter == null)
 				{
-					Move(0, Math.Min(8, 264 - _lowerY));
-					_lowerY += 8;
+					Move(0, Math.Min(LowerSpeed, MaximumLowerDistance - _lowerY));
+					_lowerY += LowerSpeed;
 					break;
 				}
-				_status = GrabberInstance.StatusType.Raising;
+				_status = StatusType.Raising;
 				if (_grabbedCharacter == null)
 					break;
-				_ticksRemaining = 20;
+				_ticksRemaining = GrabHoldTicks;
 				break;
-			case GrabberInstance.StatusType.Raising:
+			case StatusType.Raising:
 				if (_ticksRemaining > 0)
 				{
 					--_ticksRemaining;
@@ -206,20 +252,20 @@ public class GrabberInstance : Badnik
 				}
 				if (_lowerY > 0)
 				{
-					Move(0, -Math.Min(8, _lowerY));
-					_lowerY -= 8;
+					Move(0, -Math.Min(LowerSpeed, _lowerY));
+					_lowerY -= LowerSpeed;
 					break;
 				}
 				if (_grabbedCharacter != null)
 				{
-					_status = GrabberInstance.StatusType.Exploding;
-					_ticksRemaining = 130;
+					_status = StatusType.Exploding;
+					_ticksRemaining = ExplodeDelayTicks;
 					break;
 				}
-				_status = GrabberInstance.StatusType.Patroling;
+				_status = StatusType.Patroling;
 				_ticksRemaining = 0;
 				break;
-			case GrabberInstance.StatusType.Exploding:
+			case StatusType.Exploding:
 				--_ticksRemaining;
 				if (_ticksRemaining != 0)
 					break;
@@ -230,16 +276,17 @@ public class GrabberInstance : Badnik
 					CreateExplosionObject();
 					FinishForever();
 				}
-				_status = GrabberInstance.StatusType.Patroling;
+				_status = StatusType.Patroling;
 				break;
 		}
 	}
 
+	/// <summary>Returns true when a character is below the Grabber, near its horizontal position.</summary>
 	private bool DetectPlayer()
 	{
 		foreach (ICharacter character in Level.ObjectManager.Characters)
 		{
-			if (character.ShouldReactToLevel && character.Position.Y - Position.Y >= 0.0 && Math.Abs(character.Position.X - Position.X) < (double)(CollisionRectangles[1].Bounds.Width / 4))
+			if (character.ShouldReactToLevel && character.Position.Y - Position.Y >= 0.0 && Math.Abs(character.Position.X - Position.X) < (double)(CollisionRectangles[CollisionIdClaws].Bounds.Width / 4))
 				return true;
 		}
 		return false;
@@ -282,19 +329,19 @@ public class GrabberInstance : Badnik
 	{
 		if (e.ActiveObject.Type.Classification != ObjectClassification.Character)
 			return;
-		ICharacter activeObject = (ICharacter)e.ActiveObject;
-		if (e.Id == 0)
+		ICharacter character = (ICharacter)e.ActiveObject;
+		if (e.Id == CollisionIdBody)
 		{
-			if (!activeObject.IsDeadly)
+			if (!character.IsDeadly)
 				return;
 			ReleaseCharacter();
-			Destroy(activeObject);
+			Destroy(character);
 		}
 		else
 		{
-			if (_grabbedCharacter != null || _status == GrabberInstance.StatusType.Patroling || !_canGrabAgain || activeObject.IsAirborne)
+			if (_grabbedCharacter != null || _status == StatusType.Patroling || !_canGrabAgain || character.IsAirborne)
 				return;
-			GrabCharacter(activeObject);
+			GrabCharacter(character);
 			e.MaintainVelocity = true;
 		}
 	}
@@ -311,41 +358,43 @@ public class GrabberInstance : Badnik
 		{
 			switch (_status)
 			{
-				case GrabberInstance.StatusType.Patroling:
-					if (_patrolTicks < _animationGroup[2].Duration)
+				case StatusType.Patroling:
+					if (_patrolTicks < _animationGroup[AnimationBodyTurnBegin].Duration)
 					{
-						_animationBody.Index = 2;
+						_animationBody.Index = AnimationBodyTurnBegin;
 						break;
 					}
-					if (_patrolTicks == byte.MaxValue)
+					if (_patrolTicks == PatrolTicks)
 					{
-						_animationBody.Index = 3;
+						_animationBody.Index = AnimationBodyTurnEnd;
 						break;
 					}
+					// Sometimes wiggle at one third and two thirds of the patrol.
 					if ((_patrolTicks == 84 || _patrolTicks == 168) && Level.Random.Next(0, 2) == 0)
 					{
-						_animationBody.Index = 1;
+						_animationBody.Index = AnimationBodyStationaryWiggle;
 						break;
 					}
 					break;
-				case GrabberInstance.StatusType.Lowering:
-					_animationBody.Index = 4;
+				case StatusType.Lowering:
+					_animationBody.Index = AnimationBodyOpen;
 					break;
-				case GrabberInstance.StatusType.Raising:
-					if (_animationBody.Index == 4)
+				case StatusType.Raising:
+					if (_animationBody.Index == AnimationBodyOpen)
 					{
-						_animationBody.Index = 5;
+						_animationBody.Index = AnimationBodyClose;
 						break;
 					}
 					break;
-				case GrabberInstance.StatusType.Exploding:
+				case StatusType.Exploding:
+					// The body flashes faster and faster until it explodes.
 					_explodeOpacityAngleVelocity = (float)MathX.Clamp(Math.PI / 30.0, _explodeOpacityAngleVelocity + Math.PI / 600.0, Math.PI / 4.0);
 					_explodeOpacityAngle += _explodeOpacityAngleVelocity;
 					_explodeOpacity = (float)MathX.Clamp(0.0, (1.0 - Math.Cos(_explodeOpacityAngle)) / 2.0, 1.0);
 					break;
 			}
 			if (_grabbedCharacter != null)
-				_animationBody.Index = 6;
+				_animationBody.Index = AnimationBodyHold;
 			_animationBody.Animate();
 			_animationLegs.Animate();
 			if (Math.Abs(PositionPrecise.Y - LastPositionPrecise.Y) > 0.0)
@@ -353,25 +402,26 @@ public class GrabberInstance : Badnik
 			_animationThread.Animate();
 			switch (_animationBody.Index)
 			{
-				case 1:
-				case 2:
-				case 3:
+				case AnimationBodyStationaryWiggle:
+				case AnimationBodyTurnBegin:
+				case AnimationBodyTurnEnd:
 					_showLegs = false;
 					break;
-				case 4:
-					_animationLegs.Index = 8;
+				case AnimationBodyOpen:
+					_animationLegs.Index = AnimationLegsOpen;
 					_showLegs = true;
 					break;
-				case 6:
-					_animationLegs.Index = _grabbedCharacter == null || !_grabbedCharacter.Entry.Name.Contains("Tails") ? 11 : 10;
+				case AnimationBodyHold:
+					_animationLegs.Index = _grabbedCharacter == null || !_grabbedCharacter.Entry.Name.Contains("Tails") ? AnimationLegsHoldWiggle : AnimationLegsHold;
 					_showLegs = true;
 					break;
-				case 9:
-					_animationLegs.Index = 9;
+				// The body index is never 9, so this case never runs. AnimationBodyClose (5) was possibly intended.
+				case AnimationLegsClose:
+					_animationLegs.Index = AnimationLegsClose;
 					_showLegs = true;
 					break;
 				default:
-					_animationLegs.Index = 7;
+					_animationLegs.Index = AnimationLegsStationary;
 					_showLegs = true;
 					break;
 			}
@@ -381,10 +431,10 @@ public class GrabberInstance : Badnik
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 	{
 		IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
-		bool flag = _direction < 0;
+		bool flipX = _direction < 0;
 		using (objectRenderer.BeginMatixState())
 		{
-			if (flag)
+			if (flipX)
 				objectRenderer.ModelMatrix *= Matrix4.CreateScale(-1.0, 1.0);
 			objectRenderer.Render(_animationBody);
 			if (_explodeOpacity > 0.0)
@@ -397,8 +447,9 @@ public class GrabberInstance : Badnik
 				objectRenderer.Render(_animationLegs);
 			if (_lowerY > 0)
 			{
+				// Stretch the thread texture from the body down to the current descent.
 				Rectanglei source = _animationThread.CurrentFrame.Source;
-				objectRenderer.Render((Rectangle)source, new Rectangle(-source.Width / 2 - 6, -_lowerY - 64 /*0x40*/, source.Width, _lowerY));
+				objectRenderer.Render((Rectangle)source, new Rectangle(-source.Width / 2 - 6, -_lowerY - 64, source.Width, _lowerY));
 			}
 			objectRenderer.Render(_animationWheels);
 		}
@@ -413,6 +464,7 @@ public class GrabberInstance : Badnik
 		Exploding,
 	}
 
+	/// <summary>A sub-object that draws the legs of the Grabber again, with a different draw priority.</summary>
 	private class Legs : ActiveObject
 	{
 		public GrabberInstance Parent => ParentObject as GrabberInstance;
@@ -437,10 +489,10 @@ public class GrabberInstance : Badnik
 			if (!parent._showLegs)
 				return;
 			IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
-			bool flag = parent._direction < 0;
+			bool flipX = parent._direction < 0;
 			using (objectRenderer.BeginMatixState())
 			{
-				if (flag)
+				if (flipX)
 					objectRenderer.ModelMatrix *= Matrix4.CreateScale(-1.0, 1.0);
 				objectRenderer.Render(parent._animationLegs);
 			}

@@ -11,6 +11,7 @@ using SonicOrca.Geometry;
 #nullable disable
 namespace SONICORCA.OBJECTS.LAVA;
 
+/// <summary>The object type of the lava area that hurts characters.</summary>
 [SonicOrca.Core.Objects.Metadata.Name("Lava")]
 [Description("Lava from Sonic 2")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Obstacle)]
@@ -22,6 +23,6 @@ public class LavaType : ObjectType
 
 	public Vector2 GetLifeRadius(LavaInstance state)
 	{
-		return (Vector2)(new Vector2i(state.Width, state.Height) / 2 * 64 /*0x40*/);
+		return (Vector2)(new Vector2i(state.Width, state.Height) / 2 * 64);
 	}
 }

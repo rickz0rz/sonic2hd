@@ -14,15 +14,24 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.FORCESPINBALL;
 
+/// <summary>
+/// An invisible vertical marker. When a character crosses it, the marker turns the forced spinball state of the
+/// character on or off, as set by the direction.
+/// </summary>
 public class ForceSpinballInstance : ActiveObject
 {
+	/// <summary>The half size of the square area in which the marker has an effect.</summary>
+	private const int Radius = 64;
+
+	/// <summary>The last side (-1 is left, 1 is right) of the marker that each character was on.</summary>
 	private readonly Dictionary<ICharacter, int> _characterTrace = new Dictionary<ICharacter, int>();
+
+	/// <summary>
+	/// 1: a character that crosses to the right is forced into a spinball, and a character that crosses to the left
+	/// is released. 3: the opposite. 0 and 2: the marker has no effect.
+	/// </summary>
 	[StateVariable]
 	private int _direction = 1;
-
-	protected override void OnStart()
-	{
-	}
 
 	protected override void OnUpdate()
 	{
@@ -34,28 +43,13 @@ public class ForceSpinballInstance : ActiveObject
 	{
 		if (character.IsDebug || _direction == 0 || _direction == 2)
 			return;
-		Vector2i position = character.Position;
-		int x1 = position.X;
-		position = Position;
-		int x2 = position.X;
-		int num1 = x1 < x2 ? -1 : 1;
-		if (_characterTrace.ContainsKey(character) && _characterTrace[character] != num1)
+		int side = character.Position.X < Position.X ? -1 : 1;
+		if (_characterTrace.ContainsKey(character) && _characterTrace[character] != side)
 		{
-			position = character.Position;
-			int y1 = position.Y;
-			position = Position;
-			int num2 = position.Y - 64 /*0x40*/;
-			if (y1 >= num2)
-			{
-				position = character.Position;
-				int y2 = position.Y;
-				position = Position;
-				int num3 = position.Y + 64 /*0x40*/;
-				if (y2 < num3)
-					character.ForceSpinball = num1 != -1 ? _direction == 1 : _direction == 3;
-			}
+			if (character.Position.Y >= Position.Y - Radius && character.Position.Y < Position.Y + Radius)
+				character.ForceSpinball = side != -1 ? _direction == 1 : _direction == 3;
 		}
-		_characterTrace[character] = num1;
+		_characterTrace[character] = side;
 	}
 
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)

@@ -11,6 +11,7 @@ using SonicOrca.Extensions;
 #nullable disable
 namespace SONICORCA.OBJECTS.EXPLOSION.BADNIK;
 
+/// <summary>The explosion that a destroyed badnik makes. It plays its animation and sound one time.</summary>
 public class BadnikExplosionInstance : ParticleObject
 {
 	public BadnikExplosionInstance()

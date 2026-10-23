@@ -14,8 +14,24 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.EHZTWISTEDPATHWAY;
 
+/// <summary>
+/// The twisted pathway (corkscrew) from Emerald Hill Zone. A fast character that runs into it follows a cosine curve
+/// and tumbles until the character leaves the other end or becomes too slow.
+/// </summary>
 public class EHZTwistedPathwayInstance : ActiveObject
 {
+	/// <summary>The minimum ground speed that a character must have to stay on the pathway.</summary>
+	private const double MinimumGroundSpeed = 20.0;
+
+	/// <summary>The distance past each end of the pathway at which a linked character is released.</summary>
+	private const int ExitMargin = 44;
+
+	/// <summary>The vertical distance from the bottom of the pathway in which a character can engage.</summary>
+	private const int EntryMargin = 32;
+
+	/// <summary>Tumble angles nearer to 0 than this value keep the previous tumble angle.</summary>
+	private const double TumbleAngleDeadZone = 3.0 / 128.0;
+
 	private Vector2i _radius = new Vector2i(832, 200);
 	private double _previousTumbleAngle;
 
@@ -29,14 +45,15 @@ public class EHZTwistedPathwayInstance : ActiveObject
 		foreach (ICharacter character in Level.ObjectManager.Characters)
 		{
 			if (character.ObjectLink == this)
-				DisengadgeCharacter(character);
+				DisengageCharacter(character);
 		}
 	}
 
 	protected override void OnUpdate()
 	{
-		_radius.X = 768 /*0x0300*/;
-		_radius.Y = 192 /*0xC0*/;
+		// The design bounds use a larger radius than the radius that the game logic uses.
+		_radius.X = 768;
+		_radius.Y = 192;
 		foreach (ICharacter character in Level.ObjectManager.Characters)
 			UpdateCharacter(character);
 	}
@@ -47,117 +64,66 @@ public class EHZTwistedPathwayInstance : ActiveObject
 		{
 			character.CheckLandscapeCollision = false;
 			character.IsAirborne = false;
-			if (Math.Abs(character.GroundVelocity) < 20.0)
-				DisengadgeCharacter(character);
+			if (Math.Abs(character.GroundVelocity) < MinimumGroundSpeed)
+			{
+				DisengageCharacter(character);
+			}
 			else if (character.IsAirborne || character.IsDebug)
 			{
-				DisengadgeCharacter(character);
+				DisengageCharacter(character);
+			}
+			else if (character.Position.X + character.CollisionRadius.X >= Position.X - _radius.X - ExitMargin &&
+				character.Position.X - character.CollisionRadius.X < Position.X + _radius.X + ExitMargin)
+			{
+				UpdateTumble(character);
 			}
 			else
 			{
-				Vector2i vector2i = character.Position;
-				int x1 = vector2i.X;
-				vector2i = character.CollisionRadius;
-				int x2 = vector2i.X;
-				int num1 = x1 + x2;
-				vector2i = Position;
-				int num2 = vector2i.X - _radius.X - 44;
-				if (num1 >= num2)
-				{
-					vector2i = character.Position;
-					int x3 = vector2i.X;
-					vector2i = character.CollisionRadius;
-					int x4 = vector2i.X;
-					int num3 = x3 - x4;
-					vector2i = Position;
-					int num4 = vector2i.X + _radius.X + 44;
-					if (num3 < num4)
-					{
-						UpdateTumble(character);
-						return;
-					}
-				}
-				DisengadgeCharacter(character);
+				DisengageCharacter(character);
 			}
 		}
 		else
 		{
-			if (Math.Abs(character.GroundVelocity) < 20.0 || character.IsAirborne || character.IsDebug)
+			if (Math.Abs(character.GroundVelocity) < MinimumGroundSpeed || character.IsAirborne || character.IsDebug)
 				return;
-			Vector2i vector2i = character.Position;
-			int x5 = vector2i.X;
-			vector2i = character.CollisionRadius;
-			int x6 = vector2i.X;
-			int num5 = x5 + x6;
-			vector2i = Position;
-			int num6 = vector2i.X - _radius.X;
-			if (num5 < num6)
+			if (character.Position.X + character.CollisionRadius.X < Position.X - _radius.X)
 				return;
-			vector2i = character.Position;
-			int x7 = vector2i.X;
-			vector2i = character.CollisionRadius;
-			int x8 = vector2i.X;
-			int num7 = x7 - x8;
-			vector2i = Position;
-			int num8 = vector2i.X + _radius.X;
-			if (num7 >= num8)
+			if (character.Position.X - character.CollisionRadius.X >= Position.X + _radius.X)
 				return;
-			vector2i = character.Position;
-			int y1 = vector2i.Y;
-			vector2i = character.CollisionRadius;
-			int y2 = vector2i.Y;
-			int num9 = y1 + y2;
-			vector2i = Position;
-			int num10 = vector2i.Y + _radius.Y - 32 /*0x20*/;
-			if (num9 < num10)
+			if (character.Position.Y + character.CollisionRadius.Y < Position.Y + _radius.Y - EntryMargin)
 				return;
-			vector2i = character.Position;
-			int y3 = vector2i.Y;
-			vector2i = character.CollisionRadius;
-			int y4 = vector2i.Y;
-			int num11 = y3 + y4;
-			vector2i = Position;
-			int num12 = vector2i.Y + _radius.Y + 32 /*0x20*/;
-			if (num11 >= num12)
+			if (character.Position.Y + character.CollisionRadius.Y >= Position.Y + _radius.Y + EntryMargin)
 				return;
-			EngadgeCharacter(character);
+			EngageCharacter(character);
 			UpdateTumble(character);
 		}
 	}
 
 	private void UpdateTumble(ICharacter character)
 	{
-		Vector2i position1 = character.Position;
-		int x1 = position1.X;
-		position1 = Position;
-		int num1 = position1.X - _radius.X;
-		double num2 = (x1 - num1) / (double)(_radius.X * 2);
-		double num3 = Math.Cos(num2 * (2.0 * Math.PI)) * (_radius.Y - character.CollisionRadius.Y);
-		ICharacter character1 = character;
-		Vector2i position2 = character.Position;
-		double x2 = position2.X;
-		position2 = Position;
-		double y = position2.Y + num3;
-		Vector2 vector2 = new Vector2(x2, y);
-		character1.PositionPrecise = vector2;
-		character.TumbleAngle = num2 < 0.5 ? num2 * 2.0 : (1.0 - num2) * -2.0;
+		// Progress goes from 0 at the left end to 1 at the right end of the pathway.
+		double progress = (character.Position.X - (Position.X - _radius.X)) / (double)(_radius.X * 2);
+		double offsetY = Math.Cos(progress * (2.0 * Math.PI)) * (_radius.Y - character.CollisionRadius.Y);
+		character.PositionPrecise = new Vector2(character.Position.X, Position.Y + offsetY);
+		character.TumbleAngle = progress < 0.5 ? progress * 2.0 : (1.0 - progress) * -2.0;
 		if (character.TumbleAngle <= 0.0)
 		{
-			if (character.TumbleAngle + 3.0 / 128.0 > 0.0)
+			if (character.TumbleAngle + TumbleAngleDeadZone > 0.0)
 				character.TumbleAngle = _previousTumbleAngle;
 			else
 				_previousTumbleAngle = character.TumbleAngle;
 		}
-		else if (character.TumbleAngle - 3.0 / 128.0 < 0.0)
+		else if (character.TumbleAngle - TumbleAngleDeadZone < 0.0)
 			character.TumbleAngle = _previousTumbleAngle;
 		else
 			_previousTumbleAngle = character.TumbleAngle;
 	}
 
-	private void EngadgeCharacter(ICharacter character)
+	private void EngageCharacter(ICharacter character)
 	{
 		if (character.ObjectLink != null)
 		{
+			// Continue the tumble from the previous pathway when two pathways connect.
 			if (character.ObjectLink.Type.Name == "Twisted pathway")
 				_previousTumbleAngle = (character.ObjectLink as EHZTwistedPathwayInstance)._previousTumbleAngle;
 		}
@@ -171,7 +137,7 @@ public class EHZTwistedPathwayInstance : ActiveObject
 		character.Mode = CollisionMode.Top;
 	}
 
-	private void DisengadgeCharacter(ICharacter character)
+	private void DisengageCharacter(ICharacter character)
 	{
 		_previousTumbleAngle = 0.0;
 		character.ObjectLink = null;
@@ -183,45 +149,15 @@ public class EHZTwistedPathwayInstance : ActiveObject
 	{
 		if (!Level.LayerViewOptions.ShowObjectCollision && !Level.StateFlags.HasFlag(LevelStateFlags.Editing) || viewOptions.Shadows)
 			return;
-		I2dRenderer obj = renderer.Get2dRenderer();
-		Colour white1 = Colours.White;
-		double num1 = -_radius.X;
+		I2dRenderer renderer2d = renderer.Get2dRenderer();
 		Vector2 scale = renderer.GetObjectRenderer().Scale;
-		double x1 = scale.X;
-		Vector2 a1 = new Vector2(num1 * x1, 0.0);
-		double x2 = _radius.X;
-		scale = renderer.GetObjectRenderer().Scale;
-		double x3 = scale.X;
-		Vector2 b1 = new Vector2(x2 * x3, 0.0);
-		obj.RenderLine(white1, a1, b1, 2.0);
-		Colour white2 = Colours.White;
-		double num2 = -_radius.Y;
-		scale = renderer.GetObjectRenderer().Scale;
-		double y1 = scale.Y;
-		Vector2 a2 = new Vector2(0.0, num2 * y1);
-		double y2 = _radius.Y;
-		scale = renderer.GetObjectRenderer().Scale;
-		double y3 = scale.Y;
-		Vector2 b2 = new Vector2(0.0, y2 * y3);
-		obj.RenderLine(white2, a2, b2, 2.0);
-		Colour white3 = Colours.White;
-		double num3 = -_radius.X;
-		scale = renderer.GetObjectRenderer().Scale;
-		double x4 = scale.X;
-		double x5 = num3 * x4;
-		double num4 = -_radius.Y;
-		scale = renderer.GetObjectRenderer().Scale;
-		double y4 = scale.Y;
-		double y5 = num4 * y4;
-		double num5 = _radius.X * 2;
-		scale = renderer.GetObjectRenderer().Scale;
-		double x6 = scale.X;
-		double width = num5 * x6;
-		double num6 = _radius.Y * 2;
-		scale = renderer.GetObjectRenderer().Scale;
-		double y6 = scale.Y;
-		double height = num6 * y6;
-		Rectangle destination = new Rectangle(x5, y5, width, height);
-		obj.RenderRectangle(white3, destination, 2.0);
+		renderer2d.RenderLine(Colours.White, new Vector2(-_radius.X * scale.X, 0.0), new Vector2(_radius.X * scale.X, 0.0), 2.0);
+		renderer2d.RenderLine(Colours.White, new Vector2(0.0, -_radius.Y * scale.Y), new Vector2(0.0, _radius.Y * scale.Y), 2.0);
+		Rectangle destination = new Rectangle(
+			-_radius.X * scale.X,
+			-_radius.Y * scale.Y,
+			_radius.X * 2 * scale.X,
+			_radius.Y * 2 * scale.Y);
+		renderer2d.RenderRectangle(Colours.White, destination, 2.0);
 	}
 }

@@ -16,17 +16,22 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.HTZROCK;
 
+/// <summary>
+/// The breakable rock from Hill Top Zone. A character in a spinball that hits its top or bottom breaks it. The rock
+/// then throws out rock particles and gives score.
+/// </summary>
 public class HTZRockInstance : ActiveObject
 {
 	private const int AnimationRock = 0;
+	private const int BreakableCollisionId = 1;
 	private static readonly IReadOnlyCollection<Vector2> ParticleVelocities = new Vector2[6]
 	{
-	new Vector2(-8.0, -10.0),
-	new Vector2(-6.0, -8.0),
-	new Vector2(-2.0, -10.0),
-	new Vector2(2.0, -12.0),
-	new Vector2(6.0, -8.0),
-	new Vector2(8.0, -10.0)
+		new Vector2(-8.0, -10.0),
+		new Vector2(-6.0, -8.0),
+		new Vector2(-2.0, -10.0),
+		new Vector2(2.0, -12.0),
+		new Vector2(6.0, -8.0),
+		new Vector2(8.0, -10.0)
 	};
 	private AnimationInstance _animation;
 	private bool _broken;
@@ -34,15 +39,16 @@ public class HTZRockInstance : ActiveObject
 
 	public HTZRockInstance()
 	{
-		DesignBounds = new Rectanglei(-96, -64, 192 /*0xC0*/, 128 /*0x80*/);
+		DesignBounds = new Rectanglei(-96, -64, 192, 128);
 	}
 
 	protected override void OnStart()
 	{
-		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"));
-		CollisionVectors = CollisionVector.FromRectangle(this, new Rectanglei(-96, -64, 192 /*0xC0*/, 128 /*0x80*/));
-		CollisionVectors[1].Id = 1;
-		CollisionVectors[3].Id = 1;
+		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"), AnimationRock);
+		CollisionVectors = CollisionVector.FromRectangle(this, new Rectanglei(-96, -64, 192, 128));
+		// Vector 1 is the top and vector 3 is the bottom of the rock.
+		CollisionVectors[1].Id = BreakableCollisionId;
+		CollisionVectors[3].Id = BreakableCollisionId;
 		Priority = -256;
 	}
 
@@ -50,11 +56,13 @@ public class HTZRockInstance : ActiveObject
 	{
 		if (!_broken)
 			return;
-		foreach (Vector2 particleVelocity in (IEnumerable<Vector2>)HTZRockInstance.ParticleVelocities)
-			Level.ObjectManager.AddObject(new ObjectPlacement(Type.GetAbsolutePath("/PARTICLE"), Level.Map.Layers.IndexOf(Level.Map.Layers.Last<LevelLayer>()), Position, new
+		foreach (Vector2 particleVelocity in ParticleVelocities)
+		{
+			Level.ObjectManager.AddObject(new ObjectPlacement(Type.GetAbsolutePath("/PARTICLE"), Level.Map.Layers.IndexOf(Level.Map.Layers.Last()), Position, new
 			{
 				Velocity = new Vector2(particleVelocity.X, particleVelocity.Y)
 			}));
+		}
 		Level.SoundManager.PlaySound(this, Type.GetAbsolutePath("SONICORCA/SOUND/BREAKABLE"));
 		Level.CreateScoreObject(_playerThatBroke.AwardChainedScore(), Position);
 		Finish();
@@ -62,15 +70,16 @@ public class HTZRockInstance : ActiveObject
 
 	protected override void OnCollision(CollisionEvent e)
 	{
-		if (e.Id != 1 || e.ActiveObject.Type.Classification != ObjectClassification.Character)
+		if (e.Id != BreakableCollisionId || e.ActiveObject.Type.Classification != ObjectClassification.Character)
 			return;
-		ICharacter activeObject = (ICharacter)e.ActiveObject;
-		if (!activeObject.IsSpinball)
+		ICharacter character = (ICharacter)e.ActiveObject;
+		if (!character.IsSpinball)
 			return;
 		_broken = true;
-		_playerThatBroke = activeObject.Player;
-		if (activeObject.Velocity.Y > 0.0)
-			activeObject.Velocity = new Vector2(activeObject.Velocity.X, -12.0);
+		_playerThatBroke = character.Player;
+		// A character that falls onto the rock bounces up.
+		if (character.Velocity.Y > 0.0)
+			character.Velocity = new Vector2(character.Velocity.X, -12.0);
 		e.MaintainVelocity = true;
 	}
 

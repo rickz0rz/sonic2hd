@@ -15,20 +15,29 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.HTZVINELIFT;
 
+/// <summary>
+/// The vine lift from Hill Top Zone. When a character stands on its platform, the lift moves diagonally down for a
+/// fixed number of ticks. Then the platform detaches and falls.
+/// </summary>
 public class HTZVineLiftInstance : ActiveObject
 {
 	private const int VerticalVinesOutdoorsAnimationIndex = 0;
 	private const int VerticalVinesDetachOutdoorsAnimationIndex = 1;
 	private const int VerticalVinesInsideAnimationIndex = 5;
 	private const int VerticalVinesDetachInsideAnimationIndex = 6;
+
+	/// <summary>The horizontal offset of the platform when the lift goes to the left.</summary>
+	private const int LeftPlatformOffsetX = 16;
+
 	private AnimationInstance _animation;
 	private Vector2 _velocity;
 	private int _duration = 60;
-	private HTZVineLiftInstance.LiftDirection _direction;
+	private LiftDirection _direction;
 	private bool _outdoors = true;
-	private HTZVineLiftInstance.State _state;
-	private HTZVineLiftInstance.LiftPlatform _platform;
+	private State _state;
+	private LiftPlatform _platform;
 
+	/// <summary>The number of ticks that the lift moves before the platform detaches.</summary>
 	[StateVariable]
 	private int Duration
 	{
@@ -37,7 +46,7 @@ public class HTZVineLiftInstance : ActiveObject
 	}
 
 	[StateVariable]
-	private HTZVineLiftInstance.LiftDirection Direction
+	private LiftDirection Direction
 	{
 		get => _direction;
 		set => _direction = value;
@@ -56,19 +65,17 @@ public class HTZVineLiftInstance : ActiveObject
 	{
 		base.OnStart();
 		_velocity = new Vector2(8.0, 4.0);
-		if (_direction == HTZVineLiftInstance.LiftDirection.Left)
+		if (_direction == LiftDirection.Left)
 			_velocity.X *= -1.0;
 		Priority = 1256;
-		int index = 5;
-		if (_outdoors)
-			index = 0;
-		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"), index);
-		_platform = Level.ObjectManager.AddSubObject<HTZVineLiftInstance.LiftPlatform>(this);
+		int animationIndex = _outdoors ? VerticalVinesOutdoorsAnimationIndex : VerticalVinesInsideAnimationIndex;
+		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"), animationIndex);
+		_platform = Level.ObjectManager.AddSubObject<LiftPlatform>(this);
 		_platform.Position = Position;
 		_platform.LockLifetime = true;
-		if (Direction != HTZVineLiftInstance.LiftDirection.Left)
+		if (Direction != LiftDirection.Left)
 			return;
-		_platform.Position = new Vector2i(Position.X - 16 /*0x10*/, Position.Y);
+		_platform.Position = new Vector2i(Position.X - LeftPlatformOffsetX, Position.Y);
 	}
 
 	protected override void OnUpdateEditor() => _platform.Position = Position;
@@ -77,44 +84,41 @@ public class HTZVineLiftInstance : ActiveObject
 	{
 		switch (_state)
 		{
-			case HTZVineLiftInstance.State.Waiting:
+			case State.Waiting:
 				if (!_platform.Activated)
 					break;
-				_state = HTZVineLiftInstance.State.Moving;
+				_state = State.Moving;
 				break;
-			case HTZVineLiftInstance.State.Moving:
+			case State.Moving:
 				--_duration;
 				if (_duration == 0)
 				{
-					_state = HTZVineLiftInstance.State.Falling;
+					_state = State.Falling;
 					_velocity = new Vector2();
 					_platform.Velocity = new Vector2();
-					if (Direction == HTZVineLiftInstance.LiftDirection.Left)
-						_platform.Position = new Vector2i(_platform.Position.X - 16 /*0x10*/, _platform.Position.Y);
+					if (Direction == LiftDirection.Left)
+						_platform.Position = new Vector2i(_platform.Position.X - LeftPlatformOffsetX, _platform.Position.Y);
 					_platform.BeginDetach();
 					break;
 				}
 				_platform.Velocity = _velocity;
 				break;
-			case HTZVineLiftInstance.State.Falling:
-				int num = 6;
-				if (_outdoors)
-					num = 1;
-				_animation.Index = num;
+			case State.Falling:
+				_animation.Index = _outdoors ? VerticalVinesDetachOutdoorsAnimationIndex : VerticalVinesDetachInsideAnimationIndex;
 				break;
 		}
 	}
 
 	protected override void OnUpdate()
 	{
-		if (_state != HTZVineLiftInstance.State.Moving)
+		if (_state != State.Moving)
 			return;
 		MovePrecise(_velocity);
 	}
 
 	protected override void OnStop()
 	{
-		if (_state == HTZVineLiftInstance.State.Falling)
+		if (_state == State.Falling)
 			return;
 		_platform.FinishForever();
 	}
@@ -124,11 +128,8 @@ public class HTZVineLiftInstance : ActiveObject
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 	{
 		IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
-		bool flag = _direction == HTZVineLiftInstance.LiftDirection.Left;
-		AnimationInstance animation = _animation;
-		Vector2 destination = (Vector2)new Vector2i(-16, -8);
-		int num = flag ? 1 : 0;
-		objectRenderer.Render(animation, destination, num != 0);
+		bool flipX = _direction == LiftDirection.Left;
+		objectRenderer.Render(_animation, (Vector2)new Vector2i(-16, -8), flipX);
 	}
 
 	private enum State
@@ -144,18 +145,27 @@ public class HTZVineLiftInstance : ActiveObject
 		Right,
 	}
 
+	/// <summary>
+	/// The platform that hangs from the vine lift. Characters stand on it. After the lift stops, it bounces a little and
+	/// then falls with gravity.
+	/// </summary>
 	private class LiftPlatform : ActiveObject, IPlatform, IActiveObject
 	{
 		private const int PlatformAnimationIndex = 4;
 		private const double Gravity = 0.875;
+
+		/// <summary>The number of ticks between two vine lift sounds.</summary>
+		private const int SoundInterval = 16;
+
+		/// <summary>The Y offsets from the detach position for the first ticks after the platform detaches.</summary>
 		private static readonly int[] FallElasticYOffsets = new int[6]
 		{
-	  0,
-	  20,
-	  40,
-	  40,
-	  60,
-	  60
+			0,
+			20,
+			40,
+			40,
+			60,
+			60
 		};
 		private AnimationInstance _animation;
 		private int _fallingTicks;
@@ -171,25 +181,24 @@ public class HTZVineLiftInstance : ActiveObject
 		{
 			CollisionVectors = new CollisionVector[1]
 			{
-		new CollisionVector( this, new Vector2i(-132, 17), new Vector2i(132, 17), flags: CollisionFlags.Conveyor)
+				new CollisionVector(this, new Vector2i(-132, 17), new Vector2i(132, 17), flags: CollisionFlags.Conveyor)
 			};
 			Priority = 1256;
-			_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"), 4);
+			_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"), PlatformAnimationIndex);
 		}
 
 		protected override void OnUpdatePrepare()
 		{
 			if (!Falling)
 				return;
-			if (_fallingTicks < 6)
+			if (_fallingTicks < FallElasticYOffsets.Length)
 			{
-				int fallElasticYoffset = HTZVineLiftInstance.LiftPlatform.FallElasticYOffsets[_fallingTicks];
-				Vector2i fallingOriginPosition = _fallingOriginPosition;
-				fallingOriginPosition.Y += fallElasticYoffset;
-				Velocity = (Vector2)fallingOriginPosition - PositionPrecise;
+				Vector2i targetPosition = _fallingOriginPosition;
+				targetPosition.Y += FallElasticYOffsets[_fallingTicks];
+				Velocity = (Vector2)targetPosition - PositionPrecise;
 			}
 			else
-				Velocity += new Vector2(0.0, 0.875);
+				Velocity += new Vector2(0.0, Gravity);
 		}
 
 		protected override void OnUpdate()
@@ -198,7 +207,7 @@ public class HTZVineLiftInstance : ActiveObject
 				Activated = true;
 			if (Falling)
 				++_fallingTicks;
-			else if (Activated && Level.Ticks % 16 /*0x10*/ == 0)
+			else if (Activated && Level.Ticks % SoundInterval == 0)
 				Level.SoundManager.PlaySound(this, Type.GetAbsolutePath("SONICORCA/SOUND/VINELIFT"));
 			MovePrecise(Velocity);
 		}
@@ -221,6 +230,7 @@ public class HTZVineLiftInstance : ActiveObject
 
 		protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 		{
+			// This object draws the platform only from the seventh tick after it detaches.
 			if (!Falling || _fallingTicks < 7)
 				return;
 			renderer.GetObjectRenderer().Render(_animation, (Vector2)new Vector2i(8, 13));

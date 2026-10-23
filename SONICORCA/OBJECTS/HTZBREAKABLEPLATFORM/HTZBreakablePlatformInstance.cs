@@ -18,41 +18,59 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.HTZBREAKABLEPLATFORM;
 
+/// <summary>
+/// A column of breakable blocks from Hill Top Zone. A character in a spinball that hits the top breaks off one block,
+/// which throws out rock particles and gives score. The object finishes when no blocks remain.
+/// </summary>
 public class HTZBreakablePlatformInstance : ActiveObject
 {
 	private static readonly IReadOnlyCollection<Vector2> ParticleVelocities = new Vector2[6]
 	{
-	new Vector2(-6.0, -14.0),
-	new Vector2(-4.0, -18.0),
-	new Vector2(-2.0, -22.0),
-	new Vector2(2.0, -24.0),
-	new Vector2(4.0, -16.0),
-	new Vector2(6.0, -12.0)
+		new Vector2(-6.0, -14.0),
+		new Vector2(-4.0, -18.0),
+		new Vector2(-2.0, -22.0),
+		new Vector2(2.0, -24.0),
+		new Vector2(4.0, -16.0),
+		new Vector2(6.0, -12.0)
 	};
 	private const int MaximumBlocks = 5;
+	private const int BlockHeight = 64;
+
+	/// <summary>The Y position of the bottom of the column.</summary>
+	private const int ColumnBottom = 160;
+
+	private const int TopCollisionId = 1;
+
 	private AnimationInstance _animation;
 	private bool _breakBlockOff;
 	private Player _playerThatBroke;
 
+	/// <summary>A bit mask of the paths on which the full column reacts to characters.</summary>
 	[StateVariable]
 	private uint Paths { get; set; } = uint.MaxValue;
 
 	[StateVariable]
-	private int RemainingBlocks { get; set; } = 5;
+	private int RemainingBlocks { get; set; } = MaximumBlocks;
 
+	/// <summary>
+	/// The path that a character that is not in a spinball goes to when it touches the full column. -1 means no
+	/// change.
+	/// </summary>
 	[StateVariable]
 	private int ResetPath { get; set; } = -1;
 
 	public HTZBreakablePlatformInstance()
 	{
-		DesignBounds = new Rectanglei(-64, -160, 128 /*0x80*/, 384);
+		DesignBounds = new Rectanglei(-64, -160, 128, 384);
 	}
 
 	protected override void OnStart()
 	{
-		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"), 5 - RemainingBlocks);
+		// The animation index is the number of blocks that are already broken.
+		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"), MaximumBlocks - RemainingBlocks);
 		CollisionVectors = CollisionVector.FromRectangle(this, new Rectanglei());
-		CollisionVectors[1].Id = 1;
+		// Vector 1 is the top of the column.
+		CollisionVectors[1].Id = TopCollisionId;
 		CollisionVectors[1].Flags = CollisionFlags.NoAngle | CollisionFlags.NoBalance;
 		UpdateBlockCollision();
 	}
@@ -67,29 +85,37 @@ public class HTZBreakablePlatformInstance : ActiveObject
 		{
 			if (_breakBlockOff)
 			{
-				foreach (Vector2 particleVelocity in (IEnumerable<Vector2>)HTZBreakablePlatformInstance.ParticleVelocities)
-					Level.ObjectManager.AddObject(new ObjectPlacement(Type.GetAbsolutePath("SONICORCA/OBJECTS/HTZROCK/PARTICLE"), Level.Map.Layers.IndexOf(Level.Map.Layers.Last<LevelLayer>()), Position, new
-					{
-						Velocity = new Vector2(particleVelocity.X, particleVelocity.Y)
-					}));
-				Level.SoundManager.PlaySound(this, Type.GetAbsolutePath("SONICORCA/SOUND/BREAKABLE"));
-				Level.CreateScoreObject(_playerThatBroke.AwardChainedScore(), Position);
-				--RemainingBlocks;
-				(Entry.State as HTZBreakablePlatformInstance).RemainingBlocks = RemainingBlocks;
-				_breakBlockOff = false;
-				if (RemainingBlocks == 0)
-				{
-					FinishForever();
-					CollisionVectors = new CollisionVector[0];
-				}
-				else
-				{
-					++_animation.Index;
-					foreach (ICharacter standingCharacter in GetStandingCharacters())
-						standingCharacter.LeaveGround();
-				}
+				BreakBlockOff();
 			}
 			UpdateBlockCollision();
+		}
+	}
+
+	private void BreakBlockOff()
+	{
+		foreach (Vector2 particleVelocity in ParticleVelocities)
+		{
+			Level.ObjectManager.AddObject(new ObjectPlacement(Type.GetAbsolutePath("SONICORCA/OBJECTS/HTZROCK/PARTICLE"), Level.Map.Layers.IndexOf(Level.Map.Layers.Last()), Position, new
+			{
+				Velocity = new Vector2(particleVelocity.X, particleVelocity.Y)
+			}));
+		}
+		Level.SoundManager.PlaySound(this, Type.GetAbsolutePath("SONICORCA/SOUND/BREAKABLE"));
+		Level.CreateScoreObject(_playerThatBroke.AwardChainedScore(), Position);
+		--RemainingBlocks;
+		// Store the count in the level entry so that the object keeps it when it is created again.
+		(Entry.State as HTZBreakablePlatformInstance).RemainingBlocks = RemainingBlocks;
+		_breakBlockOff = false;
+		if (RemainingBlocks == 0)
+		{
+			FinishForever();
+			CollisionVectors = new CollisionVector[0];
+		}
+		else
+		{
+			++_animation.Index;
+			foreach (ICharacter standingCharacter in GetStandingCharacters())
+				standingCharacter.LeaveGround();
 		}
 	}
 
@@ -97,8 +123,8 @@ public class HTZBreakablePlatformInstance : ActiveObject
 	{
 		if (RemainingBlocks <= 0 || CollisionVectors.Length == 0)
 			return;
-		int height = RemainingBlocks * 64 /*0x40*/;
-		CollisionVector.UpdateRectangle(CollisionVectors, new Rectanglei(-64, 160 /*0xA0*/ - height, 128 /*0x80*/, height));
+		int height = RemainingBlocks * BlockHeight;
+		CollisionVector.UpdateRectangle(CollisionVectors, new Rectanglei(-64, ColumnBottom - height, 128, height));
 		RegisterCollisionUpdate();
 	}
 
@@ -115,33 +141,33 @@ public class HTZBreakablePlatformInstance : ActiveObject
 
 	protected override void OnCollision(CollisionEvent e)
 	{
-		if (e.Id != 1 || e.ActiveObject.Type.Classification != ObjectClassification.Character)
+		if (e.Id != TopCollisionId || e.ActiveObject.Type.Classification != ObjectClassification.Character)
 			return;
-		ICharacter activeObject = (ICharacter)e.ActiveObject;
-		if (RemainingBlocks == 5)
+		ICharacter character = (ICharacter)e.ActiveObject;
+		if (RemainingBlocks == MaximumBlocks)
 		{
-			if ((Paths & 1 << activeObject.Path) == 0L)
+			if ((Paths & (1 << character.Path)) == 0L)
 				return;
-			if (activeObject.IsSpinball)
+			if (character.IsSpinball)
 			{
-				BreakBlocks(e, activeObject);
+				BreakBlocks(e, character);
 			}
 			else
 			{
 				if (ResetPath == -1)
 					return;
-				activeObject.Path = ResetPath;
-				if (activeObject.Mode == CollisionMode.Top)
+				character.Path = ResetPath;
+				if (character.Mode == CollisionMode.Top)
 					return;
-				activeObject.GroundVelocity = 0.0;
-				activeObject.LeaveGround();
+				character.GroundVelocity = 0.0;
+				character.LeaveGround();
 			}
 		}
 		else
 		{
-			if (!activeObject.IsSpinball)
+			if (!character.IsSpinball)
 				return;
-			BreakBlocks(e, activeObject);
+			BreakBlocks(e, character);
 		}
 	}
 

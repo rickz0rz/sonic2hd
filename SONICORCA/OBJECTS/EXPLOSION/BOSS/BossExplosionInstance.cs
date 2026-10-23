@@ -11,6 +11,7 @@ using SonicOrca.Extensions;
 #nullable disable
 namespace SONICORCA.OBJECTS.EXPLOSION.BOSS;
 
+/// <summary>The explosion that a boss makes. It plays its animation and sound one time.</summary>
 public class BossExplosionInstance : ParticleObject
 {
 	public BossExplosionInstance()

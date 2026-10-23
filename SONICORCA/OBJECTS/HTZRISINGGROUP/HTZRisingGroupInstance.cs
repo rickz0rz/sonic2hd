@@ -11,15 +11,46 @@ using SonicOrca.Geometry;
 #nullable disable
 namespace SONICORCA.OBJECTS.HTZRISINGGROUP;
 
+/// <summary>
+/// The controller of the Hill Top Zone earthquake. While the camera is between the level markers of the earthquake
+/// area, it moves the objects in its three slots up and down, and shakes the screen while they move.
+/// </summary>
 public class HTZRisingGroupInstance : ActiveObject
 {
-	private Vector2i _size = new Vector2i(2048 /*0x0800*/, 512 /*0x0200*/);
+	/// <summary>The camera is to the left of the earthquake area.</summary>
+	private const int StateBeforeArea = 0;
+
+	/// <summary>The camera is in the earthquake area (act 1, or the upper route of act 2).</summary>
+	private const int StateInArea = 1;
+
+	/// <summary>The camera is to the right of the earthquake area.</summary>
+	private const int StateAfterArea = 2;
+
+	/// <summary>The camera is in the earthquake area on the lower route of act 2.</summary>
+	private const int StateInLowerArea = 4;
+
+	/// <summary>The camera is to the right of the earthquake area on the lower route of act 2.</summary>
+	private const int StateAfterLowerArea = 5;
+
+	/// <summary>The distance that the group moves each time it moves.</summary>
+	private const int MoveStep = 4;
+
+	/// <summary>The group moves one time in this number of ticks.</summary>
+	private const int MoveInterval = 4;
+
+	/// <summary>The number of ticks that the group waits at the top and at the bottom.</summary>
+	private const int PauseTicks = 120;
+
+	private Vector2i _size = new Vector2i(2048, 512);
 	private List<ActiveObject> _groupMembers = new List<ActiveObject>();
 	private Level _level;
 	private int _state;
 	private int _earthquakeY;
 	private int _earthquakeTimer;
+
+	/// <summary>False when the group moves to the upper bound, true when it moves to the lower bound.</summary>
 	private bool _earthquakeDirection;
+
 	private int _earthquakeUpperBound;
 	private int _earthquakeLowerBound;
 
@@ -47,15 +78,7 @@ public class HTZRisingGroupInstance : ActiveObject
 	protected override void OnStart()
 	{
 		_level = Level;
-		switch (_level.CurrentAct)
-		{
-			case 1:
-				Act1Events();
-				break;
-			case 2:
-				Act2Events();
-				break;
-		}
+		UpdateActEvents();
 	}
 
 	protected override void OnStop()
@@ -64,31 +87,33 @@ public class HTZRisingGroupInstance : ActiveObject
 			SlotA.LockLifetime = false;
 		if (SlotB != null)
 			SlotB.LockLifetime = false;
-		if (SlotC == null)
-			return;
-		SlotC.LockLifetime = false;
+		if (SlotC != null)
+			SlotC.LockLifetime = false;
 	}
 
 	protected override void OnUpdate()
 	{
-		if (SlotA != null && !_groupMembers.Contains(SlotA))
-		{
-			SlotA.LockLifetime = true;
-			_groupMembers.Add(SlotA);
-			SlotA.Position = new Vector2i(SlotA.Position.X, SlotA.Position.Y + _earthquakeUpperBound - _earthquakeY);
-		}
-		if (SlotB != null && !_groupMembers.Contains(SlotB))
-		{
-			SlotB.LockLifetime = true;
-			_groupMembers.Add(SlotB);
-			SlotB.Position = new Vector2i(SlotB.Position.X, SlotB.Position.Y + _earthquakeUpperBound - _earthquakeY);
-		}
-		if (SlotC != null && !_groupMembers.Contains(SlotC))
-		{
-			SlotC.LockLifetime = true;
-			_groupMembers.Add(SlotC);
-			SlotC.Position = new Vector2i(SlotC.Position.X, SlotC.Position.Y + _earthquakeUpperBound - _earthquakeY);
-		}
+		AddGroupMember(SlotA);
+		AddGroupMember(SlotB);
+		AddGroupMember(SlotC);
+		UpdateActEvents();
+	}
+
+	/// <summary>
+	/// Adds the object in a slot to the group the first time it is seen, and moves it to the current earthquake
+	/// position.
+	/// </summary>
+	private void AddGroupMember(ActiveObject slot)
+	{
+		if (slot == null || _groupMembers.Contains(slot))
+			return;
+		slot.LockLifetime = true;
+		_groupMembers.Add(slot);
+		slot.Position = new Vector2i(slot.Position.X, slot.Position.Y + _earthquakeUpperBound - _earthquakeY);
+	}
+
+	private void UpdateActEvents()
+	{
 		switch (_level.CurrentAct)
 		{
 			case 1:
@@ -103,98 +128,28 @@ public class HTZRisingGroupInstance : ActiveObject
 	private void Act1Events()
 	{
 		Rectanglei bounds = (Rectanglei)_level.Camera.Bounds;
-		LevelMarker marker1 = _level.GetMarker("eq_1_left_reset");
-		LevelMarker marker2 = _level.GetMarker("eq_1_left_begin");
-		LevelMarker marker3 = _level.GetMarker("eq_1_right_begin");
-		LevelMarker marker4 = _level.GetMarker("eq_1_right_reset");
+		LevelMarker leftReset = _level.GetMarker("eq_1_left_reset");
+		LevelMarker leftBegin = _level.GetMarker("eq_1_left_begin");
+		LevelMarker rightBegin = _level.GetMarker("eq_1_right_begin");
+		LevelMarker rightReset = _level.GetMarker("eq_1_right_reset");
 		switch (_state)
 		{
-			case 0:
+			case StateBeforeArea:
 				_level.EarthquakeActive = false;
-				if (bounds.X >= marker1.Position.X)
+				if (bounds.X >= leftReset.Position.X)
 				{
-					_earthquakeUpperBound = 1280 /*0x0500*/;
+					_earthquakeUpperBound = 1280;
 					_earthquakeLowerBound = 896;
 					_earthquakeY = _earthquakeUpperBound;
 					_earthquakeTimer = 0;
-					_state = 1;
-					break;
+					_state = StateInArea;
 				}
 				break;
-			case 1:
-				int x1 = bounds.X;
-				Vector2i position = marker2.Position;
-				int x2 = position.X;
-				if (x1 >= x2)
-				{
-					int x3 = bounds.X;
-					position = marker3.Position;
-					int x4 = position.X;
-					if (x3 < x4)
-					{
-						if (_earthquakeDirection)
-						{
-							if (_earthquakeY == _earthquakeLowerBound)
-							{
-								--_earthquakeTimer;
-								if (_earthquakeTimer < 0)
-								{
-									_earthquakeTimer = 120;
-									_earthquakeDirection = !_earthquakeDirection;
-								}
-								_level.EarthquakeActive = false;
-							}
-							else if (_level.Ticks % 4 == 0)
-							{
-								_earthquakeY -= 4;
-								_level.EarthquakeActive = true;
-							}
-						}
-						else if (_earthquakeY == _earthquakeUpperBound)
-						{
-							--_earthquakeTimer;
-							if (_earthquakeTimer < 0)
-							{
-								_earthquakeTimer = 120;
-								_earthquakeDirection = !_earthquakeDirection;
-							}
-							_level.EarthquakeActive = false;
-						}
-						else if (_level.Ticks % 4 == 0)
-						{
-							_earthquakeY += 4;
-							_level.EarthquakeActive = true;
-						}
-					}
-				}
-				int x5 = bounds.X;
-				position = marker1.Position;
-				int x6 = position.X;
-				if (x5 < x6)
-				{
-					_earthquakeDirection = false;
-					_state = 0;
-					break;
-				}
-				int x7 = bounds.X;
-				position = marker4.Position;
-				int x8 = position.X;
-				if (x7 >= x8)
-				{
-					_earthquakeDirection = false;
-					_state = 2;
-					break;
-				}
+			case StateInArea:
+				UpdateInArea(bounds, leftReset, leftBegin, rightBegin, rightReset, StateAfterArea);
 				break;
-			case 2:
-				_level.EarthquakeActive = false;
-				if (bounds.X < marker4.Position.X)
-				{
-					_earthquakeY = _earthquakeUpperBound;
-					_earthquakeTimer = 0;
-					_state = 1;
-					break;
-				}
+			case StateAfterArea:
+				UpdateAfterArea(bounds, rightReset, StateInArea);
 				break;
 		}
 		UpdateGroupPositions();
@@ -203,197 +158,117 @@ public class HTZRisingGroupInstance : ActiveObject
 	private void Act2Events()
 	{
 		Rectanglei bounds = (Rectanglei)_level.Camera.Bounds;
-		LevelMarker marker1 = _level.GetMarker("eq_2_split");
-		LevelMarker marker2 = _level.GetMarker("eq_2a_left_reset");
-		LevelMarker marker3 = _level.GetMarker("eq_2a_left_begin");
-		LevelMarker marker4 = _level.GetMarker("eq_2a_right_begin");
-		LevelMarker marker5 = _level.GetMarker("eq_2a_right_reset");
+		LevelMarker split = _level.GetMarker("eq_2_split");
+		LevelMarker leftReset = _level.GetMarker("eq_2a_left_reset");
+		LevelMarker leftBegin = _level.GetMarker("eq_2a_left_begin");
+		LevelMarker rightBegin = _level.GetMarker("eq_2a_right_begin");
+		LevelMarker rightReset = _level.GetMarker("eq_2a_right_reset");
 		switch (_state)
 		{
-			case 0:
+			case StateBeforeArea:
 				_level.EarthquakeActive = false;
-				if (bounds.X >= marker2.Position.X)
+				if (bounds.X >= leftReset.Position.X)
 				{
-					if (bounds.Y < marker1.Position.Y)
+					// The split marker separates the upper route from the lower route.
+					if (bounds.Y < split.Position.Y)
 					{
-						_earthquakeUpperBound = 3328 /*0x0D00*/;
+						_earthquakeUpperBound = 3328;
 						_earthquakeLowerBound = 0;
 						_earthquakeY = _earthquakeUpperBound;
-						_state = 1;
+						_state = StateInArea;
 						break;
 					}
-					_earthquakeUpperBound = 3072 /*0x0C00*/;
+					_earthquakeUpperBound = 3072;
 					_earthquakeLowerBound = 0;
 					_earthquakeY = _earthquakeUpperBound;
-					_state = 4;
-					break;
+					_state = StateInLowerArea;
 				}
 				break;
-			case 1:
-				int x1 = bounds.X;
-				Vector2i position1 = marker3.Position;
-				int x2 = position1.X;
-				if (x1 >= x2)
-				{
-					int x3 = bounds.X;
-					position1 = marker4.Position;
-					int x4 = position1.X;
-					if (x3 < x4)
-					{
-						if (_earthquakeDirection)
-						{
-							if (_earthquakeY == _earthquakeLowerBound)
-							{
-								--_earthquakeTimer;
-								if (_earthquakeTimer < 0)
-								{
-									_earthquakeTimer = 120;
-									_earthquakeDirection = !_earthquakeDirection;
-								}
-								_level.EarthquakeActive = false;
-							}
-							else if (_level.Ticks % 4 == 0)
-							{
-								_earthquakeY -= 4;
-								_level.EarthquakeActive = true;
-							}
-						}
-						else if (_earthquakeY == _earthquakeUpperBound)
-						{
-							--_earthquakeTimer;
-							if (_earthquakeTimer < 0)
-							{
-								_earthquakeTimer = 120;
-								_earthquakeDirection = !_earthquakeDirection;
-							}
-							_level.EarthquakeActive = false;
-						}
-						else if (_level.Ticks % 4 == 0)
-						{
-							_earthquakeY += 4;
-							_level.EarthquakeActive = true;
-						}
-					}
-				}
-				int x5 = bounds.X;
-				position1 = marker2.Position;
-				int x6 = position1.X;
-				if (x5 < x6)
-				{
-					_earthquakeDirection = false;
-					_state = 0;
-					break;
-				}
-				int x7 = bounds.X;
-				position1 = marker5.Position;
-				int x8 = position1.X;
-				if (x7 >= x8)
-				{
-					_earthquakeDirection = false;
-					_state = 2;
-					break;
-				}
+			case StateInArea:
+				UpdateInArea(bounds, leftReset, leftBegin, rightBegin, rightReset, StateAfterArea);
 				break;
-			case 2:
-				_level.EarthquakeActive = false;
-				if (bounds.X < marker5.Position.X)
-				{
-					_earthquakeY = _earthquakeUpperBound;
-					_earthquakeTimer = 0;
-					_state = 1;
-					break;
-				}
+			case StateAfterArea:
+				UpdateAfterArea(bounds, rightReset, StateInArea);
 				break;
-			case 4:
-				int x9 = bounds.X;
-				Vector2i position2 = marker3.Position;
-				int x10 = position2.X;
-				if (x9 >= x10)
-				{
-					int x11 = bounds.X;
-					position2 = marker4.Position;
-					int x12 = position2.X;
-					if (x11 < x12)
-					{
-						if (_earthquakeDirection)
-						{
-							if (_earthquakeY == _earthquakeLowerBound)
-							{
-								--_earthquakeTimer;
-								if (_earthquakeTimer < 0)
-								{
-									_earthquakeTimer = 120;
-									_earthquakeDirection = !_earthquakeDirection;
-								}
-								_level.EarthquakeActive = false;
-							}
-							else if (_level.Ticks % 4 == 0)
-							{
-								_earthquakeY -= 4;
-								_level.EarthquakeActive = true;
-							}
-						}
-						else if (_earthquakeY == _earthquakeUpperBound)
-						{
-							--_earthquakeTimer;
-							if (_earthquakeTimer < 0)
-							{
-								_earthquakeTimer = 120;
-								_earthquakeDirection = !_earthquakeDirection;
-							}
-							_level.EarthquakeActive = false;
-						}
-						else if (_level.Ticks % 4 == 0)
-						{
-							_earthquakeY += 4;
-							_level.EarthquakeActive = true;
-						}
-					}
-				}
-				int x13 = bounds.X;
-				position2 = marker2.Position;
-				int x14 = position2.X;
-				if (x13 < x14)
-				{
-					_earthquakeDirection = false;
-					_state = 0;
-					break;
-				}
-				int x15 = bounds.X;
-				position2 = marker5.Position;
-				int x16 = position2.X;
-				if (x15 >= x16)
-				{
-					_earthquakeDirection = false;
-					_state = 5;
-					break;
-				}
+			case StateInLowerArea:
+				UpdateInArea(bounds, leftReset, leftBegin, rightBegin, rightReset, StateAfterLowerArea);
 				break;
-			case 5:
-				_level.EarthquakeActive = false;
-				if (bounds.X < marker5.Position.X)
-				{
-					_earthquakeY = _earthquakeUpperBound;
-					_earthquakeTimer = 0;
-					_state = 4;
-					break;
-				}
+			case StateAfterLowerArea:
+				UpdateAfterArea(bounds, rightReset, StateInLowerArea);
 				break;
 		}
 		UpdateGroupPositions();
+	}
+
+	/// <summary>
+	/// Moves the earthquake while the camera is between the begin markers, and changes the state when the camera
+	/// passes a reset marker.
+	/// </summary>
+	private void UpdateInArea(Rectanglei bounds, LevelMarker leftReset, LevelMarker leftBegin, LevelMarker rightBegin, LevelMarker rightReset, int stateAfterArea)
+	{
+		if (bounds.X >= leftBegin.Position.X && bounds.X < rightBegin.Position.X)
+			UpdateEarthquake();
+		if (bounds.X < leftReset.Position.X)
+		{
+			_earthquakeDirection = false;
+			_state = StateBeforeArea;
+		}
+		else if (bounds.X >= rightReset.Position.X)
+		{
+			_earthquakeDirection = false;
+			_state = stateAfterArea;
+		}
+	}
+
+	/// <summary>Goes back to the area state, with the group at the top, when the camera moves back past the right reset marker.</summary>
+	private void UpdateAfterArea(Rectanglei bounds, LevelMarker rightReset, int stateInArea)
+	{
+		_level.EarthquakeActive = false;
+		if (bounds.X < rightReset.Position.X)
+		{
+			_earthquakeY = _earthquakeUpperBound;
+			_earthquakeTimer = 0;
+			_state = stateInArea;
+		}
+	}
+
+	/// <summary>
+	/// Moves the earthquake position one step toward the current bound. At the bound, waits and then turns around.
+	/// </summary>
+	private void UpdateEarthquake()
+	{
+		int targetY = _earthquakeDirection ? _earthquakeLowerBound : _earthquakeUpperBound;
+		if (_earthquakeY == targetY)
+		{
+			--_earthquakeTimer;
+			if (_earthquakeTimer < 0)
+			{
+				_earthquakeTimer = PauseTicks;
+				_earthquakeDirection = !_earthquakeDirection;
+			}
+			_level.EarthquakeActive = false;
+		}
+		else if (_level.Ticks % MoveInterval == 0)
+		{
+			if (_earthquakeDirection)
+				_earthquakeY -= MoveStep;
+			else
+				_earthquakeY += MoveStep;
+			_level.EarthquakeActive = true;
+		}
 	}
 
 	private void UpdateGroupPositions()
 	{
 		if (!_level.EarthquakeActive)
 			return;
-		int num = _earthquakeDirection ? -4 : 4;
-		if (_level.Ticks % 4 != 0)
+		int deltaY = _earthquakeDirection ? -MoveStep : MoveStep;
+		if (_level.Ticks % MoveInterval != 0)
 			return;
 		foreach (ActiveObject groupMember in _groupMembers)
 		{
 			Vector2i position = groupMember.Position;
-			position.Y += num;
+			position.Y += deltaY;
 			groupMember.Position = position;
 		}
 	}
