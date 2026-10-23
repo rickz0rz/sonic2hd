@@ -8,6 +8,9 @@ using SonicOrca.Graphics.LowLevel;
 
 namespace SonicOrca.Drawing.Renderers;
 
+/// <summary>
+/// Draws plain rectangles with the non-layer shader.
+/// </summary>
 internal class NonLayerRenderer : INonLayerRenderer, IRenderer, IDisposable
 {
 	[StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -17,7 +20,7 @@ internal class NonLayerRenderer : INonLayerRenderer, IRenderer, IDisposable
 		public vec2 position;
 	}
 
-	private static readonly Dictionary<Renderer, NonLayerRenderer> RendererDictionary = new Dictionary<Renderer, NonLayerRenderer>();
+	private static readonly Dictionary<Renderer, NonLayerRenderer> RendererDictionary = new();
 
 	private readonly Renderer _renderer;
 
@@ -27,9 +30,7 @@ internal class NonLayerRenderer : INonLayerRenderer, IRenderer, IDisposable
 
 	private readonly IVertexArray _vao;
 
-	private readonly List<Vertex> _vertices = new List<Vertex>();
-
-	private Vector2[] vertexPositions = new Vector2[4];
+	private readonly List<Vertex> _vertices = new();
 
 	private ManagedShaderProgram _shaderProgram;
 
@@ -74,23 +75,23 @@ internal class NonLayerRenderer : INonLayerRenderer, IRenderer, IDisposable
 		_vertices.Clear();
 		foreach (Rectanglei destination in destinations)
 		{
-			Vector2[] array = new Vector2[4];
-			Renderer.GetVertices(destination, array);
+			Vector2[] corners = new Vector2[4];
+			Renderer.GetVertices(destination, corners);
 			for (int i = 0; i < 4; i++)
 			{
 				_vertices.Add(new Vertex
 				{
-					position = array[i].ToVec2()
+					position = corners[i].ToVec2()
 				});
 			}
 		}
 		_vbo.SetData(_vertices.ToArray());
-		Matrix4 value = _renderer.Window.GraphicsContext.CurrentFramebuffer.CreateOrthographic();
+		Matrix4 projectionMatrix = _renderer.Window.GraphicsContext.CurrentFramebuffer.CreateOrthographic();
 		_renderer.ActivateRenderer(this);
 		_graphicsContext.BlendMode = BlendMode.Alpha;
 		IShaderProgram program = _shaderProgram.Program;
 		program.Activate();
-		program.SetUniform("ProjectionMatrix", value);
+		program.SetUniform("ProjectionMatrix", projectionMatrix);
 		_vao.Render(PrimitiveType.Quads, 0, _vertices.Count);
 	}
 }

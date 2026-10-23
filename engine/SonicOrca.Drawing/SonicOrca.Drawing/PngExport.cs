@@ -8,6 +8,9 @@ namespace SonicOrca.Drawing;
 /// </summary>
 internal static class PngExport
 {
+	/// <summary>
+	/// Writes 8-bit pixel data to a PNG file.
+	/// </summary>
 	/// <param name="pixels">8-bit RGB or RGBA samples, rows top to bottom unless <paramref name="bottomUp"/>.</param>
 	/// <param name="bgr">Pixels are in BGR(A) order and need red and blue swapped.</param>
 	public static void Save(string path, byte[] pixels, int width, int height, bool alpha, bool bgr = false, bool bottomUp = false)

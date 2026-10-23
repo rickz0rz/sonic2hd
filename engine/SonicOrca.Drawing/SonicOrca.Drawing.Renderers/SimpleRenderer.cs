@@ -9,6 +9,9 @@ using SonicOrca.Graphics.LowLevel;
 
 namespace SonicOrca.Drawing.Renderers;
 
+/// <summary>
+/// Batches 2D primitives (textured quads, coloured quads, lines and ellipses) and draws them when the renderer is deactivated or the batch is full.
+/// </summary>
 public class SimpleRenderer : I2dRenderer, IDisposable, IRenderer
 {
 	[StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -24,6 +27,9 @@ public class SimpleRenderer : I2dRenderer, IDisposable, IRenderer
 		public vec2 texcoords;
 	}
 
+	/// <summary>
+	/// Holds a range of batched vertices and the render state to draw them with. The renderer reuses instances between frames.
+	/// </summary>
 	private class BatchOperation
 	{
 		public SimpleRenderer _simpleRenderer;
@@ -43,8 +49,6 @@ public class SimpleRenderer : I2dRenderer, IDisposable, IRenderer
 		public Matrix4 _modelMatrix;
 
 		public Colour _additiveColour;
-
-		private Vector2[] vertexPositions = new Vector2[4];
 
 		public BatchOperation(SimpleRenderer simpleRenderer, PrimitiveType primitiveType, int vertexBufferIndex, int vertexCount, BlendMode blendMode, Rectangle clipRectangle, IEnumerable<ITexture> textures, Matrix4 modelMatrix, Colour additiveColour)
 		{
@@ -79,6 +83,9 @@ public class SimpleRenderer : I2dRenderer, IDisposable, IRenderer
 		}
 	}
 
+	/// <summary>
+	/// Puts the model matrix and the clip rectangle back to their saved values when it is disposed.
+	/// </summary>
 	private class MatrixState : IDisposable
 	{
 		private readonly SimpleRenderer _simpleRenderer;
@@ -101,7 +108,10 @@ public class SimpleRenderer : I2dRenderer, IDisposable, IRenderer
 		}
 	}
 
-	private static readonly Dictionary<Renderer, SimpleRenderer> RendererDictionary = new Dictionary<Renderer, SimpleRenderer>();
+	// Draw the batch when it has more vertices than this
+	private const int MaxBatchedVertexCount = 1024;
+
+	private static readonly Dictionary<Renderer, SimpleRenderer> RendererDictionary = new();
 
 	private readonly Renderer _renderer;
 
@@ -113,7 +123,7 @@ public class SimpleRenderer : I2dRenderer, IDisposable, IRenderer
 
 	private Vertex[] _verticesData = new Vertex[20];
 
-	private int numVerticesData;
+	private int _vertexDataCount;
 
 	private ManagedShaderProgram _shaderProgram;
 
@@ -137,15 +147,15 @@ public class SimpleRenderer : I2dRenderer, IDisposable, IRenderer
 
 	private BatchOperation[] _batchOperations = new BatchOperation[4];
 
-	private int numBatchOperations;
+	private int _batchOperationCount;
 
 	private int _batchedVertexIndex;
 
 	private int _batchedVertexCount;
 
-	private Vector2[] vertexPositions = new Vector2[4];
+	private Vector2[] _vertexPositions = new Vector2[4];
 
-	private Vector2[] vertexUVs = new Vector2[4];
+	private Vector2[] _vertexUVs = new Vector2[4];
 
 	public Matrix4 ModelMatrix
 	{
@@ -253,6 +263,7 @@ public class SimpleRenderer : I2dRenderer, IDisposable, IRenderer
 			}
 			else if (_textures.Length == 1)
 			{
+				// Note: this condition looks inverted. A different texture is not stored.
 				if (_textures[0] == value)
 				{
 					PushBatchOperation();
@@ -280,26 +291,26 @@ public class SimpleRenderer : I2dRenderer, IDisposable, IRenderer
 				Texture = null;
 				return;
 			}
-			ITexture[] array = value.ToArray();
-			if (_textures.Length != array.Length)
+			ITexture[] newTextures = value.ToArray();
+			if (_textures.Length != newTextures.Length)
 			{
 				PushBatchOperation();
-				_textures = array;
+				_textures = newTextures;
 				return;
 			}
-			bool flag = false;
+			bool changed = false;
 			for (int i = 0; i < _textures.Length; i++)
 			{
-				if (_textures[i] != array[i])
+				if (_textures[i] != newTextures[i])
 				{
-					flag = true;
+					changed = true;
 					break;
 				}
 			}
-			if (flag)
+			if (changed)
 			{
 				PushBatchOperation();
-				_textures = array;
+				_textures = newTextures;
 			}
 		}
 	}
@@ -345,13 +356,13 @@ public class SimpleRenderer : I2dRenderer, IDisposable, IRenderer
 		if (_batchedVertexCount != 0)
 		{
 			PushBatchOperation();
-			_vbo.SetData(_verticesData, 0, numVerticesData);
+			_vbo.SetData(_verticesData, 0, _vertexDataCount);
 			_projectionMatrix = _renderer.Window.GraphicsContext.CurrentFramebuffer.CreateOrthographic();
-			for (int i = 0; i < numBatchOperations; i++)
+			for (int i = 0; i < _batchOperationCount; i++)
 			{
 				_batchOperations[i].Render();
 			}
-			numBatchOperations = 0;
+			_batchOperationCount = 0;
 			_batchedVertexIndex = 0;
 			_batchedVertexCount = 0;
 		}
@@ -363,44 +374,45 @@ public class SimpleRenderer : I2dRenderer, IDisposable, IRenderer
 		{
 			return;
 		}
-		if (numBatchOperations >= _batchOperations.Length)
+		if (_batchOperationCount >= _batchOperations.Length)
 		{
-			BatchOperation[] array = new BatchOperation[_batchOperations.Length * 2];
+			BatchOperation[] expandedOperations = new BatchOperation[_batchOperations.Length * 2];
 			for (int i = 0; i < _batchOperations.Length; i++)
 			{
-				array[i] = _batchOperations[i];
+				expandedOperations[i] = _batchOperations[i];
 			}
-			_batchOperations = array;
+			_batchOperations = expandedOperations;
 		}
-		if (_batchOperations[numBatchOperations] == null)
+		BatchOperation operation = _batchOperations[_batchOperationCount];
+		if (operation == null)
 		{
-			_batchOperations[numBatchOperations] = new BatchOperation(this, _primitiveType, _batchedVertexIndex, _batchedVertexCount - _batchedVertexIndex, _blendMode, _clipRectangle, _textures, _modelMatrix, _additiveColour);
+			_batchOperations[_batchOperationCount] = new BatchOperation(this, _primitiveType, _batchedVertexIndex, _batchedVertexCount - _batchedVertexIndex, _blendMode, _clipRectangle, _textures, _modelMatrix, _additiveColour);
 		}
 		else
 		{
-			_batchOperations[numBatchOperations]._simpleRenderer = this;
-			_batchOperations[numBatchOperations]._primitiveType = _primitiveType;
-			_batchOperations[numBatchOperations]._vertexBufferIndex = _batchedVertexIndex;
-			_batchOperations[numBatchOperations]._vertexCount = _batchedVertexCount - _batchedVertexIndex;
-			_batchOperations[numBatchOperations]._blendMode = _blendMode;
-			_batchOperations[numBatchOperations]._clipRectangle = _clipRectangle;
-			_batchOperations[numBatchOperations]._textures = _textures.ToArray();
-			_batchOperations[numBatchOperations]._modelMatrix = _modelMatrix;
-			_batchOperations[numBatchOperations]._additiveColour = _additiveColour;
+			operation._simpleRenderer = this;
+			operation._primitiveType = _primitiveType;
+			operation._vertexBufferIndex = _batchedVertexIndex;
+			operation._vertexCount = _batchedVertexCount - _batchedVertexIndex;
+			operation._blendMode = _blendMode;
+			operation._clipRectangle = _clipRectangle;
+			operation._textures = _textures.ToArray();
+			operation._modelMatrix = _modelMatrix;
+			operation._additiveColour = _additiveColour;
 		}
-		numBatchOperations++;
+		_batchOperationCount++;
 		_batchedVertexIndex = _batchedVertexCount;
 	}
 
 	private void PushVertices(IReadOnlyList<Vector2> positions)
 	{
-		Colour[] array = new Colour[positions.Count];
+		Colour[] colours = new Colour[positions.Count];
 		Vector2[] textureMappings = new Vector2[positions.Count];
 		for (int i = 0; i < positions.Count; i++)
 		{
-			array[i] = Colour;
+			colours[i] = Colour;
 		}
-		PushVertices(positions, array, textureMappings);
+		PushVertices(positions, colours, textureMappings);
 	}
 
 	public void PushVertices(IReadOnlyList<Vector2> positions, IReadOnlyList<Colour> colours, IReadOnlyList<Vector2> textureMappings)
@@ -409,28 +421,28 @@ public class SimpleRenderer : I2dRenderer, IDisposable, IRenderer
 		if (_batchedVertexCount == 0)
 		{
 			_batchedVertexIndex = 0;
-			numVerticesData = 0;
+			_vertexDataCount = 0;
 		}
 		for (int i = 0; i < positions.Count; i++)
 		{
-			_verticesData[numVerticesData].position.x = (float)positions[i].X;
-			_verticesData[numVerticesData].position.y = (float)positions[i].Y;
-			_verticesData[numVerticesData].colour.r = colours[i].Red / 255f;
-			_verticesData[numVerticesData].colour.g = colours[i].Green / 255f;
-			_verticesData[numVerticesData].colour.b = colours[i].Blue / 255f;
-			_verticesData[numVerticesData].colour.a = colours[i].Alpha / 255f;
-			_verticesData[numVerticesData].texcoords.s = (float)textureMappings[i].X;
-			_verticesData[numVerticesData].texcoords.t = (float)textureMappings[i].Y;
-			numVerticesData++;
-			if (numVerticesData >= _verticesData.Length)
+			_verticesData[_vertexDataCount].position.x = (float)positions[i].X;
+			_verticesData[_vertexDataCount].position.y = (float)positions[i].Y;
+			_verticesData[_vertexDataCount].colour.r = colours[i].Red / 255f;
+			_verticesData[_vertexDataCount].colour.g = colours[i].Green / 255f;
+			_verticesData[_vertexDataCount].colour.b = colours[i].Blue / 255f;
+			_verticesData[_vertexDataCount].colour.a = colours[i].Alpha / 255f;
+			_verticesData[_vertexDataCount].texcoords.s = (float)textureMappings[i].X;
+			_verticesData[_vertexDataCount].texcoords.t = (float)textureMappings[i].Y;
+			_vertexDataCount++;
+			if (_vertexDataCount >= _verticesData.Length)
 			{
-				Vertex[] array = new Vertex[_verticesData.Length * 2];
-				Array.Copy(_verticesData, array, _verticesData.Length);
-				_verticesData = array;
+				Vertex[] expandedVertices = new Vertex[_verticesData.Length * 2];
+				Array.Copy(_verticesData, expandedVertices, _verticesData.Length);
+				_verticesData = expandedVertices;
 			}
 		}
 		_batchedVertexCount += positions.Count;
-		if (_batchedVertexCount > 1024)
+		if (_batchedVertexCount > MaxBatchedVertexCount)
 		{
 			Render();
 		}
@@ -504,20 +516,21 @@ public class SimpleRenderer : I2dRenderer, IDisposable, IRenderer
 	{
 		if (textures.Count() == 0)
 		{
-			throw new ArgumentException("No textures specified", "textures");
+			throw new ArgumentException("No textures specified", nameof(textures));
 		}
-		Renderer.GetVertices(destination, vertexPositions);
+		Renderer.GetVertices(destination, _vertexPositions);
 		ITexture texture = textures.First();
+		// Use half-texel-inset mappings when the model matrix scales the texture
 		if (_modelMatrix.M11 != 1.0 || _modelMatrix.M22 != 1.0)
 		{
-			Renderer.GetTextureMappingsHalfIn(texture, source, ref vertexUVs, flipX, flipY);
+			Renderer.GetTextureMappingsHalfIn(texture, source, ref _vertexUVs, flipX, flipY);
 		}
 		else
 		{
-			Renderer.GetTextureMappings(texture, source, vertexUVs, flipX, flipY);
+			Renderer.GetTextureMappings(texture, source, _vertexUVs, flipX, flipY);
 		}
 		Textures = textures;
-		PushVertices(vertexPositions, new Colour[4] { Colour, Colour, Colour, Colour }, vertexUVs);
+		PushVertices(_vertexPositions, new Colour[4] { Colour, Colour, Colour, Colour }, _vertexUVs);
 	}
 
 	public void RenderQuad(Colour colour, Rectangle rectangle)
@@ -544,28 +557,30 @@ public class SimpleRenderer : I2dRenderer, IDisposable, IRenderer
 	{
 		Colour = colour;
 		Texture = null;
-		Vector2[] array = new Vector2[sectors * 4];
-		int num = 0;
+		// One quad for each sector. The angle starts at the top and goes clockwise.
+		Vector2[] points = new Vector2[sectors * 4];
+		int pointIndex = 0;
 		for (int i = 0; i < sectors; i++)
 		{
-			double num2 = i * (Math.PI * 2.0) / sectors;
-			double num3 = (i + 1) * (Math.PI * 2.0) / sectors;
-			array[num++] = new Vector2(Math.Sin(num2) * outerRadius, (0.0 - Math.Cos(num2)) * outerRadius) + centre;
-			array[num++] = new Vector2(Math.Sin(num2) * innerRadius, (0.0 - Math.Cos(num2)) * innerRadius) + centre;
-			array[num++] = new Vector2(Math.Sin(num3) * innerRadius, (0.0 - Math.Cos(num3)) * innerRadius) + centre;
-			array[num++] = new Vector2(Math.Sin(num3) * outerRadius, (0.0 - Math.Cos(num3)) * outerRadius) + centre;
+			double startAngle = i * (Math.PI * 2.0) / sectors;
+			double endAngle = (i + 1) * (Math.PI * 2.0) / sectors;
+			points[pointIndex++] = new Vector2(Math.Sin(startAngle) * outerRadius, (0.0 - Math.Cos(startAngle)) * outerRadius) + centre;
+			points[pointIndex++] = new Vector2(Math.Sin(startAngle) * innerRadius, (0.0 - Math.Cos(startAngle)) * innerRadius) + centre;
+			points[pointIndex++] = new Vector2(Math.Sin(endAngle) * innerRadius, (0.0 - Math.Cos(endAngle)) * innerRadius) + centre;
+			points[pointIndex++] = new Vector2(Math.Sin(endAngle) * outerRadius, (0.0 - Math.Cos(endAngle)) * outerRadius) + centre;
 		}
-		PushVertices(array);
+		PushVertices(points);
 	}
 
 	public void RenderRectangle(Colour colour, Rectangle rect, double thickness)
 	{
-		double num = Math.Min(thickness, rect.Width);
-		double num2 = Math.Min(thickness, rect.Height);
-		RenderQuad(colour, new Rectangle(rect.X, rect.Y, num, rect.Height));
-		RenderQuad(colour, new Rectangle(rect.Right - num, rect.Y, num, rect.Height));
-		RenderQuad(colour, new Rectangle(rect.X + num, rect.Y, rect.Width - num * 2.0, num2));
-		RenderQuad(colour, new Rectangle(rect.X + num, rect.Bottom - num2, rect.Width - num * 2.0, num2));
+		double sideThickness = Math.Min(thickness, rect.Width);
+		double edgeThickness = Math.Min(thickness, rect.Height);
+		// Left and right sides at full height, then the top and bottom edges between them
+		RenderQuad(colour, new Rectangle(rect.X, rect.Y, sideThickness, rect.Height));
+		RenderQuad(colour, new Rectangle(rect.Right - sideThickness, rect.Y, sideThickness, rect.Height));
+		RenderQuad(colour, new Rectangle(rect.X + sideThickness, rect.Y, rect.Width - sideThickness * 2.0, edgeThickness));
+		RenderQuad(colour, new Rectangle(rect.X + sideThickness, rect.Bottom - edgeThickness, rect.Width - sideThickness * 2.0, edgeThickness));
 	}
 
 	public void RenderLine(Colour colour, Vector2 a, Vector2 b, double thickness)
@@ -575,14 +590,15 @@ public class SimpleRenderer : I2dRenderer, IDisposable, IRenderer
 		a += new Vector2(0.5, 0.5);
 		b += new Vector2(0.5, 0.5);
 		thickness /= 2.0;
-		double num = Math.Atan2(a.Y - b.Y, a.X - b.X) + Math.PI / 2.0;
-		double num2 = Math.Atan2(a.Y - b.Y, a.X - b.X) - Math.PI / 2.0;
+		// The two directions at right angles to the line
+		double leftAngle = Math.Atan2(a.Y - b.Y, a.X - b.X) + Math.PI / 2.0;
+		double rightAngle = Math.Atan2(a.Y - b.Y, a.X - b.X) - Math.PI / 2.0;
 		PushVertices(new Vector2[4]
 		{
-			a + new Vector2(Math.Cos(num) * thickness, Math.Sin(num) * thickness),
-			a + new Vector2(Math.Cos(num2) * thickness, Math.Sin(num2) * thickness),
-			b + new Vector2(Math.Cos(num) * thickness, Math.Sin(num) * thickness),
-			b + new Vector2(Math.Cos(num2) * thickness, Math.Sin(num2) * thickness)
+			a + new Vector2(Math.Cos(leftAngle) * thickness, Math.Sin(leftAngle) * thickness),
+			a + new Vector2(Math.Cos(rightAngle) * thickness, Math.Sin(rightAngle) * thickness),
+			b + new Vector2(Math.Cos(leftAngle) * thickness, Math.Sin(leftAngle) * thickness),
+			b + new Vector2(Math.Cos(rightAngle) * thickness, Math.Sin(rightAngle) * thickness)
 		});
 	}
 

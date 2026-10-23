@@ -8,6 +8,9 @@ using SonicOrca.Graphics.LowLevel;
 
 namespace SonicOrca.Drawing.Renderers;
 
+/// <summary>
+/// Draws a part of the level with the waterfall distortion effect.
+/// </summary>
 internal class WaterfallRenderer : IRenderer, IDisposable
 {
 	[StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -26,7 +29,7 @@ internal class WaterfallRenderer : IRenderer, IDisposable
 		public vec2 normalisation;
 	}
 
-	private static readonly Dictionary<Renderer, WaterfallRenderer> RendererDictionary = new Dictionary<Renderer, WaterfallRenderer>();
+	private static readonly Dictionary<Renderer, WaterfallRenderer> RendererDictionary = new();
 
 	private readonly Renderer _renderer;
 
@@ -38,15 +41,15 @@ internal class WaterfallRenderer : IRenderer, IDisposable
 
 	private readonly Vertex[] _vertices = new Vertex[4];
 
-	private Vector2[] vertexPositions = new Vector2[4];
+	private Vector2[] _vertexPositions = new Vector2[4];
 
-	private Vector2[] vertexUVs = new Vector2[4];
+	private Vector2[] _vertexUVs = new Vector2[4];
 
-	private Vector2[] distortionUVs = new Vector2[4];
+	private Vector2[] _distortionUVs = new Vector2[4];
 
 	private ManagedShaderProgram _shaderProgram;
 
-	private Vector2[] vertexNormalisation = new Vector2[4];
+	private Vector2[] _vertexNormalisation = new Vector2[4];
 
 	public ITexture DistortionTexture { get; set; }
 
@@ -97,44 +100,29 @@ internal class WaterfallRenderer : IRenderer, IDisposable
 
 	public void Render(ITexture texture, Rectanglei source, Rectanglei destination, bool flipX = false, bool flipY = false)
 	{
-		Renderer.GetVertices(destination, vertexPositions);
-		Renderer.GetTextureMappings(texture, source, vertexUVs, flipX, flipY);
-		Renderer.GetTextureMappings(DistortionTexture, new Rectangle(DistortionOffset.X * DistortionTexture.Width, DistortionOffset.Y * DistortionTexture.Height, destination.Width, destination.Height), distortionUVs);
-		Renderer.GetVertices(new Rectangle(0.0, 0.0, 1.0, 1.0), vertexNormalisation);
+		Renderer.GetVertices(destination, _vertexPositions);
+		Renderer.GetTextureMappings(texture, source, _vertexUVs, flipX, flipY);
+		Renderer.GetTextureMappings(DistortionTexture, new Rectangle(DistortionOffset.X * DistortionTexture.Width, DistortionOffset.Y * DistortionTexture.Height, destination.Width, destination.Height), _distortionUVs);
+		// Corner positions of a unit square, so that the shader knows where each pixel is inside the quad
+		Renderer.GetVertices(new Rectangle(0.0, 0.0, 1.0, 1.0), _vertexNormalisation);
 		for (int i = 0; i < 4; i++)
 		{
 			_vertices[i] = new Vertex
 			{
-				position = new vec2
-				{
-					x = (float)vertexPositions[i].X,
-					y = (float)vertexPositions[i].Y
-				},
-				texcoords = new vec2
-				{
-					s = (float)vertexUVs[i].X,
-					t = (float)vertexUVs[i].Y
-				},
-				distortiontexcoords = new vec2
-				{
-					s = (float)distortionUVs[i].X,
-					t = (float)distortionUVs[i].Y
-				},
-				normalisation = new vec2
-				{
-					x = (float)vertexNormalisation[i].X,
-					y = (float)vertexNormalisation[i].Y
-				}
+				position = _vertexPositions[i].ToVec2(),
+				texcoords = _vertexUVs[i].ToVec2(),
+				distortiontexcoords = _distortionUVs[i].ToVec2(),
+				normalisation = _vertexNormalisation[i].ToVec2()
 			};
 		}
 		_vbo.SetData(_vertices, 0, 4);
-		Matrix4 value = _renderer.Window.GraphicsContext.CurrentFramebuffer.CreateOrthographic();
+		Matrix4 projectionMatrix = _renderer.Window.GraphicsContext.CurrentFramebuffer.CreateOrthographic();
 		_renderer.ActivateRenderer(this);
 		_graphicsContext.BlendMode = BlendMode.Opaque;
 		_graphicsContext.SetTextures(new ITexture[2] { texture, DistortionTexture });
 		IShaderProgram program = _shaderProgram.Program;
 		program.Activate();
-		program.SetUniform("ProjectionMatrix", value);
+		program.SetUniform("ProjectionMatrix", projectionMatrix);
 		program.SetUniform("InputDistortionAmount", 1.0 / texture.Height * DistortionAmount);
 		program.SetUniform("InputNonDistortionRadius", new Vector2(1.0 / destination.Width * NonDistortionRadius.X, 1.0 / destination.Height * NonDistortionRadius.Y));
 		_vao.Render(PrimitiveType.Quads, 0, 4);

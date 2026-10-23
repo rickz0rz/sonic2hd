@@ -8,6 +8,9 @@ using SonicOrca.Graphics.LowLevel;
 
 namespace SonicOrca.Drawing.Renderers;
 
+/// <summary>
+/// Draws a character sprite from a skin texture and a body texture, with an optional ghost effect.
+/// </summary>
 public class CharacterRenderer : ICharacterRenderer, IRenderer, IDisposable
 {
 	[StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -20,7 +23,11 @@ public class CharacterRenderer : ICharacterRenderer, IRenderer, IDisposable
 		public vec2 texcoords;
 	}
 
-	private static readonly Dictionary<Renderer, CharacterRenderer> RendererDictionary = new Dictionary<Renderer, CharacterRenderer>();
+	private const double ScreenWidth = 1920.0;
+
+	private const double ScreenHeight = 1080.0;
+
+	private static readonly Dictionary<Renderer, CharacterRenderer> RendererDictionary = new();
 
 	private readonly Renderer _renderer;
 
@@ -34,9 +41,9 @@ public class CharacterRenderer : ICharacterRenderer, IRenderer, IDisposable
 
 	private Vertex[] _vertices = new Vertex[4];
 
-	private Vector2[] vertexPositions = new Vector2[4];
+	private Vector2[] _vertexPositions = new Vector2[4];
 
-	private Vector2[] vertexUVs = new Vector2[4];
+	private Vector2[] _vertexUVs = new Vector2[4];
 
 	private ManagedShaderProgram _shaderProgram;
 
@@ -74,7 +81,7 @@ public class CharacterRenderer : ICharacterRenderer, IRenderer, IDisposable
 		_vao.DefineAttributes(_shaderProgram.Program, _vbo, typeof(Vertex));
 		_vaoGhost.DefineAttributes(_ghostShaderProgram.Program, _vbo, typeof(Vertex));
 		ModelMatrix = Matrix4.Identity;
-		ClipRectangle = new Rectangle(0.0, 0.0, 1920.0, 1080.0);
+		ClipRectangle = new Rectangle(0.0, 0.0, ScreenWidth, ScreenHeight);
 		_shaderProgram.Program.Activate();
 		_shaderProgram.Program.SetUniform("InputTextureSkin", 0);
 		_shaderProgram.Program.SetUniform("InputTextureBody", 1);
@@ -108,44 +115,29 @@ public class CharacterRenderer : ICharacterRenderer, IRenderer, IDisposable
 		RenderTexture(_ghostShaderProgram, skinTexture, bodyTexture, 0.0, 0.0, 0.0, source, destination, flipX, flipY);
 	}
 
-	private void RenderTexture(ManagedShaderProgram managedShaderProgram, ITexture skinTexture, ITexture bodyTexture, double hueShift, double satuationShift, double luminosityShift, Rectangle source, Rectangle destination, bool flipX = false, bool flipY = false)
+	private void RenderTexture(ManagedShaderProgram managedShaderProgram, ITexture skinTexture, ITexture bodyTexture, double hueShift, double saturationShift, double luminosityShift, Rectangle source, Rectangle destination, bool flipX = false, bool flipY = false)
 	{
-		Renderer.GetVertices(destination, vertexPositions);
-		Renderer.GetTextureMappings(skinTexture, source, vertexUVs, flipX, flipY);
+		Renderer.GetVertices(destination, _vertexPositions);
+		Renderer.GetTextureMappings(skinTexture, source, _vertexUVs, flipX, flipY);
 		for (int i = 0; i < 4; i++)
 		{
 			_vertices[i] = new Vertex
 			{
-				position = new vec2
-				{
-					x = (float)vertexPositions[i].X,
-					y = (float)vertexPositions[i].Y
-				},
-				texcoords = new vec2
-				{
-					s = (float)vertexUVs[i].X,
-					t = (float)vertexUVs[i].Y
-				}
+				position = _vertexPositions[i].ToVec2(),
+				texcoords = _vertexUVs[i].ToVec2()
 			};
 		}
 		_vbo.SetData(_vertices, 0, 4);
-		Matrix4 value = _renderer.Window.GraphicsContext.CurrentFramebuffer.CreateOrthographic();
+		Matrix4 projectionMatrix = _renderer.Window.GraphicsContext.CurrentFramebuffer.CreateOrthographic();
 		_renderer.ActivateRenderer(this);
 		_graphicsContext.BlendMode = BlendMode.Alpha;
 		_graphicsContext.SetTextures(new ITexture[2] { skinTexture, bodyTexture });
 		IShaderProgram program = managedShaderProgram.Program;
 		program.Activate();
-		if (ShadowRenderer.IsShadowing)
-		{
-			program.SetUniform("AlphaGrayscale", 1f);
-		}
-		else
-		{
-			program.SetUniform("AlphaGrayscale", 0f);
-		}
+		program.SetUniform("AlphaGrayscale", ShadowRenderer.IsShadowing ? 1f : 0f);
 		program.SetUniform("ModelViewMatrix", ModelMatrix);
-		program.SetUniform("ProjectionMatrix", value);
-		program.SetUniform("InputHSLShift", new Vector3(hueShift, satuationShift, luminosityShift));
+		program.SetUniform("ProjectionMatrix", projectionMatrix);
+		program.SetUniform("InputHSLShift", new Vector3(hueShift, saturationShift, luminosityShift));
 		program.SetUniform("InputClipRectangle", new Vector4(ClipRectangle.X, ClipRectangle.Y, ClipRectangle.Right, ClipRectangle.Bottom));
 		program.SetUniform("InputFilter", Filter);
 		program.SetUniform("InputFilterAmount", FilterAmount);
@@ -153,6 +145,7 @@ public class CharacterRenderer : ICharacterRenderer, IRenderer, IDisposable
 		{
 			program.SetUniform("InputBrightness", Brightness);
 		}
-		((managedShaderProgram == _ghostShaderProgram) ? _vaoGhost : _vao).Render(PrimitiveType.Quads, 0, 4);
+		IVertexArray vao = (managedShaderProgram == _ghostShaderProgram) ? _vaoGhost : _vao;
+		vao.Render(PrimitiveType.Quads, 0, 4);
 	}
 }

@@ -8,6 +8,9 @@ using SonicOrca.Graphics.LowLevel;
 
 namespace SonicOrca.Drawing.Renderers;
 
+/// <summary>
+/// Draws a texture with a heat haze distortion.
+/// </summary>
 internal class HeatRenderer : IHeatRenderer, IRenderer, IDisposable
 {
 	[StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -23,7 +26,7 @@ internal class HeatRenderer : IHeatRenderer, IRenderer, IDisposable
 		public vec2 distortiontexcoords;
 	}
 
-	private static readonly Dictionary<Renderer, HeatRenderer> RendererDictionary = new Dictionary<Renderer, HeatRenderer>();
+	private static readonly Dictionary<Renderer, HeatRenderer> RendererDictionary = new();
 
 	private readonly Renderer _renderer;
 
@@ -35,11 +38,11 @@ internal class HeatRenderer : IHeatRenderer, IRenderer, IDisposable
 
 	private readonly Vertex[] _vertices = new Vertex[4];
 
-	private Vector2[] vertexPositions = new Vector2[4];
+	private Vector2[] _vertexPositions = new Vector2[4];
 
-	private Vector2[] vertexUVs = new Vector2[4];
+	private Vector2[] _vertexUVs = new Vector2[4];
 
-	private Vector2[] distortionUVs = new Vector2[4];
+	private Vector2[] _distortionUVs = new Vector2[4];
 
 	private ManagedShaderProgram _shaderProgram;
 
@@ -88,26 +91,26 @@ internal class HeatRenderer : IHeatRenderer, IRenderer, IDisposable
 
 	public void Render(ITexture texture, Rectanglei source, Rectanglei destination, bool flipX = false, bool flipY = false)
 	{
-		Renderer.GetVertices(destination, vertexPositions);
-		Renderer.GetTextureMappings(texture, source, vertexUVs, flipX, flipY);
-		Renderer.GetTextureMappings(DistortionTexture, new Rectanglei(0, 0, DistortionTexture.Width, DistortionTexture.Height), distortionUVs);
+		Renderer.GetVertices(destination, _vertexPositions);
+		Renderer.GetTextureMappings(texture, source, _vertexUVs, flipX, flipY);
+		Renderer.GetTextureMappings(DistortionTexture, new Rectanglei(0, 0, DistortionTexture.Width, DistortionTexture.Height), _distortionUVs);
 		for (int i = 0; i < 4; i++)
 		{
 			_vertices[i] = new Vertex
 			{
-				position = vertexPositions[i].ToVec2(),
-				texcoords = vertexUVs[i].ToVec2(),
-				distortiontexcoords = distortionUVs[i].ToVec2()
+				position = _vertexPositions[i].ToVec2(),
+				texcoords = _vertexUVs[i].ToVec2(),
+				distortiontexcoords = _distortionUVs[i].ToVec2()
 			};
 		}
 		_vbo.SetData(_vertices, 0, 4);
-		Matrix4 value = _renderer.Window.GraphicsContext.CurrentFramebuffer.CreateOrthographic();
+		Matrix4 projectionMatrix = _renderer.Window.GraphicsContext.CurrentFramebuffer.CreateOrthographic();
 		_renderer.ActivateRenderer(this);
 		_graphicsContext.BlendMode = BlendMode.Alpha;
 		_graphicsContext.SetTextures(new ITexture[2] { texture, DistortionTexture });
 		IShaderProgram program = _shaderProgram.Program;
 		program.Activate();
-		program.SetUniform("ProjectionMatrix", value);
+		program.SetUniform("ProjectionMatrix", projectionMatrix);
 		program.SetUniform("InputDistortionAmount", DistortionAmount);
 		_vao.Render(PrimitiveType.Quads, 0, 4);
 	}

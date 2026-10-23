@@ -4,11 +4,12 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.Drawing.Renderers;
 
+/// <summary>
+/// Holds the global shadow state. The other renderers read <see cref="IsShadowing"/> to draw shadows in grayscale.
+/// </summary>
 internal class ShadowRenderer : IRenderer, IDisposable
 {
-	private static readonly Dictionary<Renderer, ShadowRenderer> RendererDictionary = new Dictionary<Renderer, ShadowRenderer>();
-
-	private readonly Renderer _renderer;
+	private static readonly Dictionary<Renderer, ShadowRenderer> RendererDictionary = new();
 
 	private readonly IGraphicsContext _graphicsContext;
 
@@ -29,7 +30,6 @@ internal class ShadowRenderer : IRenderer, IDisposable
 
 	private ShadowRenderer(Renderer renderer)
 	{
-		_renderer = renderer;
 		renderer.RegisterRenderer(this);
 		_graphicsContext = renderer.Window.GraphicsContext;
 		_shaderProgram = OrcaShader.CreateFromFile(_graphicsContext, "shaders/shadow.shader");

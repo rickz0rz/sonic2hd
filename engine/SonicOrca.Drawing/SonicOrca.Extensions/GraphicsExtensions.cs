@@ -6,6 +6,9 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.Extensions;
 
+/// <summary>
+/// Gives helper methods for framebuffers, buffers and vertex arrays.
+/// </summary>
 public static class GraphicsExtensions
 {
 	public static Matrix4 CreateOrthographic(this IFramebuffer renderTarget)
@@ -23,29 +26,29 @@ public static class GraphicsExtensions
 		vao.Bind();
 		vbo.Bind();
 		int stride = Marshal.SizeOf(vertexType);
-		FieldInfo[] fields = vertexType.GetFields();
-		foreach (FieldInfo fieldInfo in fields)
+		foreach (FieldInfo fieldInfo in vertexType.GetFields())
 		{
-			VertexAttributeAttribute customAttribute = fieldInfo.GetCustomAttribute<VertexAttributeAttribute>();
-			if (customAttribute == null)
+			VertexAttributeAttribute vertexAttribute = fieldInfo.GetCustomAttribute<VertexAttributeAttribute>();
+			if (vertexAttribute == null)
 			{
 				continue;
 			}
 			Type fieldType = fieldInfo.FieldType;
-			VertexAttributeTypeAttribute vertexAttributeTypeAttribute = fieldType.GetCustomAttribute<VertexAttributeTypeAttribute>();
-			if (vertexAttributeTypeAttribute == null)
+			// Use the type attribute of the field type. Use a default for float and int fields.
+			VertexAttributeTypeAttribute attributeType = fieldType.GetCustomAttribute<VertexAttributeTypeAttribute>();
+			if (attributeType == null)
 			{
 				if (fieldType == typeof(float))
 				{
-					vertexAttributeTypeAttribute = new VertexAttributeTypeAttribute(VertexAttributePointerType.Float, 1);
+					attributeType = new VertexAttributeTypeAttribute(VertexAttributePointerType.Float, 1);
 				}
 				else if (fieldType == typeof(int))
 				{
-					vertexAttributeTypeAttribute = new VertexAttributeTypeAttribute(VertexAttributePointerType.Int, 1);
+					attributeType = new VertexAttributeTypeAttribute(VertexAttributePointerType.Int, 1);
 				}
 			}
 			int offset = (int)Marshal.OffsetOf(vertexType, fieldInfo.Name);
-			vao.DefineAttribute(program.GetAttributeLocation(customAttribute.Name), vertexAttributeTypeAttribute.Type, vertexAttributeTypeAttribute.Size, stride, offset);
+			vao.DefineAttribute(program.GetAttributeLocation(vertexAttribute.Name), attributeType.Type, attributeType.Size, stride, offset);
 		}
 	}
 

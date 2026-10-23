@@ -4,8 +4,15 @@ using OpenTK.Graphics.OpenGL;
 
 namespace SonicOrca.Drawing.Renderers;
 
+/// <summary>
+/// Saves the contents of the screen to a PNG file.
+/// </summary>
 public class ScreenshotRenderer
 {
+	private const int ScreenWidth = 1920;
+
+	private const int ScreenHeight = 1080;
+
 	public static void GrabScreenshot(string directory, string filename = null)
 	{
 		// Desktop only: reads pixels through OpenTK, and a browser has nowhere useful to save the file
@@ -13,8 +20,8 @@ public class ScreenshotRenderer
 		{
 			return;
 		}
-		int width = 1920;
-		int height = 1080;
+		int width = ScreenWidth;
+		int height = ScreenHeight;
 		byte[] pixels = new byte[width * height * 3];
 		GL.PixelStore(PixelStoreParameter.PackAlignment, 1);
 		GL.ReadPixels(0, 0, width, height, PixelFormat.Rgb, PixelType.UnsignedByte, pixels);

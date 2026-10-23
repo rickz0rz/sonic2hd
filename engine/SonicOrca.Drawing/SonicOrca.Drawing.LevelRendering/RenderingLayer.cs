@@ -6,6 +6,9 @@ using SonicOrca.Geometry;
 
 namespace SonicOrca.Drawing.LevelRendering;
 
+/// <summary>
+/// Holds the per-frame rendering state of one level layer: its tile range, its objects and its clipping markers.
+/// </summary>
 internal class RenderingLayer
 {
 	private readonly Level _level;
@@ -51,19 +54,13 @@ internal class RenderingLayer
 
 	public void AddLowObject(ActiveObject obj)
 	{
-		if (LowObjects == null)
-		{
-			LowObjects = new List<ActiveObject>();
-		}
+		LowObjects ??= new List<ActiveObject>();
 		LowObjects.Add(obj);
 	}
 
 	public void AddHighObject(ActiveObject obj)
 	{
-		if (HighObjects == null)
-		{
-			HighObjects = new List<ActiveObject>();
-		}
+		HighObjects ??= new List<ActiveObject>();
 		HighObjects.Add(obj);
 	}
 
@@ -75,20 +72,24 @@ internal class RenderingLayer
 							select m).ToArray();
 	}
 
+	/// <summary>
+	/// Returns true when the layer has clipping markers and no marker touches the area.
+	/// The clipping markers mark the only regions where the layer is visible.
+	/// </summary>
 	public bool IsAreaClipped(Viewport viewport, Rectanglei area)
 	{
-		if (_clippingMarkers.Length != 0)
+		if (_clippingMarkers.Length == 0)
 		{
-			LevelMarker[] clippingMarkers = _clippingMarkers;
-			foreach (LevelMarker levelMarker in clippingMarkers)
-			{
-				if (((Rectanglei)new Rectangle((levelMarker.Bounds.X - viewport.Bounds.X) * viewport.Scale.X, (levelMarker.Bounds.Y - viewport.Bounds.Y) * viewport.Scale.Y, levelMarker.Bounds.Width * viewport.Scale.X, levelMarker.Bounds.Height * viewport.Scale.Y)).IntersectsWith(area))
-				{
-					return false;
-				}
-			}
-			return true;
+			return false;
 		}
-		return false;
+		foreach (LevelMarker marker in _clippingMarkers)
+		{
+			Rectanglei markerArea = (Rectanglei)new Rectangle((marker.Bounds.X - viewport.Bounds.X) * viewport.Scale.X, (marker.Bounds.Y - viewport.Bounds.Y) * viewport.Scale.Y, marker.Bounds.Width * viewport.Scale.X, marker.Bounds.Height * viewport.Scale.Y);
+			if (markerArea.IntersectsWith(area))
+			{
+				return false;
+			}
+		}
+		return true;
 	}
 }

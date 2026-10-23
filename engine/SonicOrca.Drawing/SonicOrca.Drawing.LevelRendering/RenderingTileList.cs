@@ -1,10 +1,13 @@
 namespace SonicOrca.Drawing.LevelRendering;
 
+/// <summary>
+/// Holds the tiles that the level renderer prepared for the current frame.
+/// </summary>
 internal class RenderingTileList
 {
 	private const int InitialTileRenderInfoCapacity = 128;
 
-	private TileRenderInfo[] _buffer = new TileRenderInfo[128];
+	private TileRenderInfo[] _buffer = new TileRenderInfo[InitialTileRenderInfoCapacity];
 
 	private int _currentCount;
 
@@ -14,8 +17,8 @@ internal class RenderingTileList
 
 	private void ExpandBuffer()
 	{
-		int num = _buffer.Length * 2;
-		_buffer = new TileRenderInfo[num];
+		// Note: this does not copy the existing entries into the new buffer.
+		_buffer = new TileRenderInfo[_buffer.Length * 2];
 	}
 
 	public void Clear()

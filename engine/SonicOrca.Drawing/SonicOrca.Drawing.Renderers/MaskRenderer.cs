@@ -8,6 +8,9 @@ using SonicOrca.Graphics.LowLevel;
 
 namespace SonicOrca.Drawing.Renderers;
 
+/// <summary>
+/// Draws a texture through an optional mask texture. Only the part inside the mask destination is drawn.
+/// </summary>
 internal class MaskRenderer : IMaskRenderer, IDisposable, IRenderer
 {
 	[StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -23,6 +26,9 @@ internal class MaskRenderer : IMaskRenderer, IDisposable, IRenderer
 		public vec2 masktexcoords;
 	}
 
+	/// <summary>
+	/// Puts the three model matrices back to their saved values when it is disposed.
+	/// </summary>
 	private class MatrixState : IDisposable
 	{
 		private readonly MaskRenderer _maskRenderer;
@@ -65,7 +71,7 @@ internal class MaskRenderer : IMaskRenderer, IDisposable, IRenderer
 
 	private Matrix4 _intersectionModelMatrix;
 
-	private static readonly Dictionary<Renderer, MaskRenderer> RendererDictionary = new Dictionary<Renderer, MaskRenderer>();
+	private static readonly Dictionary<Renderer, MaskRenderer> RendererDictionary = new();
 
 	public ITexture Texture { get; set; }
 
@@ -167,17 +173,17 @@ internal class MaskRenderer : IMaskRenderer, IDisposable, IRenderer
 
 	public void Render(bool maskColorMultiply = false)
 	{
-		IGraphicsContext graphicsContext = _graphicsContext;
 		IShaderProgram program = _shaderProgram.Program;
 		Rectanglei clippedDestination = Rectanglei.Intersect(Destination, MaskDestination);
 		if (Texture == null)
 		{
 			throw new InvalidOperationException("Texture was null.");
 		}
-		int num = 0;
+		// The shader reads this value as the number of mask textures (0 or 1)
+		int maskInput = 0;
 		if (MaskTexture != null)
 		{
-			num++;
+			maskInput++;
 			if (clippedDestination.Width <= 0 || clippedDestination.Height <= 0)
 			{
 				return;
@@ -195,10 +201,7 @@ internal class MaskRenderer : IMaskRenderer, IDisposable, IRenderer
 		_vertices[2].position.y = clippedDestination.Bottom;
 		_vertices[3].position.x = clippedDestination.Right;
 		_vertices[3].position.y = clippedDestination.Top;
-		GetClippedSourceRect(Texture, Source, Destination, clippedDestination, out var left, out var top, out var right, out var bottom);
-		ITexture texture = Texture;
-		_ = texture.Width;
-		_ = texture.Height;
+		GetClippedSourceRect(Texture, Source, Destination, clippedDestination, out float left, out float top, out float right, out float bottom);
 		_vertices[0].texcoords.s = left;
 		_vertices[0].texcoords.t = top;
 		_vertices[1].texcoords.s = left;
@@ -207,45 +210,49 @@ internal class MaskRenderer : IMaskRenderer, IDisposable, IRenderer
 		_vertices[2].texcoords.t = bottom;
 		_vertices[3].texcoords.s = right;
 		_vertices[3].texcoords.t = top;
-		if (num > 0)
+		if (maskInput > 0)
 		{
-			GetClippedSourceRect(MaskTexture, MaskSource, MaskDestination, clippedDestination, out var left2, out var top2, out var right2, out var bottom2);
-			_vertices[0].masktexcoords.s = left2;
-			_vertices[0].masktexcoords.t = top2;
-			_vertices[1].masktexcoords.s = left2;
-			_vertices[1].masktexcoords.t = bottom2;
-			_vertices[2].masktexcoords.s = right2;
-			_vertices[2].masktexcoords.t = bottom2;
-			_vertices[3].masktexcoords.s = right2;
-			_vertices[3].masktexcoords.t = top2;
+			GetClippedSourceRect(MaskTexture, MaskSource, MaskDestination, clippedDestination, out float maskLeft, out float maskTop, out float maskRight, out float maskBottom);
+			_vertices[0].masktexcoords.s = maskLeft;
+			_vertices[0].masktexcoords.t = maskTop;
+			_vertices[1].masktexcoords.s = maskLeft;
+			_vertices[1].masktexcoords.t = maskBottom;
+			_vertices[2].masktexcoords.s = maskRight;
+			_vertices[2].masktexcoords.t = maskBottom;
+			_vertices[3].masktexcoords.s = maskRight;
+			_vertices[3].masktexcoords.t = maskTop;
 		}
 		_vbo.SetData(_vertices);
-		graphicsContext.BlendMode = BlendMode;
-		graphicsContext.SetTexture(0, Texture);
-		graphicsContext.SetTexture(1, MaskTexture);
+		_graphicsContext.BlendMode = BlendMode;
+		_graphicsContext.SetTexture(0, Texture);
+		_graphicsContext.SetTexture(1, MaskTexture);
 		program.Activate();
 		program.SetUniform("IntersectionModelViewMatrix", _intersectionModelMatrix);
 		program.SetUniform("MaskModelViewMatrix", _maskModelMatrix);
 		program.SetUniform("TargetModelViewMatrix", _targetModelMatrix);
 		program.SetUniform("ProjectionMatrix", _graphicsContext.CurrentFramebuffer.CreateOrthographic());
-		program.SetUniform("MaskInput", num);
+		program.SetUniform("MaskInput", maskInput);
 		program.SetUniform("InputColour", Colour);
 		program.SetUniform("MaskColorMultiply", maskColorMultiply ? 1 : 0);
 		_vao.Render(PrimitiveType.Quads, _vertices);
 	}
 
+	/// <summary>
+	/// Gets the texture coordinates of the part of the source that maps to the clipped destination.
+	/// </summary>
 	private void GetClippedSourceRect(ITexture sourceTexture, Rectanglei source, Rectanglei destination, Rectanglei clippedDestination, out float left, out float top, out float right, out float bottom)
 	{
 		left = source.Left / (float)sourceTexture.Width;
 		top = source.Top / (float)sourceTexture.Height;
 		right = source.Right / (float)sourceTexture.Width;
 		bottom = source.Bottom / (float)sourceTexture.Height;
-		float num = right - left;
-		float num2 = bottom - top;
-		left += (clippedDestination.Left - destination.Left) / (float)destination.Width / num;
-		top += (clippedDestination.Top - destination.Top) / (float)destination.Height / num2;
-		right -= (destination.Right - clippedDestination.Right) / (float)destination.Width / num2;
-		bottom -= (destination.Bottom - clippedDestination.Bottom) / (float)destination.Height / num2;
+		float sourceWidth = right - left;
+		float sourceHeight = bottom - top;
+		left += (clippedDestination.Left - destination.Left) / (float)destination.Width / sourceWidth;
+		top += (clippedDestination.Top - destination.Top) / (float)destination.Height / sourceHeight;
+		// Note: the right edge divides by the source height, not by the source width
+		right -= (destination.Right - clippedDestination.Right) / (float)destination.Width / sourceHeight;
+		bottom -= (destination.Bottom - clippedDestination.Bottom) / (float)destination.Height / sourceHeight;
 	}
 
 	public void Deactivate()

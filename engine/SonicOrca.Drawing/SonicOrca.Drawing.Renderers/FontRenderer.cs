@@ -5,13 +5,16 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.Drawing.Renderers;
 
+/// <summary>
+/// Draws text with a bitmap font through the simple renderer.
+/// </summary>
 public class FontRenderer : IFontRenderer
 {
-	private static readonly Dictionary<Renderer, FontRenderer> RendererDictionary = new Dictionary<Renderer, FontRenderer>();
+	private static readonly Dictionary<Renderer, FontRenderer> RendererDictionary = new();
 
 	private readonly Renderer _renderer;
 
-	private ITexture[] textures = new ITexture[2];
+	private ITexture[] _textures = new ITexture[2];
 
 	public Font Font { get; set; }
 
@@ -69,15 +72,16 @@ public class FontRenderer : IFontRenderer
 	public void RenderStringWithShadow(string text, Rectangle boundary, FontAlignment fontAlignment, Font font, Colour colour, int? overlay, Vector2i? shadow, Colour shadowColour, int? shadowOverlay)
 	{
 		SimpleRenderer g = SimpleRenderer.FromRenderer(_renderer);
-		Rectangle rectangle = font.MeasureString(text, boundary, fontAlignment);
-		Vector2 destination = new Vector2(rectangle.X, rectangle.Y);
+		Rectangle textBounds = font.MeasureString(text, boundary, fontAlignment);
+		Vector2 destination = new Vector2(textBounds.X, textBounds.Y);
+		// Draw the shadow first, so that the text is on top of it.
 		if (shadow.HasValue)
 		{
 			RenderStringWithShadow(text, boundary + shadow.Value, fontAlignment, font, shadowColour, shadowOverlay, null, default, null);
 		}
-		foreach (char key in text)
+		foreach (char character in text)
 		{
-			Font.CharacterDefinition characterDefinition = font[key];
+			Font.CharacterDefinition characterDefinition = font[character];
 			if (characterDefinition == null)
 			{
 				destination.X += font.DefaultWidth;
@@ -93,26 +97,27 @@ public class FontRenderer : IFontRenderer
 
 	private void RenderCharacter(SimpleRenderer g, Font font, Font.CharacterDefinition characterDefinition, Vector2 destination, Colour colour, int? overlay)
 	{
-		textures[0] = font.ShapeTexture;
+		_textures[0] = font.ShapeTexture;
 		if (overlay.HasValue)
 		{
-			textures[1] = font.OverlayTextures[overlay.Value];
+			_textures[1] = font.OverlayTextures[overlay.Value];
 		}
 		Rectangle source = characterDefinition.SourceRectangle;
-		Rectangle destination2 = new Rectangle(destination.X + characterDefinition.Offset.X, destination.Y + characterDefinition.Offset.Y, source.Width, source.Height);
-		destination2.X *= _renderer.GetObjectRenderer().Scale.X;
-		destination2.Y *= _renderer.GetObjectRenderer().Scale.Y;
-		destination2.Width *= _renderer.GetObjectRenderer().Scale.X;
-		destination2.Height *= _renderer.GetObjectRenderer().Scale.Y;
+		Rectangle scaledDestination = new Rectangle(destination.X + characterDefinition.Offset.X, destination.Y + characterDefinition.Offset.Y, source.Width, source.Height);
+		Vector2 scale = _renderer.GetObjectRenderer().Scale;
+		scaledDestination.X *= scale.X;
+		scaledDestination.Y *= scale.Y;
+		scaledDestination.Width *= scale.X;
+		scaledDestination.Height *= scale.Y;
 		g.BlendMode = BlendMode.Alpha;
 		g.Colour = colour;
 		if (overlay.HasValue)
 		{
-			g.RenderTexture(textures, source, destination2);
+			g.RenderTexture(_textures, source, scaledDestination);
 		}
 		else
 		{
-			g.RenderTexture(textures[0], source, destination2);
+			g.RenderTexture(_textures[0], source, scaledDestination);
 		}
 	}
 

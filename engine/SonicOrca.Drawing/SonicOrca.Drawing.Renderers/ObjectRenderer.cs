@@ -9,6 +9,9 @@ using SonicOrca.Graphics.V2.Animation;
 
 namespace SonicOrca.Drawing.Renderers;
 
+/// <summary>
+/// Batches object sprites and draws them when the renderer is deactivated or the batch is full.
+/// </summary>
 public class ObjectRenderer : IObjectRenderer, IRenderer, IDisposable
 {
 	[StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -21,6 +24,9 @@ public class ObjectRenderer : IObjectRenderer, IRenderer, IDisposable
 		public vec2 texcoords;
 	}
 
+	/// <summary>
+	/// Holds a range of batched vertices and the render state to draw them with.
+	/// </summary>
 	private class BatchOperation
 	{
 		private readonly ObjectRenderer _objectRenderer;
@@ -47,8 +53,6 @@ public class ObjectRenderer : IObjectRenderer, IRenderer, IDisposable
 
 		private readonly double _filterAmount;
 
-		private Vector2[] vertexPositions = new Vector2[4];
-
 		public BatchOperation(ObjectRenderer objectRenderer, int vertexBufferIndex, int vertexCount, BlendMode blendMode, Rectangle clipRectangle, Matrix4 modelMatrix, ITexture texture, Colour multiplyColour, Colour additiveColour, bool shadow, int filter, double filterAmount)
 		{
 			_objectRenderer = objectRenderer;
@@ -72,14 +76,7 @@ public class ObjectRenderer : IObjectRenderer, IRenderer, IDisposable
 			graphicsContext.BlendMode = _blendMode;
 			graphicsContext.SetTexture(_texture);
 			shaderProgram.Activate();
-			if (ShadowRenderer.IsShadowing)
-			{
-				shaderProgram.SetUniform("AlphaGrayscale", 1f);
-			}
-			else
-			{
-				shaderProgram.SetUniform("AlphaGrayscale", 0f);
-			}
+			shaderProgram.SetUniform("AlphaGrayscale", ShadowRenderer.IsShadowing ? 1f : 0f);
 			shaderProgram.SetUniform("ModelViewMatrix", _modelMatrix);
 			shaderProgram.SetUniform("ProjectionMatrix", _objectRenderer._projectionMatrix);
 			shaderProgram.SetUniform("InputTexture", 0);
@@ -89,10 +86,14 @@ public class ObjectRenderer : IObjectRenderer, IRenderer, IDisposable
 			shaderProgram.SetUniform("InputEnableMask", (_blendMode != BlendMode.Additive) ? 1 : 0);
 			shaderProgram.SetUniform("InputFilter", _filter);
 			shaderProgram.SetUniform("InputFilterAmount", _filterAmount);
-			(_shadow ? _objectRenderer._vaoShadow : _objectRenderer._vao).Render(PrimitiveType.Quads, _vertexBufferIndex, _vertexCount);
+			IVertexArray vao = _shadow ? _objectRenderer._vaoShadow : _objectRenderer._vao;
+			vao.Render(PrimitiveType.Quads, _vertexBufferIndex, _vertexCount);
 		}
 	}
 
+	/// <summary>
+	/// Puts the model matrix and the clip rectangle back to their saved values when it is disposed.
+	/// </summary>
 	private class MatrixState : IDisposable
 	{
 		private readonly ObjectRenderer _objectRenderer;
@@ -115,7 +116,10 @@ public class ObjectRenderer : IObjectRenderer, IRenderer, IDisposable
 		}
 	}
 
-	private static readonly Dictionary<Renderer, ObjectRenderer> RendererDictionary = new Dictionary<Renderer, ObjectRenderer>();
+	// Draw the batch when it has more vertices than this
+	private const int MaxBatchedVertexCount = 1024;
+
+	private static readonly Dictionary<Renderer, ObjectRenderer> RendererDictionary = new();
 
 	private readonly Renderer _renderer;
 
@@ -127,7 +131,7 @@ public class ObjectRenderer : IObjectRenderer, IRenderer, IDisposable
 
 	private readonly IVertexArray _vaoShadow;
 
-	private readonly List<Vertex> _vertices = new List<Vertex>();
+	private readonly List<Vertex> _vertices = new();
 
 	private readonly ManagedShaderProgram _shaderProgram;
 
@@ -135,17 +139,15 @@ public class ObjectRenderer : IObjectRenderer, IRenderer, IDisposable
 
 	private Matrix4 _projectionMatrix;
 
-	private readonly List<BatchOperation> _batchOperations = new List<BatchOperation>();
+	private readonly List<BatchOperation> _batchOperations = new();
 
 	private int _batchedVertexIndex;
 
 	private int _batchedVertexCount;
 
-	private Vector2 _scale;
+	private Vector2[] _vertexPositions = new Vector2[4];
 
-	private Vector2[] vertexPositions = new Vector2[4];
-
-	private Vector2[] vertexUVs = new Vector2[4];
+	private Vector2[] _vertexUVs = new Vector2[4];
 
 	public Matrix4 ModelMatrix { get; set; }
 
@@ -159,17 +161,7 @@ public class ObjectRenderer : IObjectRenderer, IRenderer, IDisposable
 
 	public ITexture Texture { get; set; }
 
-	public Vector2 Scale
-	{
-		get
-		{
-			return _scale;
-		}
-		set
-		{
-			_scale = value;
-		}
-	}
+	public Vector2 Scale { get; set; }
 
 	public bool EmitsLight { get; set; }
 
@@ -260,21 +252,13 @@ public class ObjectRenderer : IObjectRenderer, IRenderer, IDisposable
 		{
 			_vertices.Add(new Vertex
 			{
-				position = new vec2
-				{
-					x = (float)positions[i].X,
-					y = (float)positions[i].Y
-				},
-				texcoords = new vec2
-				{
-					s = (float)textureMappings[i].X,
-					t = (float)textureMappings[i].Y
-				}
+				position = positions[i].ToVec2(),
+				texcoords = textureMappings[i].ToVec2()
 			});
 		}
 		_batchedVertexCount += positions.Count;
 		PushBatchOperation();
-		if (_batchedVertexCount > 1024)
+		if (_batchedVertexCount > MaxBatchedVertexCount)
 		{
 			Render();
 		}
@@ -312,7 +296,7 @@ public class ObjectRenderer : IObjectRenderer, IRenderer, IDisposable
 	{
 	}
 
-	public void Render(Vector2 destination = default(Vector2), bool flipX = false, bool flipY = false)
+	public void Render(Vector2 destination = default, bool flipX = false, bool flipY = false)
 	{
 		Render(new Rectangle(0.0, 0.0, Texture.Width, Texture.Height), destination, flipX, flipY);
 	}
@@ -329,15 +313,16 @@ public class ObjectRenderer : IObjectRenderer, IRenderer, IDisposable
 
 	public void Render(Rectangle source, Rectangle destination, bool flipX = false, bool flipY = false)
 	{
-		Renderer.GetVertices(destination, vertexPositions);
+		Renderer.GetVertices(destination, _vertexPositions);
+		// Use half-texel-inset mappings when the model matrix scales the sprite
 		if (Math.Abs(ModelMatrix.M11) != 1.0 || Math.Abs(ModelMatrix.M22) != 1.0)
 		{
-			Renderer.GetTextureMappingsHalfIn(Texture, source, ref vertexUVs, flipX, flipY);
+			Renderer.GetTextureMappingsHalfIn(Texture, source, ref _vertexUVs, flipX, flipY);
 		}
 		else
 		{
-			Renderer.GetTextureMappings(Texture, source, vertexUVs, flipX, flipY);
+			Renderer.GetTextureMappings(Texture, source, _vertexUVs, flipX, flipY);
 		}
-		PushVertices(vertexPositions, vertexUVs);
+		PushVertices(_vertexPositions, _vertexUVs);
 	}
 }
