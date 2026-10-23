@@ -2,6 +2,9 @@ using System;
 
 namespace SonicOrca.Input;
 
+/// <summary>
+/// Base class for the platform input. It keeps the current, last, pressed and released input states.
+/// </summary>
 public abstract class InputContext
 {
 	public InputState LastState { get; protected set; }
@@ -52,7 +55,7 @@ public abstract class InputContext
 			InputStateEventType.Current => CurrentState,
 			InputStateEventType.Pressed => Pressed,
 			InputStateEventType.Released => Released,
-			_ => throw new ArgumentException("Invalid event type", "eventType"),
+			_ => throw new ArgumentException("Invalid event type", nameof(eventType)),
 		};
 	}
 

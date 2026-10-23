@@ -7,6 +7,9 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.HelperLibraries.OggVorbis;
 
+/// <summary>
+/// Loads an Ogg Vorbis file. It decodes the file to WAVE data and gives that data to the WAVE resource type.
+/// </summary>
 public class OggResourceType : ResourceType
 {
 	public override string Name => "ogg";
@@ -23,12 +26,15 @@ public class OggResourceType : ResourceType
 	public override async Task<ILoadedResource> LoadAsync(ResourceLoadArgs e, CancellationToken ct = default(CancellationToken))
 	{
 		Stream inputStream = await GetSlowStream(e.InputStream);
-		return await ResourceType.FromIdentifier(ResourceTypeIdentifier.SampleWAV).LoadAsync(new ResourceLoadArgs(e.ResourceTree, e.Resource, inputStream), ct);
+		return await FromIdentifier(ResourceTypeIdentifier.SampleWAV).LoadAsync(new ResourceLoadArgs(e.ResourceTree, e.Resource, inputStream), ct);
 	}
 
+	/// <summary>
+	/// Decodes the data with the managed Vorbis decoder.
+	/// </summary>
 	private Task<Stream> GetSlowStream(Stream inputStream)
 	{
-		return Task.Run((Func<Stream>)(() => new OggDecodeStream(inputStream, skipWavHeader: false)));
+		return Task.Run<Stream>(() => new OggDecodeStream(inputStream, skipWavHeader: false));
 	}
 
 	[DllImport("SonicOrcaFastUtil.dll")]
@@ -37,21 +43,24 @@ public class OggResourceType : ResourceType
 	[DllImport("SonicOrcaFastUtil.dll")]
 	private static extern void EndReadVorbis(IntPtr output);
 
+	/// <summary>
+	/// Decodes the data with the native SonicOrcaFastUtil library. Nothing calls this method at this time.
+	/// </summary>
 	private async Task<Stream> GetFastStream(Stream inputStream)
 	{
-		byte[] array;
+		byte[] inputData;
 		using (MemoryStream ms = new MemoryStream())
 		{
 			await inputStream.CopyToAsync(ms);
-			array = ms.ToArray();
+			inputData = ms.ToArray();
 		}
-		if (BeginReadVorbis(Marshal.UnsafeAddrOfPinnedArrayElement((Array)array, 0), array.Length, out var output, out var outputLength) == 0)
+		if (BeginReadVorbis(Marshal.UnsafeAddrOfPinnedArrayElement((Array)inputData, 0), inputData.Length, out IntPtr output, out int outputLength) == 0)
 		{
 			throw new ResourceException("Unable to read OGG Vorbis data");
 		}
-		byte[] array2 = new byte[outputLength];
-		Marshal.Copy(output, array2, 0, outputLength);
+		byte[] decodedData = new byte[outputLength];
+		Marshal.Copy(output, decodedData, 0, outputLength);
 		EndReadVorbis(output);
-		return new MemoryStream(array2);
+		return new MemoryStream(decodedData);
 	}
 }

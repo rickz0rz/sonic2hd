@@ -1,5 +1,8 @@
 namespace SonicOrca.Menu;
 
+/// <summary>
+/// The loading progress of a screen.
+/// </summary>
 public class ScreenLoadingProgress
 {
 	private readonly Screen _screen;

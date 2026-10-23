@@ -2,6 +2,9 @@ using SonicOrca.Geometry;
 
 namespace SonicOrca.Input;
 
+/// <summary>
+/// The position, wheel and button state of the mouse for one frame.
+/// </summary>
 public struct MouseState
 {
 	public int X { get; set; }

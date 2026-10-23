@@ -3,6 +3,9 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Audio;
 
+/// <summary>
+/// A reference to a <see cref="Sample"/> and its optional loop point. The sample can come from the resource tree.
+/// </summary>
 public class SampleInfo : ILoadedResource, IDisposable
 {
 	private readonly ResourceTree _resourceTree;

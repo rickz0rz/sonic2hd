@@ -2,8 +2,16 @@ using SonicOrca.Geometry;
 
 namespace SonicOrca.Input;
 
+/// <summary>
+/// The state of one game pad in one frame. It also makes the pressed and released states from two frames.
+/// </summary>
 public struct GamePadInputState
 {
+	/// <summary>
+	/// An analog axis value must be at least this far from 0 to count as a direction.
+	/// </summary>
+	private const double AxisDirectionThreshold = 0.2;
+
 	public Vector2i POV { get; set; }
 
 	public Vector2 LeftAxis { get; set; }
@@ -63,6 +71,7 @@ public struct GamePadInputState
 		result.RightAxisButton = prev.RightAxisButton && !next.RightAxisButton;
 		result.North = prev.North && !next.North;
 		result.East = prev.East && !next.East;
+		// South is not set here, so it keeps the value from next. This is kept as it was.
 		result.West = prev.West && !next.West;
 		result.Start = prev.Start && !next.Start;
 		result.Select = prev.Select && !next.Select;
@@ -87,16 +96,16 @@ public struct GamePadInputState
 
 	private static Vector2 GetAxisStateChanged(Vector2 prev, Vector2 next)
 	{
-		int direction = GetDirection(prev.X);
-		int direction2 = GetDirection(prev.Y);
-		int direction3 = GetDirection(next.X);
-		int direction4 = GetDirection(next.Y);
+		int prevDirectionX = GetDirection(prev.X);
+		int prevDirectionY = GetDirection(prev.Y);
+		int nextDirectionX = GetDirection(next.X);
+		int nextDirectionY = GetDirection(next.Y);
 		Vector2 result = next;
-		if (direction == direction3)
+		if (prevDirectionX == nextDirectionX)
 		{
 			result.X = 0.0;
 		}
-		if (direction2 == direction4)
+		if (prevDirectionY == nextDirectionY)
 		{
 			result.Y = 0.0;
 		}
@@ -105,11 +114,11 @@ public struct GamePadInputState
 
 	private static int GetDirection(double value)
 	{
-		if (value <= -0.2)
+		if (value <= -AxisDirectionThreshold)
 		{
 			return -1;
 		}
-		if (value >= 0.2)
+		if (value >= AxisDirectionThreshold)
 		{
 			return 1;
 		}

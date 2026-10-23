@@ -1,11 +1,15 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace SonicOrca.Input;
 
+/// <summary>
+/// The mouse, keyboard and game pad states for one frame.
+/// </summary>
 public class InputState
 {
+	private const int GamePadCount = 4;
+
 	private readonly MouseState _mouseState;
 
 	private readonly KeyboardState _keyboardState;
@@ -22,7 +26,7 @@ public class InputState
 	{
 		_mouseState = default;
 		_keyboardState = new KeyboardState();
-		_gamePadInputState = Enumerable.Range(0, 4).Select((Func<int, GamePadInputState>)((int x) => default)).ToArray();
+		_gamePadInputState = new GamePadInputState[GamePadCount];
 	}
 
 	public InputState(MouseState mouseState, KeyboardState keyboardState, GamePadInputState[] gamepadInputState)
@@ -34,13 +38,17 @@ public class InputState
 
 	public static InputState GetPressed(InputState previousState, InputState nextState)
 	{
-		return new InputState(MouseState.GetPressed(previousState.Mouse, nextState.Mouse), KeyboardState.GetPressed(previousState.Keyboard, nextState.Keyboard), (from x in Enumerable.Range(0, 4)
-																																								  select GamePadInputState.GetPressed(previousState.GamePad[x], nextState.GamePad[x])).ToArray());
+		return new InputState(
+			MouseState.GetPressed(previousState.Mouse, nextState.Mouse),
+			KeyboardState.GetPressed(previousState.Keyboard, nextState.Keyboard),
+			Enumerable.Range(0, GamePadCount).Select(x => GamePadInputState.GetPressed(previousState.GamePad[x], nextState.GamePad[x])).ToArray());
 	}
 
 	public static InputState GetReleased(InputState previousState, InputState nextState)
 	{
-		return new InputState(MouseState.GetReleased(previousState.Mouse, nextState.Mouse), KeyboardState.GetReleased(previousState.Keyboard, nextState.Keyboard), (from x in Enumerable.Range(0, 4)
-																																									select GamePadInputState.GetReleased(previousState.GamePad[x], nextState.GamePad[x])).ToArray());
+		return new InputState(
+			MouseState.GetReleased(previousState.Mouse, nextState.Mouse),
+			KeyboardState.GetReleased(previousState.Keyboard, nextState.Keyboard),
+			Enumerable.Range(0, GamePadCount).Select(x => GamePadInputState.GetReleased(previousState.GamePad[x], nextState.GamePad[x])).ToArray());
 	}
 }

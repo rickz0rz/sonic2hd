@@ -1,4 +1,3 @@
-using System;
 using System.Threading;
 using System.Threading.Tasks;
 using SonicOrca.Graphics.V2.Video;
@@ -6,28 +5,11 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.HelperLibraries.H264;
 
+/// <summary>
+/// Video resource type. It ignores the resource data and always loads the "credits.film" file from the content directory.
+/// </summary>
 public class H264ResourceType : ResourceType
 {
-	private struct PixelData
-	{
-		public int Width { get; private set; }
-
-		public int Height { get; private set; }
-
-		public byte[] Data { get; private set; }
-
-		public int Channels { get; private set; }
-
-		public PixelData(int width, int height, int channels, byte[] data)
-		{
-			this = default;
-			Width = width;
-			Height = height;
-			Channels = channels;
-			Data = data;
-		}
-	}
-
 	public override string Name => "h265";
 
 	public override string DefaultExtension => ".mp4";
@@ -41,9 +23,9 @@ public class H264ResourceType : ResourceType
 
 	public override async Task<ILoadedResource> LoadAsync(ResourceLoadArgs e, CancellationToken ct = default(CancellationToken))
 	{
-		return await Task.Run((Func<ILoadedResource>)(() => new FilmBuffer(ContentDirectory.Combine("credits.film"))
+		return await Task.Run<ILoadedResource>(() => new FilmBuffer(ContentDirectory.Combine("credits.film"))
 		{
 			Resource = e.Resource
-		}));
+		});
 	}
 }

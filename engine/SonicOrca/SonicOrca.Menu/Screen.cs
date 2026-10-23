@@ -4,6 +4,9 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.Menu;
 
+/// <summary>
+/// Base class for a menu screen. The screen manager uses <see cref="State"/> to find when to switch or close the screen.
+/// </summary>
 public abstract class Screen
 {
 	public ScreenState State { get; set; }

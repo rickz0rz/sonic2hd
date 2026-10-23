@@ -3,6 +3,10 @@ using System.IO;
 
 namespace SonicOrca.Audio;
 
+/// <summary>
+/// Read-only stream over the PCM data of a <see cref="Sample"/>. When the sample has a loop point, reads past the end
+/// continue from the loop point.
+/// </summary>
 internal class SampleStream : Stream
 {
 	private readonly Sample _sample;
@@ -53,10 +57,10 @@ internal class SampleStream : Stream
 				offset += Position;
 				break;
 		}
-		long num = offset - _sample.PcmData.LongLength;
-		if (num > 0)
+		long bytesPastEnd = offset - _sample.PcmData.LongLength;
+		if (bytesPastEnd > 0)
 		{
-			Position = (_loopPoint.HasValue ? (_loopPoint.Value + num % _lengthFromLoopPoint) : _length);
+			Position = _loopPoint.HasValue ? (_loopPoint.Value + bytesPastEnd % _lengthFromLoopPoint) : _length;
 		}
 		else
 		{
@@ -67,31 +71,34 @@ internal class SampleStream : Stream
 
 	public override int Read(byte[] buffer, int offset, int count)
 	{
-		long num = _length - Position;
-		if (count > num && _loopPoint.HasValue)
+		long bytesRemaining = _length - Position;
+		if (count > bytesRemaining && _loopPoint.HasValue)
 		{
 			return ReadWrapped(buffer, offset, count);
 		}
-		return ReadChunk(buffer, offset, (int)Math.Min(count, num));
+		return ReadChunk(buffer, offset, (int)Math.Min(count, bytesRemaining));
 	}
 
+	/// <summary>
+	/// Reads <paramref name="count"/> bytes and goes back to the loop point each time the end of the data is reached.
+	/// </summary>
 	private int ReadWrapped(byte[] buffer, int offset, int count)
 	{
-		int num = 0;
-		while (num < count)
+		int totalRead = 0;
+		while (totalRead < count)
 		{
-			long num2 = _length - Position;
-			long num3 = count - num;
-			int num4 = (int)Math.Min(num2, num3);
-			ReadChunk(buffer, offset, num4);
-			offset += num4;
-			num += num4;
-			if (num2 < num3)
+			long bytesRemaining = _length - Position;
+			long bytesWanted = count - totalRead;
+			int chunkSize = (int)Math.Min(bytesRemaining, bytesWanted);
+			ReadChunk(buffer, offset, chunkSize);
+			offset += chunkSize;
+			totalRead += chunkSize;
+			if (bytesRemaining < bytesWanted)
 			{
-				Position = (_loopPoint.HasValue ? _loopPoint.Value : _length);
+				Position = _loopPoint.HasValue ? _loopPoint.Value : _length;
 			}
 		}
-		return num;
+		return totalRead;
 	}
 
 	private int ReadChunk(byte[] buffer, int offset, int count)

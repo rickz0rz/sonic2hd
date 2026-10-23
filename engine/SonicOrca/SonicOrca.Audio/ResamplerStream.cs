@@ -3,9 +3,17 @@ using System.IO;
 
 namespace SonicOrca.Audio;
 
+/// <summary>
+/// Read-only stream that changes the sample rate of 16-bit stereo PCM data with linear interpolation.
+/// </summary>
 public class ResamplerStream : Stream
 {
-	private Stream _baseStream;
+	/// <summary>
+	/// The number of bytes in one stereo frame of 16-bit samples.
+	/// </summary>
+	private const int BytesPerFrame = 4;
+
+	private readonly Stream _baseStream;
 
 	public int InputSampleRate { get; set; }
 
@@ -40,31 +48,31 @@ public class ResamplerStream : Stream
 
 	public override int Read(byte[] buffer, int offset, int count)
 	{
-		double num = InputSampleRate / (double)OutputSampleRate;
-		int num2 = (int)(count * num);
-		byte[] array = new byte[num2];
-		_baseStream.ReadAtLeast(array, num2, throwOnEndOfStream: false);
-		Sample.PCMToSamples(array, out var leftSamples, out var rightSamples);
-		leftSamples = LerpSamples(leftSamples, count / 4);
-		rightSamples = LerpSamples(rightSamples, count / 4);
-		array = Sample.SamplesToPCM(leftSamples, rightSamples);
-		Array.Copy(array, 0, buffer, offset, array.Length);
-		return array.Length;
+		double rateRatio = InputSampleRate / (double)OutputSampleRate;
+		int inputByteCount = (int)(count * rateRatio);
+		byte[] pcmData = new byte[inputByteCount];
+		_baseStream.ReadAtLeast(pcmData, inputByteCount, throwOnEndOfStream: false);
+		Sample.PCMToSamples(pcmData, out float[] leftSamples, out float[] rightSamples);
+		leftSamples = LerpSamples(leftSamples, count / BytesPerFrame);
+		rightSamples = LerpSamples(rightSamples, count / BytesPerFrame);
+		pcmData = Sample.SamplesToPCM(leftSamples, rightSamples);
+		Array.Copy(pcmData, 0, buffer, offset, pcmData.Length);
+		return pcmData.Length;
 	}
 
 	private static float[] LerpSamples(float[] source, int desiredLength)
 	{
-		float[] array = new float[desiredLength];
+		float[] result = new float[desiredLength];
 		for (int i = 0; i < desiredLength; i++)
 		{
-			float num = i / (float)(desiredLength - 1) * (source.Length - 1);
-			int num2 = (int)Math.Floor(num);
-			int num3 = (int)Math.Ceiling(num);
-			float num4 = source[num2];
-			float num5 = source[num3];
-			array[i] = ((num5 - num4 == 0f) ? num4 : (num4 + (num5 - num4) * (num - num2)));
+			float sourcePosition = i / (float)(desiredLength - 1) * (source.Length - 1);
+			int lowerIndex = (int)Math.Floor(sourcePosition);
+			int upperIndex = (int)Math.Ceiling(sourcePosition);
+			float lowerValue = source[lowerIndex];
+			float upperValue = source[upperIndex];
+			result[i] = (upperValue - lowerValue == 0f) ? lowerValue : (lowerValue + (upperValue - lowerValue) * (sourcePosition - lowerIndex));
 		}
-		return array;
+		return result;
 	}
 
 	public override long Seek(long offset, SeekOrigin origin)
