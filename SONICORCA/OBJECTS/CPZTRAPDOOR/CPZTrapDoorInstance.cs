@@ -14,12 +14,18 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.CPZTRAPDOOR;
 
+/// <summary>
+/// A trap door in Chemical Plant Zone. It opens and closes on a fixed cycle of 256 frames.
+/// It is shut for the first half of the cycle and open for the second half. Characters fall through it while it is open.
+/// </summary>
 public class CPZTrapDoorInstance : ActiveObject
 {
 	private const int AnimationClosed = 0;
 	private const int AnimationOpen = 1;
 	private const int AnimationClosedToOpen = 2;
 	private const int AnimationOpenToClosed = 3;
+	private const int CycleDuration = 256;
+	private const int OpenTime = 128;
 	private AnimationInstance _animation;
 	private int _closeAnimationLength;
 	private int _timeOffset;
@@ -34,45 +40,52 @@ public class CPZTrapDoorInstance : ActiveObject
 
 	public CPZTrapDoorInstance()
 	{
-		DesignBounds = new Rectanglei(-64, -64, 128 /*0x80*/, 128 /*0x80*/);
+		DesignBounds = new Rectanglei(-64, -64, 128, 128);
 	}
 
 	protected override void OnStart()
 	{
 		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"));
-		_closeAnimationLength = _animation.AnimationGroup[3].Duration;
-		int num = (Level.Ticks + _timeOffset) % 256 /*0x0100*/;
-		_open = num >= 128 /*0x80*/;
-		if (num >= 256 /*0x0100*/ - _closeAnimationLength)
+		_closeAnimationLength = _animation.AnimationGroup[AnimationOpenToClosed].Duration;
+		int cycleTime = (Level.Ticks + _timeOffset) % CycleDuration;
+		_open = cycleTime >= OpenTime;
+		// Start the open or close animation at the correct frame, if the door is in one of them now.
+		if (cycleTime >= CycleDuration - _closeAnimationLength)
 		{
-			_animation.Index = 3;
-			_animation.Seek(num - (256 /*0x0100*/ - _closeAnimationLength));
+			_animation.Index = AnimationOpenToClosed;
+			_animation.Seek(cycleTime - (CycleDuration - _closeAnimationLength));
 		}
-		else if (num >= 128 /*0x80*/)
+		else if (cycleTime >= OpenTime)
 		{
-			_animation.Index = 2;
-			_animation.Seek(num - 128 /*0x80*/);
+			_animation.Index = AnimationClosedToOpen;
+			_animation.Seek(cycleTime - OpenTime);
 		}
 		CollisionVectors = new CollisionVector[1]
 		{
-	  new CollisionVector( this, new Vector2i(-64, -64), new Vector2i(64 /*0x40*/, -64))
+			new CollisionVector(this, new Vector2i(-64, -64), new Vector2i(64, -64))
 		};
 	}
 
 	protected override void OnUpdate()
 	{
-		int num = (Level.Ticks + _timeOffset) % 256 /*0x0100*/;
-		_open = num >= 128 /*0x80*/;
-		if (num == 128 /*0x80*/)
-			_animation.Index = 2;
-		else if (num == 256 /*0x0100*/ - _closeAnimationLength)
-			_animation.Index = 3;
+		int cycleTime = (Level.Ticks + _timeOffset) % CycleDuration;
+		_open = cycleTime >= OpenTime;
+		if (cycleTime == OpenTime)
+		{
+			_animation.Index = AnimationClosedToOpen;
+		}
+		else if (cycleTime == CycleDuration - _closeAnimationLength)
+		{
+			_animation.Index = AnimationOpenToClosed;
+		}
 		if (_open)
 		{
 			foreach (CollisionVector collisionVector in CollisionVectors)
 			{
 				if (!collisionVector.Flags.HasFlag(CollisionFlags.Ignore))
+				{
 					collisionVector.Flags |= CollisionFlags.Ignore;
+				}
 			}
 		}
 		else
@@ -80,12 +93,12 @@ public class CPZTrapDoorInstance : ActiveObject
 			foreach (CollisionVector collisionVector in CollisionVectors)
 			{
 				if (collisionVector.Flags.HasFlag(CollisionFlags.Ignore))
+				{
 					collisionVector.Flags &= ~CollisionFlags.Ignore;
+				}
 			}
 		}
 	}
-
-	protected override void OnCollision(CollisionEvent e) => base.OnCollision(e);
 
 	protected override void OnAnimate() => _animation.Animate();
 

@@ -16,12 +16,20 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.CPZWATERPLATFORM;
 
+/// <summary>
+/// A platform on wheels in Chemical Plant Zone that moves in a line. It glows on a fixed cycle.
+/// The wheels turn in the direction of movement.
+/// </summary>
 public class CPZWaterPlatformInstance : Platform
 {
 	private const int AnimationPlatform = 0;
 	private const int AnimationPlatformGlow = 1;
 	private const int AnimationWheelsMoveRight = 2;
 	private const int AnimationWheelsMoveLeft = 3;
+
+	/// <summary>The number of frames in one glow cycle.</summary>
+	private const int GlowPeriod = 120;
+
 	private AnimationInstance _animationPlatform;
 	private AnimationInstance _animationPlatformGlow;
 	private AnimationInstance _animationWheel;
@@ -36,34 +44,30 @@ public class CPZWaterPlatformInstance : Platform
 	protected override void OnStart()
 	{
 		base.OnStart();
-		AnimationGroup loadedResource = ResourceTree.GetLoadedResource<AnimationGroup>(Type.GetAbsolutePath("/ANIGROUP"));
-		_animationPlatform = new AnimationInstance(loadedResource);
-		_animationPlatformGlow = new AnimationInstance(loadedResource, 1);
-		_animationWheel = new AnimationInstance(loadedResource, 3);
+		AnimationGroup animationGroup = ResourceTree.GetLoadedResource<AnimationGroup>(Type.GetAbsolutePath("/ANIGROUP"));
+		_animationPlatform = new AnimationInstance(animationGroup);
+		_animationPlatformGlow = new AnimationInstance(animationGroup, AnimationPlatformGlow);
+		_animationWheel = new AnimationInstance(animationGroup, AnimationWheelsMoveLeft);
 		CollisionVectors = new CollisionVector[1]
 		{
-	  new CollisionVector( this, new Vector2i(-96, -32), new Vector2i(96 /*0x60*/, -32), flags: CollisionFlags.Conveyor)
+			new CollisionVector(this, new Vector2i(-96, -32), new Vector2i(96, -32), flags: CollisionFlags.Conveyor)
 		};
 	}
 
 	protected override void OnAnimate()
 	{
-		int num = 120;
-		_glow = MathX.Clamp(0.0, (1.0 - Math.Cos(2.0 * Math.PI * (Level.Ticks % num) / (num - 1.0))) / 2.0, 1.0);
+		_glow = MathX.Clamp(0.0, (1.0 - Math.Cos(2.0 * Math.PI * (Level.Ticks % GlowPeriod) / (GlowPeriod - 1.0))) / 2.0, 1.0);
 		_animationPlatform.Animate();
 		_animationPlatformGlow.Animate();
-		Vector2i vector2i = Position;
-		int x1 = vector2i.X;
-		vector2i = LastPosition;
-		int x2 = vector2i.X;
-		switch (Math.Sign(x1 - x2))
+		// The wheels turn only while the platform moves.
+		switch (Math.Sign(Position.X - LastPosition.X))
 		{
 			case -1:
-				_animationWheel.Index = 3;
+				_animationWheel.Index = AnimationWheelsMoveLeft;
 				_animationWheel.Animate();
 				break;
 			case 1:
-				_animationWheel.Index = 2;
+				_animationWheel.Index = AnimationWheelsMoveRight;
 				_animationWheel.Animate();
 				break;
 		}

@@ -17,14 +17,29 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.BUZZER;
 
+/// <summary>
+/// Buzzer, the wasp badnik. It flies from side to side and turns at the end of each flight.
+/// When a character is below it at the correct distance, it stops and fires a projectile down at an angle.
+/// </summary>
 public class BuzzerInstance : Badnik
 {
 	private const int AnimationMoving = 0;
 	private const int AnimationTurning = 1;
 	private const int AnimationFiring = 2;
+	private const int FlightDuration = 256;
+	private const int TurnWaitDuration = 30;
+
+	/// <summary>The value of the turn wait timer at which the Buzzer turns round.</summary>
+	private const int TurnTime = 15;
+
+	private const int FireDuration = 50;
+
+	/// <summary>The value of the fire timer at which the Buzzer releases the projectile.</summary>
+	private const int FireTime = 20;
+
 	private AnimationInstance _animation;
 	private int _velocityX;
-	private BuzzerInstance.StatusType _status;
+	private StatusType _status;
 	private int _flightDuration;
 	private int _turnWaitDuration;
 	private int _fireDuration;
@@ -36,16 +51,16 @@ public class BuzzerInstance : Badnik
 	{
 		base.OnStart();
 		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"));
-		_animation.Index = 0;
+		_animation.Index = AnimationMoving;
 		_velocityX = -4;
-		_status = BuzzerInstance.StatusType.Moving;
-		_flightDuration = 256 /*0x0100*/;
+		_status = StatusType.Moving;
+		_flightDuration = FlightDuration;
 		_turnWaitDuration = 0;
 		_fireDuration = 0;
 		_firedThisRound = false;
 		CollisionRectangles = new CollisionRectangle[1]
 		{
-	  new CollisionRectangle( this, 0, -64, -32, 128 /*0x80*/, 64 /*0x40*/)
+			new CollisionRectangle(this, 0, -64, -32, 128, 64)
 		};
 	}
 
@@ -54,10 +69,10 @@ public class BuzzerInstance : Badnik
 		base.OnUpdate();
 		switch (_status)
 		{
-			case BuzzerInstance.StatusType.Moving:
+			case StatusType.Moving:
 				UpdateMoving();
 				break;
-			case BuzzerInstance.StatusType.Firing:
+			case StatusType.Firing:
 				UpdateFiring();
 				break;
 		}
@@ -67,19 +82,20 @@ public class BuzzerInstance : Badnik
 	{
 		if (!_firedThisRound && CheckForCharacter())
 		{
-			_animation.Index = 2;
-			_status = BuzzerInstance.StatusType.Firing;
-			_fireDuration = 50;
+			_animation.Index = AnimationFiring;
+			_status = StatusType.Firing;
+			_fireDuration = FireDuration;
 			_firedThisRound = true;
 		}
 		else if (_turnWaitDuration > 0)
 		{
 			--_turnWaitDuration;
-			if (_turnWaitDuration != 15)
-				return;
-			_velocityX *= -1;
-			_animation.Index = 1;
-			_firedThisRound = false;
+			if (_turnWaitDuration == TurnTime)
+			{
+				_velocityX *= -1;
+				_animation.Index = AnimationTurning;
+				_firedThisRound = false;
+			}
 		}
 		else
 		{
@@ -90,8 +106,8 @@ public class BuzzerInstance : Badnik
 			}
 			else
 			{
-				_flightDuration = 256 /*0x0100*/;
-				_turnWaitDuration = 30;
+				_flightDuration = FlightDuration;
+				_turnWaitDuration = TurnWaitDuration;
 			}
 		}
 	}
@@ -101,53 +117,41 @@ public class BuzzerInstance : Badnik
 		--_fireDuration;
 		if (_fireDuration < 0)
 		{
-			_status = BuzzerInstance.StatusType.Moving;
+			_status = StatusType.Moving;
 		}
-		else
+		else if (_fireDuration == FireTime)
 		{
-			if (_fireDuration != 20)
-				return;
 			FireProjectile();
 		}
 	}
 
 	private void FireProjectile()
 	{
-		BuzzerInstance.Projectile projectile = Level.ObjectManager.AddSubObject<BuzzerInstance.Projectile>(this);
-		Vector2i position = Position;
-		int x = position.X + Math.Sign(_velocityX) * -52;
-		position = Position;
-		int y = position.Y + 96 /*0x60*/;
+		Projectile projectile = Level.ObjectManager.AddSubObject<Projectile>(this);
+		int x = Position.X + Math.Sign(_velocityX) * -52;
+		int y = Position.Y + 96;
 		projectile.Position = new Vector2i(x, y);
 		projectile.Direction = Math.Sign(_velocityX);
 	}
 
+	/// <summary>
+	/// Returns true when a character is below the Buzzer, not more than 1024 pixels down,
+	/// and 160 to 192 pixels away horizontally.
+	/// </summary>
 	private bool CheckForCharacter()
 	{
 		foreach (ICharacter character in Level.ObjectManager.Characters)
 		{
-			Vector2i position = Position;
-			int y1 = position.Y;
-			position = character.Position;
-			int y2 = position.Y;
-			if (y1 < y2)
+			// The loop stops at the first character that is not in the vertical range.
+			// Thus a character after it in the list is not checked.
+			if (Position.Y >= character.Position.Y || Position.Y < character.Position.Y - 1024)
 			{
-				position = Position;
-				int y3 = position.Y;
-				position = character.Position;
-				int num = position.Y - 1024 /*0x0400*/;
-				if (y3 >= num)
-				{
-					position = Position;
-					int x1 = position.X;
-					position = character.Position;
-					int x2 = position.X;
-					if (MathX.IsBetween(160.0, Math.Abs(x1 - x2), 192.0))
-						return true;
-					continue;
-				}
+				return false;
 			}
-			return false;
+			if (MathX.IsBetween(160.0, Math.Abs(Position.X - character.Position.X), 192.0))
+			{
+				return true;
+			}
 		}
 		return false;
 	}
@@ -165,6 +169,7 @@ public class BuzzerInstance : Badnik
 		Firing,
 	}
 
+	/// <summary>The projectile that the Buzzer fires. It moves down at an angle and hurts characters.</summary>
 	private class Projectile : Enemy
 	{
 		private const int AnimationProjectile = 3;
@@ -175,17 +180,17 @@ public class BuzzerInstance : Badnik
 		public int Direction
 		{
 			get => Math.Sign(_velocity.X);
-			set => _velocity.X = 6 * Math.Sign(value);
+			set => _velocity.X = Speed * Math.Sign(value);
 		}
 
 		protected override void OnStart()
 		{
 			base.OnStart();
-			_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"), 3);
-			_velocity = new Vector2i(6);
+			_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"), AnimationProjectile);
+			_velocity = new Vector2i(Speed);
 			CollisionRectangles = new CollisionRectangle[1]
 			{
-		new CollisionRectangle( this, 0, -16, -16, 32 /*0x20*/, 32 /*0x20*/)
+				new CollisionRectangle(this, 0, -16, -16, 32, 32)
 			};
 		}
 

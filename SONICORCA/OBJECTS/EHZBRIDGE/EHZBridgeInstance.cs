@@ -16,14 +16,31 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.EHZBRIDGE;
 
+/// <summary>
+/// A bridge of logs in Emerald Hill Zone. Each log has its own collision vector.
+/// When a character stands on the bridge, the logs bend down in a curve with the lowest point under the character.
+/// </summary>
 public class EHZBridgeInstance : ActiveObject
 {
+	private const int LogWidth = 64;
+	private const int HalfLogWidth = LogWidth / 2;
+	private const int HalfLogHeight = 32;
+
+	/// <summary>The maximum distance in pixels that a log moves down.</summary>
+	private const double MaxDepression = 40.0;
+
+	/// <summary>The distance in pixels that a log moves up or down in one frame.</summary>
+	private const int LogSpeed = 4;
+
 	private AnimationInstance _logAnimation;
 	private int _logs = 2;
+
+	/// <summary>The centre of each log, relative to the bridge.</summary>
 	private Vector2i[] _logPositions;
+
 	private bool[] _depressedLogs;
 
-	private int TotalWidth => _logs * 64 /*0x40*/;
+	private int TotalWidth => _logs * LogWidth;
 
 	public int Logs
 	{
@@ -40,46 +57,45 @@ public class EHZBridgeInstance : ActiveObject
 		for (int index = 0; index < _logs; ++index)
 		{
 			_logPositions[index] = new Vector2i(x, 0);
-			x += 64 /*0x40*/;
+			x += LogWidth;
 		}
 		_depressedLogs = new bool[_logs];
-		DesignBounds = new Rectanglei(-TotalWidth / 2 - 32 /*0x20*/, -32, TotalWidth, 64 /*0x40*/);
-		CollisionVectors = _logPositions.Select<Vector2i, CollisionVector>(log => new CollisionVector(this, new Vector2i(log.X - 32 /*0x20*/, log.Y - 32 /*0x20*/), new Vector2i(log.X + 32 /*0x20*/, log.Y - 32 /*0x20*/), flags: CollisionFlags.Conveyor | CollisionFlags.NoBalance)).ToArray<CollisionVector>();
+		DesignBounds = new Rectanglei(-TotalWidth / 2 - HalfLogWidth, -32, TotalWidth, 64);
+		CollisionVectors = _logPositions.Select(log => new CollisionVector(this, GetLogLeft(log), GetLogRight(log), flags: CollisionFlags.Conveyor | CollisionFlags.NoBalance)).ToArray();
 	}
 
 	protected override void OnUpdate()
 	{
 		for (int index = 0; index < _logs; ++index)
+		{
 			_depressedLogs[index] = false;
-		double num1 = Position.X + _logPositions[1].X - 32 /*0x20*/;
-		Vector2i position = Position;
-		double num2 = position.X + _logPositions[_logs - 2].X + 32 /*0x20*/;
+		}
+
+		// Find the logs that characters stand on. The first and last logs are not included.
+		double left = Position.X + _logPositions[1].X - HalfLogWidth;
+		double right = Position.X + _logPositions[_logs - 2].X + HalfLogWidth;
 		foreach (ICharacter character in Level.ObjectManager.Characters)
 		{
-			if (character.ObjectLink == this)
+			if (character.ObjectLink == this && character.Position.X >= left && character.Position.X < right)
 			{
-				position = character.Position;
-				if (position.X >= num1)
+				int characterX = character.Position.X;
+				int bridgeLeft = Position.X + (_logPositions[0].X - HalfLogWidth);
+				int index = (int)((characterX - bridgeLeft) / 64.0);
+				if (index >= 0 && index < _logs)
 				{
-					position = character.Position;
-					if (position.X < num2)
-					{
-						position = character.Position;
-						int x = position.X;
-						position = Position;
-						int num3 = position.X + (_logPositions[0].X - 32 /*0x20*/);
-						int index = (int)((x - num3) / 64.0);
-						if (index >= 0 && index < _logs)
-							_depressedLogs[index] = true;
-					}
+					_depressedLogs[index] = true;
 				}
 			}
 		}
+
+		// Of the logs that characters stand on, use the one nearest to the centre.
 		int logIndex = -1;
 		for (int index = 0; index < _logs; ++index)
 		{
 			if (_depressedLogs[index] && Math.Abs(_logs / 2 - index) < Math.Abs(_logs / 2 - logIndex))
+			{
 				logIndex = index;
+			}
 		}
 		if (logIndex != -1)
 		{
@@ -88,63 +104,93 @@ public class EHZBridgeInstance : ActiveObject
 		else
 		{
 			for (int index = 0; index < _logs; ++index)
-				_logPositions[index].Y = Math.Max(0, _logPositions[index].Y - 4);
+			{
+				_logPositions[index].Y = Math.Max(0, _logPositions[index].Y - LogSpeed);
+			}
 		}
+
 		for (int index = 0; index < _logs; ++index)
 		{
 			Vector2i logPosition = _logPositions[index];
 			CollisionVector collisionVector = CollisionVectors[index];
-			collisionVector.RelativeA = new Vector2i(logPosition.X - 32 /*0x20*/, logPosition.Y - 32 /*0x20*/);
-			collisionVector.RelativeB = new Vector2i(logPosition.X + 32 /*0x20*/, logPosition.Y - 32 /*0x20*/);
+			collisionVector.RelativeA = GetLogLeft(logPosition);
+			collisionVector.RelativeB = GetLogRight(logPosition);
 		}
 		RegisterCollisionUpdate();
-		int count = Level.Map.CollisionPathLayers.Count;
+
+		// Connect each log to its neighbours on all collision paths, so that characters move smoothly across the bridge.
+		int pathCount = Level.Map.CollisionPathLayers.Count;
 		for (int index = 0; index < _logs; ++index)
 		{
 			CollisionVector collisionVector = CollisionVectors[index];
-			for (int path = 0; path < count; ++path)
+			for (int path = 0; path < pathCount; ++path)
 			{
 				if (index > 0)
+				{
 					collisionVector.SetConnectionA(path, CollisionVectors[index - 1]);
+				}
 				if (index < _logs - 1)
+				{
 					collisionVector.SetConnectionB(path, CollisionVectors[index + 1]);
+				}
 			}
 		}
 	}
 
+	/// <summary>Returns the top left corner of a log.</summary>
+	private static Vector2i GetLogLeft(Vector2i logPosition)
+	{
+		return new Vector2i(logPosition.X - HalfLogWidth, logPosition.Y - HalfLogHeight);
+	}
+
+	/// <summary>Returns the top right corner of a log.</summary>
+	private static Vector2i GetLogRight(Vector2i logPosition)
+	{
+		return new Vector2i(logPosition.X + HalfLogWidth, logPosition.Y - HalfLogHeight);
+	}
+
+	/// <summary>
+	/// Moves the logs towards a curve with the lowest point at <paramref name="logIndex"/>.
+	/// The depth at that point is larger near the centre of the bridge.
+	/// </summary>
 	private void DepressLogs(int logIndex)
 	{
-		int num = (int)(Math.Sin(logIndex / (double)_logs * Math.PI) * 40.0);
+		int depression = (int)(Math.Sin(logIndex / (double)_logs * Math.PI) * MaxDepression);
 		for (int i = 0; i < logIndex; ++i)
 		{
-			int val1 = (int)(Math.Sin(i / (double)logIndex * (Math.PI / 2.0)) * 40.0);
-			UpdateLogY(i, Math.Min(val1, num));
+			int curveDepression = (int)(Math.Sin(i / (double)logIndex * (Math.PI / 2.0)) * MaxDepression);
+			UpdateLogY(i, Math.Min(curveDepression, depression));
 		}
-		UpdateLogY(logIndex, num);
+		UpdateLogY(logIndex, depression);
 		for (int i = logIndex + 1; i < _logs; ++i)
 		{
-			int val1 = (int)(Math.Sin(Math.PI / 2.0 + (i - logIndex) / (double)(_logs - logIndex - 1) * (Math.PI / 2.0)) * 40.0);
-			UpdateLogY(i, Math.Min(val1, num));
+			int curveDepression = (int)(Math.Sin(Math.PI / 2.0 + (i - logIndex) / (double)(_logs - logIndex - 1) * (Math.PI / 2.0)) * MaxDepression);
+			UpdateLogY(i, Math.Min(curveDepression, depression));
 		}
 	}
 
+	/// <summary>Moves log <paramref name="i"/> towards the Y position <paramref name="depress"/>, by not more than the log speed.</summary>
 	private void UpdateLogY(int i, int depress)
 	{
 		int y = _logPositions[i].Y;
-		int num;
+		int newY;
 		if (y > depress)
 		{
-			num = y - 4;
-			if (num < depress)
-				num = depress;
+			newY = y - LogSpeed;
+			if (newY < depress)
+			{
+				newY = depress;
+			}
 		}
 		else
 		{
-			num = y + 4;
-			if (num > depress)
-				num = depress;
+			newY = y + LogSpeed;
+			if (newY > depress)
+			{
+				newY = depress;
+			}
 		}
-		_logPositions[i].Y = num;
+		_logPositions[i].Y = newY;
 	}
 
 	protected override void OnAnimate() => _logAnimation.Animate();
@@ -153,6 +199,8 @@ public class EHZBridgeInstance : ActiveObject
 	{
 		IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
 		for (int index = 0; index < _logs; ++index)
+		{
 			objectRenderer.Render(_logAnimation, (Vector2)_logPositions[index]);
+		}
 	}
 }

@@ -10,12 +10,13 @@ using SonicOrca.Geometry;
 #nullable disable
 namespace SONICORCA.OBJECTS.DUST;
 
+/// <summary>A small cloud of dust. It moves at a fixed velocity while its animation plays one time.</summary>
 public class DustInstance : ParticleObject
 {
 	public Vector2 Velocity { get; set; }
 
 	public DustInstance()
-	  : base("/ANIGROUP")
+		: base("/ANIGROUP")
 	{
 	}
 

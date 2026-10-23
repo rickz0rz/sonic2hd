@@ -10,6 +10,7 @@ using SonicOrca.Core.Objects.Metadata;
 #nullable disable
 namespace SONICORCA.OBJECTS.CPZSPINTUBE;
 
+/// <summary>The object type for <see cref="CPZSpinTubeInstance"/>, the path that moves a character through a spin tube.</summary>
 [SonicOrca.Core.Objects.Metadata.Name("Spin tube path")]
 [Description("Spin tube path from Chemical Plant Zone, Sonic 2")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Obstacle)]

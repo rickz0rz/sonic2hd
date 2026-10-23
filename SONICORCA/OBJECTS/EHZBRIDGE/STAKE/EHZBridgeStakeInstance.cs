@@ -10,17 +10,18 @@ using SonicOrca.Geometry;
 #nullable disable
 namespace SONICORCA.OBJECTS.EHZBRIDGE.STAKE;
 
+/// <summary>The post at each end of a bridge in Emerald Hill Zone. It is decoration only.</summary>
 public class EHZBridgeStakeInstance : Scenery
 {
 	public EHZBridgeStakeInstance()
-	  : base("//ANIGROUP")
+		: base("//ANIGROUP")
 	{
-		DesignBounds = new Rectanglei(-32, -32, 64 /*0x40*/, 64 /*0x40*/);
+		DesignBounds = new Rectanglei(-32, -32, 64, 64);
 	}
 
 	protected override void OnStart()
 	{
 		base.OnStart();
-		Priority = 1280 /*0x0500*/;
+		Priority = 1280;
 	}
 }

@@ -17,28 +17,48 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.CPZBLOCK;
 
+/// <summary>
+/// A solid block in Chemical Plant Zone. A single block moves round the four corners of a square.
+/// A stairs block makes three more blocks in a row. When a character stands on the stairs, the blocks move
+/// up or down by different distances to make steps.
+/// </summary>
 public class CPZBlockInstance : Platform
 {
+	private const int BlockSize = 128;
+	private const int StairsSiblingCount = 3;
+
+	/// <summary>The number of frames to move from one corner to the next.</summary>
+	private const int CornerMoveDuration = 180;
+
+	/// <summary>The number of frames that the stairs wait after a character steps on them.</summary>
+	private const int StairsWaitDuration = 30;
+
+	/// <summary>The number of frames that the stairs move.</summary>
+	private const int StairsMoveDuration = 128;
+
 	private AnimationInstance _animation;
-	private CPZBlockInstance.BlockType _blockType = CPZBlockInstance.BlockType.Single;
+	private BlockType _blockType = BlockType.Single;
 	private int _movementLength = 384;
 	private bool _flipX;
-	private CPZBlockInstance.TurnDirection _turnDirection = CPZBlockInstance.TurnDirection.Clockwise;
+	private TurnDirection _turnDirection = TurnDirection.Clockwise;
 	private int _initialState;
+
+	/// <summary>The position at corner 0 (the top left corner of the movement).</summary>
 	private Vector2i _state0position;
+
 	private CPZBlockInstance[] _siblings = new CPZBlockInstance[0];
 	private bool _activated;
 	private int _ticks;
 
 	[StateVariable]
-	private CPZBlockInstance.BlockType BlockKind
+	private BlockType BlockKind
 	{
 		get => _blockType;
 		set => _blockType = value;
 	}
 
 	[StateVariable]
-	private CPZBlockInstance.TurnDirection Direction
+	private TurnDirection Direction
 	{
 		get => _turnDirection;
 		set => _turnDirection = value;
@@ -68,34 +88,35 @@ public class CPZBlockInstance : Platform
 	protected override void OnStart()
 	{
 		base.OnStart();
-		if (_blockType == CPZBlockInstance.BlockType.Single)
+		if (_blockType == BlockType.Single)
 		{
 			_state0position = Position - GetStatePosition(_initialState);
-			DesignBounds = new Rectanglei(-64, -64, 128 /*0x80*/, 128 /*0x80*/);
+			DesignBounds = new Rectanglei(-64, -64, BlockSize, BlockSize);
 		}
 		else
 		{
 			_state0position = Position;
-			_siblings = new CPZBlockInstance[3];
-			for (int index = 0; index < 3; ++index)
+			_siblings = new CPZBlockInstance[StairsSiblingCount];
+			for (int index = 0; index < StairsSiblingCount; ++index)
 			{
-				CPZBlockInstance cpzBlockInstance = Level.ObjectManager.AddSubObject<CPZBlockInstance>(this);
-				cpzBlockInstance._blockType = CPZBlockInstance.BlockType.None;
-				cpzBlockInstance.Position = Position + new Vector2i((index + 1) * 128 /*0x80*/, 0);
-				cpzBlockInstance.LockLifetime = true;
-				_siblings[index] = cpzBlockInstance;
+				CPZBlockInstance sibling = Level.ObjectManager.AddSubObject<CPZBlockInstance>(this);
+				sibling._blockType = BlockType.None;
+				sibling.Position = Position + new Vector2i((index + 1) * BlockSize, 0);
+				sibling.LockLifetime = true;
+				_siblings[index] = sibling;
 			}
 			if (_flipX)
 			{
+				// Reverse the order of the four blocks.
 				Move(384, 0);
-				_siblings[0].Move(128 /*0x80*/, 0);
-				_siblings[1].Move(sbyte.MinValue, 0);
+				_siblings[0].Move(128, 0);
+				_siblings[1].Move(-128, 0);
 				_siblings[2].Move(-384, 0);
 			}
-			DesignBounds = new Rectanglei(-64, -64, 512 /*0x0200*/, 128 /*0x80*/);
+			DesignBounds = new Rectanglei(-64, -64, 512, BlockSize);
 		}
 		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"));
-		CollisionVectors = CollisionVector.FromRectangle(this, new Rectanglei(-64, -64, 128 /*0x80*/, 128 /*0x80*/));
+		CollisionVectors = CollisionVector.FromRectangle(this, new Rectanglei(-64, -64, BlockSize, BlockSize));
 		CollisionVectors[0].Id = 0;
 		CollisionVectors[1].Id = 1;
 		CollisionVectors[2].Id = 2;
@@ -111,9 +132,13 @@ public class CPZBlockInstance : Platform
 	protected override void OnUpdate()
 	{
 		if (ParentObject != null && ParentObject.Finished)
+		{
 			Finish();
+		}
 		else
+		{
 			base.OnUpdate();
+		}
 	}
 
 	protected override void OnUpdateEditor()
@@ -122,47 +147,58 @@ public class CPZBlockInstance : Platform
 		{
 			Finish();
 		}
-		else
+		else if (_siblings != null)
 		{
-			if (_siblings == null)
-				return;
 			for (int index = 0; index < _siblings.Length; ++index)
-				_siblings[index].Position = Position + new Vector2i((index + 1) * 128 /*0x80*/, 0);
+			{
+				_siblings[index].Position = Position + new Vector2i((index + 1) * BlockSize, 0);
+			}
 		}
 	}
 
+	/// <summary>
+	/// Calculates the next position of this block and its siblings, and the velocity of each.
+	/// Then puts this block back at its current position. The siblings do not do this themselves.
+	/// </summary>
 	protected override void OnUpdatePrepare()
 	{
 		if (ParentObject is CPZBlockInstance)
+		{
 			return;
-		Vector2 positionPrecise = PositionPrecise;
-		Vector2[] vector2Array = new Vector2[_siblings.Length];
+		}
+		Vector2 previousPosition = PositionPrecise;
+		Vector2[] previousSiblingPositions = new Vector2[_siblings.Length];
 		for (int index = 0; index < _siblings.Length; ++index)
-			vector2Array[index] = _siblings[index].PositionPrecise;
+		{
+			previousSiblingPositions[index] = _siblings[index].PositionPrecise;
+		}
 		UpdateMovement();
 		for (int index = 0; index < _siblings.Length; ++index)
 		{
 			_siblings[index]._nextPositionPrecise = _siblings[index].PositionPrecise;
-			_siblings[index]._velocityBasedOnNextPosition = _siblings[index]._nextPositionPrecise - vector2Array[index];
+			_siblings[index]._velocityBasedOnNextPosition = _siblings[index]._nextPositionPrecise - previousSiblingPositions[index];
 		}
 		_nextPositionPrecise = PositionPrecise;
-		_velocityBasedOnNextPosition = _nextPositionPrecise - positionPrecise;
-		PositionPrecise = positionPrecise;
+		_velocityBasedOnNextPosition = _nextPositionPrecise - previousPosition;
+		PositionPrecise = previousPosition;
 	}
 
 	protected override void UpdateMovement()
 	{
 		switch (_blockType)
 		{
-			case CPZBlockInstance.BlockType.Single:
+			case BlockType.Single:
 				UpdateMovementSingle();
 				break;
-			case CPZBlockInstance.BlockType.Stairs:
+			case BlockType.Stairs:
 				UpdateMovementStairs();
 				break;
 		}
 	}
 
+	/// <summary>
+	/// Returns the position at a corner of the square. 0 is top left, 1 is top right, 2 is bottom right and 3 is bottom left.
+	/// </summary>
 	private Vector2i GetStatePosition(int state)
 	{
 		switch (state)
@@ -180,50 +216,54 @@ public class CPZBlockInstance : Platform
 
 	private void UpdateMovementSingle()
 	{
-		int num = Level.Ticks % 720 / 180;
-		int state1;
-		int state2;
-		if (_turnDirection == CPZBlockInstance.TurnDirection.Clockwise)
+		int cornersPassed = Level.Ticks % (4 * CornerMoveDuration) / CornerMoveDuration;
+		int fromState;
+		int toState;
+		if (_turnDirection == TurnDirection.Clockwise)
 		{
-			state1 = (_initialState + num) % 4;
-			state2 = (state1 + 1) % 4;
+			fromState = (_initialState + cornersPassed) % 4;
+			toState = (fromState + 1) % 4;
 		}
 		else
 		{
-			state1 = (_initialState - num + 4) % 4;
-			state2 = (state1 + 3) % 4;
+			fromState = (_initialState - cornersPassed + 4) % 4;
+			toState = (fromState + 3) % 4;
 		}
-		Vector2i statePosition1 = GetStatePosition(state1);
-		Vector2i statePosition2 = GetStatePosition(state2);
-		double t = 0.5 - Math.Cos(Level.Ticks % 180 / 180.0 * Math.PI) / 2.0;
-		PositionPrecise = new Vector2(statePosition1.X == statePosition2.X ? statePosition1.X : MathX.Lerp(statePosition1.X, statePosition2.X, t), statePosition1.Y == statePosition2.Y ? statePosition1.Y : MathX.Lerp(statePosition1.Y, statePosition2.Y, t));
+		Vector2i fromPosition = GetStatePosition(fromState);
+		Vector2i toPosition = GetStatePosition(toState);
+		// Ease in and out with a cosine curve.
+		double t = 0.5 - Math.Cos(Level.Ticks % CornerMoveDuration / 180.0 * Math.PI) / 2.0;
+		PositionPrecise = new Vector2(
+			fromPosition.X == toPosition.X ? fromPosition.X : MathX.Lerp(fromPosition.X, toPosition.X, t),
+			fromPosition.Y == toPosition.Y ? fromPosition.Y : MathX.Lerp(fromPosition.Y, toPosition.Y, t));
 	}
 
 	private void UpdateMovementStairs()
 	{
 		if (!_activated)
+		{
 			return;
-		int num = _turnDirection == CPZBlockInstance.TurnDirection.Up ? -1 : 1;
-		if (_ticks < 30)
+		}
+		int directionY = _turnDirection == TurnDirection.Up ? -1 : 1;
+		if (_ticks < StairsWaitDuration)
 		{
 			++_ticks;
 		}
-		else
+		else if (_ticks <= StairsWaitDuration + StairsMoveDuration)
 		{
-			if (_ticks > 158)
-				return;
-			double t = (_ticks - 30) / 128.0;
+			double t = (_ticks - StairsWaitDuration) / 128.0;
 			PositionPrecise = PositionPrecise with
 			{
-				Y = MathX.Lerp(_state0position.Y, _state0position.Y + num * 128 /*0x80*/, t)
+				Y = MathX.Lerp(_state0position.Y, _state0position.Y + directionY * BlockSize, t)
 			};
-			for (int index = 0; index < 3; ++index)
+			// Each sibling moves one block further than the block before it.
+			for (int index = 0; index < StairsSiblingCount; ++index)
 			{
-				Vector2 positionPrecise = _siblings[index].PositionPrecise with
+				Vector2 siblingPosition = _siblings[index].PositionPrecise with
 				{
-					Y = MathX.Lerp(_state0position.Y, _state0position.Y + num * ((index + 2) * 128 /*0x80*/), t)
+					Y = MathX.Lerp(_state0position.Y, _state0position.Y + directionY * ((index + 2) * BlockSize), t)
 				};
-				_siblings[index].PositionPrecise = positionPrecise;
+				_siblings[index].PositionPrecise = siblingPosition;
 			}
 			++_ticks;
 		}
@@ -231,11 +271,14 @@ public class CPZBlockInstance : Platform
 
 	protected override void OnCollision(CollisionEvent e)
 	{
+		// Id 1 is the top of the block.
 		if (e.Id == 1 && e.ActiveObject.Type.Classification == ObjectClassification.Character)
 		{
 			_activated = true;
-			if (ParentObject is CPZBlockInstance parentObject)
-				parentObject._activated = true;
+			if (ParentObject is CPZBlockInstance parentBlock)
+			{
+				parentBlock._activated = true;
+			}
 		}
 		base.OnCollision(e);
 	}

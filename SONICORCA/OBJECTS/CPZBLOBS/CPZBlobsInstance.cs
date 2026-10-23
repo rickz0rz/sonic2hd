@@ -18,6 +18,11 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.CPZBLOBS;
 
+/// <summary>
+/// A group of six chemical blobs in Chemical Plant Zone. The blobs jump out of one pipe and fall into another,
+/// in an arc or straight up and down. The blobs hurt characters.
+/// This object also draws the splash animations at the ends of the pipes.
+/// </summary>
 public class CPZBlobsInstance : ActiveObject
 {
 	private const int AnimationBlob = 0;
@@ -26,15 +31,20 @@ public class CPZBlobsInstance : ActiveObject
 	private const int AnimationBottomSplashStart = 3;
 	private const int AnimationBottomSplashEnd = 4;
 	private const int AnimationBottomOverflow = 5;
+	private const int BlobCount = 6;
 	private AnimationGroup _animationGroup;
-	private CPZBlobsInstance.ArrangementType _arrangementType;
-	private CPZBlobsInstance.Blob[] _children;
+	private ArrangementType _arrangementType;
+	private Blob[] _children;
 	private List<AnimationInstance> _bottomStartOverflowTriggeredAnimations = new List<AnimationInstance>();
+
+	/// <summary>The splash animations that play now, with the draw offset of each.</summary>
 	private Dictionary<AnimationInstance, Vector2> _triggeredAnimations = new Dictionary<AnimationInstance, Vector2>();
+
+	/// <summary>The position of the blob that started each splash animation.</summary>
 	private Dictionary<AnimationInstance, Vector2> _triggeredAnimationsPositions = new Dictionary<AnimationInstance, Vector2>();
 
 	[StateVariable]
-	private CPZBlobsInstance.ArrangementType Arrangement
+	private ArrangementType Arrangement
 	{
 		get => _arrangementType;
 		set => _arrangementType = value;
@@ -46,11 +56,11 @@ public class CPZBlobsInstance : ActiveObject
 	protected override void OnStart()
 	{
 		_animationGroup = ResourceTree.GetLoadedResource<AnimationGroup>(Type.GetAbsolutePath("/ANIGROUP"));
-		DesignBounds = new Rectanglei(sbyte.MinValue, sbyte.MinValue, 256 /*0x0100*/, 256 /*0x0100*/);
-		_children = new CPZBlobsInstance.Blob[6];
-		for (int index = 5; index >= 0; --index)
+		DesignBounds = new Rectanglei(-128, -128, 256, 256);
+		_children = new Blob[BlobCount];
+		for (int index = BlobCount - 1; index >= 0; --index)
 		{
-			CPZBlobsInstance.Blob blob = Level.ObjectManager.AddSubObject<CPZBlobsInstance.Blob>(this);
+			Blob blob = Level.ObjectManager.AddSubObject<Blob>(this);
 			blob.Initialise(Position, index, FlipX);
 			_children[index] = blob;
 			_children[index].Priority = index + 2;
@@ -80,44 +90,54 @@ public class CPZBlobsInstance : ActiveObject
 	{
 		base.OnDraw(renderer, viewOptions);
 		IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
-		List<AnimationInstance> animationInstanceList = new List<AnimationInstance>();
+
+		// The splash animations advance here, not in OnAnimate.
+		List<AnimationInstance> finishedAnimations = new List<AnimationInstance>();
 		foreach (KeyValuePair<AnimationInstance, Vector2> triggeredAnimation in TriggeredAnimations)
 		{
 			triggeredAnimation.Key.Animate();
 			if (triggeredAnimation.Key.Cycles > 0)
-				animationInstanceList.Add(triggeredAnimation.Key);
-		}
-		foreach (AnimationInstance key in animationInstanceList)
-		{
-			key.ResetFrame();
-			key.Cycles = 0;
-			if (key.Index == 4 || BottomStartOverflowTriggeredAnimations.Contains(key))
 			{
-				CPZBlobsInstance.OverflowInstance overflowInstance = Level.ObjectManager.AddSubObject<CPZBlobsInstance.OverflowInstance>(this);
-				overflowInstance.InitOverflow();
-				overflowInstance.Layer = Level.Map.Layers.Last<LevelLayer>();
-				Vector2 animationsPosition = TriggeredAnimationsPositions[key];
-				if (BottomStartOverflowTriggeredAnimations.Contains(key))
-				{
-					if (_arrangementType == CPZBlobsInstance.ArrangementType.Arc)
-						overflowInstance.PositionPrecise = new Vector2(animationsPosition.X, animationsPosition.Y - 40.0);
-					else
-						overflowInstance.PositionPrecise = new Vector2(animationsPosition.X, animationsPosition.Y - 40.0);
-				}
-				else if (_arrangementType == CPZBlobsInstance.ArrangementType.Arc)
-					overflowInstance.PositionPrecise = new Vector2(animationsPosition.X, animationsPosition.Y - 15.0);
-				else
-					overflowInstance.PositionPrecise = new Vector2(animationsPosition.X, animationsPosition.Y - 23.0);
+				finishedAnimations.Add(triggeredAnimation.Key);
 			}
-			if (BottomStartOverflowTriggeredAnimations.Contains(key))
-				BottomStartOverflowTriggeredAnimations.Remove(key);
-			TriggeredAnimations.Remove(key);
-			TriggeredAnimationsPositions.Remove(key);
 		}
+
+		// Remove the splashes that finished. Some of them start an overflow particle.
+		foreach (AnimationInstance animation in finishedAnimations)
+		{
+			animation.ResetFrame();
+			animation.Cycles = 0;
+			if (animation.Index == AnimationBottomSplashEnd || BottomStartOverflowTriggeredAnimations.Contains(animation))
+			{
+				OverflowInstance overflowInstance = Level.ObjectManager.AddSubObject<OverflowInstance>(this);
+				overflowInstance.InitOverflow();
+				overflowInstance.Layer = Level.Map.Layers.Last();
+				Vector2 blobPosition = TriggeredAnimationsPositions[animation];
+				if (BottomStartOverflowTriggeredAnimations.Contains(animation))
+				{
+					overflowInstance.PositionPrecise = new Vector2(blobPosition.X, blobPosition.Y - 40.0);
+				}
+				else if (_arrangementType == ArrangementType.Arc)
+				{
+					overflowInstance.PositionPrecise = new Vector2(blobPosition.X, blobPosition.Y - 15.0);
+				}
+				else
+				{
+					overflowInstance.PositionPrecise = new Vector2(blobPosition.X, blobPosition.Y - 23.0);
+				}
+			}
+			if (BottomStartOverflowTriggeredAnimations.Contains(animation))
+			{
+				BottomStartOverflowTriggeredAnimations.Remove(animation);
+			}
+			TriggeredAnimations.Remove(animation);
+			TriggeredAnimationsPositions.Remove(animation);
+		}
+
 		foreach (KeyValuePair<AnimationInstance, Vector2> triggeredAnimation in TriggeredAnimations)
 		{
-			Vector2 animationsPosition = TriggeredAnimationsPositions[triggeredAnimation.Key];
-			objectRenderer.Render(triggeredAnimation.Key, animationsPosition - PositionPrecise + triggeredAnimation.Value);
+			Vector2 blobPosition = TriggeredAnimationsPositions[triggeredAnimation.Key];
+			objectRenderer.Render(triggeredAnimation.Key, blobPosition - PositionPrecise + triggeredAnimation.Value);
 		}
 	}
 
@@ -127,8 +147,25 @@ public class CPZBlobsInstance : ActiveObject
 		Straight,
 	}
 
+	/// <summary>One chemical blob. It moves between the two pipe ends and starts the splash animations.</summary>
 	private class Blob : Enemy
 	{
+		/// <summary>The index of the last blob in the group. The last blob starts the end splash.</summary>
+		private const int LastBlobIndex = BlobCount - 1;
+
+		/// <summary>The horizontal distance between the two pipe ends.</summary>
+		private const int PipeDistance = 384;
+
+		/// <summary>The angle in radians that an arc blob turns each frame.</summary>
+		private const double ArcAngleStep = 0.031939525311496228;
+
+		/// <summary>The height above the bottom pipe of the top splash in the straight arrangement.</summary>
+		private const int TopSplashHeight = 224;
+
+		private const int SplashStartOffsetY = 112;
+		private const int SplashEndOffsetY = 120;
+		private const int BottomWaitDuration = 72;
+
 		private AnimationInstance _animationBlob;
 		private AnimationInstance _animationTopSplashStart;
 		private AnimationInstance _animationTopSplashEnd;
@@ -139,8 +176,13 @@ public class CPZBlobsInstance : ActiveObject
 		private int _originalY;
 		private Vector2 _velocity;
 		private double _upVelocity;
+
+		/// <summary>The X position of the pipe end where the blob goes up.</summary>
 		private int _upX;
+
+		/// <summary>The X position of the pipe end where the blob comes down.</summary>
 		private int _downX;
+
 		private bool _leftToRight;
 		private AnimationInstance _lastTriggeredAnimation;
 		private bool _directionChange;
@@ -158,40 +200,40 @@ public class CPZBlobsInstance : ActiveObject
 		{
 			base.OnStart();
 			_animationBlob = new AnimationInstance(Host._animationGroup);
-			_animationTopSplashStart = new AnimationInstance(Host._animationGroup, 1);
-			_animationTopSplashEnd = new AnimationInstance(Host._animationGroup, 2);
-			_animationBottomSplashStart = new AnimationInstance(Host._animationGroup, 3);
-			_animationBottomSplashEnd = new AnimationInstance(Host._animationGroup, 4);
-			_animationBottomOverflow = new AnimationInstance(Host._animationGroup, 5);
-			Priority = sbyte.MinValue;
+			_animationTopSplashStart = new AnimationInstance(Host._animationGroup, AnimationTopSplashStart);
+			_animationTopSplashEnd = new AnimationInstance(Host._animationGroup, AnimationTopSplashEnd);
+			_animationBottomSplashStart = new AnimationInstance(Host._animationGroup, AnimationBottomSplashStart);
+			_animationBottomSplashEnd = new AnimationInstance(Host._animationGroup, AnimationBottomSplashEnd);
+			_animationBottomOverflow = new AnimationInstance(Host._animationGroup, AnimationBottomOverflow);
+			Priority = -128;
 			CollisionRectangles = new CollisionRectangle[1]
 			{
-		new CollisionRectangle( this, 0, -16, -16, 32 /*0x20*/, 32 /*0x20*/)
+				new CollisionRectangle(this, 0, -16, -16, 32, 32)
 			};
 		}
 
 		public void Initialise(Vector2i position, int index, bool flipX)
 		{
 			_index = index;
-			_upVelocity = Host._arrangementType != CPZBlobsInstance.ArrangementType.Arc ? -9.0 : -17.55;
+			_upVelocity = Host._arrangementType != ArrangementType.Arc ? -9.0 : -17.55;
 			_velocity = new Vector2(0.0, _upVelocity);
 			Position = position;
-			_originalY = Host._arrangementType != CPZBlobsInstance.ArrangementType.Arc ? position.Y : position.Y + 8;
+			_originalY = Host._arrangementType != ArrangementType.Arc ? position.Y : position.Y + 8;
 			if (flipX)
 			{
 				_leftToRight = false;
 				_upX = position.X;
-				_downX = position.X + 384;
+				_downX = position.X + PipeDistance;
 				_currentAngle = Math.PI;
 			}
 			else
 			{
 				_leftToRight = true;
-				_upX = position.X + 384;
+				_upX = position.X + PipeDistance;
 				_downX = position.X;
 				_currentAngle = 0.0;
 			}
-			Delay = Host._arrangementType != CPZBlobsInstance.ArrangementType.Arc ? index * 4 : index * 5;
+			Delay = Host._arrangementType != ArrangementType.Arc ? index * 4 : index * 5;
 			LockLifetime = true;
 		}
 
@@ -199,59 +241,71 @@ public class CPZBlobsInstance : ActiveObject
 		{
 			base.OnUpdate();
 			if (Host.Finished)
+			{
 				Finish();
+			}
 			else if (Delay > 0)
+			{
 				--Delay;
-			else if (Host._arrangementType == CPZBlobsInstance.ArrangementType.Arc)
+			}
+			else if (Host._arrangementType == ArrangementType.Arc)
+			{
 				UpdateArc();
+			}
 			else
+			{
 				UpdateStraight();
+			}
 		}
 
+		/// <summary>
+		/// Moves the blob along a half circle between the two pipe ends. The X position follows the circle.
+		/// The Y position follows the velocity and gravity.
+		/// </summary>
 		private void UpdateArc()
 		{
-			if (Host._arrangementType == CPZBlobsInstance.ArrangementType.Arc)
-				ArcPrepareTriggers();
+			ArcPrepareTriggers();
 			if (_leftToRight && _currentAngle <= 0.0)
+			{
 				PlayGloopSound();
+			}
 			if (!_leftToRight && _currentAngle >= Math.PI)
+			{
 				PlayGloopSound();
-			Vector2 relative = new Vector2((_downX + _upX) * 0.5, _originalY);
-			double num = Vector2.GetDistance(new Vector2(_downX, 0.0), new Vector2(_upX, 0.0)) * 0.5;
-			double x = relative.X - num;
+			}
+			Vector2 centre = new Vector2((_downX + _upX) * 0.5, _originalY);
+			double radius = Vector2.GetDistance(new Vector2(_downX, 0.0), new Vector2(_upX, 0.0)) * 0.5;
+			double startX = centre.X - radius;
 			if (_leftToRight)
-				_currentAngle += 0.031939525311496228;
+			{
+				_currentAngle += ArcAngleStep;
+			}
 			else
-				_currentAngle -= 0.031939525311496228;
+			{
+				_currentAngle -= ArcAngleStep;
+			}
 			PositionPrecise = PositionPrecise + _velocity;
-			if (_leftToRight)
-			{
-				Vector2 point = new Vector2(x, _originalY);
-				PositionPrecise = new Vector2(Vector2.GetPointRotatedFromRelative(relative, point, _currentAngle).X, PositionPrecise.Y);
-			}
-			else
-			{
-				Vector2 point = new Vector2(x, _originalY);
-				PositionPrecise = new Vector2(Vector2.GetPointRotatedFromRelative(relative, point, _currentAngle).X, PositionPrecise.Y);
-			}
+			Vector2 startPoint = new Vector2(startX, _originalY);
+			PositionPrecise = new Vector2(Vector2.GetPointRotatedFromRelative(centre, startPoint, _currentAngle).X, PositionPrecise.Y);
 			_velocity.Y += 0.375;
 			if (PositionPrecise.Y >= _originalY && !_directionChange)
 			{
 				_directionChange = true;
-				Delay = 72;
+				Delay = BottomWaitDuration;
 			}
 			if (!_directionChange)
+			{
 				return;
+			}
+			// The blob is back at the bottom. It jumps again from the other pipe end, in the other direction.
 			_velocity.Y = _upVelocity;
 			_directionChange = false;
 			_leftToRight = !_leftToRight;
-			if (_leftToRight)
-				_currentAngle = 0.0;
-			if (!_leftToRight)
-				_currentAngle = Math.PI;
+			_currentAngle = _leftToRight ? 0.0 : Math.PI;
 			PositionPrecise = new Vector2(_leftToRight ? _downX : _upX, _originalY);
 		}
 
+		/// <summary>Moves the blob straight up out of one pipe end and straight down into the other.</summary>
 		private void UpdateStraight()
 		{
 			PositionPrecise = PositionPrecise + _velocity;
@@ -263,7 +317,7 @@ public class CPZBlobsInstance : ActiveObject
 			if (Position.Y > _originalY && _velocity.Y > 0.0)
 			{
 				PlayGloopSound();
-				Delay = 72;
+				Delay = BottomWaitDuration;
 				_directionChange = true;
 				_velocity.Y = 0.0;
 				_directionChangeNormal = 1;
@@ -286,211 +340,187 @@ public class CPZBlobsInstance : ActiveObject
 
 		protected override void OnAnimate()
 		{
-			if (!_startAnimation)
-				return;
-			_animationBlob.Animate();
+			if (_startAnimation)
+			{
+				_animationBlob.Animate();
+			}
 		}
 
+		/// <summary>
+		/// Starts a splash animation on the host, at <paramref name="position"/> relative to this blob.
+		/// The same animation does not start two times in a row, unless <paramref name="isFinal"/> is true.
+		/// </summary>
 		private void TriggerAnimation(AnimationInstance animation, Vector2 position, bool isFinal = false)
 		{
-			if (!(_lastTriggeredAnimation != animation | isFinal))
+			if (_lastTriggeredAnimation == animation && !isFinal)
+			{
 				return;
+			}
 			_lastTriggeredAnimation = animation;
 			if (isFinal)
+			{
 				_lastTriggeredAnimation = null;
-			if (!Host.TriggeredAnimations.Any<KeyValuePair<AnimationInstance, Vector2>>(a => a.Key.Index == animation.Index) && !Host.TriggeredAnimationsPositions.Any<KeyValuePair<AnimationInstance, Vector2>>(p => p.Value == PositionPrecise))
+			}
+			if (!Host.TriggeredAnimations.Any(a => a.Key.Index == animation.Index) && !Host.TriggeredAnimationsPositions.Any(p => p.Value == PositionPrecise))
 			{
 				animation.ResetFrame();
 				animation.Cycles = 0;
 				Host.TriggeredAnimations.Add(animation, position);
 				Host.TriggeredAnimationsPositions.Add(animation, PositionPrecise);
 			}
-			if (_index == 5 && animation.Index == 3 && Host._arrangementType == CPZBlobsInstance.ArrangementType.Straight)
+			if (_index != LastBlobIndex || animation.Index != AnimationBottomSplashStart)
 			{
-				KeyValuePair<AnimationInstance, Vector2> keyValuePair = Host.TriggeredAnimations.LastOrDefault<KeyValuePair<AnimationInstance, Vector2>>(a => a.Key.Index == 3);
-				if (keyValuePair.Key == null)
-					return;
-				Host.BottomStartOverflowTriggeredAnimations.Add(keyValuePair.Key);
+				return;
 			}
-			else
+			// The bottom splash of the last blob also starts an overflow when it finishes.
+			if (Host._arrangementType == ArrangementType.Straight)
 			{
-				if (_index != 5 || animation.Index != 3 || Host._arrangementType != CPZBlobsInstance.ArrangementType.Arc || _velocity.Y >= 0.0 || Host.BottomStartOverflowTriggeredAnimations.Count != 0)
-					return;
-				KeyValuePair<AnimationInstance, Vector2> keyValuePair = Host.TriggeredAnimations.LastOrDefault<KeyValuePair<AnimationInstance, Vector2>>(a => a.Key.Index == 3);
-				if (keyValuePair.Key == null)
-					return;
-				Host.BottomStartOverflowTriggeredAnimations.Add(keyValuePair.Key);
+				AddLastBottomSplashStartToOverflow();
+			}
+			else if (Host._arrangementType == ArrangementType.Arc && _velocity.Y < 0.0 && Host.BottomStartOverflowTriggeredAnimations.Count == 0)
+			{
+				AddLastBottomSplashStartToOverflow();
+			}
+		}
+
+		private void AddLastBottomSplashStartToOverflow()
+		{
+			KeyValuePair<AnimationInstance, Vector2> lastBottomSplashStart = Host.TriggeredAnimations.LastOrDefault(a => a.Key.Index == AnimationBottomSplashStart);
+			if (lastBottomSplashStart.Key != null)
+			{
+				Host.BottomStartOverflowTriggeredAnimations.Add(lastBottomSplashStart.Key);
 			}
 		}
 
 		protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 		{
-			if (Host._arrangementType == CPZBlobsInstance.ArrangementType.Straight)
+			if (Host._arrangementType == ArrangementType.Straight)
+			{
 				StraightPrepareTriggers();
+			}
 			IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
-			if (Host._arrangementType == CPZBlobsInstance.ArrangementType.Arc)
+			if (Host._arrangementType == ArrangementType.Arc)
+			{
 				DrawArc(objectRenderer, viewOptions);
+			}
 			else
+			{
 				DrawStraight(objectRenderer, viewOptions);
+			}
 		}
 
+		/// <summary>Returns the offset from this blob to the point that is <paramref name="offsetY"/> above the pipe end at <paramref name="pipeX"/>.</summary>
+		private Vector2 GetSplashOffset(int pipeX, int offsetY)
+		{
+			return new Vector2(pipeX - Position.X, _originalY - offsetY - Position.Y);
+		}
+
+		/// <summary>Starts the splash animations when an arc blob touches one of the pipe ends.</summary>
 		private void ArcPrepareTriggers()
 		{
-			Rectanglei absoluteBounds = CollisionRectangles[0].AbsoluteBounds;
-			Rectangle rect1 = Rectangle.FromLTRB(_downX - absoluteBounds.Width * 0.5, _originalY - absoluteBounds.Height, _downX + absoluteBounds.Width * 0.5, _originalY + absoluteBounds.Height * 0.5);
-			Rectangle rect2 = Rectangle.FromLTRB(_upX - absoluteBounds.Width * 0.5, _originalY - absoluteBounds.Height, _upX + absoluteBounds.Width * 0.5, _originalY + absoluteBounds.Height * 0.5);
-			Vector2i position1;
-			if (absoluteBounds.IntersectsWith((Rectanglei)rect2) && !_leftToRight)
+			Rectanglei bounds = CollisionRectangles[0].AbsoluteBounds;
+			Rectangle downPipeArea = Rectangle.FromLTRB(_downX - bounds.Width * 0.5, _originalY - bounds.Height, _downX + bounds.Width * 0.5, _originalY + bounds.Height * 0.5);
+			Rectangle upPipeArea = Rectangle.FromLTRB(_upX - bounds.Width * 0.5, _originalY - bounds.Height, _upX + bounds.Width * 0.5, _originalY + bounds.Height * 0.5);
+			if (bounds.IntersectsWith((Rectanglei)upPipeArea) && !_leftToRight)
 			{
 				_startAnimation = true;
-				AnimationInstance bottomSplashStart = _animationBottomSplashStart;
-				double x = _upX - Position.X;
-				int num = _originalY - 112 /*0x70*/;
-				position1 = Position;
-				int y1 = position1.Y;
-				double y2 = num - y1;
-				Vector2 position2 = new Vector2(x, y2);
-				TriggerAnimation(bottomSplashStart, position2, true);
+				TriggerAnimation(_animationBottomSplashStart, GetSplashOffset(_upX, SplashStartOffsetY), true);
 			}
-			if (absoluteBounds.IntersectsWith((Rectanglei)rect1) && _leftToRight)
+			if (bounds.IntersectsWith((Rectanglei)downPipeArea) && _leftToRight)
 			{
 				_startAnimation = true;
-				AnimationInstance bottomSplashStart = _animationBottomSplashStart;
-				int downX = _downX;
-				position1 = Position;
-				int x1 = position1.X;
-				double x2 = downX - x1;
-				int num = _originalY - 112 /*0x70*/;
-				position1 = Position;
-				int y3 = position1.Y;
-				double y4 = num - y3;
-				Vector2 position3 = new Vector2(x2, y4);
-				TriggerAnimation(bottomSplashStart, position3);
+				TriggerAnimation(_animationBottomSplashStart, GetSplashOffset(_downX, SplashStartOffsetY));
 			}
-			if (absoluteBounds.IntersectsWith((Rectanglei)rect2) && _leftToRight)
+			if (bounds.IntersectsWith((Rectanglei)upPipeArea) && _leftToRight)
 			{
-				if (_index == 5)
-				{
-					AnimationInstance animationBottomSplashEnd = _animationBottomSplashEnd;
-					int upX = _upX;
-					position1 = Position;
-					int x3 = position1.X;
-					double x4 = upX - x3;
-					int num = _originalY - 120;
-					position1 = Position;
-					int y5 = position1.Y;
-					double y6 = num - y5;
-					Vector2 position4 = new Vector2(x4, y6);
-					TriggerAnimation(animationBottomSplashEnd, position4, true);
-				}
-				else
-				{
-					AnimationInstance bottomSplashStart = _animationBottomSplashStart;
-					int upX = _upX;
-					position1 = Position;
-					int x5 = position1.X;
-					double x6 = upX - x5;
-					int num = _originalY - 112 /*0x70*/;
-					position1 = Position;
-					int y7 = position1.Y;
-					double y8 = num - y7;
-					Vector2 position5 = new Vector2(x6, y8);
-					TriggerAnimation(bottomSplashStart, position5, true);
-				}
+				TriggerArcEndSplash(_upX);
 			}
-			if (!absoluteBounds.IntersectsWith((Rectanglei)rect1) || _leftToRight)
-				return;
-			if (_index == 5)
+			if (bounds.IntersectsWith((Rectanglei)downPipeArea) && !_leftToRight)
 			{
-				AnimationInstance animationBottomSplashEnd = _animationBottomSplashEnd;
-				int downX = _downX;
-				position1 = Position;
-				int x7 = position1.X;
-				double x8 = downX - x7;
-				int num = _originalY - 120;
-				position1 = Position;
-				int y9 = position1.Y;
-				double y10 = num - y9;
-				Vector2 position6 = new Vector2(x8, y10);
-				TriggerAnimation(animationBottomSplashEnd, position6, true);
-			}
-			else
-			{
-				AnimationInstance bottomSplashStart = _animationBottomSplashStart;
-				int downX = _downX;
-				position1 = Position;
-				int x9 = position1.X;
-				double x10 = downX - x9;
-				int num = _originalY - 112 /*0x70*/;
-				position1 = Position;
-				int y11 = position1.Y;
-				double y12 = num - y11;
-				Vector2 position7 = new Vector2(x10, y12);
-				TriggerAnimation(bottomSplashStart, position7, true);
+				TriggerArcEndSplash(_downX);
 			}
 		}
 
+		private void TriggerArcEndSplash(int pipeX)
+		{
+			if (_index == LastBlobIndex)
+			{
+				TriggerAnimation(_animationBottomSplashEnd, GetSplashOffset(pipeX, SplashEndOffsetY), true);
+			}
+			else
+			{
+				TriggerAnimation(_animationBottomSplashStart, GetSplashOffset(pipeX, SplashStartOffsetY), true);
+			}
+		}
+
+		/// <summary>Starts the splash animations when a straight blob passes the pipe ends.</summary>
 		private void StraightPrepareTriggers()
 		{
-			if (_velocity.Y > 0.0 && Position.Y > _originalY - 224 /*0xE0*/ && Position.Y < _originalY - 14)
+			if (_velocity.Y > 0.0 && Position.Y > _originalY - TopSplashHeight && Position.Y < _originalY - 14)
 			{
 				_startAnimation = true;
-				TriggerAnimation(_animationTopSplashStart, new Vector2(_downX - Position.X, _originalY - 224 /*0xE0*/ - Position.Y));
+				TriggerAnimation(_animationTopSplashStart, new Vector2(_downX - Position.X, _originalY - TopSplashHeight - Position.Y));
 			}
 			if (_velocity.Y > 0.0 && Position.Y > _originalY - 14)
 			{
-				if (_index == 5)
-					TriggerAnimation(_animationBottomSplashEnd, new Vector2(_downX - Position.X, _originalY - 120 - Position.Y));
+				if (_index == LastBlobIndex)
+				{
+					TriggerAnimation(_animationBottomSplashEnd, new Vector2(_downX - Position.X, _originalY - SplashEndOffsetY - Position.Y));
+				}
 				else
-					TriggerAnimation(_animationBottomSplashStart, new Vector2(_downX - Position.X, _originalY - 112 /*0x70*/ - Position.Y), true);
+				{
+					TriggerAnimation(_animationBottomSplashStart, new Vector2(_downX - Position.X, _originalY - SplashStartOffsetY - Position.Y), true);
+				}
 			}
-			if (_velocity.Y < 0.0 && Position.Y < _originalY - 224 /*0xE0*/ - 60)
+			if (_velocity.Y < 0.0 && Position.Y < _originalY - TopSplashHeight - 60)
 			{
-				if (_index == 5)
-					TriggerAnimation(_animationTopSplashEnd, new Vector2(_upX - Position.X, _originalY - 224 /*0xE0*/ - Position.Y + 24), true);
+				if (_index == LastBlobIndex)
+				{
+					TriggerAnimation(_animationTopSplashEnd, new Vector2(_upX - Position.X, _originalY - TopSplashHeight - Position.Y + 24), true);
+				}
 				else
-					TriggerAnimation(_animationTopSplashStart, new Vector2(_upX - Position.X, _originalY - 224 /*0xE0*/ - Position.Y + 24), true);
+				{
+					TriggerAnimation(_animationTopSplashStart, new Vector2(_upX - Position.X, _originalY - TopSplashHeight - Position.Y + 24), true);
+				}
 			}
-			if (_velocity.Y >= 0.0 || Position.Y <= _originalY - 14 || Position.Y <= _originalY - 224 /*0xE0*/ - 60)
-				return;
-			TriggerAnimation(_animationBottomSplashStart, new Vector2(_upX - Position.X, _originalY - 112 /*0x70*/ - Position.Y));
+			if (_velocity.Y < 0.0 && Position.Y > _originalY - 14 && Position.Y > _originalY - TopSplashHeight - 60)
+			{
+				TriggerAnimation(_animationBottomSplashStart, new Vector2(_upX - Position.X, _originalY - SplashStartOffsetY - Position.Y));
+			}
 		}
 
-		private void DrawArc(IObjectRenderer or, LayerViewOptions viewOptions)
+		/// <summary>Draws the blob, clipped so that it does not show outside the pipes.</summary>
+		private void DrawArc(IObjectRenderer objectRenderer, LayerViewOptions viewOptions)
 		{
-			Rectanglei clipRectangle = (Rectanglei)or.ClipRectangle;
-			IObjectRenderer objectRenderer = or;
-			Rectangle rectangle1 = or.ClipRectangle;
-			double x = rectangle1.X;
-			int num = _originalY - 288 - 256 /*0x0100*/;
-			rectangle1 = Level.Camera.Bounds;
-			int y1 = (int)rectangle1.Y;
-			double y2 = num - y1;
-			rectangle1 = or.ClipRectangle;
-			double width = rectangle1.Width;
-			Rectangle rectangle2 = new Rectangle(x, y2, width, 512.0);
-			objectRenderer.ClipRectangle = rectangle2;
-			or.Render(_animationBlob);
-			or.ClipRectangle = (Rectangle)clipRectangle;
+			// The clip rectangle is saved as integers, so the restored value is rounded.
+			Rectanglei savedClipRectangle = (Rectanglei)objectRenderer.ClipRectangle;
+			double clipX = objectRenderer.ClipRectangle.X;
+			double clipY = _originalY - 288 - 256 - (int)Level.Camera.Bounds.Y;
+			double clipWidth = objectRenderer.ClipRectangle.Width;
+			objectRenderer.ClipRectangle = new Rectangle(clipX, clipY, clipWidth, 512.0);
+			objectRenderer.Render(_animationBlob);
+			objectRenderer.ClipRectangle = (Rectangle)savedClipRectangle;
 		}
 
-		private void DrawStraight(IObjectRenderer or, LayerViewOptions viewOptions)
+		/// <summary>Draws the blob, clipped so that it does not show outside the pipes.</summary>
+		private void DrawStraight(IObjectRenderer objectRenderer, LayerViewOptions viewOptions)
 		{
-			Rectangle clipRectangle = or.ClipRectangle;
-			int num = Math.Min(_downX, _upX);
-			or.ClipRectangle = new Rectangle(num - 64 /*0x40*/ - (int)Level.Camera.Bounds.X, _originalY - 288 - (int)Level.Camera.Bounds.Y, 512.0, 256.0);
-			or.Render(_animationBlob);
-			or.ClipRectangle = clipRectangle;
+			Rectangle savedClipRectangle = objectRenderer.ClipRectangle;
+			int left = Math.Min(_downX, _upX);
+			objectRenderer.ClipRectangle = new Rectangle(left - 64 - (int)Level.Camera.Bounds.X, _originalY - 288 - (int)Level.Camera.Bounds.Y, 512.0, 256.0);
+			objectRenderer.Render(_animationBlob);
+			objectRenderer.ClipRectangle = savedClipRectangle;
 		}
 	}
 
+	/// <summary>A particle of chemical that overflows from a pipe end after a splash.</summary>
 	public class OverflowInstance : ParticleObject
 	{
 		public OverflowInstance()
-		  : base("/ANIGROUP")
+			: base("/ANIGROUP")
 		{
 		}
 
-		public void InitOverflow() => _animationInstance.Index = 5;
+		public void InitOverflow() => _animationInstance.Index = AnimationBottomOverflow;
 	}
 }

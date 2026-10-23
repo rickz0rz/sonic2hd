@@ -12,6 +12,7 @@ using SonicOrca.Geometry;
 #nullable disable
 namespace SONICORCA.OBJECTS.EHZBLOCK;
 
+/// <summary>The object type for <see cref="EHZBlockInstance"/>, a large floating block.</summary>
 [SonicOrca.Core.Objects.Metadata.Name("Floating block")]
 [Description("Floating block from Emerald Hill Zone, Sonic 2")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Platform)]
@@ -21,12 +22,9 @@ public class EHZBlockType : ObjectType
 	[Dependency]
 	public const string AnimationGroupResourceKey = "/ANIGROUP";
 
+	/// <summary>Called by <see cref="ObjectType.GetLifeRadius(IActiveObject)"/> through dynamic dispatch.</summary>
 	public Vector2 GetLifeRadius(Platform state)
 	{
-		Vector2 movementRadius = state.MovementRadius;
-		double x = movementRadius.X;
-		movementRadius = state.MovementRadius;
-		double y = movementRadius.Y;
-		return new Vector2(x, y);
+		return state.MovementRadius;
 	}
 }
