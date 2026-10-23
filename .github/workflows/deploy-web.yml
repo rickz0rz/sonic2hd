@@ -50,10 +50,13 @@ jobs:
       - name: Publish the web build
         run: dotnet publish web/S2HD.Web -c Release -o publish/web
 
+      # The .NET runtime has its own .dat files (icudt_*.dat), so look for the game files by name and folder
       - name: Check that the site has no game data
         run: |
-          if find publish/web/wwwroot -name '*.dat' -o -name 'game.zip' | grep -q .; then
-            echo "The site contains game data. Do not publish it."; exit 1
+          found=$(find publish/web/wwwroot \( -name 'game.zip' -o -name 'sonicorca.dat' -o -name '*.film' \
+            -o -path '*/data/*.dat' -o -path '*/mods/*.dat' \) -print)
+          if [ -n "$found" ]; then
+            echo "The site contains game data. Do not publish it:"; echo "$found"; exit 1
           fi
           du -sh publish/web/wwwroot
 
