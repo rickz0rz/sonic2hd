@@ -15,6 +15,10 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.CPZTUBESPRING;
 
+/// <summary>
+/// A spring in a tube in Chemical Plant Zone. It opens when a character comes near.
+/// A character that lands on the shut spring bounces high up into the air.
+/// </summary>
 public class CPZTubeSpringInstance : ActiveObject
 {
 	private const int AnimationStationary = 0;
@@ -30,67 +34,53 @@ public class CPZTubeSpringInstance : ActiveObject
 	{
 		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"));
 		_bounceVelocity = new Vector2(0.0, -42.0);
-		CollisionVectors = CollisionVector.FromRectangle(this, (Rectanglei)new Rectangle(-64.0, -64.0, 128.0, 64.0)).Take<CollisionVector>(3).ToArray<CollisionVector>();
+		// Use the left, top and right sides only.
+		CollisionVectors = CollisionVector.FromRectangle(this, (Rectanglei)new Rectangle(-64.0, -64.0, 128.0, 64.0)).Take(3).ToArray();
 		CollisionVectors[1].Id = 1;
 		Priority = 1256;
 	}
 
 	protected override void OnUpdate()
 	{
-		bool flag = false;
+		bool characterNear = false;
 		foreach (IActiveObject character in Level.ObjectManager.Characters)
 		{
 			Vector2 position = (Vector2)character.Position;
-			if (position.X >= Position.X - 64 /*0x40*/ && position.X <= Position.X + 64 /*0x40*/ && position.Y >= Position.Y - 48 /*0x30*/ && position.Y <= Position.Y + 72)
+			if (position.X >= Position.X - 64 && position.X <= Position.X + 64 && position.Y >= Position.Y - 48 && position.Y <= Position.Y + 72)
 			{
-				flag = true;
+				characterNear = true;
 				break;
 			}
 		}
-		if (flag)
+		if (characterNear)
 		{
-			_animation.Index = 2;
+			_animation.Index = AnimationOpen;
 		}
-		else
+		else if (_animation.Index == AnimationOpen)
 		{
-			if (_animation.Index != 2)
-				return;
-			_animation.Index = 3;
+			_animation.Index = AnimationClose;
 		}
 	}
 
 	protected override void OnCollision(CollisionEvent e)
 	{
-		if (e.Id != 1 || e.ActiveObject.Type.Classification != ObjectClassification.Character || _animation.Index == 3 || _animation.Index == 2)
+		// The top bounces the character, but only while the spring is shut.
+		if (e.Id != 1 || e.ActiveObject.Type.Classification != ObjectClassification.Character || _animation.Index == AnimationClose || _animation.Index == AnimationOpen)
+		{
 			return;
-		ICharacter activeObject = (ICharacter)e.ActiveObject;
-		activeObject.IsAirborne = true;
-		activeObject.IsSpinball = false;
-		activeObject.TumbleAngle = 0.0;
-		activeObject.TumbleTurns = 1;
-		activeObject.GroundVelocity = 1.0;
-		ICharacter character = activeObject;
-		Vector2 velocity;
-		double x;
-		if (_bounceVelocity.X == 0.0)
-		{
-			velocity = activeObject.Velocity;
-			x = velocity.X;
 		}
-		else
-			x = _bounceVelocity.X;
-		double y;
-		if (_bounceVelocity.Y == 0.0)
-		{
-			velocity = activeObject.Velocity;
-			y = velocity.Y;
-		}
-		else
-			y = _bounceVelocity.Y;
-		Vector2 vector2 = new Vector2(x, y);
-		character.Velocity = vector2;
-		activeObject.IsHurt = false;
-		_animation.Index = 1;
+		ICharacter character = (ICharacter)e.ActiveObject;
+		character.IsAirborne = true;
+		character.IsSpinball = false;
+		character.TumbleAngle = 0.0;
+		character.TumbleTurns = 1;
+		character.GroundVelocity = 1.0;
+		// A zero component of the bounce velocity keeps that component of the character velocity.
+		double velocityX = _bounceVelocity.X == 0.0 ? character.Velocity.X : _bounceVelocity.X;
+		double velocityY = _bounceVelocity.Y == 0.0 ? character.Velocity.Y : _bounceVelocity.Y;
+		character.Velocity = new Vector2(velocityX, velocityY);
+		character.IsHurt = false;
+		_animation.Index = AnimationBounce;
 		e.MaintainVelocity = true;
 		Level.SoundManager.PlaySound(this, Type.GetAbsolutePath("SONICORCA/SOUND/SPRING"));
 	}

@@ -16,6 +16,10 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.CPZSPEEDBOOSTER;
 
+/// <summary>
+/// A speed booster in Chemical Plant Zone. A character on the ground that touches it moves at a fixed speed
+/// in the direction of the booster. A strength of 0 makes the booster invisible and inactive.
+/// </summary>
 public class CPZSpeedBoosterInstance : ActiveObject
 {
 	private const int AnimationFrame = 0;
@@ -28,7 +32,9 @@ public class CPZSpeedBoosterInstance : ActiveObject
 	private AnimationInstance _animationArrows;
 	private AnimationInstance _animationSpinner;
 	private AnimationInstance _animationSmallWheel;
-	private int _strength = 128 /*0x80*/;
+
+	/// <summary>The ground speed that the booster gives. A negative value pushes to the left.</summary>
+	private int _strength = 128;
 
 	[StateVariable]
 	private int Strength
@@ -39,39 +45,49 @@ public class CPZSpeedBoosterInstance : ActiveObject
 
 	protected override void OnStart()
 	{
-		AnimationGroup loadedResource = ResourceTree.GetLoadedResource<AnimationGroup>(Type.GetAbsolutePath("/ANIGROUP"));
-		_animationFrame = new AnimationInstance(loadedResource);
-		_animationCore = new AnimationInstance(loadedResource, 1);
-		_animationArrows = new AnimationInstance(loadedResource, 2);
-		_animationSpinner = new AnimationInstance(loadedResource, 3);
-		_animationSmallWheel = new AnimationInstance(loadedResource, 4);
+		AnimationGroup animationGroup = ResourceTree.GetLoadedResource<AnimationGroup>(Type.GetAbsolutePath("/ANIGROUP"));
+		_animationFrame = new AnimationInstance(animationGroup);
+		_animationCore = new AnimationInstance(animationGroup, AnimationCore);
+		_animationArrows = new AnimationInstance(animationGroup, AnimationArrows);
+		_animationSpinner = new AnimationInstance(animationGroup, AnimationSpinner);
+		_animationSmallWheel = new AnimationInstance(animationGroup, AnimationSmallWheel);
 		CollisionRectangles = new CollisionRectangle[1]
 		{
-	  new CollisionRectangle( this, 0, -64, -64, 128 /*0x80*/, 32 /*0x20*/)
+			new CollisionRectangle(this, 0, -64, -64, 128, 32)
 		};
 		DesignBounds = new Rectanglei(-158, -188, 316, 376);
 		Priority = 1512;
-		Level.ObjectManager.AddSubObject<CPZSpeedBoosterInstance.BackWheel>(this);
+		Level.ObjectManager.AddSubObject<BackWheel>(this);
 	}
 
 	protected override void OnCollision(CollisionEvent e)
 	{
-		ICharacter activeObject = (ICharacter)e.ActiveObject;
-		if (activeObject.IsAirborne || _strength == 0)
-			return;
-		if (activeObject.GroundVelocity < Math.Abs(_strength) || Math.Sign(activeObject.GroundVelocity) != Math.Sign(_strength))
+		ICharacter character = (ICharacter)e.ActiveObject;
+		if (character.IsAirborne || _strength == 0)
 		{
-			activeObject.GroundVelocity = _strength;
-			activeObject.SlopeLockTicks = 15;
-			activeObject.Facing = Math.Sign(_strength);
-			bool flag = false;
-			double x = Level.Camera.Velocity.X;
+			return;
+		}
+		if (character.GroundVelocity < Math.Abs(_strength) || Math.Sign(character.GroundVelocity) != Math.Sign(_strength))
+		{
+			character.GroundVelocity = _strength;
+			character.SlopeLockTicks = 15;
+			character.Facing = Math.Sign(_strength);
+			// Delay the camera when it does not already move in the direction of the boost.
+			bool delayCamera = false;
+			double cameraVelocityX = Level.Camera.Velocity.X;
 			if (_strength < 0)
-				flag = x >= 0.0;
+			{
+				delayCamera = cameraVelocityX >= 0.0;
+			}
 			else if (_strength > 0)
-				flag = x <= 0.0;
-			if (flag)
-				activeObject.CameraProperties.Delay = new Vector2i(16 /*0x10*/, CameraProperties.Delay.Y);
+			{
+				delayCamera = cameraVelocityX <= 0.0;
+			}
+			if (delayCamera)
+			{
+				// The Y delay comes from the camera properties of the booster, not of the character.
+				character.CameraProperties.Delay = new Vector2i(16, CameraProperties.Delay.Y);
+			}
 		}
 		Level.SoundManager.PlaySound(this, "SONICORCA/SOUND/SPRING");
 	}
@@ -79,7 +95,9 @@ public class CPZSpeedBoosterInstance : ActiveObject
 	protected override void OnAnimate()
 	{
 		if (_strength == 0)
+		{
 			return;
+		}
 		_animationFrame.Animate();
 		_animationCore.Animate();
 		_animationArrows.Animate();
@@ -90,7 +108,9 @@ public class CPZSpeedBoosterInstance : ActiveObject
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 	{
 		if (_strength == 0)
+		{
 			return;
+		}
 		bool flipX = _strength < 0;
 		IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
 		objectRenderer.Render(_animationFrame, new Vector2(0.0, 0.0));
@@ -101,21 +121,28 @@ public class CPZSpeedBoosterInstance : ActiveObject
 		objectRenderer.Render(_animationSmallWheel, new Vector2(112.0, 0.0), flipX);
 	}
 
+	/// <summary>
+	/// Draws the back spinner of the booster. It is a separate object so that it draws with a different priority.
+	/// It ends when the booster ends.
+	/// </summary>
 	private class BackWheel : ActiveObject
 	{
 		protected override void OnUpdate()
 		{
-			if (ParentObject is CPZSpeedBoosterInstance parentObject && !parentObject.Finished)
-				return;
-			Finish();
+			if (ParentObject is not CPZSpeedBoosterInstance booster || booster.Finished)
+			{
+				Finish();
+			}
 		}
 
 		protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 		{
-			if (!(ParentObject is CPZSpeedBoosterInstance parentObject) || parentObject._strength == 0)
+			if (ParentObject is not CPZSpeedBoosterInstance booster || booster._strength == 0)
+			{
 				return;
-			bool flipX = parentObject._strength < 0;
-			renderer.GetObjectRenderer().Render(parentObject._animationSpinner, new Vector2(-64.0, 0.0), flipX);
+			}
+			bool flipX = booster._strength < 0;
+			renderer.GetObjectRenderer().Render(booster._animationSpinner, new Vector2(-64.0, 0.0), flipX);
 		}
 	}
 }

@@ -16,15 +16,25 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.CPZSPINTUBE;
 
+/// <summary>
+/// The entrance of a spin tube in Chemical Plant Zone. It takes control of a character that touches it and moves
+/// the character along one of two paths as a spinball. At the end of the path, it releases the character upwards.
+/// The object is invisible in the game.
+/// </summary>
 public class CPZSpinTubeInstance : ActiveObject
 {
+	/// <summary>The maximum distance that a character moves along the path in one frame.</summary>
+	private const double PathSpeed = 32.0;
+
 	private int _previousCharacterLayer;
-	private CPZSpinTubeInstance.PathElement[][] _path = new CPZSpinTubeInstance.PathElement[2][];
+	private PathElement[][] _path = new PathElement[2][];
+
+	/// <summary>The path that characters follow now. It changes at random while no character is in the tube.</summary>
 	private int _pathIndex;
 
 	public CPZSpinTubeInstance()
 	{
-		DesignBounds = new Rectanglei(-64, -64, 128 /*0x80*/, 128 /*0x80*/);
+		DesignBounds = new Rectanglei(-64, -64, 128, 128);
 	}
 
 	[StateVariable]
@@ -35,73 +45,92 @@ public class CPZSpinTubeInstance : ActiveObject
 
 	protected override void OnStart()
 	{
-		_path[0] = CPZSpinTubeInstance.ReadPathElements(Path0);
-		_path[1] = CPZSpinTubeInstance.ReadPathElements(Path1);
+		_path[0] = ReadPathElements(Path0);
+		_path[1] = ReadPathElements(Path1);
 		if (_path[0] == null || _path[0].Length == 0)
+		{
 			Finish();
+		}
 		else
+		{
 			CollisionRectangles = new CollisionRectangle[1]
 			{
-		new CollisionRectangle( this, 0, _path[0][0].Position.X - 64 /*0x40*/, _path[0][0].Position.Y - 56, 128 /*0x80*/, 128 /*0x80*/)
+				new CollisionRectangle(this, 0, _path[0][0].Position.X - 64, _path[0][0].Position.Y - 56, 128, 128)
 			};
+		}
 	}
 
-	private static CPZSpinTubeInstance.PathElement[] ReadPathElements(string pathDataString)
+	/// <summary>
+	/// Reads a path from text such as "0,0|64,128|#128,256". Each point is "x,y", relative to the object.
+	/// A point that starts with '#' plays the spin sound. Points that are not valid are ignored.
+	/// </summary>
+	private static PathElement[] ReadPathElements(string pathDataString)
 	{
 		if (pathDataString == null)
+		{
 			pathDataString = string.Empty;
-		List<CPZSpinTubeInstance.PathElement> pathElementList = new List<CPZSpinTubeInstance.PathElement>();
-		string str1 = pathDataString.Trim();
-		char[] chArray = new char[1] { '|' };
-		foreach (string str2 in str1.Split(chArray))
+		}
+		List<PathElement> pathElements = new List<PathElement>();
+		foreach (string elementString in pathDataString.Trim().Split('|'))
 		{
 			bool spinNoise = false;
-			string str3 = str2.Trim();
-			if (str3.Length >= 3)
+			string element = elementString.Trim();
+			if (element.Length < 3)
 			{
-				if (str3[0] == '#')
-				{
-					spinNoise = true;
-					str3 = str3.Substring(1);
-				}
-				string[] strArray = str3.Split(',');
-				int result1;
-				int result2;
-				if (strArray.Length == 2 && int.TryParse(strArray[0], out result1) && int.TryParse(strArray[1], out result2))
-					pathElementList.Add(new CPZSpinTubeInstance.PathElement(new Vector2i(result1, result2), spinNoise));
+				continue;
+			}
+			if (element[0] == '#')
+			{
+				spinNoise = true;
+				element = element.Substring(1);
+			}
+			string[] coordinates = element.Split(',');
+			if (coordinates.Length == 2 && int.TryParse(coordinates[0], out int x) && int.TryParse(coordinates[1], out int y))
+			{
+				pathElements.Add(new PathElement(new Vector2i(x, y), spinNoise));
 			}
 		}
-		return pathElementList.ToArray();
+		return pathElements.ToArray();
 	}
 
 	protected override void OnCollision(CollisionEvent e)
 	{
 		if (e.ActiveObject.Type.Classification != ObjectClassification.Character)
+		{
 			return;
-		ICharacter activeObject = (ICharacter)e.ActiveObject;
-		if (activeObject.ObjectLink == this)
-			return;
-		CharacterBegin(activeObject);
+		}
+		ICharacter character = (ICharacter)e.ActiveObject;
+		if (character.ObjectLink != this)
+		{
+			CharacterBegin(character);
+		}
 	}
 
 	protected override void OnUpdate()
 	{
 		base.OnUpdate();
-		ICharacter[] array = Level.ObjectManager.Characters.Where<ICharacter>(x => x.ObjectLink == this).ToArray<ICharacter>();
-		if (array.Length == 0)
+		ICharacter[] linkedCharacters = Level.ObjectManager.Characters.Where(x => x.ObjectLink == this).ToArray();
+		if (linkedCharacters.Length == 0)
 		{
 			_pathIndex = Level.Random.Next(0, 2);
 			if (_path[1] == null || _path[1].Length == 0)
+			{
 				_pathIndex = 0;
+			}
 		}
-		foreach (ICharacter character in array)
+		// The object tag of a character holds the index of the next path point.
+		foreach (ICharacter character in linkedCharacters)
 		{
 			if ((int)character.ObjectTag >= _path[_pathIndex].Length || character.IsDebug || character.IsDying || character.IsDead)
+			{
 				ReleaseCharacter(character);
+			}
 			else
+			{
 				CharacterContinue(character);
+			}
 		}
-		LockLifetime = array.Length != 0;
+		LockLifetime = linkedCharacters.Length != 0;
 	}
 
 	private void CharacterBegin(ICharacter character)
@@ -115,29 +144,34 @@ public class CPZSpinTubeInstance : ActiveObject
 		character.IsObjectControlled = true;
 		Level.SoundManager.PlaySound("SONICORCA/SOUND/SPINBALL");
 		_previousCharacterLayer = Level.Map.Layers.IndexOf(character.Layer);
-		character.Layer = Level.Map.Layers.First<LevelLayer>(l => l.Name == "pipes bottom");
+		character.Layer = Level.Map.Layers.First(l => l.Name == "pipes bottom");
 	}
 
+	/// <summary>Moves the character towards the next path point. When the character reaches the point, it goes to the point after it.</summary>
 	private void CharacterContinue(ICharacter character)
 	{
-		int objectTag = (int)character.ObjectTag;
-		Vector2i vector2i = Position + _path[_pathIndex][objectTag].Position;
+		int pathPointIndex = (int)character.ObjectTag;
+		Vector2i target = Position + _path[_pathIndex][pathPointIndex].Position;
 		Vector2i position = character.Position;
-		Vector2 vector2 = (Vector2)(vector2i - position);
-		if (vector2.Length <= 32.0)
+		Vector2 toTarget = (Vector2)(target - position);
+		if (toTarget.Length <= PathSpeed)
 		{
-			character.Position = vector2i;
-			character.ObjectTag = objectTag + 1;
+			character.Position = target;
+			character.ObjectTag = pathPointIndex + 1;
 		}
 		else
-			character.Position = (Vector2i)((Vector2)position + vector2.Normalised * 32.0);
+		{
+			character.Position = (Vector2i)((Vector2)position + toTarget.Normalised * PathSpeed);
+		}
 		character.IsAirborne = true;
 		character.ForceSpinball = false;
-		character.Velocity = (vector2.X != 0.0 || vector2.Y != 0.0 ? vector2.Normalised : character.Velocity.Normalised) * 0.001;
+		// Set a very small velocity in the direction of movement. The position above already moves the character.
+		character.Velocity = (toTarget.X != 0.0 || toTarget.Y != 0.0 ? toTarget.Normalised : character.Velocity.Normalised) * 0.001;
 		character.CheckCollision = false;
-		if (!_path[_pathIndex][objectTag].SpinNoise)
-			return;
-		Level.SoundManager.PlaySound("SONICORCA/SOUND/SPINBALL");
+		if (_path[_pathIndex][pathPointIndex].SpinNoise)
+		{
+			Level.SoundManager.PlaySound("SONICORCA/SOUND/SPINBALL");
+		}
 	}
 
 	private void ReleaseCharacter(ICharacter character)
@@ -158,41 +192,37 @@ public class CPZSpinTubeInstance : ActiveObject
 		character.Layer = Level.Map.Layers[_previousCharacterLayer];
 	}
 
+	/// <summary>Draws the entrance area and the two paths, in the editor or when object collision is visible.</summary>
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 	{
 		if (!viewOptions.ShowObjectCollision && !Level.StateFlags.HasFlag(LevelStateFlags.Editing))
+		{
 			return;
-		I2dRenderer obj1 = renderer.Get2dRenderer();
-		Rectanglei rectanglei = DesignBounds.OffsetBy(_path[0][0].Position);
-		obj1.RenderQuad(Colours.White, new Rectangle(rectanglei.X * renderer.GetObjectRenderer().Scale.X, rectanglei.Y * renderer.GetObjectRenderer().Scale.Y, rectanglei.Width * renderer.GetObjectRenderer().Scale.X, rectanglei.Height * renderer.GetObjectRenderer().Scale.Y));
+		}
+		I2dRenderer renderer2d = renderer.Get2dRenderer();
+		Vector2 scale = renderer.GetObjectRenderer().Scale;
+		Rectanglei entrance = DesignBounds.OffsetBy(_path[0][0].Position);
+		renderer2d.RenderQuad(Colours.White, new Rectangle(entrance.X * scale.X, entrance.Y * scale.Y, entrance.Width * scale.X, entrance.Height * scale.Y));
 		for (int index = 0; index < 2; ++index)
 		{
-			CPZSpinTubeInstance.PathElement[] source = _path[index];
-			if (source != null && source.Length != 0)
+			PathElement[] path = _path[index];
+			if (path == null || path.Length == 0)
 			{
-				Vector2 vector2_1 = (Vector2)source[0].Position;
-				foreach (Vector2i vector2i in source.Skip<CPZSpinTubeInstance.PathElement>(1).Select<CPZSpinTubeInstance.PathElement, Vector2i>(x => x.Position))
-				{
-					Vector2 vector2_2 = (Vector2)vector2i;
-					I2dRenderer obj2 = obj1;
-					Colour yellow = Colours.Yellow;
-					Vector2 a = new Vector2(vector2_1.X * renderer.GetObjectRenderer().Scale.X, vector2_1.Y * renderer.GetObjectRenderer().Scale.Y);
-					double x1 = vector2_2.X;
-					Vector2 scale = renderer.GetObjectRenderer().Scale;
-					double x2 = scale.X;
-					double x3 = x1 * x2;
-					double y1 = vector2_2.Y;
-					scale = renderer.GetObjectRenderer().Scale;
-					double y2 = scale.Y;
-					double y3 = y1 * y2;
-					Vector2 b = new Vector2(x3, y3);
-					obj2.RenderLine(yellow, a, b, 2.0);
-					vector2_1 = vector2_2;
-				}
+				continue;
+			}
+			Vector2 previousPoint = (Vector2)path[0].Position;
+			foreach (Vector2i pathPoint in path.Skip(1).Select(x => x.Position))
+			{
+				Vector2 point = (Vector2)pathPoint;
+				Vector2 a = new Vector2(previousPoint.X * scale.X, previousPoint.Y * scale.Y);
+				Vector2 b = new Vector2(point.X * scale.X, point.Y * scale.Y);
+				renderer2d.RenderLine(Colours.Yellow, a, b, 2.0);
+				previousPoint = point;
 			}
 		}
 	}
 
+	/// <summary>One point of a spin tube path.</summary>
 	private struct PathElement
 	{
 		public Vector2i Position { get; set; }
@@ -200,7 +230,7 @@ public class CPZSpinTubeInstance : ActiveObject
 		public bool SpinNoise { get; set; }
 
 		public PathElement(Vector2i position, bool spinNoise)
-		  : this()
+			: this()
 		{
 			Position = position;
 			SpinNoise = spinNoise;

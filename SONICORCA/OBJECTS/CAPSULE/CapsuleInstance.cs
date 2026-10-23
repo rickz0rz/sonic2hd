@@ -16,6 +16,10 @@ using SonicOrca.Resources;
 #nullable disable
 namespace SONICORCA.OBJECTS.CAPSULE;
 
+/// <summary>
+/// The animal capsule at the end of a boss act. When a character pushes the button on top, the lock breaks,
+/// the door opens and the animals come out. Then the level is complete.
+/// </summary>
 public class CapsuleInstance : ActiveObject
 {
 	private const int AnimationMain = 0;
@@ -29,6 +33,17 @@ public class CapsuleInstance : ActiveObject
 	private const int AnimationLock = 8;
 	private const int AnimationLockLight = 9;
 	private const int AnimationLockBroken = 10;
+
+	/// <summary>The number of collision vectors for the body. The button collision vectors come after them.</summary>
+	private const int BodyCollisionVectorCount = 10;
+
+	/// <summary>The index of the top collision vector of the button.</summary>
+	private const int ButtonTopCollisionVectorIndex = BodyCollisionVectorCount + 1;
+
+	private const int ButtonSpeed = 8;
+	private const int ButtonPressedY = 24;
+	private const int AnimalCount = 32;
+
 	private AnimationInstance _animationButton;
 	private AnimationInstance _animationMain;
 	private AnimationInstance _animationLights;
@@ -38,7 +53,7 @@ public class CapsuleInstance : ActiveObject
 	private int _lastButtonY;
 	private int _buttonY;
 	private bool _buttonPressed;
-	private CapsuleInstance.Lock _lock;
+	private Lock _lock;
 	private bool _doorOpened;
 	private int _openDoorDelay;
 	private int _completeLevelDelay;
@@ -53,14 +68,14 @@ public class CapsuleInstance : ActiveObject
 
 	public CapsuleInstance()
 	{
-		DesignBounds = new Rectanglei(sbyte.MinValue, -160, 256 /*0x0100*/, 320);
+		DesignBounds = new Rectanglei(-128, -160, 256, 320);
 	}
 
 	protected override void OnStart()
 	{
-		AnimationGroup loadedResource = ResourceTree.GetLoadedResource<AnimationGroup>(Type, "/ANIGROUP");
-		_animationButton = new AnimationInstance(loadedResource, 7);
-		_animationMain = new AnimationInstance(loadedResource);
+		AnimationGroup animationGroup = ResourceTree.GetLoadedResource<AnimationGroup>(Type, "/ANIGROUP");
+		_animationButton = new AnimationInstance(animationGroup, AnimationButton);
+		_animationMain = new AnimationInstance(animationGroup);
 		if ((Entry.State as CapsuleInstance).Unlocked)
 		{
 			_buttonPressed = true;
@@ -70,40 +85,44 @@ public class CapsuleInstance : ActiveObject
 		}
 		else
 		{
-			_animationLights = new AnimationInstance(loadedResource, 1);
-			_animationDoor = new AnimationInstance(loadedResource, 2);
-			_animationDoorLights = new AnimationInstance(loadedResource, 4);
-			_animationMiddle = new AnimationInstance(loadedResource, 5);
+			_animationLights = new AnimationInstance(animationGroup, AnimationLights);
+			_animationDoor = new AnimationInstance(animationGroup, AnimationDoor);
+			_animationDoorLights = new AnimationInstance(animationGroup, AnimationDoorLights);
+			_animationMiddle = new AnimationInstance(animationGroup, AnimationMiddle);
 		}
-		_lock = Level.ObjectManager.AddSubObject<CapsuleInstance.Lock>(this);
+		_lock = Level.ObjectManager.AddSubObject<Lock>(this);
 		_lock.Position = Position + new Vector2i(0, -46);
 		_lock.LockLifetime = true;
-		CollisionVector[] second = CollisionVector.FromRectangle(this, new Rectanglei(-64, _buttonY - 158, 128 /*0x80*/, 64 /*0x40*/));
-		second[1].Flags = CollisionFlags.Conveyor;
-		CollisionVectors = (new CollisionVector[10]
+		CollisionVector[] buttonCollisionVectors = CollisionVector.FromRectangle(this, new Rectanglei(-64, _buttonY - 158, 128, 64));
+		buttonCollisionVectors[1].Flags = CollisionFlags.Conveyor;
+		CollisionVectors = new CollisionVector[BodyCollisionVectorCount]
 		{
-	  new CollisionVector( this, new Vector2i( sbyte.MinValue, -42), new Vector2i(-100, -64)),
-	  new CollisionVector( this, new Vector2i(-100, -64), new Vector2i(-64, -82)),
-	  new CollisionVector( this, new Vector2i(-64, -82), new Vector2i(-28, -94)),
-	  new CollisionVector( this, new Vector2i(-28, -94), new Vector2i(28, -94)),
-	  new CollisionVector( this, new Vector2i(28, -94), new Vector2i(64 /*0x40*/, -82)),
-	  new CollisionVector( this, new Vector2i(64 /*0x40*/, -82), new Vector2i(100, -64)),
-	  new CollisionVector( this, new Vector2i(100, -64), new Vector2i(128 /*0x80*/, -42)),
-	  new CollisionVector( this, new Vector2i(128 /*0x80*/, -42), new Vector2i(128 /*0x80*/, 160 /*0xA0*/)),
-	  new CollisionVector( this, new Vector2i(128 /*0x80*/, 160 /*0xA0*/), new Vector2i( sbyte.MinValue, 160 /*0xA0*/)),
-	  new CollisionVector( this, new Vector2i( sbyte.MinValue, 160 /*0xA0*/), new Vector2i( sbyte.MinValue, -42))
-		}).Concat<CollisionVector>(second).ToArray<CollisionVector>();
-		for (int index = 0; index < 10; ++index)
+			new CollisionVector(this, new Vector2i(-128, -42), new Vector2i(-100, -64)),
+			new CollisionVector(this, new Vector2i(-100, -64), new Vector2i(-64, -82)),
+			new CollisionVector(this, new Vector2i(-64, -82), new Vector2i(-28, -94)),
+			new CollisionVector(this, new Vector2i(-28, -94), new Vector2i(28, -94)),
+			new CollisionVector(this, new Vector2i(28, -94), new Vector2i(64, -82)),
+			new CollisionVector(this, new Vector2i(64, -82), new Vector2i(100, -64)),
+			new CollisionVector(this, new Vector2i(100, -64), new Vector2i(128, -42)),
+			new CollisionVector(this, new Vector2i(128, -42), new Vector2i(128, 160)),
+			new CollisionVector(this, new Vector2i(128, 160), new Vector2i(-128, 160)),
+			new CollisionVector(this, new Vector2i(-128, 160), new Vector2i(-128, -42))
+		}.Concat(buttonCollisionVectors).ToArray();
+		for (int index = 0; index < BodyCollisionVectorCount; ++index)
+		{
 			CollisionVectors[index].Flags |= CollisionFlags.NoAngle;
+		}
+		// The two vertical sides.
 		CollisionVectors[7].Flags |= CollisionFlags.NoPathFollowing;
 		CollisionVectors[9].Flags |= CollisionFlags.NoPathFollowing;
 	}
 
 	protected override void OnStop()
 	{
-		if (_buttonPressed)
-			return;
-		_lock.Finish();
+		if (!_buttonPressed)
+		{
+			_lock.Finish();
+		}
 	}
 
 	protected override void OnUpdate()
@@ -113,31 +132,33 @@ public class CapsuleInstance : ActiveObject
 		UpdateButtonCollision();
 	}
 
+	/// <summary>Moves the four button collision vectors by the distance that the button moved in this frame.</summary>
 	private void UpdateButtonCollision()
 	{
-		Vector2i vector2i = new Vector2i(0, _buttonY - _lastButtonY);
-		for (int index = 10; index < 14; ++index)
+		Vector2i offset = new Vector2i(0, _buttonY - _lastButtonY);
+		for (int index = BodyCollisionVectorCount; index < BodyCollisionVectorCount + 4; ++index)
 		{
 			CollisionVector collisionVector = CollisionVectors[index];
-			collisionVector.RelativeA += vector2i;
-			collisionVector.RelativeB += vector2i;
+			collisionVector.RelativeA += offset;
+			collisionVector.RelativeB += offset;
 		}
 	}
 
 	private void UpdateButton()
 	{
 		_lastButtonY = _buttonY;
-		if (Level.ObjectManager.IsCharacterStandingOn(CollisionVectors[11]))
+		if (Level.ObjectManager.IsCharacterStandingOn(CollisionVectors[ButtonTopCollisionVectorIndex]))
 		{
-			int buttonY = _buttonY;
-			_buttonY = Math.Min(_buttonY + 8, 24);
-			int num = _buttonY - buttonY;
-			if (_buttonY != 24 || _buttonPressed)
-				return;
-			OnButtonPress();
+			_buttonY = Math.Min(_buttonY + ButtonSpeed, ButtonPressedY);
+			if (_buttonY == ButtonPressedY && !_buttonPressed)
+			{
+				OnButtonPress();
+			}
 		}
 		else
-			_buttonY = Math.Max(0, _buttonY - 8);
+		{
+			_buttonY = Math.Max(0, _buttonY - ButtonSpeed);
+		}
 	}
 
 	private void OnButtonPress()
@@ -158,42 +179,52 @@ public class CapsuleInstance : ActiveObject
 		if (!_doorOpened)
 		{
 			if (!_buttonPressed || _openDoorDelay <= 0)
+			{
 				return;
+			}
 			--_openDoorDelay;
-			if (_openDoorDelay != 0)
-				return;
-			OpenDoor();
+			if (_openDoorDelay == 0)
+			{
+				OpenDoor();
+			}
 		}
 		else
 		{
 			if (_completeLevelDelay <= 0)
+			{
 				return;
+			}
 			--_completeLevelDelay;
-			if (_completeLevelDelay != 0)
-				return;
-			Level.CompleteLevel();
-			LockLifetime = false;
+			if (_completeLevelDelay == 0)
+			{
+				Level.CompleteLevel();
+				LockLifetime = false;
+			}
 		}
 	}
 
 	private void OpenDoor()
 	{
 		_doorOpened = true;
-		_animationDoor.Index = 3;
-		_animationMiddle.Index = 6;
+		_animationDoor.Index = AnimationDoorOpening;
+		_animationMiddle.Index = AnimationMiddleOpening;
 		_animationDoor.Cycles = 0;
 		_animationMiddle.Cycles = 0;
 		CreateAnimals();
 	}
 
+	/// <summary>
+	/// Releases the animals at random positions along the bottom of the capsule, each after a short random delay.
+	/// Sets the delay before the level is complete.
+	/// </summary>
 	private void CreateAnimals()
 	{
-		int[] array = Enumerable.Range(0, 32 /*0x20*/).Select<int, int>(x => (int)(x * 6.0) - 96 /*0x60*/).OrderBy<int, int>(x => Level.Random.Next()).ToArray<int>();
+		int[] offsetsX = Enumerable.Range(0, AnimalCount).Select(x => (int)(x * 6.0) - 96).OrderBy(x => Level.Random.Next()).ToArray();
 		int delay = 60;
-		for (int index = 0; index < 32 /*0x20*/; ++index)
+		for (int index = 0; index < AnimalCount; ++index)
 		{
-			Vector2i vector2i = new Vector2i(array[index], 32 /*0x20*/);
-			Level.CreateRandomAnimalObject(Level.Map.Layers.IndexOf(Layer), Position + vector2i, vector2i.X <= 0 ? -1 : 1, delay);
+			Vector2i offset = new Vector2i(offsetsX[index], 32);
+			Level.CreateRandomAnimalObject(Level.Map.Layers.IndexOf(Layer), Position + offset, offset.X <= 0 ? -1 : 1, delay);
 			delay += Level.Random.Next(5, 10);
 		}
 		_completeLevelDelay = delay + 120;
@@ -203,37 +234,38 @@ public class CapsuleInstance : ActiveObject
 	{
 		_animationButton.Animate();
 		_animationMain.Animate();
-		if (_animationLights != null)
-			_animationLights.Animate();
-		if (_animationDoor != null)
-			_animationDoor.Animate();
-		if (_animationDoorLights != null)
-			_animationDoorLights.Animate();
-		if (_animationMiddle == null)
-			return;
-		_animationMiddle.Animate();
+		_animationLights?.Animate();
+		_animationDoor?.Animate();
+		_animationDoorLights?.Animate();
+		_animationMiddle?.Animate();
 	}
 
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 	{
 		IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
-		objectRenderer.Render(_animationButton, new Vector2(0.0, _buttonY - 128 /*0x80*/));
+		objectRenderer.Render(_animationButton, new Vector2(0.0, _buttonY - 128));
 		objectRenderer.Render(_animationMain);
 		if (!viewOptions.Shadows && _animationLights != null)
+		{
 			objectRenderer.Render(_animationLights);
+		}
 		if (_animationDoor != null && _animationDoor.Cycles == 0 || !_doorOpened)
+		{
 			objectRenderer.Render(_animationDoor, new Vector2(0.0, 16.0));
+		}
 		if (!viewOptions.Shadows && _animationDoorLights != null)
 		{
 			objectRenderer.EmitsLight = true;
 			objectRenderer.Render(_animationDoorLights, new Vector2(0.0, 16.0));
 			objectRenderer.EmitsLight = false;
 		}
-		if ((_animationMiddle == null || _animationMiddle.Cycles != 0) && _doorOpened)
-			return;
-		objectRenderer.Render(_animationMiddle, new Vector2(0.0, 16.0));
+		if (_animationMiddle != null && _animationMiddle.Cycles == 0 || !_doorOpened)
+		{
+			objectRenderer.Render(_animationMiddle, new Vector2(0.0, 16.0));
+		}
 	}
 
+	/// <summary>The lock on the front of the capsule. It breaks and falls away when the button is pressed.</summary>
 	private class Lock : ActiveObject
 	{
 		private AnimationInstance _animation;
@@ -244,24 +276,25 @@ public class CapsuleInstance : ActiveObject
 
 		protected override void OnStart()
 		{
-			AnimationGroup loadedResource = ResourceTree.GetLoadedResource<AnimationGroup>(Type, "/ANIGROUP");
-			_animation = new AnimationInstance(loadedResource, 8);
-			_animationLight = new AnimationInstance(loadedResource, 9);
+			AnimationGroup animationGroup = ResourceTree.GetLoadedResource<AnimationGroup>(Type, "/ANIGROUP");
+			_animation = new AnimationInstance(animationGroup, AnimationLock);
+			_animationLight = new AnimationInstance(animationGroup, AnimationLockLight);
 		}
 
 		protected override void OnUpdate()
 		{
 			base.OnUpdate();
-			if (!_broken)
-				return;
-			PositionPrecise = PositionPrecise + _velocity;
-			_velocity += new Vector2(0.0, 0.875);
+			if (_broken)
+			{
+				PositionPrecise = PositionPrecise + _velocity;
+				_velocity += new Vector2(0.0, 0.875);
+			}
 		}
 
 		public void Break()
 		{
 			_broken = true;
-			_animation.Index = 10;
+			_animation.Index = AnimationLockBroken;
 			CreateExplosionObject();
 		}
 
@@ -274,9 +307,10 @@ public class CapsuleInstance : ActiveObject
 		{
 			_animation.Animate();
 			_animationLight.Animate();
-			if (!_broken)
-				return;
-			_rotation += Math.PI / 32.0;
+			if (_broken)
+			{
+				_rotation += Math.PI / 32.0;
+			}
 		}
 
 		protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
@@ -285,12 +319,15 @@ public class CapsuleInstance : ActiveObject
 			using (objectRenderer.BeginMatixState())
 			{
 				if (_rotation != 0.0)
+				{
 					objectRenderer.ModelMatrix = objectRenderer.ModelMatrix.RotateZ(_rotation);
+				}
 				objectRenderer.Render(_animation, (Vector2)new Vector2i(-2, 0));
-				if (viewOptions.Shadows || _broken)
-					return;
-				objectRenderer.EmitsLight = true;
-				objectRenderer.Render(_animationLight, (Vector2)new Vector2i(-2, 0));
+				if (!viewOptions.Shadows && !_broken)
+				{
+					objectRenderer.EmitsLight = true;
+					objectRenderer.Render(_animationLight, (Vector2)new Vector2i(-2, 0));
+				}
 			}
 		}
 	}

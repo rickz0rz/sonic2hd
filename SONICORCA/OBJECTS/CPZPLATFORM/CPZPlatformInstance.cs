@@ -16,6 +16,11 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.CPZPLATFORM;
 
+/// <summary>
+/// A floating platform in Chemical Plant Zone, in a small or a large size. The strip on the platform glows when a
+/// character stands on it. The barometer twitches while the platform goes up. The small platform also fades
+/// between a blue and a green glow.
+/// </summary>
 public class CPZPlatformInstance : Platform
 {
 	private const int AnimationBase = 0;
@@ -37,16 +42,19 @@ public class CPZPlatformInstance : Platform
 	private AnimationInstance _animationStripBarometerA;
 	private AnimationInstance _animationStripBarometerB;
 	private AnimationInstance _animationLiquid;
-	private CPZPlatformInstance.PlatformSize _size;
+	private PlatformSize _size;
 	private int _lastY;
 	private bool _rising;
 	private double _glowOpacity;
+
+	/// <summary>1 for a full green glow, -1 for a full blue glow.</summary>
 	private double _blueGreenBalance;
+
 	private int _switchBlueGreenBalanceTimePeriod;
 	private EaseTimeline _switchBlueGreenBalanceEaseTimeline;
 
 	[StateVariable]
-	private CPZPlatformInstance.PlatformSize Size
+	private PlatformSize Size
 	{
 		get => _size;
 		set => _size = value;
@@ -57,60 +65,64 @@ public class CPZPlatformInstance : Platform
 	protected override void OnStart()
 	{
 		base.OnStart();
-		AnimationGroup loadedResource = ResourceTree.GetLoadedResource<AnimationGroup>(Type.GetAbsolutePath("/ANIGROUP"));
-		if (Size == CPZPlatformInstance.PlatformSize.Large)
+		AnimationGroup animationGroup = ResourceTree.GetLoadedResource<AnimationGroup>(Type.GetAbsolutePath("/ANIGROUP"));
+		if (Size == PlatformSize.Large)
 		{
-			_animationBase = new AnimationInstance(loadedResource);
-			_animationStripGlow = new AnimationInstance(loadedResource, 1);
-			_animationStripBarometerA = new AnimationInstance(loadedResource, 3);
-			_animationStripBarometerB = new AnimationInstance(loadedResource, 2);
-			_animationLiquid = new AnimationInstance(loadedResource, 6);
+			_animationBase = new AnimationInstance(animationGroup);
+			_animationStripGlow = new AnimationInstance(animationGroup, AnimationStripGlow);
+			_animationStripBarometerA = new AnimationInstance(animationGroup, AnimationBarometerTwitching);
+			_animationStripBarometerB = new AnimationInstance(animationGroup, AnimationBarometerStill);
+			_animationLiquid = new AnimationInstance(animationGroup, AnimationLiquid);
 		}
 		else
 		{
-			_animationBase = new AnimationInstance(loadedResource, 7);
-			_animationStripGlow = new AnimationInstance(loadedResource, 8);
-			_animationStripGlowBlue = new AnimationInstance(loadedResource, 9);
-			_animationStripGlowGreen = new AnimationInstance(loadedResource, 10);
-			_animationStripBarometerA = new AnimationInstance(loadedResource, 3);
-			_animationStripBarometerB = new AnimationInstance(loadedResource, 2);
-			_animationLiquid = new AnimationInstance(loadedResource, 11);
+			_animationBase = new AnimationInstance(animationGroup, AnimationSmallBase);
+			_animationStripGlow = new AnimationInstance(animationGroup, AnimationSmallStripGlow);
+			_animationStripGlowBlue = new AnimationInstance(animationGroup, AnimationSmallStripGlowBlue);
+			_animationStripGlowGreen = new AnimationInstance(animationGroup, AnimationSmallStripGlowGreen);
+			_animationStripBarometerA = new AnimationInstance(animationGroup, AnimationBarometerTwitching);
+			_animationStripBarometerB = new AnimationInstance(animationGroup, AnimationBarometerStill);
+			_animationLiquid = new AnimationInstance(animationGroup, AnimationSmallLiquid);
 		}
-		int x = Size == CPZPlatformInstance.PlatformSize.Small ? 96 /*0x60*/ : 128 /*0x80*/;
+		int halfWidth = Size == PlatformSize.Small ? 96 : 128;
 		CollisionVectors = new CollisionVector[1]
 		{
-	  new CollisionVector( this, new Vector2i(-x, -64), new Vector2i(x, -64), flags: CollisionFlags.Conveyor | CollisionFlags.Solid)
+			new CollisionVector(this, new Vector2i(-halfWidth, -64), new Vector2i(halfWidth, -64), flags: CollisionFlags.Conveyor | CollisionFlags.Solid)
 		};
 	}
 
 	protected override void OnAnimate()
 	{
+		// The glow is green in the first and last quarter of the movement period, and blue in the middle half.
 		if (TimePeriod != _switchBlueGreenBalanceTimePeriod)
 		{
 			_switchBlueGreenBalanceTimePeriod = TimePeriod;
 			_switchBlueGreenBalanceEaseTimeline = new EaseTimeline(new EaseTimeline.Entry[4]
 			{
-		new EaseTimeline.Entry(TimePeriod / 4 - 8, 1.0),
-		new EaseTimeline.Entry(TimePeriod / 4 + 8, -1.0),
-		new EaseTimeline.Entry(TimePeriod * 3 / 4 - 8, -1.0),
-		new EaseTimeline.Entry(TimePeriod * 3 / 4 + 8, 1.0)
+				new EaseTimeline.Entry(TimePeriod / 4 - 8, 1.0),
+				new EaseTimeline.Entry(TimePeriod / 4 + 8, -1.0),
+				new EaseTimeline.Entry(TimePeriod * 3 / 4 - 8, -1.0),
+				new EaseTimeline.Entry(TimePeriod * 3 / 4 + 8, 1.0)
 			});
 		}
 		_blueGreenBalance = TimePeriod != 0 ? _switchBlueGreenBalanceEaseTimeline.GetValueAt(CurrentTime) : 0.0;
 		_glowOpacity = MathX.GoTowards(_glowOpacity, IsCharacterInteractingWithPlatform() ? 1.0 : 0.0, 1.0 / 30.0);
-		bool rising = _rising;
-		Vector2i position = Position;
-		if (position.Y != _lastY)
+
+		bool wasRising = _rising;
+		if (Position.Y != _lastY)
 		{
-			position = Position;
-			_rising = position.Y <= _lastY;
+			_rising = Position.Y <= _lastY;
 		}
-		position = Position;
-		_lastY = position.Y;
-		if (!rising && _rising)
-			_animationStripBarometerB.Index = 4;
-		else if (rising && !_rising)
-			_animationStripBarometerB.Index = 5;
+		_lastY = Position.Y;
+		if (!wasRising && _rising)
+		{
+			_animationStripBarometerB.Index = AnimationBarometerStillToTwitching;
+		}
+		else if (wasRising && !_rising)
+		{
+			_animationStripBarometerB.Index = AnimationBarometerTwitchingToStill;
+		}
+
 		_animationBase.Animate();
 		_animationStripGlow.Animate();
 		_animationStripBarometerA.Animate();
@@ -121,7 +133,7 @@ public class CPZPlatformInstance : Platform
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 	{
 		IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
-		if (Size == CPZPlatformInstance.PlatformSize.Large)
+		if (Size == PlatformSize.Large)
 		{
 			objectRenderer.Render(_animationBase);
 			if (_glowOpacity > 0.0)
@@ -130,23 +142,20 @@ public class CPZPlatformInstance : Platform
 				objectRenderer.Render(_animationStripGlow);
 				objectRenderer.MultiplyColour = Colours.White;
 			}
-			objectRenderer.Render(_animationStripBarometerA, new Vector2(-15.0, -14.0), true);
-			objectRenderer.Render(_animationStripBarometerB, new Vector2(15.0, -14.0));
-			objectRenderer.Render(_animationLiquid);
 		}
 		else
 		{
 			objectRenderer.Render(_animationBase);
-			double a1 = (_blueGreenBalance + 1.0) / 2.0;
-			double a2 = 1.0 - a1;
-			if (a2 > 0.0)
+			double greenOpacity = (_blueGreenBalance + 1.0) / 2.0;
+			double blueOpacity = 1.0 - greenOpacity;
+			if (blueOpacity > 0.0)
 			{
-				objectRenderer.MultiplyColour = new Colour(a2, 1.0, 1.0, 1.0);
+				objectRenderer.MultiplyColour = new Colour(blueOpacity, 1.0, 1.0, 1.0);
 				objectRenderer.Render(_animationStripGlowBlue);
 			}
-			if (a1 > 0.0)
+			if (greenOpacity > 0.0)
 			{
-				objectRenderer.MultiplyColour = new Colour(a1, 1.0, 1.0, 1.0);
+				objectRenderer.MultiplyColour = new Colour(greenOpacity, 1.0, 1.0, 1.0);
 				objectRenderer.Render(_animationStripGlowGreen);
 			}
 			if (_glowOpacity > 0.0)
@@ -155,10 +164,10 @@ public class CPZPlatformInstance : Platform
 				objectRenderer.Render(_animationStripGlow);
 			}
 			objectRenderer.MultiplyColour = Colours.White;
-			objectRenderer.Render(_animationStripBarometerA, new Vector2(-15.0, -14.0), true);
-			objectRenderer.Render(_animationStripBarometerB, new Vector2(15.0, -14.0));
-			objectRenderer.Render(_animationLiquid);
 		}
+		objectRenderer.Render(_animationStripBarometerA, new Vector2(-15.0, -14.0), true);
+		objectRenderer.Render(_animationStripBarometerB, new Vector2(15.0, -14.0));
+		objectRenderer.Render(_animationLiquid);
 	}
 
 	private enum PlatformSize

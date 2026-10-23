@@ -5,7 +5,6 @@
 // Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
 
 using System;
-using System.Collections.Generic;
 using SonicOrca.Core;
 using SonicOrca.Core.Objects.Base;
 using SonicOrca.Extensions;
@@ -15,21 +14,28 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.CPZCHEMICALFALL;
 
+/// <summary>
+/// A column of chemical liquid that falls from a pipe in Chemical Plant Zone. It is decoration only.
+/// The column goes down to the top of the water below, or to the bottom of the map. It also releases drops.
+/// </summary>
 public class CPZChemicalFallInstance : ActiveObject
 {
 	private const int AnimationCorner = 0;
 	private const int AnimationVertical = 1;
 	private const int AnimationDrop = 2;
+	private const int DropInterval = 30;
 	private AnimationInstance _animationCorner;
 	private AnimationInstance _animationVertical;
+
+	/// <summary>The Y position where the column stops.</summary>
 	private int _bottom;
 
 	protected override void OnStart()
 	{
-		AnimationGroup loadedResource = ResourceTree.GetLoadedResource<AnimationGroup>(Type.GetAbsolutePath("/ANIGROUP"));
-		_animationCorner = new AnimationInstance(loadedResource);
-		_animationVertical = new AnimationInstance(loadedResource, 1);
-		DesignBounds = new Rectanglei(-32, -32, 64 /*0x40*/, 128 /*0x80*/);
+		AnimationGroup animationGroup = ResourceTree.GetLoadedResource<AnimationGroup>(Type.GetAbsolutePath("/ANIGROUP"));
+		_animationCorner = new AnimationInstance(animationGroup);
+		_animationVertical = new AnimationInstance(animationGroup, AnimationVertical);
+		DesignBounds = new Rectanglei(-32, -32, 64, 128);
 		Priority = -64;
 	}
 
@@ -52,63 +58,79 @@ public class CPZChemicalFallInstance : ActiveObject
 		IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
 		objectRenderer.Render(_animationCorner, new Vector2(0.0, 0.0));
 		objectRenderer.Texture = _animationVertical.CurrentTexture;
-		int y = _animationCorner.CurrentFrame.Source.Height / 2;
+		int top = _animationCorner.CurrentFrame.Source.Height / 2;
 		Rectanglei source = _animationVertical.CurrentFrame.Source;
-		Rectanglei destination = new Rectanglei(-source.Width / 2, y, source.Width, source.Height);
-		for (int index = _bottom - Position.Y; destination.Y < index; destination.Y += 64 /*0x40*/)
+		Rectanglei destination = new Rectanglei(-source.Width / 2, top, source.Width, source.Height);
+		// Draw the column in steps of 64 pixels down to the bottom.
+		// The height changes by the overlap with the bottom on each step, also when the overlap is negative.
+		for (int bottom = _bottom - Position.Y; destination.Y < bottom; destination.Y += 64)
 		{
-			int num = destination.Bottom - index;
-			source.Height -= num;
-			destination.Height -= num;
+			int overlap = destination.Bottom - bottom;
+			source.Height -= overlap;
+			destination.Height -= overlap;
 			objectRenderer.Render((Rectangle)source, (Rectangle)destination);
 		}
 	}
 
+	/// <summary>Sets the bottom of the column to the top of the highest water area below it, or to the bottom of the map.</summary>
 	private void UpdateBottom()
 	{
-		int y = Position.Y;
-		int num1 = Position.X - 32 /*0x20*/;
-		int num2 = Position.Y + 32 /*0x20*/;
-		int val1 = Level.Map.Bounds.Height;
-		foreach (Rectanglei waterArea in (IEnumerable<Rectanglei>)Level.WaterManager.WaterAreas)
+		int top = Position.Y;
+		int left = Position.X - 32;
+		// This uses Position.Y, not Position.X, as the right edge. Keep it to keep the same behavior.
+		int right = Position.Y + 32;
+		int bottom = Level.Map.Bounds.Height;
+		foreach (Rectanglei waterArea in Level.WaterManager.WaterAreas)
 		{
-			if (waterArea.Left <= num2 && waterArea.Right >= num1 && waterArea.Bottom >= y)
-				val1 = Math.Min(val1, waterArea.Top);
+			if (waterArea.Left <= right && waterArea.Right >= left && waterArea.Bottom >= top)
+			{
+				bottom = Math.Min(bottom, waterArea.Top);
+			}
 		}
-		_bottom = val1;
+		_bottom = bottom;
 	}
 
+	/// <summary>
+	/// At a fixed interval, releases drops at random points along the column.
+	/// The drops are on alternate sides of the column.
+	/// </summary>
 	private void CreateDrops()
 	{
-		if (Level.Ticks % 30 != 0)
+		if (Level.Ticks % DropInterval != 0)
+		{
 			return;
+		}
 		Random random = Level.Random;
-		int y = Position.Y + 64 /*0x40*/;
+		int y = Position.Y + 64;
 		int bottom = _bottom;
-		int num = 30;
+		int offsetX = 30;
 		while (y < bottom)
 		{
-			int x = Position.X + num;
+			int x = Position.X + offsetX;
 			if (random.Next(0, 4) == 0)
+			{
 				CreateDrop(x, y);
-			y += 32 /*0x20*/;
-			num *= -1;
+			}
+			y += 32;
+			offsetX *= -1;
 		}
 	}
 
 	private void CreateDrop(int x, int y)
 	{
 		ObjectManager objectManager = Level.ObjectManager;
-		Rectanglei rect = new Rectanglei(x - 16 /*0x10*/, y - 16 /*0x10*/, 32 /*0x20*/, 32 /*0x20*/);
-		if (!objectManager.IsInLifetimeArea(rect))
-			return;
-		objectManager.AddSubObject<CPZChemicalFallInstance.Drop>(this).Position = new Vector2i(x, y);
+		Rectanglei area = new Rectanglei(x - 16, y - 16, 32, 32);
+		if (objectManager.IsInLifetimeArea(area))
+		{
+			objectManager.AddSubObject<Drop>(this).Position = new Vector2i(x, y);
+		}
 	}
 
+	/// <summary>A drop of chemical liquid that plays its animation one time.</summary>
 	private class Drop : ParticleObject
 	{
 		public Drop()
-		  : base("/ANIGROUP", 2)
+			: base("/ANIGROUP", AnimationDrop)
 		{
 		}
 	}

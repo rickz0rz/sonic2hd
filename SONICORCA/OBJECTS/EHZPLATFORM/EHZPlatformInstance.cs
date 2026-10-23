@@ -14,13 +14,14 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.EHZPLATFORM;
 
+/// <summary>A floating platform in Emerald Hill Zone. Characters can stand on it from above. It sags a little when stood on.</summary>
 public class EHZPlatformInstance : Platform
 {
 	private AnimationInstance _animation;
 
 	public EHZPlatformInstance()
 	{
-		DesignBounds = new Rectanglei(sbyte.MinValue, -64, 256 /*0x0100*/, 128 /*0x80*/);
+		DesignBounds = new Rectanglei(-128, -64, 256, 128);
 		SagWhenStoodOn = true;
 	}
 
@@ -30,7 +31,7 @@ public class EHZPlatformInstance : Platform
 		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"));
 		CollisionVectors = new CollisionVector[1]
 		{
-	  new CollisionVector( this, new Vector2i( sbyte.MinValue, -32), new Vector2i(128 /*0x80*/, -32), flags: CollisionFlags.Conveyor)
+			new CollisionVector(this, new Vector2i(-128, -32), new Vector2i(128, -32), flags: CollisionFlags.Conveyor)
 		};
 	}
 

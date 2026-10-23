@@ -10,6 +10,7 @@ using SonicOrca.Core.Objects.Metadata;
 #nullable disable
 namespace SONICORCA.OBJECTS.DUST;
 
+/// <summary>The object type for <see cref="DustInstance"/>, a small cloud of dust.</summary>
 [SonicOrca.Core.Objects.Metadata.Name("Dust")]
 [Description("Dust from Sonic 1")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Particle)]

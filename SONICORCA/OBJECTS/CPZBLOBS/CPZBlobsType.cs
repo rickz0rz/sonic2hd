@@ -10,6 +10,7 @@ using SonicOrca.Core.Objects.Metadata;
 #nullable disable
 namespace SONICORCA.OBJECTS.CPZBLOBS;
 
+/// <summary>The object type for <see cref="CPZBlobsInstance"/>, a group of chemical blobs that jump between pipes.</summary>
 [SonicOrca.Core.Objects.Metadata.Name("Blobs")]
 [Description("Blobs from Chemical Plant Zone, Sonic 2")]
 [ObjectInstance(typeof(CPZBlobsInstance))]

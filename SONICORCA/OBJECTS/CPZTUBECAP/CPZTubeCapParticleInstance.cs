@@ -12,6 +12,7 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.CPZTUBECAP;
 
+/// <summary>A piece of a broken tube cap. It flies out and falls with gravity, then disappears.</summary>
 public class CPZTubeCapParticleInstance : ActiveObject
 {
 	private const int AnimationParticle = 1;
@@ -28,7 +29,7 @@ public class CPZTubeCapParticleInstance : ActiveObject
 
 	protected override void OnStart()
 	{
-		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"), 1);
+		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"), AnimationParticle);
 		_animation.CurrentFrameIndex = Level.Random.Next(0, _animation.Animation.Frames.Count);
 		Priority = 1512;
 	}
