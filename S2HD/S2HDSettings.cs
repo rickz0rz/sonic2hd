@@ -1,3 +1,4 @@
+using System.Globalization;
 using SonicOrca;
 using SonicOrca.Audio;
 using SonicOrca.Graphics;
@@ -24,7 +25,7 @@ internal class S2HDSettings : IAudioSettings, IVideoSettings
 		set
 		{
 			_audioContext.MusicVolume = value;
-			_config.SetProperty("audio", "music_volume", value.ToString().ToLower());
+			_config.SetProperty("audio", "music_volume", value.ToString(CultureInfo.InvariantCulture).ToLower());
 			_config.Save();
 		}
 	}
@@ -35,7 +36,7 @@ internal class S2HDSettings : IAudioSettings, IVideoSettings
 		set
 		{
 			_audioContext.SoundVolume = value;
-			_config.SetProperty("audio", "sound_volume", value.ToString().ToLower());
+			_config.SetProperty("audio", "sound_volume", value.ToString(CultureInfo.InvariantCulture).ToLower());
 			_config.Save();
 		}
 	}
