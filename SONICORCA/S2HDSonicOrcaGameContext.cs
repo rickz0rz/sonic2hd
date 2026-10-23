@@ -1,9 +1,3 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: SonicOrca.S2HDSonicOrcaGameContext
-// Assembly: S2HD, Version=2.0.1012.10521, Culture=neutral, PublicKeyToken=null
-// MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
-// Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
-
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -24,15 +18,25 @@ using SonicOrca.Resources;
 #nullable disable
 namespace SonicOrca;
 
+/// <summary>
+/// The game context of Sonic 2 HD. It loads the configuration and the resource files, creates the root game state,
+/// and runs it one step for each update.
+/// </summary>
 internal class S2HDSonicOrcaGameContext(IPlatform platform) : SonicOrcaGameContext(platform)
 {
+	// SDL scancodes of the keys that the game context uses.
+	private const int EnterScancode = 40;
+	private const int F10Scancode = 67;
+	private const int LeftAltScancode = 226;
+	private const int RightAltScancode = 230;
+
 	private IGameState _rootGameState;
 	private Updater _gameStateUpdater;
 	private readonly IReadOnlyList<string> CharacterNames = new string[3]
 	{
-	"sonic",
-	"tails",
-	"knuckles"
+		"sonic",
+		"tails",
+		"knuckles"
 	};
 
 	public CommandLineArguments CommandLineArguments { get; private set; }
@@ -55,7 +59,7 @@ internal class S2HDSonicOrcaGameContext(IPlatform platform) : SonicOrcaGameConte
 		UserDataDirectory = Program.UserDataDirectory;
 		SonicOrca.Core.Debugging.FrameProfiler.Initialise(UserDataDirectory);
 		_canvas = Window.GraphicsContext.CreateFrameBuffer(1920, 1080);
-		SonicOrcaGameContext.IsMaxPerformance = Configuration.GetPropertyBoolean("graphics", "max_performance");
+		IsMaxPerformance = Configuration.GetPropertyBoolean("graphics", "max_performance");
 		if (Configuration.GetPropertyBoolean("graphics", "vsync"))
 			Window.VSync = true;
 		Audio.Volume = Configuration.GetPropertyDouble("audio", "volume", 1.0);
@@ -65,13 +69,13 @@ internal class S2HDSonicOrcaGameContext(IPlatform platform) : SonicOrcaGameConte
 		Settings = new S2HDSettings(Configuration, Audio, Window);
 		Settings.Apply();
 		Window.WindowTitle = "Sonic 2 HD";
-		Window.AspectRatio = new Vector2i(16 /*0x10*/, 9);
-		string directoryName = ContentDirectory.Path;
-		LoadResourceFiles(Path.Combine(directoryName, "data"));
+		Window.AspectRatio = new Vector2i(16, 9);
+		string contentDirectory = ContentDirectory.Path;
+		LoadResourceFiles(Path.Combine(contentDirectory, "data"));
 		if (bool.Parse(Configuration.GetProperty("general", "use_mods", "true")))
 		{
 			// Mods next to the game data, then mods in the user data folder (outside the macOS app bundle)
-			LoadResourceFiles(Path.Combine(directoryName, "mods"));
+			LoadResourceFiles(Path.Combine(contentDirectory, "mods"));
 			LoadResourceFiles(Path.Combine(UserDataDirectory, "mods"));
 		}
 		RenderFactory = DefaultRendererFactory.Create(Window.GraphicsContext);
@@ -87,9 +91,14 @@ internal class S2HDSonicOrcaGameContext(IPlatform platform) : SonicOrcaGameConte
 		base.Dispose();
 	}
 
+	/// <summary>
+	/// Reads the old-style single-dash command line options (for example "-level ehz").
+	/// Most of the results are not used: <see cref="RootGameState"/> reads the "--" options and starts the game.
+	/// The window, network and level state changes below still happen, so this method stays.
+	/// </summary>
 	private void Begin()
 	{
-		string str = null;
+		string startMode = null;
 		LevelPrepareSettings prepareSettings = new LevelPrepareSettings()
 		{
 			Act = 1,
@@ -98,41 +107,36 @@ internal class S2HDSonicOrcaGameContext(IPlatform platform) : SonicOrcaGameConte
 		IReadOnlyList<string> commandLineArguments = Program.CommandLineArguments;
 		for (int index = 0; index < commandLineArguments.Count; ++index)
 		{
-			bool flag = index == commandLineArguments.Count - 1;
+			bool isLastArgument = index == commandLineArguments.Count - 1;
 			string argument = commandLineArguments[index];
 			switch (argument.ToLower())
 			{
 				case "-act":
-					if (!flag)
+					if (!isLastArgument)
 					{
-						int result;
-						int.TryParse(commandLineArguments[++index], out result);
-						prepareSettings.Act = result;
-						break;
+						int.TryParse(commandLineArguments[++index], out int act);
+						prepareSettings.Act = act;
 					}
 					break;
 				case "-credits":
-					str = "credits";
+					startMode = "credits";
 					break;
 				case "-debug":
 					prepareSettings.Debugging = true;
 					break;
 				case "-edit":
 				case "-editor":
-					str = "editor";
+					startMode = "editor";
 					break;
 				case "-fullscreen":
 					Window.FullScreen = true;
 					break;
 				case "-ghost":
-					if (!flag)
-					{
+					if (!isLastArgument)
 						prepareSettings.RecordedPlayGhostReadPath = commandLineArguments[++index];
-						break;
-					}
 					break;
 				case "-halfpipe":
-					str = "halfpipe";
+					startMode = "halfpipe";
 					break;
 				case "-host":
 					Trace.WriteLine("Waiting for client");
@@ -141,6 +145,7 @@ internal class S2HDSonicOrcaGameContext(IPlatform platform) : SonicOrcaGameConte
 						NetworkManager.Update();
 					break;
 				case "-join":
+					// This does not check for a last argument, so "-join" at the end causes an exception.
 					string serverHost = commandLineArguments[++index];
 					Trace.WriteLine("Joining " + serverHost);
 					NetworkManager.Join(serverHost);
@@ -148,74 +153,55 @@ internal class S2HDSonicOrcaGameContext(IPlatform platform) : SonicOrcaGameConte
 						NetworkManager.Update();
 					break;
 				case "-level":
-					if (!flag)
+					if (!isLastArgument)
 					{
 						string areaResourceKey = Levels.GetAreaResourceKey(commandLineArguments[++index].ToLower());
 						if (areaResourceKey != null)
 						{
 							prepareSettings.AreaResourceKey = areaResourceKey;
-							str = "level";
-							break;
+							startMode = "level";
 						}
-						break;
 					}
 					break;
 				case "-lives":
-					if (!flag)
+					if (!isLastArgument)
 					{
-						int result;
-						int.TryParse(commandLineArguments[++index], out result);
-						prepareSettings.Lives = MathX.Clamp(1, result, 99);
-						break;
+						int.TryParse(commandLineArguments[++index], out int lives);
+						prepareSettings.Lives = MathX.Clamp(1, lives, 99);
 					}
 					break;
 				case "-night":
-					if (!flag)
+					if (!isLastArgument)
 					{
-						double result;
-						double.TryParse(commandLineArguments[++index], NumberStyles.Float, CultureInfo.InvariantCulture, out result);
-						prepareSettings.NightMode = result;
-						break;
+						double.TryParse(commandLineArguments[++index], NumberStyles.Float, CultureInfo.InvariantCulture, out double nightMode);
+						prepareSettings.NightMode = nightMode;
 					}
 					break;
 				case "-playback":
-					if (!flag)
-					{
+					if (!isLastArgument)
 						prepareSettings.RecordedPlayReadPath = commandLineArguments[++index];
-						break;
-					}
 					break;
 				case "-protagonist":
-					if (!flag)
+					if (!isLastArgument)
 					{
 						argument = commandLineArguments[++index].ToLower();
-						prepareSettings.ProtagonistCharacter = (CharacterType)(CharacterNames.IndexOf<string>(x => x.Equals(argument)) + 1);
-						break;
+						prepareSettings.ProtagonistCharacter = (CharacterType)(CharacterNames.IndexOf(x => x.Equals(argument)) + 1);
 					}
 					break;
 				case "-record":
-					if (!flag)
-					{
+					if (!isLastArgument)
 						prepareSettings.RecordedPlayWritePath = commandLineArguments[++index];
-						break;
-					}
 					break;
 				case "-sidekick":
-					if (!flag)
+					if (!isLastArgument)
 					{
 						argument = commandLineArguments[++index].ToLower();
-						prepareSettings.SidekickCharacter = (CharacterType)(CharacterNames.IndexOf<string>(x => x.Equals(argument)) + 1);
-						break;
+						prepareSettings.SidekickCharacter = (CharacterType)(CharacterNames.IndexOf(x => x.Equals(argument)) + 1);
 					}
 					break;
 				case "-startpos":
-					int result1;
-					int result2;
-					if (!flag && int.TryParse(commandLineArguments[++index], out result1) && index != commandLineArguments.Count - 1 && int.TryParse(commandLineArguments[++index], out result2))
-					{
-						prepareSettings.StartPosition = new Vector2i?(new Vector2i(result1, result2));
-						break;
-					}
+					if (!isLastArgument && int.TryParse(commandLineArguments[++index], out int startX) && index != commandLineArguments.Count - 1 && int.TryParse(commandLineArguments[++index], out int startY))
+						prepareSettings.StartPosition = new Vector2i(startX, startY);
 					break;
 				case "-timetrial":
 					prepareSettings.TimeTrial = true;
@@ -225,25 +211,24 @@ internal class S2HDSonicOrcaGameContext(IPlatform platform) : SonicOrcaGameConte
 					break;
 			}
 		}
-		switch (str)
+		switch (startMode)
 		{
 			case "credits":
-				CreditsGameState creditsGameState = new CreditsGameState(this);
+				// The new game state is not used. Its constructor creates a resource session.
+				new CreditsGameState(this);
 				break;
 			case "level":
+				// The new game state is not used, but StartFrom sets Console.LevelGameState.
 				new StoryPlaythroughGameState(this).StartFrom(prepareSettings);
-				break;
-			case "halfpipe":
-				break;
-			default:
-				Program.CommandLineArguments.Contains<string>("-soundtrack");
 				break;
 		}
 	}
 
+	/// <summary>Alt+Enter switches between full screen and a window.</summary>
 	protected override void OnUpdate()
 	{
-		if (!Input.CurrentState.Keyboard[226] && !Input.CurrentState.Keyboard[230] || !Input.Pressed.Keyboard[40])
+		bool altDown = Input.CurrentState.Keyboard[LeftAltScancode] || Input.CurrentState.Keyboard[RightAltScancode];
+		if (!altDown || !Input.Pressed.Keyboard[EnterScancode])
 			return;
 		Window.FullScreen = !Window.FullScreen;
 	}
@@ -256,14 +241,15 @@ internal class S2HDSonicOrcaGameContext(IPlatform platform) : SonicOrcaGameConte
 			Finish = true;
 		foreach (Controller controller in Controllers)
 			controller.Update();
-		Input.OutputState.GamePad = Output.ToArray<GamePadOutputState>();
+		Input.OutputState.GamePad = Output.ToArray();
 	}
 
 	protected override void OnDraw()
 	{
 		SonicOrca.Core.Debugging.TestHooks.DrawnLevelTick = -1;
-		I2dRenderer obj1 = Renderer.Get2dRenderer();
-		obj1.ClipRectangle = new Rectangle(0.0, 0.0, 1920.0, 1080.0);
+		I2dRenderer g = Renderer.Get2dRenderer();
+		g.ClipRectangle = new Rectangle(0.0, 0.0, 1920.0, 1080.0);
+		// With ForceHD, draw to a 1920 x 1080 canvas first, and then scale the canvas to the window.
 		if (ForceHD)
 			_canvas.Activate();
 		else
@@ -273,7 +259,8 @@ internal class S2HDSonicOrcaGameContext(IPlatform platform) : SonicOrcaGameConte
 		Renderer.DeativateRenderer();
 		Console.Draw(Renderer);
 		Renderer.DeativateRenderer();
-		if (SonicOrcaGameContext.Singleton.Input.Pressed.Keyboard[67] || SonicOrca.Core.Debugging.FrameProfiler.IsCaptureFrame(DrawCount))
+		// F10 takes a screenshot.
+		if (Singleton.Input.Pressed.Keyboard[F10Scancode] || SonicOrca.Core.Debugging.FrameProfiler.IsCaptureFrame(DrawCount))
 			ScreenshotRenderer.GrabScreenshot(UserDataDirectory);
 		if (SonicOrca.Core.Debugging.TestHooks.TakeLevelTickCapture(out string captureFilename))
 		{
@@ -284,24 +271,12 @@ internal class S2HDSonicOrcaGameContext(IPlatform platform) : SonicOrcaGameConte
 		if (!ForceHD)
 			return;
 		Window.GraphicsContext.RenderToBackBuffer();
-		obj1.BlendMode = BlendMode.Opaque;
-		obj1.Colour = Colours.White;
-		I2dRenderer obj2 = obj1;
+		g.BlendMode = BlendMode.Opaque;
+		g.Colour = Colours.White;
 		Vector2i clientSize = Window.ClientSize;
-		double x1 = clientSize.X;
-		clientSize = Window.ClientSize;
-		double y1 = clientSize.Y;
-		Rectangle rectangle = new Rectangle(0.0, 0.0, x1, y1);
-		obj2.ClipRectangle = rectangle;
-		I2dRenderer obj3 = obj1;
-		ITexture texture = _canvas.Textures[0];
-		clientSize = Window.ClientSize;
-		double x2 = clientSize.X;
-		clientSize = Window.ClientSize;
-		double y2 = clientSize.Y;
-		Rectangle destination = new Rectangle(0.0, 0.0, x2, y2);
-		obj3.RenderTexture(texture, destination, flipy: true);
-		obj1.Deactivate();
+		g.ClipRectangle = new Rectangle(0.0, 0.0, clientSize.X, clientSize.Y);
+		g.RenderTexture(_canvas.Textures[0], new Rectangle(0.0, 0.0, clientSize.X, clientSize.Y), flipy: true);
+		g.Deactivate();
 	}
 
 	/// <summary>

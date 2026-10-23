@@ -1,14 +1,11 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: S2HD.Menu.ISpinnerSetting
-// Assembly: S2HD, Version=2.0.1012.10521, Culture=neutral, PublicKeyToken=null
-// MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
-// Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
-
 using System.Collections.Generic;
 
 #nullable disable
 namespace S2HD.Menu;
 
+/// <summary>
+/// A setting with a fixed list of values. The player goes through the values with left and right.
+/// </summary>
 internal interface ISpinnerSetting : ISetting
 {
 	IReadOnlyList<string> Values { get; }

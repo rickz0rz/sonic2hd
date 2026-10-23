@@ -1,9 +1,3 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: SonicOrca.Menu.SoundtrackScreen
-// Assembly: S2HD, Version=2.0.1012.10521, Culture=neutral, PublicKeyToken=null
-// MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
-// Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
-
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,15 +13,24 @@ using SonicOrca.Resources;
 #nullable disable
 namespace SonicOrca.Menu;
 
+/// <summary>
+/// A sound test screen that lists the music tracks of the game in groups. The player can play a track,
+/// pause it, and seek in it with the triggers or with the right stick. No code in the game opens this screen.
+/// </summary>
 internal class SoundtrackScreen : Screen
 {
+	// SDL scancodes of the keys that seek in the track.
+	private const int SeekBackScancode = 18; // O
+	private const int SeekForwardScancode = 19; // P
 	private const string BackgroundResourceKey = "SONICORCA/MENU/LEVELSELECT/BACKGROUND";
 	private const string FontResourceKey = "SONICORCA/S2/HUD/FONT";
 	private const string TrackBarResourceKey = "SONICORCA/S2/HUD/LIFE/SONIC";
 	private const string SelectionChangeResourceKey = "SONICORCA/SOUND/TALLY/SWITCH";
 	private const string ListingResourceKey = "SONICORCA/MENU/SOUNDTRACK/LISTING";
 	private const int CursorMinDelay = 10;
+	/// <summary>The number of list items that show at the same time.</summary>
 	private const int ListSize = 10;
+	/// <summary>The height of one list item, and the gap between two items.</summary>
 	private const int ListHeight = 74;
 	private const int ListGap = 8;
 	private readonly SonicOrcaGameContext _gameContext;
@@ -37,9 +40,9 @@ internal class SoundtrackScreen : Screen
 	private Font _font;
 	private Sample _selectionChangeSample;
 	private readonly FadeTransition _fadeTransition = new FadeTransition(30);
-	private SoundtrackScreen.InternalState _state;
-	private SoundtrackScreen.TrackNode _listingHead;
-	private SoundtrackScreen.TrackNode _currentTrackNode;
+	private InternalState _state;
+	private TrackNode _listingHead;
+	private TrackNode _currentTrackNode;
 	private CancellationTokenSource _loadTrackCancellationTokenSource;
 	private Task _loadTrackTask;
 	private ResourceSession _loadedTrackResourceSession;
@@ -55,13 +58,13 @@ internal class SoundtrackScreen : Screen
 		ResourceTree resourceTree = _gameContext.ResourceTree;
 		_loadedTrackResourceSession = new ResourceSession(resourceTree);
 		_resourceSession = new ResourceSession(resourceTree);
-		_resourceSession.PushDependencies("SONICORCA/MENU/LEVELSELECT/BACKGROUND", "SONICORCA/S2/HUD/FONT", "SONICORCA/S2/HUD/LIFE/SONIC", "SONICORCA/SOUND/TALLY/SWITCH", "SONICORCA/MENU/SOUNDTRACK/LISTING");
+		_resourceSession.PushDependencies(BackgroundResourceKey, FontResourceKey, TrackBarResourceKey, SelectionChangeResourceKey, ListingResourceKey);
 		await _resourceSession.LoadAsync(ct);
-		_backgroundTexture = resourceTree.GetLoadedResource<ITexture>("SONICORCA/MENU/LEVELSELECT/BACKGROUND");
-		_trackBarTexture = resourceTree.GetLoadedResource<ITexture>("SONICORCA/S2/HUD/LIFE/SONIC");
-		_font = resourceTree.GetLoadedResource<Font>("SONICORCA/S2/HUD/FONT");
-		_selectionChangeSample = resourceTree.GetLoadedResource<Sample>("SONICORCA/SOUND/TALLY/SWITCH");
-		ParseListingXml(resourceTree.GetLoadedResource<XmlLoadedResource>("SONICORCA/MENU/SOUNDTRACK/LISTING"));
+		_backgroundTexture = resourceTree.GetLoadedResource<ITexture>(BackgroundResourceKey);
+		_trackBarTexture = resourceTree.GetLoadedResource<ITexture>(TrackBarResourceKey);
+		_font = resourceTree.GetLoadedResource<Font>(FontResourceKey);
+		_selectionChangeSample = resourceTree.GetLoadedResource<Sample>(SelectionChangeResourceKey);
+		ParseListingXml(resourceTree.GetLoadedResource<XmlLoadedResource>(ListingResourceKey));
 	}
 
 	public override void Unload()
@@ -73,20 +76,25 @@ internal class SoundtrackScreen : Screen
 
 	private void ParseListingXml(XmlLoadedResource xmlResource)
 	{
-		_currentTrackNode = _listingHead = new SoundtrackScreen.TrackNode(null, ParseListingXml(xmlResource.XmlDocument.SelectSingleNode("soundtrack")));
+		_currentTrackNode = _listingHead = new TrackNode(null, ParseListingXml(xmlResource.XmlDocument.SelectSingleNode("soundtrack")));
 	}
 
-	private IEnumerable<SoundtrackScreen.TrackNode> ParseListingXml(XmlNode xmlNode)
+	/// <summary>
+	/// Reads the children of a listing node. A "track" element holds the resource key of a track, and a
+	/// "group" element holds more tracks or groups. A group with type="mini" shows its tracks on one line.
+	/// </summary>
+	private IEnumerable<TrackNode> ParseListingXml(XmlNode xmlNode)
 	{
 		foreach (XmlNode child in xmlNode.ChildNodes)
 		{
 			if (child.Name == "track")
-				yield return new SoundtrackScreen.TrackNode(child.Attributes["name"].Value, child.InnerText);
+			{
+				yield return new TrackNode(child.Attributes["name"].Value, child.InnerText);
+			}
 			else if (child.Name == "group")
 			{
-				string str;
-				child.TryGetAttributeValue("type", out str);
-				yield return new SoundtrackScreen.TrackNode(child.Attributes["name"].Value, ParseListingXml(child), str == "mini");
+				child.TryGetAttributeValue("type", out string groupType);
+				yield return new TrackNode(child.Attributes["name"].Value, ParseListingXml(child), groupType == "mini");
 			}
 		}
 	}
@@ -95,24 +103,24 @@ internal class SoundtrackScreen : Screen
 	{
 		switch (_state)
 		{
-			case SoundtrackScreen.InternalState.BeginFadeIn:
+			case InternalState.BeginFadeIn:
 				_fadeTransition.BeginFadeIn();
-				_state = SoundtrackScreen.InternalState.FadingIn;
+				_state = InternalState.FadingIn;
 				break;
-			case SoundtrackScreen.InternalState.FadingIn:
+			case InternalState.FadingIn:
 				_fadeTransition.Update();
 				if (!_fadeTransition.Finished)
 					break;
-				_state = SoundtrackScreen.InternalState.Normal;
+				_state = InternalState.Normal;
 				break;
-			case SoundtrackScreen.InternalState.Normal:
+			case InternalState.Normal:
 				HandleInput();
 				break;
-			case SoundtrackScreen.InternalState.BeginFadeOut:
+			case InternalState.BeginFadeOut:
 				_fadeTransition.BeginFadeOut();
-				_state = SoundtrackScreen.InternalState.FadingOut;
+				_state = InternalState.FadingOut;
 				break;
-			case SoundtrackScreen.InternalState.FadingOut:
+			case InternalState.FadingOut:
 				_fadeTransition.Update();
 				if (!_fadeTransition.Finished)
 					break;
@@ -140,8 +148,9 @@ internal class SoundtrackScreen : Screen
 				ListingUp();
 			if (controller.DirectionLeft.Y > 0.0)
 				ListingDown();
+			// This uses only the Y direction: the delay is negative when the stick points up, and 0 when it is level.
 			if (controller.DirectionLeft.X != 0.0 || controller.DirectionLeft.Y != 0.0)
-				_cursorDelay = (int)(10.0 * (2.0 * controller.DirectionLeft.Y));
+				_cursorDelay = (int)(CursorMinDelay * (2.0 * controller.DirectionLeft.Y));
 		}
 		if (controller.Action2)
 			ListingEnter();
@@ -158,9 +167,9 @@ internal class SoundtrackScreen : Screen
 				factor = -controller.LeftTrigger;
 			if (controller.LeftTrigger == 0.0 && controller.RightTrigger != 0.0)
 				factor = controller.RightTrigger;
-			if (_gameContext.Input.CurrentState.Keyboard[18])
+			if (_gameContext.Input.CurrentState.Keyboard[SeekBackScancode])
 				factor = -1.0;
-			if (_gameContext.Input.CurrentState.Keyboard[19])
+			if (_gameContext.Input.CurrentState.Keyboard[SeekForwardScancode])
 				factor = 1.0;
 			SeekTrack(factor);
 			SeekTrack(controller.DirectionRight.X, controller.DirectionRight.Y);
@@ -187,8 +196,8 @@ internal class SoundtrackScreen : Screen
 	{
 		if (_currentTrackNode.Children.Count == 0)
 			return;
-		SoundtrackScreen.TrackNode child = _currentTrackNode.Children[_currentTrackNode.SelectedIndex];
-		if (child.Type != SoundtrackScreen.ListingType.MiniGroup || child.SelectedIndex <= 0)
+		TrackNode child = _currentTrackNode.Children[_currentTrackNode.SelectedIndex];
+		if (child.Type != ListingType.MiniGroup || child.SelectedIndex <= 0)
 			return;
 		--child.SelectedIndex;
 		PlayChangeListingSound();
@@ -198,8 +207,8 @@ internal class SoundtrackScreen : Screen
 	{
 		if (_currentTrackNode.Children.Count == 0)
 			return;
-		SoundtrackScreen.TrackNode child = _currentTrackNode.Children[_currentTrackNode.SelectedIndex];
-		if (child.Type != SoundtrackScreen.ListingType.MiniGroup || child.SelectedIndex >= child.Children.Count - 1)
+		TrackNode child = _currentTrackNode.Children[_currentTrackNode.SelectedIndex];
+		if (child.Type != ListingType.MiniGroup || child.SelectedIndex >= child.Children.Count - 1)
 			return;
 		++child.SelectedIndex;
 		PlayChangeListingSound();
@@ -217,21 +226,23 @@ internal class SoundtrackScreen : Screen
 	{
 		if (_currentTrackNode.Children.Count == 0)
 			return;
-		SoundtrackScreen.TrackNode child1 = _currentTrackNode.Children[_currentTrackNode.SelectedIndex];
-		if (child1.Type == SoundtrackScreen.ListingType.Track)
-			SetAndPlayTrack(child1);
-		else if (child1.Type == SoundtrackScreen.ListingType.MiniGroup)
+		TrackNode child = _currentTrackNode.Children[_currentTrackNode.SelectedIndex];
+		if (child.Type == ListingType.Track)
 		{
-			if (child1.Children.Count == 0)
+			SetAndPlayTrack(child);
+		}
+		else if (child.Type == ListingType.MiniGroup)
+		{
+			if (child.Children.Count == 0)
 				return;
-			SoundtrackScreen.TrackNode child2 = child1.Children[child1.SelectedIndex];
-			if (child2.Type != SoundtrackScreen.ListingType.Track)
+			TrackNode track = child.Children[child.SelectedIndex];
+			if (track.Type != ListingType.Track)
 				return;
-			SetAndPlayTrack(child2);
+			SetAndPlayTrack(track);
 		}
 		else
 		{
-			_currentTrackNode = child1;
+			_currentTrackNode = child;
 			PlayChangeListingSound();
 		}
 	}
@@ -241,7 +252,7 @@ internal class SoundtrackScreen : Screen
 		_gameContext.Audio.PlaySound(_selectionChangeSample);
 	}
 
-	private void SetAndPlayTrack(SoundtrackScreen.TrackNode node)
+	private void SetAndPlayTrack(TrackNode node)
 	{
 		if (node.ResourceKey == _loadedTrackResourceKey)
 		{
@@ -253,6 +264,8 @@ internal class SoundtrackScreen : Screen
 		{
 			if (_loadTrackTask != null)
 			{
+				// Wait for the loading task to clear _loadTrackTask. The field is not volatile, so this
+				// busy wait can, in theory, loop for ever.
 				_loadTrackCancellationTokenSource.Cancel();
 				while (_loadTrackTask != null)
 					;
@@ -295,9 +308,16 @@ internal class SoundtrackScreen : Screen
 			_loadedTrackResourceSession.PushDependency(resourceKey);
 			await _loadedTrackResourceSession.LoadAsync(ct);
 			lock (_loadTrackSync)
-				_loadedTrackSampleInstance = _loadedTrackResourceSession.ResourceTree[resourceKey].Resource.Identifier != ResourceTypeIdentifier.SampleInfo ? new SampleInstance(_gameContext.Audio, _loadedTrackResourceSession.ResourceTree.GetLoadedResource<Sample>(resourceKey)) : new SampleInstance(_gameContext.Audio, _loadedTrackResourceSession.ResourceTree.GetLoadedResource<SampleInfo>(resourceKey));
+			{
+				ResourceTree resourceTree = _loadedTrackResourceSession.ResourceTree;
+				// The track resource is a Sample or a SampleInfo.
+				if (resourceTree[resourceKey].Resource.Identifier != ResourceTypeIdentifier.SampleInfo)
+					_loadedTrackSampleInstance = new SampleInstance(_gameContext.Audio, resourceTree.GetLoadedResource<Sample>(resourceKey));
+				else
+					_loadedTrackSampleInstance = new SampleInstance(_gameContext.Audio, resourceTree.GetLoadedResource<SampleInfo>(resourceKey));
+			}
 		}
-		catch (Exception ex)
+		catch (Exception)
 		{
 			_loadedTrackResourceKey = null;
 		}
@@ -328,6 +348,10 @@ internal class SoundtrackScreen : Screen
 		}
 	}
 
+	/// <summary>
+	/// Moves the track position by up to half a second each frame. The step grows with the square of
+	/// <paramref name="factor"/> (from -1 to 1).
+	/// </summary>
 	private void SeekTrack(double factor)
 	{
 		lock (_loadTrackSync)
@@ -335,14 +359,17 @@ internal class SoundtrackScreen : Screen
 			if (_loadedTrackSampleInstance == null || factor == 0.0)
 				return;
 			int sampleIndex = _loadedTrackSampleInstance.SampleIndex;
-			int num1 = _loadedTrackSampleInstance.Sample.SampleRate / 2;
+			int halfSecondSamples = _loadedTrackSampleInstance.Sample.SampleRate / 2;
 			int sampleCount = _loadedTrackSampleInstance.Sample.SampleCount;
 			factor = Math.Sign(factor) * factor * factor;
-			int num2 = (int)(num1 * factor);
-			_loadedTrackSampleInstance.SeekTo(MathX.Clamp(0, sampleIndex + num2, sampleCount));
+			int step = (int)(halfSecondSamples * factor);
+			_loadedTrackSampleInstance.SeekTo(MathX.Clamp(0, sampleIndex + step, sampleCount));
 		}
 	}
 
+	/// <summary>
+	/// Moves the track position to the angle of the stick: up is the start, and a full turn clockwise is the end.
+	/// </summary>
 	private void SeekTrack(double x, double y)
 	{
 		lock (_loadTrackSync)
@@ -360,13 +387,13 @@ internal class SoundtrackScreen : Screen
 
 	public override void Draw(Renderer renderer)
 	{
-		I2dRenderer obj = renderer.Get2dRenderer();
+		I2dRenderer g = renderer.Get2dRenderer();
 		IFontRenderer fontRenderer = renderer.GetFontRenderer();
-		obj.Colour = Colours.White;
-		obj.RenderTexture(_backgroundTexture, new Rectangle(0.0, 0.0, 1920.0, 1080.0));
-		using (obj.BeginMatixState())
+		g.Colour = Colours.White;
+		g.RenderTexture(_backgroundTexture, new Rectangle(0.0, 0.0, 1920.0, 1080.0));
+		using (g.BeginMatixState())
 		{
-			obj.ModelMatrix = obj.ModelMatrix.Scale(2.5, 2.5);
+			g.ModelMatrix = g.ModelMatrix.Scale(2.5, 2.5);
 			fontRenderer.RenderString("SOUNDTRACK", new Rectangle(32.0, 32.0, 0.0, 0.0), FontAlignment.Left, _font, Colours.Black);
 		}
 		DrawList(renderer, new Rectangle(32.0, 228.0, 896.0, 820.0));
@@ -377,23 +404,25 @@ internal class SoundtrackScreen : Screen
 
 	private void DrawList(Renderer renderer, Rectangle bounds)
 	{
-		I2dRenderer obj = renderer.Get2dRenderer();
-		using (obj.BeginMatixState())
+		I2dRenderer g = renderer.Get2dRenderer();
+		using (g.BeginMatixState())
 		{
-			obj.ModelMatrix = obj.ModelMatrix.Translate(bounds.X, bounds.Y);
-			int num1 = 0;
-			int num2 = 0;
-			int num3 = MathX.Clamp(0, _currentTrackNode.SelectedIndex - 5, _currentTrackNode.Children.Count - 1 - 9);
+			g.ModelMatrix = g.ModelMatrix.Translate(bounds.X, bounds.Y);
+			int index = 0;
+			int rowsDrawn = 0;
+			// Scroll the list so that the selected item is near the middle.
+			int firstIndex = MathX.Clamp(0, _currentTrackNode.SelectedIndex - ListSize / 2, _currentTrackNode.Children.Count - 1 - (ListSize - 1));
 			double y = 0.0;
-			foreach (SoundtrackScreen.TrackNode child in (IEnumerable<SoundtrackScreen.TrackNode>)_currentTrackNode.Children)
+			foreach (TrackNode child in _currentTrackNode.Children)
 			{
-				bool selected = num1 == _currentTrackNode.SelectedIndex;
-				if (num1++ >= num3)
+				bool selected = index == _currentTrackNode.SelectedIndex;
+				if (index++ >= firstIndex)
 				{
-					y += DrawListItem(renderer, child, new Rectangle(0.0, y, bounds.Width, 74.0), selected) + 8.0;
-					if (child.Type == SoundtrackScreen.ListingType.MiniGroup & selected)
-						++num2;
-					if (++num2 >= 10)
+					y += DrawListItem(renderer, child, new Rectangle(0.0, y, bounds.Width, ListHeight), selected) + ListGap;
+					// A selected mini group uses two rows.
+					if (child.Type == ListingType.MiniGroup & selected)
+						++rowsDrawn;
+					if (++rowsDrawn >= ListSize)
 						break;
 				}
 			}
@@ -402,68 +431,69 @@ internal class SoundtrackScreen : Screen
 
 	private double DrawListItem(
 	  Renderer renderer,
-	  SoundtrackScreen.TrackNode node,
+	  TrackNode node,
 	  Rectangle bounds,
 	  bool selected)
 	{
-		bool flag = false;
-		if (node.Type == SoundtrackScreen.ListingType.MiniGroup & selected)
-			flag = true;
-		if (flag)
-			bounds.Height = bounds.Height * 2.0 + 8.0;
-		I2dRenderer obj = renderer.Get2dRenderer();
+		// A selected mini group is two rows high: its name, and then its tracks on one line.
+		bool expanded = node.Type == ListingType.MiniGroup & selected;
+		if (expanded)
+			bounds.Height = bounds.Height * 2.0 + ListGap;
+		I2dRenderer g = renderer.Get2dRenderer();
 		IFontRenderer fontRenderer = renderer.GetFontRenderer();
-		Colour colour1 = new Colour(128 /*0x80*/, 0, 0, 0);
-		Rectangle destination = bounds;
-		obj.RenderQuad(colour1, destination);
-		if (flag)
-			bounds.Height = (bounds.Height - 8.0) / 2.0;
+		Colour backgroundColour = new Colour(128, 0, 0, 0);
+		g.RenderQuad(backgroundColour, bounds);
+		if (expanded)
+			bounds.Height = (bounds.Height - ListGap) / 2.0;
 		bounds.X += 12.0;
-		Colour colour2 = new Colour(128 /*0x80*/, 128 /*0x80*/, 128 /*0x80*/);
-		Colour colour3 = Colours.White;
+		// A track that is loading shows in grey.
+		Colour loadingColour = new Colour(128, 128, 128);
+		Colour nameColour = Colours.White;
 		if (_loadedTrackResourceKey == node.ResourceKey && _loadTrackTask != null)
-			colour3 = colour2;
-		fontRenderer.RenderStringWithShadow(node.Name.ToUpper(), bounds, FontAlignment.MiddleY, _font, colour3, new int?(selected ? 1 : 0));
-		if (flag)
+			nameColour = loadingColour;
+		fontRenderer.RenderStringWithShadow(node.Name.ToUpper(), bounds, FontAlignment.MiddleY, _font, nameColour, new int?(selected ? 1 : 0));
+		if (expanded)
 		{
-			bounds.Y += bounds.Height + 8.0;
+			bounds.Y += bounds.Height + ListGap;
 			for (int index = 0; index < node.Children.Count; ++index)
 			{
-				SoundtrackScreen.TrackNode child = node.Children[index];
-				Colour colour4 = Colours.White;
+				TrackNode child = node.Children[index];
+				Colour childColour = Colours.White;
 				if (_loadedTrackResourceKey == child.ResourceKey && _loadTrackTask != null)
-					colour4 = colour2;
-				fontRenderer.RenderStringWithShadow(child.Name.ToUpper(), bounds, FontAlignment.MiddleY, _font, colour4, new int?(node.SelectedIndex == index ? 1 : 0));
+					childColour = loadingColour;
+				fontRenderer.RenderStringWithShadow(child.Name.ToUpper(), bounds, FontAlignment.MiddleY, _font, childColour, new int?(node.SelectedIndex == index ? 1 : 0));
 				bounds.X += _font.MeasureString(child.Name.ToUpper(), bounds, FontAlignment.MiddleY).Width + bounds.Height;
 			}
-			bounds.Height = bounds.Height * 2.0 + 8.0;
+			bounds.Height = bounds.Height * 2.0 + ListGap;
 		}
 		return bounds.Height;
 	}
 
 	private void DrawTrackbar(Renderer renderer, Rectangle bounds)
 	{
-		I2dRenderer obj = renderer.Get2dRenderer();
+		I2dRenderer g = renderer.Get2dRenderer();
 		IFontRenderer fontRenderer = renderer.GetFontRenderer();
-		using (obj.BeginMatixState())
+		using (g.BeginMatixState())
 		{
-			obj.ModelMatrix = obj.ModelMatrix.Translate(bounds.CentreX, bounds.CentreY);
+			// Draw a ring, and a marker on the ring at the position of the track (clockwise from the top).
+			g.ModelMatrix = g.ModelMatrix.Translate(bounds.CentreX, bounds.CentreY);
 			double outerRadius = bounds.Width / 2.0;
 			double innerRadius = outerRadius - 32.0;
-			double num1 = innerRadius + (outerRadius - innerRadius) / 2.0;
-			obj.RenderEllipse(new Colour(128 /*0x80*/, 0, 0, 0), new Vector2(), innerRadius, outerRadius, 64 /*0x40*/);
+			double markerRadius = innerRadius + (outerRadius - innerRadius) / 2.0;
+			g.RenderEllipse(new Colour(128, 0, 0, 0), new Vector2(), innerRadius, outerRadius, 64);
 			if (_loadedTrackSampleInstance == null)
 				return;
-			double num2 = _loadedTrackSampleInstance.SampleIndex / (double)_loadedTrackSampleInstance.Sample.SampleCount * (2.0 * Math.PI);
-			obj.Colour = Colours.White;
-			obj.RenderTexture(_trackBarTexture, new Vector2(Math.Sin(num2) * num1, -Math.Cos(num2) * num1));
+			double angle = _loadedTrackSampleInstance.SampleIndex / (double)_loadedTrackSampleInstance.Sample.SampleCount * (2.0 * Math.PI);
+			g.Colour = Colours.White;
+			g.RenderTexture(_trackBarTexture, new Vector2(Math.Sin(angle) * markerRadius, -Math.Cos(angle) * markerRadius));
 			fontRenderer.RenderStringWithShadow(_loadedTrackSampleInstance.SampleIndex.ToString(), new Rectangle(), FontAlignment.Centre, _font, 0);
-			TimeSpan time1 = GetTime(_loadedTrackSampleInstance.SampleIndex);
-			TimeSpan time2 = GetTime(_loadedTrackSampleInstance.Sample.SampleCount);
-			fontRenderer.RenderStringWithShadow(string.Format("{0:m\\:ss} / {1:m\\:ss}", time1, time2), new Rectangle(0.0, innerRadius * 0.75, 0.0, 0.0), FontAlignment.Centre, _font, 0);
+			TimeSpan position = GetTime(_loadedTrackSampleInstance.SampleIndex);
+			TimeSpan duration = GetTime(_loadedTrackSampleInstance.Sample.SampleCount);
+			fontRenderer.RenderStringWithShadow(string.Format("{0:m\\:ss} / {1:m\\:ss}", position, duration), new Rectangle(0.0, innerRadius * 0.75, 0.0, 0.0), FontAlignment.Centre, _font, 0);
 		}
 	}
 
+	/// <summary>The type of a listing node. A mini group shows its tracks on one line.</summary>
 	private enum ListingType
 	{
 		Group,
@@ -471,21 +501,22 @@ internal class SoundtrackScreen : Screen
 		Track,
 	}
 
+	/// <summary>A track, or a group of tracks, in the listing.</summary>
 	private class TrackNode
 	{
-		private readonly SoundtrackScreen.TrackNode[] _children;
-		private readonly SoundtrackScreen.ListingType _type;
+		private readonly TrackNode[] _children;
+		private readonly ListingType _type;
 		private readonly string _name;
 		private readonly string _resourceKey;
-		private SoundtrackScreen.TrackNode _parent;
+		private TrackNode _parent;
 
 		public int SelectedIndex { get; set; }
 
-		public SoundtrackScreen.TrackNode Parent => _parent;
+		public TrackNode Parent => _parent;
 
-		public SoundtrackScreen.ListingType Type => _type;
+		public ListingType Type => _type;
 
-		public IReadOnlyList<SoundtrackScreen.TrackNode> Children
+		public IReadOnlyList<TrackNode> Children
 		{
 			get => _children;
 		}
@@ -494,18 +525,18 @@ internal class SoundtrackScreen : Screen
 
 		public string ResourceKey => _resourceKey;
 
-		public TrackNode(string name, IEnumerable<SoundtrackScreen.TrackNode> children, bool mini = false)
+		public TrackNode(string name, IEnumerable<TrackNode> children, bool mini = false)
 		{
-			_children = children.ToArray<SoundtrackScreen.TrackNode>();
-			_type = mini ? SoundtrackScreen.ListingType.MiniGroup : SoundtrackScreen.ListingType.Group;
+			_children = children.ToArray();
+			_type = mini ? ListingType.MiniGroup : ListingType.Group;
 			_name = name;
-			foreach (SoundtrackScreen.TrackNode child in _children)
+			foreach (TrackNode child in _children)
 				child._parent = this;
 		}
 
 		public TrackNode(string name, string resourceKey)
 		{
-			_type = SoundtrackScreen.ListingType.Track;
+			_type = ListingType.Track;
 			_name = name;
 			_resourceKey = resourceKey;
 		}
@@ -513,6 +544,7 @@ internal class SoundtrackScreen : Screen
 		public override string ToString() => Name;
 	}
 
+	/// <summary>The steps of the screen: fade in, normal input, and fade out.</summary>
 	private enum InternalState
 	{
 		BeginFadeIn,

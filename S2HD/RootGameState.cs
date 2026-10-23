@@ -1,9 +1,3 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: S2HD.RootGameState
-// Assembly: S2HD, Version=2.0.1012.10521, Culture=neutral, PublicKeyToken=null
-// MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
-// Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
-
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -16,13 +10,23 @@ using SonicOrca.Input;
 #nullable disable
 namespace S2HD;
 
+/// <summary>
+/// The top game state. It runs the other game states in sequence: disclaimer, logos, title screen, and then the
+/// item that the player selects on the title screen. Command line options can start a level, the credits, the
+/// options or the demo directly.
+/// </summary>
 internal class RootGameState : IGameState, IDisposable
 {
+	/// <summary>SDL scancode of the Enter key.</summary>
+	private const int EnterScancode = 40;
+	private const string DemoResourceKey = "SONICORCA/RECORDINGS/EHZ";
+
+	/// <summary>The character names for the command line. The index plus 1 is the <see cref="CharacterType"/> value.</summary>
 	private static readonly string[] CharacterNames = new string[3]
 	{
-	"sonic",
-	"tails",
-	"knuckles"
+		"sonic",
+		"tails",
+		"knuckles"
 	};
 	private readonly S2HDSonicOrcaGameContext _gameContext;
 	private readonly CommandLineArguments _cmdLineArgs;
@@ -37,7 +41,9 @@ internal class RootGameState : IGameState, IDisposable
 	public IEnumerable<UpdateResult> Update()
 	{
 		Initialise();
-		InputState controller = _gameContext.Input.Pressed;
+		// This is the pressed state of the first frame only. Input.Pressed gets a new object each frame,
+		// so the gamepad checks below do not see later presses.
+		InputState firstFramePressed = _gameContext.Input.Pressed;
 		InputContext input = _gameContext.Input;
 		if (_cmdLineArgs.HasOption("level"))
 		{
@@ -84,17 +90,15 @@ internal class RootGameState : IGameState, IDisposable
 			bool shouldQuit = false;
 			while (!shouldQuit)
 			{
-				GamePadInputState gamePadInputState;
+				// The player can skip the logos with Start or Enter.
 				if (!_cmdLineArgs.HasOption("nologos"))
 				{
 					ShowLogos();
 					foreach (UpdateResult updateResult in _currentGameState.Update())
 					{
-						gamePadInputState = controller.GamePad[0];
-						if (!gamePadInputState.Start && !input.Pressed.Keyboard[40])
-							yield return updateResult;
-						else
+						if (firstFramePressed.GamePad[0].Start || input.Pressed.Keyboard[EnterScancode])
 							break;
+						yield return updateResult;
 					}
 				}
 				if (!_cmdLineArgs.HasOption("nologos"))
@@ -102,34 +106,31 @@ internal class RootGameState : IGameState, IDisposable
 					ShowTeamLogo();
 					foreach (UpdateResult updateResult in _currentGameState.Update())
 					{
-						gamePadInputState = controller.GamePad[0];
-						if (!gamePadInputState.Start && !input.Pressed.Keyboard[40])
-							yield return updateResult;
-						else
+						if (firstFramePressed.GamePad[0].Start || input.Pressed.Keyboard[EnterScancode])
 							break;
+						yield return updateResult;
 					}
 				}
 				ShowTitle();
 				foreach (UpdateResult updateResult in _currentGameState.Update())
 					yield return updateResult;
-				TitleGameState currentGameState = _currentGameState as TitleGameState;
-				StoryPlaythroughGameState storyState;
-				switch (currentGameState.Result)
+				TitleGameState titleState = _currentGameState as TitleGameState;
+				switch (titleState.Result)
 				{
 					case TitleGameState.ResultType.NewGame:
 					case TitleGameState.ResultType.LevelSelect:
 						PlayClassic();
-						storyState = _currentGameState as StoryPlaythroughGameState;
-						if (currentGameState.LevelPrepareSettings != null)
-							storyState.StartFrom(currentGameState.LevelPrepareSettings);
+						StoryPlaythroughGameState storyState = _currentGameState as StoryPlaythroughGameState;
+						if (titleState.LevelPrepareSettings != null)
+							storyState.StartFrom(titleState.LevelPrepareSettings);
 						foreach (UpdateResult updateResult in _currentGameState.Update())
 							yield return updateResult;
+						// Show the credits only when the player finished the game, not when the player quit from the pause menu.
 						if (!storyState.QuitViaOptions)
 						{
 							ShowCredits();
 							foreach (UpdateResult updateResult in _currentGameState.Update())
 								yield return updateResult;
-							break;
 						}
 						break;
 					case TitleGameState.ResultType.ShowOptions:
@@ -146,7 +147,6 @@ internal class RootGameState : IGameState, IDisposable
 						shouldQuit = true;
 						break;
 				}
-				storyState = null;
 			}
 		}
 	}
@@ -204,7 +204,7 @@ internal class RootGameState : IGameState, IDisposable
 
 	private void PlayDemo()
 	{
-		ChangeGameState(new DemoGameState(_gameContext, "SONICORCA/RECORDINGS/EHZ"));
+		ChangeGameState(new DemoGameState(_gameContext, DemoResourceKey));
 	}
 
 	private void ChangeGameState(IGameState newGameState)
@@ -214,66 +214,66 @@ internal class RootGameState : IGameState, IDisposable
 		_currentGameState = newGameState;
 	}
 
+	/// <summary>
+	/// Makes the level settings from the "--level" option and the related options.
+	/// Returns null when the level option has no value or names a level that does not exist.
+	/// </summary>
 	private LevelPrepareSettings GetLevelPrepareSettingsFromCommandLine()
 	{
-		string[] optionValues1 = _cmdLineArgs.GetOptionValues("level");
-		if (optionValues1.Length == 0)
+		string[] levelValues = _cmdLineArgs.GetOptionValues("level");
+		if (levelValues.Length == 0)
 			return null;
-		string mnemonic = optionValues1[0];
+		string mnemonic = levelValues[0];
 		string areaResourceKey = Levels.GetAreaResourceKey(mnemonic);
 		if (areaResourceKey == null)
 			return null;
-		int num = Levels.GetLevelIndex(mnemonic);
-		if (num == -1)
-			num = 1;
+		int levelNumber = Levels.GetLevelIndex(mnemonic);
+		if (levelNumber == -1)
+			levelNumber = 1;
 		LevelPrepareSettings settingsFromCommandLine = new LevelPrepareSettings()
 		{
 			Act = 1,
 			AreaResourceKey = areaResourceKey,
 			Debugging = _cmdLineArgs.HasOption("debug"),
-			LevelNumber = num,
+			LevelNumber = levelNumber,
 			Lives = 3,
 			TimeTrial = _cmdLineArgs.HasOption("timetrial")
 		};
-		string[] optionValues2 = _cmdLineArgs.GetOptionValues("act");
-		int result1;
-		if (optionValues2.Length != 0 && int.TryParse(optionValues2[0], out result1))
-			settingsFromCommandLine.Act = result1;
-		string[] optionValues3 = _cmdLineArgs.GetOptionValues("lives");
-		if (optionValues3.Length != 0 && int.TryParse(optionValues3[0], out result1))
-			settingsFromCommandLine.Lives = result1;
-		string[] optionValues4 = _cmdLineArgs.GetOptionValues("protagonist");
-		if (optionValues4.Length != 0)
-			settingsFromCommandLine.ProtagonistCharacter = RootGameState.GetCharacterType(optionValues4[0]);
-		string[] optionValues5 = _cmdLineArgs.GetOptionValues("sidekick");
-		if (optionValues5.Length != 0)
-			settingsFromCommandLine.SidekickCharacter = RootGameState.GetCharacterType(optionValues5[0]);
-		string[] optionValues6 = _cmdLineArgs.GetOptionValues("startpos");
-		int result2;
-		int result3;
-		if (optionValues6.Length >= 2 && int.TryParse(optionValues6[0], out result2) && int.TryParse(optionValues6[1], out result3))
-			settingsFromCommandLine.StartPosition = new Vector2i?(new Vector2i(result2, result3));
-		string[] optionValues7 = _cmdLineArgs.GetOptionValues("night");
-		float result4;
-		if (optionValues7.Length != 0 && float.TryParse(optionValues7[0], NumberStyles.Float, CultureInfo.InvariantCulture, out result4))
-			settingsFromCommandLine.NightMode = (double)result4;
-		string[] optionValues8 = _cmdLineArgs.GetOptionValues("record");
-		if (optionValues8.Length != 0)
-			settingsFromCommandLine.RecordedPlayWritePath = optionValues8[0];
-		string[] optionValues9 = _cmdLineArgs.GetOptionValues("playback");
-		if (optionValues9.Length != 0)
-			settingsFromCommandLine.RecordedPlayReadPath = optionValues9[0];
-		string[] optionValues10 = _cmdLineArgs.GetOptionValues("ghost");
-		if (optionValues10.Length != 0)
-			settingsFromCommandLine.RecordedPlayGhostReadPath = optionValues10[0];
+		string[] actValues = _cmdLineArgs.GetOptionValues("act");
+		if (actValues.Length != 0 && int.TryParse(actValues[0], out int act))
+			settingsFromCommandLine.Act = act;
+		string[] livesValues = _cmdLineArgs.GetOptionValues("lives");
+		if (livesValues.Length != 0 && int.TryParse(livesValues[0], out int lives))
+			settingsFromCommandLine.Lives = lives;
+		string[] protagonistValues = _cmdLineArgs.GetOptionValues("protagonist");
+		if (protagonistValues.Length != 0)
+			settingsFromCommandLine.ProtagonistCharacter = GetCharacterType(protagonistValues[0]);
+		string[] sidekickValues = _cmdLineArgs.GetOptionValues("sidekick");
+		if (sidekickValues.Length != 0)
+			settingsFromCommandLine.SidekickCharacter = GetCharacterType(sidekickValues[0]);
+		string[] startPositionValues = _cmdLineArgs.GetOptionValues("startpos");
+		if (startPositionValues.Length >= 2 && int.TryParse(startPositionValues[0], out int startX) && int.TryParse(startPositionValues[1], out int startY))
+			settingsFromCommandLine.StartPosition = new Vector2i(startX, startY);
+		string[] nightValues = _cmdLineArgs.GetOptionValues("night");
+		if (nightValues.Length != 0 && float.TryParse(nightValues[0], NumberStyles.Float, CultureInfo.InvariantCulture, out float nightMode))
+			settingsFromCommandLine.NightMode = nightMode;
+		string[] recordValues = _cmdLineArgs.GetOptionValues("record");
+		if (recordValues.Length != 0)
+			settingsFromCommandLine.RecordedPlayWritePath = recordValues[0];
+		string[] playbackValues = _cmdLineArgs.GetOptionValues("playback");
+		if (playbackValues.Length != 0)
+			settingsFromCommandLine.RecordedPlayReadPath = playbackValues[0];
+		string[] ghostValues = _cmdLineArgs.GetOptionValues("ghost");
+		if (ghostValues.Length != 0)
+			settingsFromCommandLine.RecordedPlayGhostReadPath = ghostValues[0];
 		return settingsFromCommandLine;
 	}
 
 	private static CharacterType GetCharacterType(string characterType)
 	{
-		for (int index = 0; index < RootGameState.CharacterNames.Length; ++index)
+		for (int index = 0; index < CharacterNames.Length; ++index)
 		{
-			if (RootGameState.CharacterNames[index].Equals(characterType, StringComparison.OrdinalIgnoreCase))
+			if (CharacterNames[index].Equals(characterType, StringComparison.OrdinalIgnoreCase))
 				return (CharacterType)(index + 1);
 		}
 		return CharacterType.Null;

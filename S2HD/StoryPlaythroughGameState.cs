@@ -1,9 +1,3 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: S2HD.StoryPlaythroughGameState
-// Assembly: S2HD, Version=2.0.1012.10521, Culture=neutral, PublicKeyToken=null
-// MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
-// Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
-
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,9 +9,13 @@ using SonicOrca.Core;
 #nullable disable
 namespace S2HD;
 
+/// <summary>
+/// Plays the levels of the game one after the other, and keeps the lives and the score between levels.
+/// It also shows the pause menu when the player pauses a level.
+/// </summary>
 internal class StoryPlaythroughGameState : IGameState, IDisposable
 {
-	private S2HDSonicOrcaGameContext _gameContext;
+	private readonly S2HDSonicOrcaGameContext _gameContext;
 	private LevelPrepareSettings _prepareSettings;
 	private LevelGameState _levelGameState;
 	private int _levelNumber;
@@ -68,7 +66,7 @@ internal class StoryPlaythroughGameState : IGameState, IDisposable
 			yield return UpdateResult.Next();
 		if (_levelGameState == null)
 			SetLevel(_levelNumber);
-		bool flag;
+		bool playNextLevel;
 		do
 		{
 			foreach (UpdateResult updateResult in _levelGameState.Update())
@@ -89,20 +87,22 @@ internal class StoryPlaythroughGameState : IGameState, IDisposable
 					_optionsMenu.Hide();
 				}
 				else
+				{
 					_levelGameState.HandleInput();
+				}
 				_optionsMenu.Update();
 				yield return updateResult;
 			}
-			flag = _levelGameState.Completed;
-			if (flag)
+			playNextLevel = _levelGameState.Completed;
+			if (playNextLevel)
 			{
 				_prepareSettings.Lives = _levelGameState.Player.Lives;
 				_prepareSettings.Score = _levelGameState.Player.Score;
 				if (!LoadNextLevel())
-					flag = false;
+					playNextLevel = false;
 			}
 		}
-		while (flag);
+		while (playNextLevel);
 	}
 
 	public void Draw()
@@ -119,11 +119,16 @@ internal class StoryPlaythroughGameState : IGameState, IDisposable
 		return SetLevel(_levelNumber);
 	}
 
+	/// <summary>
+	/// Prepares the level with the number in <see cref="_levelNumber"/>, counted from 1 over the released Sonic 2 levels.
+	/// Returns false when there is no such level.
+	/// </summary>
+	/// <remarks>The <paramref name="index"/> parameter is not used. The callers give the same value as _levelNumber.</remarks>
 	private bool SetLevel(int index)
 	{
 		if (_levelGameState != null)
 			_levelGameState.Dispose();
-		LevelInfo levelInfo = Levels.LevelList.Where<LevelInfo>(x => x.GameIndex == 2).Where<LevelInfo>(x => !x.Unreleased).Skip<LevelInfo>(_levelNumber - 1).FirstOrDefault<LevelInfo>();
+		LevelInfo levelInfo = Levels.LevelList.Where(x => x.GameIndex == Levels.Sonic2).Where(x => !x.Unreleased).Skip(_levelNumber - 1).FirstOrDefault();
 		if (levelInfo == null)
 			return false;
 		_levelGameState = new LevelGameState(_gameContext);

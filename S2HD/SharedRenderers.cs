@@ -1,15 +1,12 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: S2HD.SharedRenderers
-// Assembly: S2HD, Version=2.0.1012.10521, Culture=neutral, PublicKeyToken=null
-// MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
-// Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
-
 using System;
 using SonicOrca.Graphics;
 
 #nullable disable
 namespace S2HD;
 
+/// <summary>
+/// Renderers that all game states share. The root game state creates them at start and disposes of them at the end.
+/// </summary>
 internal static class SharedRenderers
 {
 	private static readonly object InitialiseLock = new object();
@@ -22,31 +19,31 @@ internal static class SharedRenderers
 
 	public static void Initialise(IRendererFactory rendererFactory)
 	{
-		lock (SharedRenderers.InitialiseLock)
+		lock (InitialiseLock)
 		{
-			if (SharedRenderers.Initialised)
+			if (Initialised)
 				throw new InvalidOperationException("Shared renderers already initialised.");
-			SharedRenderers.Standard2d = rendererFactory.Create2dRenderer();
-			SharedRenderers.FadeTransition = rendererFactory.CreateFadeTransitionRenderer();
-			SharedRenderers.Initialised = true;
+			Standard2d = rendererFactory.Create2dRenderer();
+			FadeTransition = rendererFactory.CreateFadeTransitionRenderer();
+			Initialised = true;
 		}
 	}
 
 	public static void Dispose()
 	{
-		lock (SharedRenderers.InitialiseLock)
+		lock (InitialiseLock)
 		{
-			if (SharedRenderers.Standard2d != null)
+			if (Standard2d != null)
 			{
-				SharedRenderers.Standard2d.Dispose();
-				SharedRenderers.Standard2d = null;
+				Standard2d.Dispose();
+				Standard2d = null;
 			}
-			if (SharedRenderers.FadeTransition != null)
+			if (FadeTransition != null)
 			{
-				SharedRenderers.FadeTransition.Dispose();
-				SharedRenderers.FadeTransition = null;
+				FadeTransition.Dispose();
+				FadeTransition = null;
 			}
-			SharedRenderers.Initialised = false;
+			Initialised = false;
 		}
 	}
 }

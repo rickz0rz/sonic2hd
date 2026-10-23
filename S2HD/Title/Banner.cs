@@ -1,9 +1,3 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: S2HD.Title.Banner
-// Assembly: S2HD, Version=2.0.1012.10521, Culture=neutral, PublicKeyToken=null
-// MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
-// Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
-
 using System;
 using System.Collections.Generic;
 using SonicOrca;
@@ -14,19 +8,25 @@ using SonicOrca.Resources;
 #nullable disable
 namespace S2HD.Title;
 
+/// <summary>
+/// The "Sonic the Hedgehog 2 HD" banner of the title screen, with Sonic and Tails, the spinning stars before
+/// the banner appears, and the shine that moves over the title.
+/// </summary>
 internal class Banner
 {
+	/// <summary>The tick when the banner starts to fade in.</summary>
 	private const int BannerStartTime = 332;
+	/// <summary>The positions of the stars that spin before the banner appears, relative to the banner centre.</summary>
 	private static readonly Vector2i[] SpinningStarOffsets = new Vector2i[8]
 	{
-	new Vector2i(-214, -41),
-	new Vector2i(-190, -129),
-	new Vector2i(-130, -193),
-	new Vector2i(-50, -233),
-	new Vector2i(50, -233),
-	new Vector2i(130, -193),
-	new Vector2i(190, -129),
-	new Vector2i(214, -41)
+		new Vector2i(-214, -41),
+		new Vector2i(-190, -129),
+		new Vector2i(-130, -193),
+		new Vector2i(-50, -233),
+		new Vector2i(50, -233),
+		new Vector2i(130, -193),
+		new Vector2i(190, -129),
+		new Vector2i(214, -41)
 	};
 	private readonly S2HDSonicOrcaGameContext _gameContext;
 	private readonly IMaskRenderer _maskRenderer;
@@ -68,10 +68,14 @@ internal class Banner
 		Position = new Vector2i(960, 476);
 	}
 
+	/// <remarks>
+	/// The resource attributes on the texture fields are not used. This method sets the fields, and it gives
+	/// _titleOutlineTexture and _hdStarTexture the opposite keys of their attributes.
+	/// </remarks>
 	private void GetResourceReferences()
 	{
 		ResourceTree resourceTree = _gameContext.ResourceTree;
-		_animationGroup = resourceTree.GetLoadedResource<AnimationGroup>("SONICORCA/TITLE/ANIGROUP");
+		_animationGroup = resourceTree.GetLoadedResource<AnimationGroup>(TitleResources.AnimationGroupResourceKey);
 		_bannerTexture = resourceTree.GetLoadedResource<ITexture>("SONICORCA/TITLE/FRAMES/0");
 		_bannerInsideTexture = resourceTree.GetLoadedResource<ITexture>("SONICORCA/TITLE/FRAMES/1");
 		_titleOutlineTexture = resourceTree.GetLoadedResource<ITexture>("SONICORCA/TITLE/ADDFRAMES/0");
@@ -97,6 +101,7 @@ internal class Banner
 		ShowStarLensFare = false;
 	}
 
+	/// <summary>Starts the shine that moves over the title. It takes <paramref name="duration"/> ticks.</summary>
 	public void DoShine(int duration)
 	{
 		_effectEventManager.BeginEvent(EffectShine(duration));
@@ -120,48 +125,51 @@ internal class Banner
 			DoShine(368);
 		if (_ticks >= 296)
 			_bannerInsideOpacity = Math.Min(1.0, _bannerInsideOpacity + 1.0 / 72.0);
-		if (_ticks >= 332)
+		if (_ticks >= BannerStartTime)
 			_bannerOpacity = Math.Min(1.0, _bannerOpacity + 1.0 / 32.0);
 		for (int index = 0; index < _preBannerStarSpin.Length; ++index)
 		{
 			if (_preBannerStarSpin[index] == null)
 			{
+				// The stars start one after the other, 4 ticks apart.
 				if (_ticks >= 298 + index * 4)
-					_preBannerStarSpin[index] = new AnimationInstance(_animationGroup, 3);
+					_preBannerStarSpin[index] = new AnimationInstance(_animationGroup, TitleResources.SpinningStarAnimationIndex);
 			}
 			else if (_preBannerStarSpin[index].Cycles == 0)
+			{
 				_preBannerStarSpin[index].Animate();
+			}
 		}
 		if (_ticks >= 346)
 		{
 			_sonic2Opacity = Math.Min(1.0, _sonic2Opacity + 1.0 / 16.0);
 			if (_sonic2AnimationInstance == null)
-				_sonic2AnimationInstance = new AnimationInstance(_animationGroup, 2);
+				_sonic2AnimationInstance = new AnimationInstance(_animationGroup, TitleResources.Sonic2AnimationIndex);
 		}
 		if (_ticks >= 360)
 		{
 			if (_theHedgehogAnimationInstance == null)
-				_theHedgehogAnimationInstance = new AnimationInstance(_animationGroup, 1);
+				_theHedgehogAnimationInstance = new AnimationInstance(_animationGroup, TitleResources.TheHedgehogAnimationIndex);
 			_theHedgehogAnimationInstance.Animate();
 		}
 		if (_ticks >= 364)
 		{
 			if (_sonicAnimationInstance == null)
-				_sonicAnimationInstance = new AnimationInstance(_animationGroup, 4);
+				_sonicAnimationInstance = new AnimationInstance(_animationGroup, TitleResources.SonicAnimationIndex);
 			_sonicAnimationInstance.Animate();
 		}
 		if (_ticks >= 413)
 		{
 			if (_sonicHandAnimationInstance == null)
-				_sonicHandAnimationInstance = new AnimationInstance(_animationGroup, 5);
+				_sonicHandAnimationInstance = new AnimationInstance(_animationGroup, TitleResources.SonicHandAnimationIndex);
 			_sonicHandAnimationInstance.Animate();
 		}
 		if (_ticks >= 400)
 		{
 			if (_tailsAnimationInstance == null)
 			{
-				_tailsAnimationInstance = new AnimationInstance(_animationGroup, 6);
-				_tailsTailsAnimationInstance = new AnimationInstance(_animationGroup, 7);
+				_tailsAnimationInstance = new AnimationInstance(_animationGroup, TitleResources.TailsAnimationIndex);
+				_tailsTailsAnimationInstance = new AnimationInstance(_animationGroup, TitleResources.TailsTailsAnimationIndex);
 			}
 			_tailsAnimationInstance.Animate();
 			_tailsTailsAnimationInstance.Animate();
@@ -180,45 +188,38 @@ internal class Banner
 
 	public void Draw(Renderer renderer)
 	{
-		I2dRenderer renderer1 = renderer.Get2dRenderer();
-		renderer1.BlendMode = BlendMode.Alpha;
-		using (renderer1.BeginMatixState())
+		I2dRenderer g = renderer.Get2dRenderer();
+		g.BlendMode = BlendMode.Alpha;
+		using (g.BeginMatixState())
 		{
-			I2dRenderer obj = renderer1;
-			Matrix4 modelMatrix = renderer1.ModelMatrix;
-			ref Matrix4 local = ref modelMatrix;
-			Vector2i position = Position;
-			double x = position.X;
-			position = Position;
-			double y = position.Y;
-			Matrix4 matrix4 = local.Translate(x, y);
-			obj.ModelMatrix = matrix4;
+			// Draw everything relative to the banner centre.
+			g.ModelMatrix = g.ModelMatrix.Translate(Position.X, Position.Y);
 			if (_bannerInsideOpacity > 0.0 && _bannerOpacity < 1.0)
 			{
-				renderer1.Colour = new Colour(_bannerInsideOpacity, 1.0, 1.0, 1.0);
-				renderer1.RenderTexture(_bannerInsideTexture, new Vector2(0.0, -114.0));
+				g.Colour = new Colour(_bannerInsideOpacity, 1.0, 1.0, 1.0);
+				g.RenderTexture(_bannerInsideTexture, new Vector2(0.0, -114.0));
 			}
 			if (_bannerOpacity > 0.0)
 			{
-				renderer1.Colour = new Colour(_bannerOpacity, 1.0, 1.0, 1.0);
-				renderer1.RenderTexture(_bannerTexture, new Vector2(0.0, 0.0));
+				g.Colour = new Colour(_bannerOpacity, 1.0, 1.0, 1.0);
+				g.RenderTexture(_bannerTexture, new Vector2(0.0, 0.0));
 			}
 			for (int index = 0; index < 8; ++index)
 			{
 				if (_preBannerStarSpin[index] != null && _preBannerStarSpin[index].Cycles == 0)
-					_preBannerStarSpin[index].Draw(renderer1, (Vector2)Banner.SpinningStarOffsets[index]);
+					_preBannerStarSpin[index].Draw(g, (Vector2)SpinningStarOffsets[index]);
 			}
 			DrawSonicAndTails(renderer);
 			if (_sonic2AnimationInstance != null)
-				_sonic2AnimationInstance.Draw(renderer1, new Colour(_sonic2Opacity, 1.0, 1.0, 1.0), new Vector2(0.0, 77.0));
+				_sonic2AnimationInstance.Draw(g, new Colour(_sonic2Opacity, 1.0, 1.0, 1.0), new Vector2(0.0, 77.0));
 			if (_theHedgehogAnimationInstance != null)
-				_theHedgehogAnimationInstance.Draw(renderer1, new Vector2(0.0, 153.0));
+				_theHedgehogAnimationInstance.Draw(g, new Vector2(0.0, 153.0));
 			if (_hdAnimationInstance != null)
-				_hdAnimationInstance.Draw(renderer1, new Vector2(0.0, 266.0));
+				_hdAnimationInstance.Draw(g, new Vector2(0.0, 266.0));
 			if (!ShowStarLensFare)
 				return;
-			renderer1.BlendMode = BlendMode.Additive;
-			renderer1.RenderTexture(_hdStarTexture, new Vector2(0.0, 188.0));
+			g.BlendMode = BlendMode.Additive;
+			g.RenderTexture(_hdStarTexture, new Vector2(0.0, 188.0));
 		}
 	}
 
@@ -226,18 +227,22 @@ internal class Banner
 
 	private void DrawSonicAndTails(Renderer renderer)
 	{
-		I2dRenderer renderer1 = renderer.Get2dRenderer();
+		I2dRenderer g = renderer.Get2dRenderer();
 		if (_sonicAnimationInstance != null)
-			_sonicAnimationInstance.Draw(renderer1, new Vector2(89.0, -158.0));
+			_sonicAnimationInstance.Draw(g, new Vector2(89.0, -158.0));
 		if (_sonicHandAnimationInstance != null)
-			_sonicHandAnimationInstance.Draw(renderer1, new Vector2(230.0, -89.0));
+			_sonicHandAnimationInstance.Draw(g, new Vector2(230.0, -89.0));
 		if (_tailsTailsAnimationInstance != null)
-			_tailsTailsAnimationInstance.Draw(renderer1, new Vector2(-264.0, -65.0));
+			_tailsTailsAnimationInstance.Draw(g, new Vector2(-264.0, -65.0));
 		if (_tailsAnimationInstance == null)
 			return;
-		_tailsAnimationInstance.Draw(renderer1, new Vector2(-108.0, -121.0));
+		_tailsAnimationInstance.Draw(g, new Vector2(-108.0, -121.0));
 	}
 
+	/// <summary>
+	/// Draws the shine over the title outline. A mask texture moves diagonally over the outline while
+	/// _maskOffset goes from -1 to 1.
+	/// </summary>
 	private void DrawTitleShine(Renderer renderer)
 	{
 		if (_maskOffset <= -1.0 || _maskOffset >= 1.0)

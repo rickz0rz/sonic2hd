@@ -1,9 +1,3 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: S2HD.Title.UserInterface
-// Assembly: S2HD, Version=2.0.1012.10521, Culture=neutral, PublicKeyToken=null
-// MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
-// Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
-
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,8 +13,37 @@ using SonicOrca.Resources;
 #nullable disable
 namespace S2HD.Title;
 
+/// <summary>
+/// The menus of the title screen: "PRESS START", the main menu (new game, options, quit), the character
+/// selection, and the hidden level select. It also starts the demo when the player waits too long.
+/// </summary>
 internal class UserInterface
 {
+	/// <summary>SDL scancode of the Escape key.</summary>
+	private const int EscapeScancode = 41;
+
+	// The inputs of the level select code. The code is up, down, left, right, and then Start while Action1 is held.
+	private const int LevelSelectInputNone = -1;
+	private const int LevelSelectInputUp = 0;
+	private const int LevelSelectInputDown = 1;
+	private const int LevelSelectInputLeft = 2;
+	private const int LevelSelectInputRight = 3;
+	private const int LevelSelectInputAction1 = 4;
+	private const int LevelSelectInputAction2 = 5;
+	private const int LevelSelectInputAction3 = 6;
+	private const int LevelSelectInputStart = 7;
+
+	// The values of _characterSelectionIndex.
+	private const int SonicAndTailsSelection = 0;
+	private const int SonicSelection = 1;
+	private const int TailsSelection = 2;
+	private const int CharacterSelectionCount = 3;
+
+	/// <summary>The Y position of the menu items and of "PRESS START".</summary>
+	private const int MenuY = 900;
+	/// <summary>The horizontal distance between two menu items.</summary>
+	private const int MenuItemSpacing = 400;
+
 	private readonly EffectEventManager _effectEventManager = new EffectEventManager();
 	private readonly S2HDSonicOrcaGameContext _gameContext;
 	private readonly TitleGameState _titleGameState;
@@ -56,82 +79,84 @@ internal class UserInterface
 	private int _levelSelectInputState;
 	private bool _levelSelectEnabled;
 	private int _levelSelectSelectionIndex;
-	private UserInterface.LevelSelectItem[] _levelSelectItems;
-	private UserInterface.MenuItem[] _menuItems;
-	private UserInterface.MenuItemWidget[] _menuItemWidgets;
+	private LevelSelectItem[] _levelSelectItems;
+	private MenuItem[] _menuItems;
+	private MenuItemWidget[] _menuItemWidgets;
 	private AnimationInstance _miniSonicAniInstance;
 	private AnimationInstance _miniTailsAniInstance;
 	private int _characterSelectionIndex;
 	private bool _characterSelectActive;
 	private double _characterSelectOpacity;
+	/// <summary>The time, in ticks, that the player can wait before the demo starts.</summary>
 	private const int DemoInitialTimeout = 720;
 	private int? _demoTimeout;
+	/// <summary>The time, in ticks, between the character selection and the start of the game.</summary>
 	private const int CharacterSelectTime = 60;
 	private int? _characterSelectTimer;
 	private bool _characterSelected;
 	private static readonly EaseTimeline PressStartScaleXTimeline = new EaseTimeline(new EaseTimeline.Entry[3]
 	{
-	new EaseTimeline.Entry(5, 1.0),
-	new EaseTimeline.Entry(10, 1.2),
-	new EaseTimeline.Entry(20, 0.0)
+		new EaseTimeline.Entry(5, 1.0),
+		new EaseTimeline.Entry(10, 1.2),
+		new EaseTimeline.Entry(20, 0.0)
 	});
 	private static readonly EaseTimeline PressStartScaleYTimeline = new EaseTimeline(new EaseTimeline.Entry[4]
 	{
-	new EaseTimeline.Entry(0, 1.0),
-	new EaseTimeline.Entry(5, 1.45),
-	new EaseTimeline.Entry(10, 1.0),
-	new EaseTimeline.Entry(20, 0.0)
+		new EaseTimeline.Entry(0, 1.0),
+		new EaseTimeline.Entry(5, 1.45),
+		new EaseTimeline.Entry(10, 1.0),
+		new EaseTimeline.Entry(20, 0.0)
 	});
 	private static readonly EaseTimeline PressStartWhiteAdditiveTimeline = new EaseTimeline(new EaseTimeline.Entry[2]
 	{
-	new EaseTimeline.Entry(0, 0.0),
-	new EaseTimeline.Entry(10, 1.0)
+		new EaseTimeline.Entry(0, 0.0),
+		new EaseTimeline.Entry(10, 1.0)
 	});
 	private static readonly EaseTimeline PressStartOpacityTimeline = new EaseTimeline(new EaseTimeline.Entry[2]
 	{
-	new EaseTimeline.Entry(10, 1.0),
-	new EaseTimeline.Entry(20, 0.0)
+		new EaseTimeline.Entry(10, 1.0),
+		new EaseTimeline.Entry(20, 0.0)
 	});
 	private static readonly EaseTimeline TextOpacityTimeline = new EaseTimeline(new EaseTimeline.Entry[2]
 	{
-	new EaseTimeline.Entry(20, 0.0),
-	new EaseTimeline.Entry(30, 1.0)
+		new EaseTimeline.Entry(20, 0.0),
+		new EaseTimeline.Entry(30, 1.0)
 	});
 	private static readonly EaseTimeline TextWhiteAdditiveTimeline = new EaseTimeline(new EaseTimeline.Entry[2]
 	{
-	new EaseTimeline.Entry(20, 1.0),
-	new EaseTimeline.Entry(30, 0.0)
+		new EaseTimeline.Entry(20, 1.0),
+		new EaseTimeline.Entry(30, 0.0)
 	});
 	private static readonly EaseTimeline MenuItemOpacityEaseTimeline = new EaseTimeline(new EaseTimeline.Entry[5]
 	{
-	new EaseTimeline.Entry(260, 0.0),
-	new EaseTimeline.Entry(560, 0.5),
-	new EaseTimeline.Entry(960, 1.0),
-	new EaseTimeline.Entry(1360, 0.5),
-	new EaseTimeline.Entry(1660, 0.0)
+		new EaseTimeline.Entry(260, 0.0),
+		new EaseTimeline.Entry(560, 0.5),
+		new EaseTimeline.Entry(960, 1.0),
+		new EaseTimeline.Entry(1360, 0.5),
+		new EaseTimeline.Entry(1660, 0.0)
 	});
 	private static readonly EaseTimeline ActivatedTextScaleTimeline = new EaseTimeline(new EaseTimeline.Entry[3]
 	{
-	new EaseTimeline.Entry(0, 1.0),
-	new EaseTimeline.Entry(15, 0.8),
-	new EaseTimeline.Entry(30, 1.4)
+		new EaseTimeline.Entry(0, 1.0),
+		new EaseTimeline.Entry(15, 0.8),
+		new EaseTimeline.Entry(30, 1.4)
 	});
 	private static readonly EaseTimeline ActivatedTextOpacityTimeline = new EaseTimeline(new EaseTimeline.Entry[2]
 	{
-	new EaseTimeline.Entry(15, 1.0),
-	new EaseTimeline.Entry(30, 0.0)
+		new EaseTimeline.Entry(15, 1.0),
+		new EaseTimeline.Entry(30, 0.0)
 	});
 
 	public bool Visible { get; set; }
 
 	private bool IsSonicActive
 	{
-		get => _characterSelectionIndex == 0 || _characterSelectionIndex == 1;
+		get => _characterSelectionIndex == SonicAndTailsSelection || _characterSelectionIndex == SonicSelection;
 	}
 
 	private bool IsTailsActive
 	{
-		get => _characterSelectionIndex == 0 || _characterSelectionIndex == 2;
+		get => _characterSelectionIndex == SonicAndTailsSelection || _characterSelectionIndex == TailsSelection;
 	}
 
 	public UserInterface(
@@ -144,8 +169,8 @@ internal class UserInterface
 		_maskRenderer = maskRenderer;
 		ResourceTree resourceTree = _gameContext.ResourceTree;
 		resourceTree.FullfillLoadedResourcesByAttribute(this);
-		_miniSonicAniInstance = new AnimationInstance(resourceTree, "SONICORCA/TITLE/ANIGROUP", 11);
-		_miniTailsAniInstance = new AnimationInstance(resourceTree, "SONICORCA/TITLE/ANIGROUP", 13);
+		_miniSonicAniInstance = new AnimationInstance(resourceTree, TitleResources.AnimationGroupResourceKey, TitleResources.MiniSonicIdleAnimationIndex);
+		_miniTailsAniInstance = new AnimationInstance(resourceTree, TitleResources.AnimationGroupResourceKey, TitleResources.MiniTailsIdleAnimationIndex);
 		InitialiseLevelSelect();
 	}
 
@@ -162,8 +187,8 @@ internal class UserInterface
 		_levelSelectEnabled = false;
 		_levelSelectSelectionIndex = 0;
 		_effectEventManager.Clear();
-		_demoTimeout = new int?(720);
-		_characterSelectTimer = new int?(60);
+		_demoTimeout = DemoInitialTimeout;
+		_characterSelectTimer = CharacterSelectTime;
 		InitialiseMenuItemWidgets();
 	}
 
@@ -186,51 +211,46 @@ internal class UserInterface
 		_effectEventManager.Update();
 		HandleInput();
 		++_ticks;
-		int? nullable;
 		if (_demoTimeout.HasValue)
 		{
-			int? demoTimeout = _demoTimeout;
-			_demoTimeout = demoTimeout.HasValue ? new int?(demoTimeout.GetValueOrDefault() - 1) : new int?();
-			nullable = _demoTimeout;
-			int num = 0;
-			if ((nullable.GetValueOrDefault() <= num ? (nullable.HasValue ? 1 : 0) : 0) != 0)
+			_demoTimeout--;
+			if (_demoTimeout <= 0)
 			{
-				_demoTimeout = new int?();
+				_demoTimeout = null;
 				StartDemo();
 			}
 		}
 		if (!_characterSelected)
 			return;
-		nullable = _characterSelectTimer;
-		_characterSelectTimer = nullable.HasValue ? new int?(nullable.GetValueOrDefault() - 1) : new int?();
-		nullable = _characterSelectTimer;
-		int num1 = 0;
-		if ((nullable.GetValueOrDefault() == num1 ? (nullable.HasValue ? 1 : 0) : 0) == 0)
+		_characterSelectTimer--;
+		if (_characterSelectTimer != 0)
 			return;
 		OnSelectCharacter();
 	}
 
 	private void HandleInput()
 	{
-		Controller pressed1 = _gameContext.Pressed[0];
-		InputState pressed2 = _gameContext.Input.Pressed;
+		Controller pressed = _gameContext.Pressed[0];
+		InputState pressedInputState = _gameContext.Input.Pressed;
 		if (_busy)
 			return;
 		if (!_levelSelectEnabled)
 		{
-			int selectControllerInput = GetLevelSelectControllerInput(pressed1);
-			if (selectControllerInput != -1)
+			// Check for the level select code. _levelSelectInputState counts the correct inputs.
+			int levelSelectInput = GetLevelSelectControllerInput(pressed);
+			if (levelSelectInput != LevelSelectInputNone)
 			{
-				if (_levelSelectInputState <= 3)
+				if (_levelSelectInputState <= LevelSelectInputRight)
 				{
-					if (_levelSelectInputState != selectControllerInput)
+					// The first four inputs are up, down, left and right, which have the values 0 to 3.
+					if (_levelSelectInputState != levelSelectInput)
 						_levelSelectInputState = 0;
 					else
 						++_levelSelectInputState;
 				}
-				else if (selectControllerInput == 4 || selectControllerInput == 7)
+				else if (levelSelectInput == LevelSelectInputAction1 || levelSelectInput == LevelSelectInputStart)
 				{
-					if (_gameContext.Current[0].Action1 && selectControllerInput == 7)
+					if (_gameContext.Current[0].Action1 && levelSelectInput == LevelSelectInputStart)
 					{
 						_levelSelectInputState = 0;
 						_levelSelectEnabled = true;
@@ -239,72 +259,74 @@ internal class UserInterface
 					}
 				}
 				else
+				{
 					_levelSelectInputState = 0;
+				}
 			}
 		}
 		if (_levelSelectEnabled)
 		{
-			if (Math.Abs(pressed1.DirectionLeft.Y) >= 0.5)
+			if (Math.Abs(pressed.DirectionLeft.Y) >= 0.5)
 			{
-				if (Math.Sign(pressed1.DirectionLeft.Y) < 0)
+				if (Math.Sign(pressed.DirectionLeft.Y) < 0)
 				{
-					_levelSelectSelectionIndex = UserInterface.NegMod(_levelSelectSelectionIndex - 1, _levelSelectItems.Length);
+					_levelSelectSelectionIndex = NegMod(_levelSelectSelectionIndex - 1, _levelSelectItems.Length);
 					_gameContext.Audio.PlaySound(_sampleNavigateCursor);
 				}
 				else
 				{
-					_levelSelectSelectionIndex = UserInterface.NegMod(_levelSelectSelectionIndex + 1, _levelSelectItems.Length);
+					_levelSelectSelectionIndex = NegMod(_levelSelectSelectionIndex + 1, _levelSelectItems.Length);
 					_gameContext.Audio.PlaySound(_sampleNavigateCursor);
 				}
 			}
-			if (pressed1.Start)
+			if (pressed.Start)
 			{
 				_gameContext.Audio.PlaySound(_sampleNavigateYes);
 				OnLevelSelectStart();
 			}
-			if (!UserInterface.BackPressed(pressed2))
+			if (!BackPressed(pressedInputState))
 				return;
 			_gameContext.Audio.PlaySound(_sampleNavigateBack);
 			_levelSelectEnabled = false;
 		}
 		else if (_pressStartActive)
 		{
-			if (!pressed1.Start)
+			if (!pressed.Start)
 				return;
 			_effectEventManager.BeginEvent(EffectPressStart());
 			_pressStartActive = false;
-			_demoTimeout = new int?();
+			_demoTimeout = null;
 			_gameContext.Audio.PlaySound(_sampleNavigateYes);
 		}
 		else if (_characterSelectActive)
 		{
-			if (Math.Abs(pressed1.DirectionLeft.X) >= 0.5)
+			if (Math.Abs(pressed.DirectionLeft.X) >= 0.5)
 			{
-				_characterSelectionIndex = Math.Sign(pressed1.DirectionLeft.X) >= 0 ? (_characterSelectionIndex + 1) % 3 : (_characterSelectionIndex - 1 + 3) % 3;
-				_miniSonicAniInstance.Index = 11;
-				_miniTailsAniInstance.Index = 13;
+				_characterSelectionIndex = Math.Sign(pressed.DirectionLeft.X) >= 0 ? (_characterSelectionIndex + 1) % CharacterSelectionCount : (_characterSelectionIndex - 1 + CharacterSelectionCount) % CharacterSelectionCount;
+				_miniSonicAniInstance.Index = TitleResources.MiniSonicIdleAnimationIndex;
+				_miniTailsAniInstance.Index = TitleResources.MiniTailsIdleAnimationIndex;
 				_gameContext.Audio.PlaySound(_sampleNavigateCursor);
 			}
-			if (UserInterface.BackPressed(pressed2))
+			if (BackPressed(pressedInputState))
 			{
 				_characterSelectActive = false;
 				_gameContext.Audio.PlaySound(_sampleNavigateBack);
 			}
 			else
 			{
-				if (!pressed1.Start)
+				if (!pressed.Start)
 					return;
 				_gameContext.Audio.PlaySound(_sampleNavigateYes);
-				_miniSonicAniInstance.Index = IsSonicActive ? 12 : 11;
-				_miniTailsAniInstance.Index = IsTailsActive ? 14 : 13;
+				_miniSonicAniInstance.Index = IsSonicActive ? TitleResources.MiniSonicReadyAnimationIndex : TitleResources.MiniSonicIdleAnimationIndex;
+				_miniTailsAniInstance.Index = IsTailsActive ? TitleResources.MiniTailsReadyAnimationIndex : TitleResources.MiniTailsIdleAnimationIndex;
 				_characterSelected = true;
 			}
 		}
 		else
 		{
-			if (UserInterface.BackPressed(pressed2))
+			if (BackPressed(pressedInputState))
 			{
-				_demoTimeout = new int?(720);
+				_demoTimeout = DemoInitialTimeout;
 				_pressStartActive = true;
 				_pressStartOpacity = 1.0;
 				_pressStartScale = new Vector2(1.0);
@@ -313,18 +335,16 @@ internal class UserInterface
 				InitialiseMenuItemWidgets();
 				_gameContext.Audio.PlaySound(_sampleNavigateBack);
 			}
-			if (Math.Abs(pressed1.DirectionLeft.X) >= 0.5)
+			if (Math.Abs(pressed.DirectionLeft.X) >= 0.5)
 			{
-				int direction = Math.Sign(pressed1.DirectionLeft.X);
+				int direction = Math.Sign(pressed.DirectionLeft.X);
 				_selectionIndex = direction >= 0 ? (_selectionIndex + 1) % _menuItems.Length : (_selectionIndex - 1 + _menuItems.Length) % _menuItems.Length;
 				_effectEventManager.BeginEvent(EffectNavigateMenu(direction));
 				_gameContext.Audio.PlaySound(_sampleNavigateCursor);
 			}
-			if (!pressed1.Start)
+			if (!pressed.Start)
 				return;
-			Action action = _menuItems[_selectionIndex].Action;
-			if (action != null)
-				action();
+			_menuItems[_selectionIndex].Action?.Invoke();
 			_gameContext.Audio.PlaySound(_sampleNavigateYes);
 		}
 	}
@@ -332,72 +352,73 @@ internal class UserInterface
 	private static bool BackPressed(InputState inputState)
 	{
 		GamePadInputState gamePadInputState = inputState.GamePad[0];
-		return inputState.Keyboard[41] || gamePadInputState.Select || gamePadInputState.East;
+		return inputState.Keyboard[EscapeScancode] || gamePadInputState.Select || gamePadInputState.East;
 	}
 
 	private int GetLevelSelectControllerInput(Controller pressed)
 	{
 		if (pressed.DirectionLeft.Y <= -0.5)
-			return 0;
+			return LevelSelectInputUp;
 		if (pressed.DirectionLeft.Y >= 0.5)
-			return 1;
+			return LevelSelectInputDown;
 		if (pressed.DirectionLeft.X <= -0.5)
-			return 2;
+			return LevelSelectInputLeft;
 		if (pressed.DirectionLeft.X >= 0.5)
-			return 3;
+			return LevelSelectInputRight;
 		if (pressed.Action1)
-			return 4;
+			return LevelSelectInputAction1;
 		if (pressed.Action2)
-			return 5;
+			return LevelSelectInputAction2;
 		if (pressed.Action3)
-			return 6;
-		return pressed.Start ? 7 : -1;
+			return LevelSelectInputAction3;
+		return pressed.Start ? LevelSelectInputStart : LevelSelectInputNone;
 	}
 
 	private void InitialiseMenuItemWidgets()
 	{
-		_menuItems = new UserInterface.MenuItem[3]
+		_menuItems = new MenuItem[3]
 		{
-	  new UserInterface.MenuItem()
-	  {
-		Text = "NEW GAME",
-		Action = new Action(OnSelectNewGame)
-	  },
-	  new UserInterface.MenuItem()
-	  {
-		Text = "OPTIONS",
-		Action = new Action(OnSelectOptions)
-	  },
-	  new UserInterface.MenuItem()
-	  {
-		Text = "QUIT",
-		Action = new Action(OnSelectQuit)
-	  }
-		};
-		_menuItemWidgets = new UserInterface.MenuItemWidget[5];
-		for (int index1 = -2; index1 <= 2; ++index1)
-		{
-			int index2 = (_selectionIndex + index1 + _menuItems.Length) % _menuItems.Length;
-			UserInterface.MenuItem menuItem = _menuItems[index2];
-			UserInterface.MenuItemWidget menuItemWidget = new UserInterface.MenuItemWidget()
+			new MenuItem()
 			{
-				MenuItemIndex = index2,
-				OriginOffset = index1,
-				X = 960 + 400 * index1,
+				Text = "NEW GAME",
+				Action = OnSelectNewGame
+			},
+			new MenuItem()
+			{
+				Text = "OPTIONS",
+				Action = OnSelectOptions
+			},
+			new MenuItem()
+			{
+				Text = "QUIT",
+				Action = OnSelectQuit
+			}
+		};
+		// The menu is a carousel of 5 widgets, from 2 places left of the selection to 2 places right of it.
+		// The menu items repeat, so one item can have more than one widget.
+		_menuItemWidgets = new MenuItemWidget[5];
+		for (int offset = -2; offset <= 2; ++offset)
+		{
+			int menuItemIndex = (_selectionIndex + offset + _menuItems.Length) % _menuItems.Length;
+			MenuItemWidget menuItemWidget = new MenuItemWidget()
+			{
+				MenuItemIndex = menuItemIndex,
+				OriginOffset = offset,
+				X = 960 + MenuItemSpacing * offset,
 				Scale = new Vector2(1.0)
 			};
-			menuItemWidget.Opacity = (float)UserInterface.MenuItemOpacityEaseTimeline.GetValueAt((int)menuItemWidget.X);
-			_menuItemWidgets[index1 + 2] = menuItemWidget;
+			menuItemWidget.Opacity = (float)MenuItemOpacityEaseTimeline.GetValueAt((int)menuItemWidget.X);
+			_menuItemWidgets[offset + 2] = menuItemWidget;
 		}
 		SetSelectionMarkerPositions();
 	}
 
 	private void SetSelectionMarkerPositions()
 	{
-		UserInterface.MenuItemWidget menuItemWidget = _menuItemWidgets.First<UserInterface.MenuItemWidget>(x => x.OriginOffset == 0);
+		MenuItemWidget menuItemWidget = _menuItemWidgets.First(x => x.OriginOffset == 0);
 		int markerOffset = GetMarkerOffset(_selectionIndex);
-		_selectedMenuItemMarkerPositions[0] = new Vector2((double)menuItemWidget.X - markerOffset, 900.0);
-		_selectedMenuItemMarkerPositions[1] = new Vector2((double)menuItemWidget.X + markerOffset, 900.0);
+		_selectedMenuItemMarkerPositions[0] = new Vector2((double)menuItemWidget.X - markerOffset, MenuY);
+		_selectedMenuItemMarkerPositions[1] = new Vector2((double)menuItemWidget.X + markerOffset, MenuY);
 	}
 
 	private int GetMenuItemWidth(int index)
@@ -405,28 +426,29 @@ internal class UserInterface
 		return (int)_fontImpactRegular.MeasureString(_menuItems[index].Text).Width;
 	}
 
-	private int GetMarkerOffset(int index) => GetMenuItemWidth(index) / 2 + 48 /*0x30*/;
+	/// <summary>The horizontal distance from the centre of a menu item to each of its selection markers.</summary>
+	private int GetMarkerOffset(int index) => GetMenuItemWidth(index) / 2 + 48;
 
 	private void InitialiseLevelSelect()
 	{
-		List<UserInterface.LevelSelectItem> levelSelectItemList = new List<UserInterface.LevelSelectItem>();
-		int num = 1;
-		foreach (LevelInfo level in (IEnumerable<LevelInfo>)Levels.LevelList)
+		List<LevelSelectItem> levelSelectItemList = new List<LevelSelectItem>();
+		int levelNumber = 1;
+		foreach (LevelInfo level in Levels.LevelList)
 		{
 			if (!level.Unreleased)
 			{
-				for (int index = 1; index <= level.Acts; ++index)
+				for (int act = 1; act <= level.Acts; ++act)
 				{
-					string upper = $"{level.Name} ACT {index}".ToUpper();
-					levelSelectItemList.Add(new UserInterface.LevelSelectItem()
+					string text = $"{level.Name} ACT {act}".ToUpper();
+					levelSelectItemList.Add(new LevelSelectItem()
 					{
-						Text = upper,
+						Text = text,
 						Mnemonic = level.Mnemonic,
-						Act = index,
-						Number = num
+						Act = act,
+						Number = levelNumber
 					});
 				}
-				++num;
+				++levelNumber;
 			}
 		}
 		_levelSelectItems = levelSelectItemList.ToArray();
@@ -473,7 +495,7 @@ internal class UserInterface
 	private void OnLevelSelectStart()
 	{
 		_busy = true;
-		UserInterface.LevelSelectItem levelSelectItem = _levelSelectItems[_levelSelectSelectionIndex];
+		LevelSelectItem levelSelectItem = _levelSelectItems[_levelSelectSelectionIndex];
 		LevelPrepareSettings lps = new LevelPrepareSettings()
 		{
 			AreaResourceKey = Levels.GetAreaResourceKey(levelSelectItem.Mnemonic),
@@ -490,15 +512,15 @@ internal class UserInterface
 	{
 		switch (_characterSelectionIndex)
 		{
-			case 0:
+			case SonicAndTailsSelection:
 				lps.ProtagonistCharacter = CharacterType.Sonic;
 				lps.SidekickCharacter = CharacterType.Tails;
 				break;
-			case 1:
+			case SonicSelection:
 				lps.ProtagonistCharacter = CharacterType.Sonic;
 				lps.SidekickCharacter = CharacterType.Null;
 				break;
-			case 2:
+			case TailsSelection:
 				lps.ProtagonistCharacter = CharacterType.Tails;
 				lps.SidekickCharacter = CharacterType.Null;
 				break;
@@ -510,29 +532,34 @@ internal class UserInterface
 		_busy = true;
 		for (int t = 0; t <= 50; ++t)
 		{
-			_pressStartScale = new Vector2(UserInterface.PressStartScaleXTimeline.GetValueAt(t), UserInterface.PressStartScaleYTimeline.GetValueAt(t));
-			_pressStartWhiteAdditive = UserInterface.PressStartWhiteAdditiveTimeline.GetValueAt(t);
-			_pressStartOpacity = UserInterface.PressStartOpacityTimeline.GetValueAt(t);
-			_textOpacity = UserInterface.TextOpacityTimeline.GetValueAt(t);
-			_textWhiteAdditive = UserInterface.TextWhiteAdditiveTimeline.GetValueAt(t);
+			_pressStartScale = new Vector2(PressStartScaleXTimeline.GetValueAt(t), PressStartScaleYTimeline.GetValueAt(t));
+			_pressStartWhiteAdditive = PressStartWhiteAdditiveTimeline.GetValueAt(t);
+			_pressStartOpacity = PressStartOpacityTimeline.GetValueAt(t);
+			_textOpacity = TextOpacityTimeline.GetValueAt(t);
+			_textWhiteAdditive = TextWhiteAdditiveTimeline.GetValueAt(t);
 			yield return UpdateResult.Next();
 		}
 		_busy = false;
 	}
 
+	/// <summary>
+	/// Slides the menu items one place in <paramref name="direction"/> over 15 ticks. The selection markers
+	/// move up during the first 8 ticks, and then move down to the new item.
+	/// </summary>
 	private IEnumerable<UpdateResult> EffectNavigateMenu(int direction)
 	{
 		_busy = true;
-		int markerOffset = GetMarkerOffset(UserInterface.NegMod(_selectionIndex - direction, _menuItems.Length));
+		int markerOffset = GetMarkerOffset(NegMod(_selectionIndex - direction, _menuItems.Length));
+		// Integer division, as in the original code.
 		double markerVelocityX = (GetMarkerOffset(_selectionIndex) - markerOffset) / 7;
 		double markerVelocityY = 7.0;
 		float velocity = direction * -1 * 26.666666f;
 		for (int t = 0; t < 15; ++t)
 		{
-			foreach (UserInterface.MenuItemWidget menuItemWidget in _menuItemWidgets)
+			foreach (MenuItemWidget menuItemWidget in _menuItemWidgets)
 			{
 				menuItemWidget.X += velocity;
-				menuItemWidget.Opacity = (float)UserInterface.MenuItemOpacityEaseTimeline.GetValueAt((int)menuItemWidget.X);
+				menuItemWidget.Opacity = (float)MenuItemOpacityEaseTimeline.GetValueAt((int)menuItemWidget.X);
 			}
 			if (t <= 7)
 			{
@@ -548,23 +575,24 @@ internal class UserInterface
 			}
 			yield return UpdateResult.Next();
 		}
-		foreach (UserInterface.MenuItemWidget menuItemWidget in _menuItemWidgets)
+		// Snap the widgets to their new places. A widget that leaves one end of the carousel goes to the other end.
+		foreach (MenuItemWidget menuItemWidget in _menuItemWidgets)
 		{
-			int num = menuItemWidget.OriginOffset - direction;
-			switch (num)
+			int offset = menuItemWidget.OriginOffset - direction;
+			switch (offset)
 			{
 				case -3:
-					num = 2;
-					menuItemWidget.MenuItemIndex = UserInterface.NegMod(menuItemWidget.MenuItemIndex - 1, _menuItems.Length);
+					offset = 2;
+					menuItemWidget.MenuItemIndex = NegMod(menuItemWidget.MenuItemIndex - 1, _menuItems.Length);
 					break;
 				case 3:
-					num = -2;
-					menuItemWidget.MenuItemIndex = UserInterface.NegMod(menuItemWidget.MenuItemIndex + 1, _menuItems.Length);
+					offset = -2;
+					menuItemWidget.MenuItemIndex = NegMod(menuItemWidget.MenuItemIndex + 1, _menuItems.Length);
 					break;
 			}
-			menuItemWidget.X = 960 + 400 * num;
-			menuItemWidget.Opacity = (float)UserInterface.MenuItemOpacityEaseTimeline.GetValueAt((int)menuItemWidget.X);
-			menuItemWidget.OriginOffset = num;
+			menuItemWidget.X = 960 + MenuItemSpacing * offset;
+			menuItemWidget.Opacity = (float)MenuItemOpacityEaseTimeline.GetValueAt((int)menuItemWidget.X);
+			menuItemWidget.OriginOffset = offset;
 		}
 		SetSelectionMarkerPositions();
 		_busy = false;
@@ -572,14 +600,14 @@ internal class UserInterface
 
 	private IEnumerable<UpdateResult> EffectFadeOut()
 	{
-		UserInterface.MenuItemWidget widget = _menuItemWidgets.First<UserInterface.MenuItemWidget>(x => x.MenuItemIndex == _selectionIndex);
+		MenuItemWidget widget = _menuItemWidgets.First(x => x.MenuItemIndex == _selectionIndex);
 		_titleGameState.Background.WipeOut();
 		for (int t = 0; t <= 30; ++t)
 		{
 			if (t == 15)
 				_titleGameState.FadeOut();
-			widget.Scale = new Vector2(UserInterface.ActivatedTextScaleTimeline.GetValueAt(t));
-			_textOpacity = UserInterface.ActivatedTextOpacityTimeline.GetValueAt(t);
+			widget.Scale = new Vector2(ActivatedTextScaleTimeline.GetValueAt(t));
+			_textOpacity = ActivatedTextOpacityTimeline.GetValueAt(t);
 			yield return UpdateResult.Next();
 		}
 	}
@@ -605,28 +633,29 @@ internal class UserInterface
 	{
 		I2dRenderer g = renderer.Get2dRenderer();
 		IFontRenderer fontRenderer = renderer.GetFontRenderer();
-		Vector2i vector2i1 = new Vector2i(960, 900);
+		Vector2i centre = new Vector2i(960, MenuY);
 		if (_pressStartOpacity == 0.0)
 			return;
 		g.BlendMode = BlendMode.Alpha;
 		using (g.BeginMatixState())
 		{
 			g.ModelMatrix = g.ModelMatrix.Scale(_pressStartScale.X, _pressStartScale.Y);
-			g.ModelMatrix = g.ModelMatrix.Translate(vector2i1.X, vector2i1.Y);
+			g.ModelMatrix = g.ModelMatrix.Translate(centre.X, centre.Y);
 			g.AdditiveColour = new Colour(_pressStartWhiteAdditive);
 			fontRenderer.RenderStringWithShadow("PRESS START", new Rectangle(), FontAlignment.Centre, _fontImpactItalic, new Colour(_pressStartOpacity, 1.0, 1.0, 1.0), new int?(0));
 			g.AdditiveColour = Colours.Transparent;
 		}
-		int width1 = (int)_fontImpactItalic.MeasureString("PRESS START").Width;
-		int width2 = 79;
-		int num1 = 16 /*0x10*/;
-		Vector2i vector2i2 = new Vector2i(width1 / 2 + num1 + width2 / 2, 0);
-		int width3 = _textureZigZag.Width;
-		int num2 = _ticks / 2;
-		int wrapOffsetX1 = width3 - num2 % width3;
-		int wrapOffsetX2 = num2 % width3;
-		DrawZigZag(g, new Rectanglei(vector2i1.X - vector2i2.X - width2 / 2, vector2i1.Y, width2, 0), wrapOffsetX1);
-		DrawZigZag(g, new Rectanglei(vector2i1.X + vector2i2.X - width2 / 2, vector2i1.Y, width2, 0), wrapOffsetX2);
+		// Draw a scrolling zig-zag strip on each side of the text. The two strips scroll in opposite directions.
+		int textWidth = (int)_fontImpactItalic.MeasureString("PRESS START").Width;
+		int zigZagWidth = 79;
+		int gap = 16;
+		Vector2i zigZagOffset = new Vector2i(textWidth / 2 + gap + zigZagWidth / 2, 0);
+		int zigZagTextureWidth = _textureZigZag.Width;
+		int scroll = _ticks / 2;
+		int leftWrapOffsetX = zigZagTextureWidth - scroll % zigZagTextureWidth;
+		int rightWrapOffsetX = scroll % zigZagTextureWidth;
+		DrawZigZag(g, new Rectanglei(centre.X - zigZagOffset.X - zigZagWidth / 2, centre.Y, zigZagWidth, 0), leftWrapOffsetX);
+		DrawZigZag(g, new Rectanglei(centre.X + zigZagOffset.X - zigZagWidth / 2, centre.Y, zigZagWidth, 0), rightWrapOffsetX);
 	}
 
 	private void DrawZigZag(I2dRenderer g, Rectanglei rect, int wrapOffsetX)
@@ -647,20 +676,21 @@ internal class UserInterface
 
 	private void DrawMenuItems(Renderer renderer)
 	{
-		I2dRenderer obj = renderer.Get2dRenderer();
+		I2dRenderer g = renderer.Get2dRenderer();
 		renderer.GetFontRenderer();
-		int y = 900;
-		foreach (UserInterface.MenuItemWidget menuItemWidget in _menuItemWidgets)
+		int y = MenuY;
+		foreach (MenuItemWidget menuItemWidget in _menuItemWidgets)
 		{
-			UserInterface.MenuItem menuItem = _menuItems[menuItemWidget.MenuItemIndex];
+			MenuItem menuItem = _menuItems[menuItemWidget.MenuItemIndex];
 			bool selected = menuItemWidget.MenuItemIndex == _selectionIndex;
-			DrawMenuItem(renderer, menuItem.Text, new Vector2i((int)menuItemWidget.X, y), (double)menuItemWidget.Opacity, menuItemWidget.Scale, selected);
+			DrawMenuItem(renderer, menuItem.Text, new Vector2i((int)menuItemWidget.X, y), menuItemWidget.Opacity, menuItemWidget.Scale, selected);
 		}
-		obj.Colour = new Colour(_textOpacity, 1.0, 1.0, 1.0);
-		obj.AdditiveColour = new Colour(_textWhiteAdditive);
+		g.Colour = new Colour(_textOpacity, 1.0, 1.0, 1.0);
+		g.AdditiveColour = new Colour(_textWhiteAdditive);
+		// Round the marker positions to whole pixels.
 		foreach (Vector2 itemMarkerPosition in _selectedMenuItemMarkerPositions)
-			obj.RenderTexture(_textureSelectionMarker, (Vector2)(Vector2i)itemMarkerPosition);
-		obj.AdditiveColour = Colours.Transparent;
+			g.RenderTexture(_textureSelectionMarker, (Vector2)(Vector2i)itemMarkerPosition);
+		g.AdditiveColour = Colours.Transparent;
 	}
 
 	private void DrawMenuItem(
@@ -671,81 +701,73 @@ internal class UserInterface
 	  Vector2 scale,
 	  bool selected = false)
 	{
-		I2dRenderer obj = renderer.Get2dRenderer();
+		I2dRenderer g = renderer.Get2dRenderer();
 		IFontRenderer fontRenderer = renderer.GetFontRenderer();
-		int num = 1;
-		if (!selected)
-			num = 0;
+		int overlay = selected ? 1 : 0;
 		if (_textOpacity < 1.0)
 			opacity *= _textOpacity;
-		double a = opacity * opacity * opacity;
+		// The shadow fades faster than the text.
+		double shadowOpacity = opacity * opacity * opacity;
 		Colour colour = new Colour(opacity, 1.0, 1.0, 1.0);
-		Colour shadowColour = new Colour(a, 0.0, 0.0, 0.0);
-		obj.AdditiveColour = new Colour(_textWhiteAdditive);
-		using (obj.BeginMatixState())
+		Colour shadowColour = new Colour(shadowOpacity, 0.0, 0.0, 0.0);
+		g.AdditiveColour = new Colour(_textWhiteAdditive);
+		using (g.BeginMatixState())
 		{
-			obj.ModelMatrix = obj.ModelMatrix.Scale(scale);
-			obj.ModelMatrix = obj.ModelMatrix.Translate((Vector2)position);
-			FontAlignment fontAlignment = FontAlignment.Centre;
-			Font fontImpactRegular = _fontImpactRegular;
-			fontRenderer.RenderStringWithShadow(text, new Rectangle(), fontAlignment, fontImpactRegular, colour, new int?(num), fontImpactRegular.DefaultShadow, shadowColour);
+			g.ModelMatrix = g.ModelMatrix.Scale(scale);
+			g.ModelMatrix = g.ModelMatrix.Translate((Vector2)position);
+			fontRenderer.RenderStringWithShadow(text, new Rectangle(), FontAlignment.Centre, _fontImpactRegular, colour, new int?(overlay), _fontImpactRegular.DefaultShadow, shadowColour);
 		}
-		obj.AdditiveColour = Colours.Transparent;
+		g.AdditiveColour = Colours.Transparent;
 	}
 
 	private void DrawCharacterSelect(Renderer renderer)
 	{
 		double characterSelectOpacity = _characterSelectOpacity;
-		Colour colour1 = new Colour(characterSelectOpacity, 0.25, 0.25, 0.25);
-		Colour colour2 = new Colour(characterSelectOpacity, 1.0, 1.0, 1.0);
-		string text1 = new string[3]
+		Colour inactiveColour = new Colour(characterSelectOpacity, 0.25, 0.25, 0.25);
+		Colour activeColour = new Colour(characterSelectOpacity, 1.0, 1.0, 1.0);
+		string text = new string[3]
 		{
-	  "SONIC & TAILS",
-	  "SONIC",
-	  "TAILS"
+			"SONIC & TAILS",
+			"SONIC",
+			"TAILS"
 		}[_characterSelectionIndex];
-		I2dRenderer renderer1 = renderer.Get2dRenderer();
+		I2dRenderer g = renderer.Get2dRenderer();
 		IFontRenderer fontRenderer = renderer.GetFontRenderer();
-		Rectangle rectangle1 = new Rectangle(0.0, 950.0, 1920.0, 60.0);
-		renderer1.BlendMode = BlendMode.Alpha;
-		renderer1.RenderQuad(new Colour(0.3 * characterSelectOpacity, 0.0, 0.0, 0.0), rectangle1);
-		string text2 = text1;
-		Rectangle boundary = rectangle1;
-		Font fontImpactRegular = _fontImpactRegular;
-		Colour colour3 = Colour.FromOpacity(characterSelectOpacity);
-		int? overlay = new int?(1);
-		fontRenderer.RenderStringWithShadow(text2, boundary, FontAlignment.Centre, fontImpactRegular, colour3, overlay);
-		renderer1.Colour = Colour.FromOpacity(characterSelectOpacity);
-		Rectangle rectangle2 = _fontImpactRegular.MeasureString(text1, rectangle1, FontAlignment.Centre);
-		renderer1.RenderTexture(_textureLeftArrow, new Vector2(rectangle2.Left - 50.0, rectangle2.CentreY));
-		renderer1.RenderTexture(_textureRightArrow, new Vector2(rectangle2.Right + 50.0, rectangle2.CentreY));
-		Colour colour4 = IsSonicActive ? colour2 : colour1;
-		_miniSonicAniInstance.Draw(renderer1, colour4, (Vector2)new Vector2i(910, 880));
-		Colour colour5 = IsTailsActive ? colour2 : colour1;
-		_miniTailsAniInstance.Draw(renderer1, colour5, (Vector2)new Vector2i(1010, 880));
+		Rectangle stripBounds = new Rectangle(0.0, 950.0, 1920.0, 60.0);
+		g.BlendMode = BlendMode.Alpha;
+		g.RenderQuad(new Colour(0.3 * characterSelectOpacity, 0.0, 0.0, 0.0), stripBounds);
+		fontRenderer.RenderStringWithShadow(text, stripBounds, FontAlignment.Centre, _fontImpactRegular, Colour.FromOpacity(characterSelectOpacity), new int?(1));
+		// Draw the left and right arrows next to the text.
+		g.Colour = Colour.FromOpacity(characterSelectOpacity);
+		Rectangle textBounds = _fontImpactRegular.MeasureString(text, stripBounds, FontAlignment.Centre);
+		g.RenderTexture(_textureLeftArrow, new Vector2(textBounds.Left - 50.0, textBounds.CentreY));
+		g.RenderTexture(_textureRightArrow, new Vector2(textBounds.Right + 50.0, textBounds.CentreY));
+		_miniSonicAniInstance.Draw(g, IsSonicActive ? activeColour : inactiveColour, (Vector2)new Vector2i(910, 880));
+		_miniTailsAniInstance.Draw(g, IsTailsActive ? activeColour : inactiveColour, (Vector2)new Vector2i(1010, 880));
 	}
 
 	private void DrawLevelSelect(Renderer renderer)
 	{
-		I2dRenderer obj = renderer.Get2dRenderer();
+		I2dRenderer g = renderer.Get2dRenderer();
 		IFontRenderer fontRenderer = renderer.GetFontRenderer();
-		obj.BlendMode = BlendMode.Alpha;
-		obj.RenderQuad(new Colour(0.8, 0.0, 0.0, 0.0), new Rectangle(0.0, 0.0, 1920.0, 1080.0));
+		g.BlendMode = BlendMode.Alpha;
+		g.RenderQuad(new Colour(0.8, 0.0, 0.0, 0.0), new Rectangle(0.0, 0.0, 1920.0, 1080.0));
 		int x = 660;
 		int y = 400;
-		int num1 = 0;
+		int index = 0;
 		fontRenderer.RenderStringWithShadow("LEVEL SELECT", new Rectangle(x, 330.0, 0.0, 0.0), FontAlignment.MiddleY, _fontImpactRegular, 0);
-		foreach (UserInterface.LevelSelectItem levelSelectItem in _levelSelectItems)
+		foreach (LevelSelectItem levelSelectItem in _levelSelectItems)
 		{
-			int num2 = _levelSelectSelectionIndex == num1 ? 1 : 0;
-			int num3 = num2 != 0 ? 1 : 0;
-			Colour colour = num2 != 0 ? Colours.White : new Colour(0.5, 1.0, 1.0, 1.0);
-			fontRenderer.RenderStringWithShadow(levelSelectItem.Text, new Rectangle(x, y, 0.0, 0.0), FontAlignment.MiddleY, _fontImpactRegular, colour, new int?(num3));
+			bool selected = _levelSelectSelectionIndex == index;
+			int overlay = selected ? 1 : 0;
+			Colour colour = selected ? Colours.White : new Colour(0.5, 1.0, 1.0, 1.0);
+			fontRenderer.RenderStringWithShadow(levelSelectItem.Text, new Rectangle(x, y, 0.0, 0.0), FontAlignment.MiddleY, _fontImpactRegular, colour, new int?(overlay));
 			y += 50;
-			++num1;
+			++index;
 		}
 	}
 
+	/// <summary>Returns x modulo divisor in the range 0 to divisor - 1, also when x is negative.</summary>
 	private static int NegMod(int x, int divisor)
 	{
 		while (x < 0)
@@ -753,6 +775,7 @@ internal class UserInterface
 		return x % divisor;
 	}
 
+	/// <summary>One item of the main menu: its text and the action that it does.</summary>
 	private class MenuItem
 	{
 		public string Text { get; set; }
@@ -760,6 +783,10 @@ internal class UserInterface
 		public Action Action { get; set; }
 	}
 
+	/// <summary>
+	/// The position, opacity and scale of one menu item on the screen. <see cref="OriginOffset"/> is the place
+	/// relative to the selected item, from -2 to 2.
+	/// </summary>
 	private class MenuItemWidget
 	{
 		public int OriginOffset { get; set; }
@@ -773,6 +800,7 @@ internal class UserInterface
 		public Vector2 Scale { get; set; }
 	}
 
+	/// <summary>One line of the level select: a level, an act, and the level number in the story.</summary>
 	private class LevelSelectItem
 	{
 		public string Text { get; set; }

@@ -1,9 +1,3 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: S2HD.S2HDSettings
-// Assembly: S2HD, Version=2.0.1012.10521, Culture=neutral, PublicKeyToken=null
-// MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
-// Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
-
 using SonicOrca;
 using SonicOrca.Audio;
 using SonicOrca.Graphics;
@@ -11,6 +5,10 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace S2HD;
 
+/// <summary>
+/// The audio and video settings of the game. Each change goes to the audio or window context and is saved
+/// to the configuration file at once.
+/// </summary>
 internal class S2HDSettings : IAudioSettings, IVideoSettings
 {
 	private readonly AudioContext _audioContext;
@@ -100,14 +98,14 @@ internal class S2HDSettings : IAudioSettings, IVideoSettings
 		_audioContext.MusicVolume = config.GetPropertyDouble("audio", "music_volume", 1.0);
 		_audioContext.SoundVolume = config.GetPropertyDouble("audio", "sound_volume", 1.0);
 		_mode = VideoMode.Windowed;
-		int result;
-		if (int.TryParse(config.GetProperty("video", "fullscreen", "0"), out result))
-			_mode = (VideoMode)result;
+		if (int.TryParse(config.GetProperty("video", "fullscreen", "0"), out int videoMode))
+			_mode = (VideoMode)videoMode;
 		Resolution = new Resolution(1920, 1080);
 		_enableShadows = config.GetPropertyBoolean("graphics", "shadows", true);
 		_enableWaterEffects = config.GetPropertyBoolean("graphics", "water_effects", true);
 		_enableHeatEffects = config.GetPropertyBoolean("graphics", "heat_effects");
 	}
 
+	/// <summary>Applies the video mode to the window.</summary>
 	public void Apply() => _windowContext.Mode = Mode;
 }

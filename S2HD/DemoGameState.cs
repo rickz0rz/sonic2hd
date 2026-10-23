@@ -1,9 +1,3 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: S2HD.DemoGameState
-// Assembly: S2HD, Version=2.0.1012.10521, Culture=neutral, PublicKeyToken=null
-// MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
-// Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
-
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -15,13 +9,20 @@ using SonicOrca.Resources;
 #nullable disable
 namespace S2HD;
 
+/// <summary>
+/// Plays the recorded Emerald Hill Zone demo that the title screen shows when the player waits.
+/// The demo stops after its time is over, or when the player presses Enter or Start.
+/// </summary>
 internal class DemoGameState : IGameState, IDisposable
 {
+	/// <summary>SDL scancode of the Enter key.</summary>
+	private const int EnterScancode = 40;
+	/// <summary>The length of the demo in level ticks (30 seconds at 60 ticks each second).</summary>
+	private const int DemoLength = 1800;
+
 	private readonly S2HDSonicOrcaGameContext _gameContext;
 	private readonly string _demoResourceKey;
-	private LevelPrepareSettings _prepareSettings;
 	private LevelGameState _levelGameState;
-	private int _demoLength = 1800;
 
 	public DemoGameState(S2HDSonicOrcaGameContext gameContext, string demoResourceKey)
 	{
@@ -31,7 +32,6 @@ internal class DemoGameState : IGameState, IDisposable
 
 	private void StartLevel(LevelPrepareSettings prepareSettings)
 	{
-		_prepareSettings = prepareSettings;
 		_levelGameState = new LevelGameState(_gameContext);
 		_levelGameState.PrepareSettings = prepareSettings;
 		_gameContext.Console.LevelGameState = _levelGameState;
@@ -62,27 +62,28 @@ internal class DemoGameState : IGameState, IDisposable
 			RecordedPlayReadData = demoData
 		});
 		bool finishingDemo = false;
-	label_1:
-		foreach (UpdateResult updateResult in _levelGameState.Update())
+		do
 		{
-			if (!finishingDemo && ShouldFinishDemo())
+			foreach (UpdateResult updateResult in _levelGameState.Update())
 			{
-				finishingDemo = true;
-				_levelGameState.Level?.FadeOut(LevelState.Quit);
+				if (!finishingDemo && ShouldFinishDemo())
+				{
+					finishingDemo = true;
+					_levelGameState.Level?.FadeOut(LevelState.Quit);
+				}
+				yield return updateResult;
 			}
-			yield return updateResult;
 		}
-		if (_levelGameState.Completed)
-			goto label_1;
+		while (_levelGameState.Completed);
 	}
 
 	private bool ShouldFinishDemo()
 	{
 		Level level = _levelGameState.Level;
-		if (level != null && level.Ticks >= _demoLength)
+		if (level != null && level.Ticks >= DemoLength)
 			return true;
 		InputState pressed = _gameContext.Input.Pressed;
-		return pressed.Keyboard[40] || pressed.GamePad[0].Start;
+		return pressed.Keyboard[EnterScancode] || pressed.GamePad[0].Start;
 	}
 
 	public void Draw()

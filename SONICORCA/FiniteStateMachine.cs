@@ -1,23 +1,23 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: SonicOrca.FiniteStateMachine
-// Assembly: S2HD, Version=2.0.1012.10521, Culture=neutral, PublicKeyToken=null
-// MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
-// Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
-
 using System;
 
 #nullable disable
 namespace SonicOrca;
 
+/// <summary>
+/// A small state machine that runs a chain of steps, one step for each call to <see cref="Update"/>.
+/// <see cref="Begin"/> starts a new chain, and the <see cref="IState"/> methods add steps to it.
+/// Calling <see cref="Begin"/> or <see cref="Finish"/> from a step stops the current chain at once.
+/// </summary>
 internal class FiniteStateMachine
 {
-	private FiniteStateMachine.State _currentState;
+	private State _currentState;
+	/// <summary>True when <see cref="Begin"/> or <see cref="Finish"/> was called during the current update.</summary>
 	private bool _reInitialised;
 
-	public FiniteStateMachine.IState Begin()
+	public IState Begin()
 	{
 		_reInitialised = true;
-		return _currentState = new FiniteStateMachine.State(this);
+		return _currentState = new State(this);
 	}
 
 	public void Finish()
@@ -26,33 +26,43 @@ internal class FiniteStateMachine
 		_currentState = null;
 	}
 
+	/// <summary>Runs the current step. Returns false when the chain is finished.</summary>
 	public bool Update()
 	{
 		if (_currentState == null)
 			return false;
 		_reInitialised = false;
-		FiniteStateMachine.State state = _currentState.Update();
+		State state = _currentState.Update();
 		if (!_reInitialised)
 			_currentState = state;
 		return true;
 	}
 
+	/// <summary>A step of the chain. Each method adds a step after this one and returns it.</summary>
 	public interface IState
 	{
-		FiniteStateMachine.IState Do(Action action);
+		/// <summary>Adds a step that runs the action once.</summary>
+		IState Do(Action action);
 
-		FiniteStateMachine.IState While(Func<bool> condition);
+		/// <summary>Adds a step that waits until the condition is false.</summary>
+		IState While(Func<bool> condition);
 
-		FiniteStateMachine.IState While(Func<bool> condition, Action action);
+		/// <summary>Adds a step that runs the action on each update while the condition is true.</summary>
+		IState While(Func<bool> condition, Action action);
 
-		FiniteStateMachine.IState Wait(int ticks);
+		/// <summary>Adds a step that waits for about the given number of updates.</summary>
+		IState Wait(int ticks);
 	}
 
-	private class State : FiniteStateMachine.IState
+	/// <summary>
+	/// One step of a chain. The first step of a chain has no action. A step is finished when
+	/// _finished is true after its action ran.
+	/// </summary>
+	private class State : IState
 	{
 		private readonly FiniteStateMachine _finiteStateMachine;
 		private readonly Action _action;
-		private FiniteStateMachine.State _next;
+		private State _next;
 		private bool _finished;
 
 		public State(FiniteStateMachine finiteStateMachine)
@@ -66,7 +76,8 @@ internal class FiniteStateMachine
 			_action = action;
 		}
 
-		public FiniteStateMachine.State Update()
+		/// <summary>Runs this step, and returns the step to run on the next update (null when the chain ends).</summary>
+		public State Update()
 		{
 			if (_finiteStateMachine._reInitialised)
 				return null;
@@ -78,18 +89,17 @@ internal class FiniteStateMachine
 			return _next != null ? _next.Update() : null;
 		}
 
-		public FiniteStateMachine.IState Do(Action action)
+		public IState Do(Action action)
 		{
-			FiniteStateMachine.State state1 = new FiniteStateMachine.State(_finiteStateMachine, action);
-			state1._finished = true;
-			FiniteStateMachine.State state2 = state1;
-			_next = state1;
-			return state2;
+			State state = new State(_finiteStateMachine, action);
+			state._finished = true;
+			_next = state;
+			return state;
 		}
 
-		public FiniteStateMachine.IState While(Func<bool> condition)
+		public IState While(Func<bool> condition)
 		{
-			return _next = new FiniteStateMachine.State(_finiteStateMachine, () =>
+			return _next = new State(_finiteStateMachine, () =>
 			{
 				if (condition())
 					return;
@@ -97,9 +107,9 @@ internal class FiniteStateMachine
 			});
 		}
 
-		public FiniteStateMachine.IState While(Func<bool> condition, Action action)
+		public IState While(Func<bool> condition, Action action)
 		{
-			return _next = new FiniteStateMachine.State(_finiteStateMachine, () =>
+			return _next = new State(_finiteStateMachine, () =>
 			{
 				if (condition())
 					action();
@@ -108,9 +118,9 @@ internal class FiniteStateMachine
 			});
 		}
 
-		public FiniteStateMachine.IState Wait(int ticks)
+		public IState Wait(int ticks)
 		{
-			return _next = new FiniteStateMachine.State(_finiteStateMachine, () =>
+			return _next = new State(_finiteStateMachine, () =>
 			{
 				if (ticks-- > 0)
 					return;

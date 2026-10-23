@@ -1,21 +1,20 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: S2HD.EffectEventManager
-// Assembly: S2HD, Version=2.0.1012.10521, Culture=neutral, PublicKeyToken=null
-// MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
-// Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
-
 using System.Collections.Generic;
 using SonicOrca;
 
 #nullable disable
 namespace S2HD;
 
+/// <summary>
+/// Runs a set of effect coroutines, one step on each call to <see cref="Update"/>.
+/// The title screen uses it for its animated effects.
+/// </summary>
 internal class EffectEventManager
 {
-	private List<Updater> _runningEvents = new List<Updater>();
+	private readonly List<Updater> _runningEvents = new List<Updater>();
 
 	public void Clear() => _runningEvents.Clear();
 
+	/// <summary>Runs the first step of the effect now, and keeps the effect if it has more steps.</summary>
 	public void BeginEvent(IEnumerable<UpdateResult> eventMethod)
 	{
 		Updater updater = new Updater(eventMethod);
