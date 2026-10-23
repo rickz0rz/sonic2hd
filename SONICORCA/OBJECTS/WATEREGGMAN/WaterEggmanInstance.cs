@@ -22,6 +22,11 @@ using SONICORCA.OBJECTS.DUST;
 #nullable disable
 namespace SONICORCA.OBJECTS.WATEREGGMAN;
 
+/// <summary>
+/// The Chemical Plant Zone boss. Eggman flies to one side of the arena, lowers a tube into the chemical water
+/// and fills a jar on the arm of the egg mobile. Then he flies over the protagonist and drops the chemical.
+/// After the defeat, the parts of the machine break off one by one and Eggman flies away to the right.
+/// </summary>
 public class WaterEggmanInstance : BossObject
 {
 	public const int AnimationBase = 0;
@@ -40,7 +45,7 @@ public class WaterEggmanInstance : BossObject
 	public const int AnimationJarReflection = 13;
 	public const int AnimationJarFillA = 14;
 	public const int AnimationJarFillB = 15;
-	public const int AnimationJarFillC = 16 /*0x10*/;
+	public const int AnimationJarFillC = 16;
 	public const int AnimationJarFillD = 17;
 	public const int AnimationJarDroplet = 18;
 	public const int AnimationJarLidClosed = 19;
@@ -55,8 +60,8 @@ public class WaterEggmanInstance : BossObject
 	private const int AnimationEggMobileScreenTurn1 = 28;
 	private const int AnimationEggMobileScreenTurn2 = 29;
 	private const int AnimationArmTurn1 = 30;
-	private const int AnimationArmTurn2 = 31 /*0x1F*/;
-	private const int AnimationSplash = 32 /*0x20*/;
+	private const int AnimationArmTurn2 = 31;
+	private const int AnimationSplash = 32;
 	private const int AnimationSplashDrop = 33;
 	private const int AnimationSplashSmallDrop = 34;
 	private const int AnimationSmoke = 35;
@@ -64,9 +69,14 @@ public class WaterEggmanInstance : BossObject
 	private const int AnimationBrokenBoiler = 37;
 	private const int AnimationBrokenTube = 38;
 	private const int AnimationBrokenBar = 39;
+
+	/// <summary>
+	/// The first of the seven broken piece animations (40 to 46).
+	/// </summary>
 	private const int AnimationBrokenPieces = 40;
+	private const int BrokenPiecesCount = 7;
 	private const int AnimationBrokenEggMobileChasis = 47;
-	private const int AnimationBrokenEggMobileChasisFlame = 48 /*0x30*/;
+	private const int AnimationBrokenEggMobileChasisFlame = 48;
 	private const int AnimationBrokenEggMobileScreen = 49;
 	private const int AnimationBrokenEggMobileCap = 50;
 	private const int AnimationBrokenEggMobileChasisTurn1 = 51;
@@ -74,6 +84,8 @@ public class WaterEggmanInstance : BossObject
 	private const int AnimationBrokenEggMobileScreenTurn1 = 53;
 	private const int AnimationBrokenEggMobileScreenTurn2 = 54;
 	private const int AnimationRobotnikFaceSplash = 55;
+
+	// The game also uses these two cap animations when the egg mobile turns before the defeat.
 	private const int AnimationBrokenEggMobileCapTurn1 = 56;
 	private const int AnimationBrokenEggMobileCapTurn2 = 57;
 	private const int AnimationJarFluidBottomPrimary = 58;
@@ -85,7 +97,73 @@ public class WaterEggmanInstance : BossObject
 	private const int AnimationRobotnikTurn1 = 4;
 	private const int AnimationRobotnikTurn2 = 5;
 	private const int AnimationDustSmoke = 1;
-	private WaterEggmanInstance.State _state;
+
+	private const int InitialHealth = 8;
+	private const int DefeatScore = 1000;
+
+	/// <summary>
+	/// The size of the area around the egg mobile in which explosions appear after the defeat.
+	/// </summary>
+	private const int ExplosionAreaSize = 64;
+
+	/// <summary>
+	/// The speed at which the egg mobile flies to a position.
+	/// </summary>
+	private const double FlySpeed = 12.0;
+
+	/// <summary>
+	/// The speed at which the arm extends and retracts.
+	/// </summary>
+	private const int ArmSpeed = 8;
+	private const int MaxArmExtension = 256;
+
+	/// <summary>
+	/// When the arm extends past this length, the jar can no longer splash Eggman if the boss is defeated.
+	/// </summary>
+	private const int ArmSplashLimit = 24;
+
+	/// <summary>
+	/// The horizontal distance between the protagonist and the target position of the egg mobile when it aims.
+	/// </summary>
+	private const int AimDistance = 256 + 48;
+
+	/// <summary>
+	/// The lowest position of the suction tube, and the speed at which the tube moves.
+	/// </summary>
+	private const int MaxTubeY = 396;
+	private const int TubeSpeed = 33;
+
+	/// <summary>
+	/// The number of ticks in the fill state, and the ticks after which the jar can splash Eggman and the jar is full.
+	/// </summary>
+	private const int FillTicks = 236;
+	private const int FillSplashTicks = 100;
+	private const int FillFullTicks = 176;
+
+	/// <summary>
+	/// The tick of the drop state at which the chemical droplet falls, and the number of ticks in the drop state.
+	/// </summary>
+	private const int DropTick = 2;
+	private const int DropTicks = 30;
+
+	/// <summary>
+	/// The number of ticks in which the suction tube sucks, and the step of the suction animation per tick.
+	/// </summary>
+	private const int SuctionTicks = 140;
+	private const float SuctionStep = 0.5f;
+
+	/// <summary>
+	/// The distance that the jar fluid rises for each fill step.
+	/// </summary>
+	private const int JarFillStep = 20;
+
+	private const double DefeatedFallGravity = 0.375;
+	private const double DefeatedMaxFallVelocity = 15.0;
+	private const int RecoverTicks = 60;
+	private const double RecoverRiseSpeed = 6.0;
+	private const double FleeSpeed = 12.0;
+
+	private State _state;
 	private AnimationGroup _animationGroup;
 	private AnimationInstance _animationEggMobileChasis;
 	private AnimationInstance _animationEggMobileScreen;
@@ -118,28 +196,43 @@ public class WaterEggmanInstance : BossObject
 	private int _stateTicks;
 	private int _armExtension;
 	private int _tubeY;
+
+	/// <summary>
+	/// The side of the arena where the boss fills the jar: -1 is the left side and 1 is the right side.
+	/// </summary>
 	private int _fillSide;
 	private bool _dripVisible;
 	private Vector2i _dripPosition;
 	private bool _jarEmpty;
 	private bool _jarFull;
+
+	/// <summary>
+	/// True when a defeat at this time makes the jar splash Eggman in the face.
+	/// </summary>
 	private bool _willJarSplashRobotnik;
+
+	/// <summary>
+	/// The height of the jar fluid. The value is 0 or negative, and it goes down as the jar fills.
+	/// </summary>
 	private int _jarFillY;
 	private bool _jarLidOpen;
 	private double _velocityY;
-	private WaterEggmanInstance.Boiler _boiler;
-	private WaterEggmanInstance.JarBack _jarBack;
-	private WaterEggmanInstance.ArmFront _armFront;
-	private WaterEggmanInstance.SuctionTube _suctionTube;
+	private Boiler _boiler;
+	private JarBack _jarBack;
+	private ArmFront _armFront;
+	private SuctionTube _suctionTube;
 	private bool _mobileExploding;
 	private bool _isFaceSplash;
 
-	public WaterEggmanInstance.State ActionState
+	public State ActionState
 	{
 		get => _state;
 		set => _state = value;
 	}
 
+	/// <summary>
+	/// The position of the jar relative to the egg mobile. It moves out with the arm.
+	/// </summary>
 	[HideInEditor]
 	public Vector2i JarOffset
 	{
@@ -160,46 +253,46 @@ public class WaterEggmanInstance : BossObject
 	protected override void OnStart()
 	{
 		ResourceTree resourceTree = Level.GameContext.ResourceTree;
-		AnimationGroup animationGroup = _animationGroup = resourceTree.GetLoadedResource<AnimationGroup>(Type, "/ANIGROUP");
-		AnimationGroup loadedResource = resourceTree.GetLoadedResource<AnimationGroup>(Type, "SONICORCA/OBJECTS/ROBOTNIK/ANIGROUP");
-		_animationEggMobileChasis = new AnimationInstance(animationGroup, 23);
-		_animationEggMobileScreen = new AnimationInstance(animationGroup, 24);
-		_animationEggMobileCap = new AnimationInstance(animationGroup, 25);
-		_animationRobotnik = new AnimationInstance(loadedResource);
-		_animationArmTurn = new AnimationInstance(animationGroup, 30);
-		_animationRobotnikFaceSplash = new AnimationInstance(animationGroup, 55);
+		AnimationGroup animationGroup = _animationGroup = resourceTree.GetLoadedResource<AnimationGroup>(Type, WaterEggmanType.AnimationGroupResourceKey);
+		AnimationGroup robotnikAnimationGroup = resourceTree.GetLoadedResource<AnimationGroup>(Type, WaterEggmanType.RobotnikAnimationGroupResourceKey);
+		_animationEggMobileChasis = new AnimationInstance(animationGroup, AnimationEggMobileChasisFlame);
+		_animationEggMobileScreen = new AnimationInstance(animationGroup, AnimationEggMobileScreen);
+		_animationEggMobileCap = new AnimationInstance(animationGroup, AnimationEggMobileCap);
+		_animationRobotnik = new AnimationInstance(robotnikAnimationGroup);
+		_animationArmTurn = new AnimationInstance(animationGroup, AnimationArmTurn1);
+		_animationRobotnikFaceSplash = new AnimationInstance(animationGroup, AnimationRobotnikFaceSplash);
 		_animationBase = new AnimationInstance(animationGroup);
-		_animationBaseShadow = new AnimationInstance(animationGroup, 8);
-		_animationBaseLightOn = new AnimationInstance(animationGroup, 1);
-		_animationBaseLightOff = new AnimationInstance(animationGroup, 2);
-		_animationArm = new AnimationInstance(animationGroup, 5);
-		_animationArmTap = new AnimationInstance(animationGroup, 9);
-		_animationArmTapCog = new AnimationInstance(animationGroup, 3);
-		_animationArmJar = new AnimationInstance(animationGroup, 12);
-		_animationArmJarReflection = new AnimationInstance(animationGroup, 13);
-		_animationArmJarLidClosed = new AnimationInstance(animationGroup, 19);
-		_animationArmJarLidBack = new AnimationInstance(animationGroup, 20);
-		_animationArmJarLidFront = new AnimationInstance(animationGroup, 21);
-		_animationDrip = new AnimationInstance(animationGroup, 11);
-		_animationArmJarFill = new AnimationInstance(animationGroup, 14);
-		_animationArmJarFillPlaceholderPrimary = new AnimationInstance(animationGroup, 58);
-		_animationArmJarFillPlaceholderSecondary = new AnimationInstance(animationGroup, 59);
-		_animationArmJarFilled = new AnimationInstance(animationGroup, 17);
-		ExplosionResourceKey = Type.GetAbsolutePath("SONICORCA/OBJECTS/EXPLOSION/BOSS");
-		HitSoundResourceKey = Type.GetAbsolutePath("SONICORCA/SOUND/BOSSHIT");
-		CollisionRectangles = new CollisionRectangle[1]
+		_animationBaseShadow = new AnimationInstance(animationGroup, AnimationBaseShadow);
+		_animationBaseLightOn = new AnimationInstance(animationGroup, AnimationBaseLightOn);
+		_animationBaseLightOff = new AnimationInstance(animationGroup, AnimationBaseLightOff);
+		_animationArm = new AnimationInstance(animationGroup, AnimationArm);
+		_animationArmTap = new AnimationInstance(animationGroup, AnimationArmTap);
+		_animationArmTapCog = new AnimationInstance(animationGroup, AnimationArmCog);
+		_animationArmJar = new AnimationInstance(animationGroup, AnimationJar);
+		_animationArmJarReflection = new AnimationInstance(animationGroup, AnimationJarReflection);
+		_animationArmJarLidClosed = new AnimationInstance(animationGroup, AnimationJarLidClosed);
+		_animationArmJarLidBack = new AnimationInstance(animationGroup, AnimationJarLidBack);
+		_animationArmJarLidFront = new AnimationInstance(animationGroup, AnimationJarLidFront);
+		_animationDrip = new AnimationInstance(animationGroup, AnimationDrip);
+		_animationArmJarFill = new AnimationInstance(animationGroup, AnimationJarFillA);
+		_animationArmJarFillPlaceholderPrimary = new AnimationInstance(animationGroup, AnimationJarFluidBottomPrimary);
+		_animationArmJarFillPlaceholderSecondary = new AnimationInstance(animationGroup, AnimationJarFluidBottomSecondary);
+		_animationArmJarFilled = new AnimationInstance(animationGroup, AnimationJarFillD);
+		ExplosionResourceKey = Type.GetAbsolutePath(WaterEggmanType.BossExplosionResourceKey);
+		HitSoundResourceKey = Type.GetAbsolutePath(WaterEggmanType.BossHitSoundResourceKey);
+		CollisionRectangles = new CollisionRectangle[]
 		{
-	  new CollisionRectangle( this, 0, -100, -100, 200, 200)
+			new CollisionRectangle(this, 0, -100, -100, 200, 200)
 		};
 		LockLifetime = true;
-		_state = WaterEggmanInstance.State.MoveToSide;
-		Health = 8;
+		_state = State.MoveToSide;
+		Health = InitialHealth;
 		_nonHoverPosition = (Vector2)Position;
 		_fillSide = 1;
-		_boiler = Level.ObjectManager.AddSubObject<WaterEggmanInstance.Boiler>(this);
-		_jarBack = Level.ObjectManager.AddSubObject<WaterEggmanInstance.JarBack>(this);
-		_armFront = Level.ObjectManager.AddSubObject<WaterEggmanInstance.ArmFront>(this);
-		_suctionTube = Level.ObjectManager.AddSubObject<WaterEggmanInstance.SuctionTube>(this);
+		_boiler = Level.ObjectManager.AddSubObject<Boiler>(this);
+		_jarBack = Level.ObjectManager.AddSubObject<JarBack>(this);
+		_armFront = Level.ObjectManager.AddSubObject<ArmFront>(this);
+		_suctionTube = Level.ObjectManager.AddSubObject<SuctionTube>(this);
 		_jarEmpty = true;
 		_isFaceSplash = false;
 		_updater = new Updater(GetUpdates());
@@ -209,135 +302,135 @@ public class WaterEggmanInstance : BossObject
 	{
 		base.OnUpdate();
 		_updater.Update();
-		if (_state != WaterEggmanInstance.State.Defeated && _state != WaterEggmanInstance.State.Recover)
+		if (_state != State.Defeated && _state != State.Recover)
 			Hover();
 		if (!_mobileExploding)
 			return;
-		UpdateExplosions(64 /*0x40*/);
+		UpdateExplosions(ExplosionAreaSize);
 	}
 
+	/// <summary>
+	/// The script of the boss. It runs as a coroutine: each yield is one step, one frame or more.
+	/// It runs the attack cycle until the defeat, then the defeat sequence, and then the escape.
+	/// </summary>
 	private IEnumerable<UpdateResult> GetUpdates()
 	{
-		while (_state < WaterEggmanInstance.State.Defeated)
+		while (_state < State.Defeated)
 		{
 			switch (_state)
 			{
-				case WaterEggmanInstance.State.MoveToSide:
-					int dest1 = _fillSide == -1 ? LeftFillX : RightFillX;
-					_nonHoverPosition.X = MathX.GoTowards(_nonHoverPosition.X, dest1, 12.0);
-					_armExtension = Math.Max(0, _armExtension - 8);
-					bool flag = _nonHoverPosition.X < (LeftFillX + RightFillX) / 2;
+				case State.MoveToSide:
+					// Retract the arm, fly to the fill position and turn to face the middle of the arena.
+					int fillX = _fillSide == -1 ? LeftFillX : RightFillX;
+					_nonHoverPosition.X = MathX.GoTowards(_nonHoverPosition.X, fillX, FlySpeed);
+					_armExtension = Math.Max(0, _armExtension - ArmSpeed);
+					bool faceRight = _nonHoverPosition.X < (LeftFillX + RightFillX) / 2;
 					if (_armExtension == 0)
 					{
-						if (_flipX != flag)
+						if (_flipX != faceRight)
 						{
-							if (_animationEggMobileChasis.Index != 26)
+							if (_animationEggMobileChasis.Index != AnimationEggMobileChasisTurn1)
 							{
-								_animationEggMobileChasis.Index = 26;
+								_animationEggMobileChasis.Index = AnimationEggMobileChasisTurn1;
 								_animationEggMobileChasis.Cycles = 0;
-								_animationEggMobileScreen.Index = 28;
-								_animationRobotnik.Index = 4;
-								_animationArmTurn.Index = 30;
+								_animationEggMobileScreen.Index = AnimationEggMobileScreenTurn1;
+								_animationRobotnik.Index = AnimationRobotnikTurn1;
+								_animationArmTurn.Index = AnimationArmTurn1;
 								_animationArmTurn.ResetFrame();
-								_animationEggMobileCap.Index = 56;
+								_animationEggMobileCap.Index = AnimationBrokenEggMobileCapTurn1;
 								_turning = true;
 							}
 							else if (_animationEggMobileChasis.Cycles >= 1)
 							{
-								_animationEggMobileChasis.Index = 27;
-								_animationEggMobileScreen.Index = 29;
-								_animationRobotnik.Index = 5;
-								_animationArmTurn.Index = 31 /*0x1F*/;
+								_animationEggMobileChasis.Index = AnimationEggMobileChasisTurn2;
+								_animationEggMobileScreen.Index = AnimationEggMobileScreenTurn2;
+								_animationRobotnik.Index = AnimationRobotnikTurn2;
+								_animationArmTurn.Index = AnimationArmTurn2;
 								_animationArmTurn.ResetFrame();
-								_animationEggMobileCap.Index = 57;
-								_flipX = flag;
+								_animationEggMobileCap.Index = AnimationBrokenEggMobileCapTurn2;
+								_flipX = faceRight;
 							}
 						}
 						else if (_animationEggMobileChasis.Cycles >= 2)
 							_turning = false;
 					}
-					if (_nonHoverPosition.X == dest1 && _armExtension == 0 && _flipX == flag && !_turning)
-					{
-						_state = WaterEggmanInstance.State.LoweringTube;
-						break;
-					}
+					if (_nonHoverPosition.X == fillX && _armExtension == 0 && _flipX == faceRight && !_turning)
+						_state = State.LoweringTube;
 					break;
-				case WaterEggmanInstance.State.LoweringTube:
-					if (_tubeY < 396)
+				case State.LoweringTube:
+					if (_tubeY < MaxTubeY)
 					{
-						_tubeY += 33;
-						_armExtension = Math.Max(0, _armExtension - 8);
+						_tubeY += TubeSpeed;
+						_armExtension = Math.Max(0, _armExtension - ArmSpeed);
 						break;
 					}
-					_tubeY = 396;
+					_tubeY = MaxTubeY;
 					_armExtension = 0;
 					_stateTicks = 0;
-					_state = WaterEggmanInstance.State.FillingJar;
+					_state = State.FillingJar;
 					break;
-				case WaterEggmanInstance.State.FillingJar:
-					if (_stateTicks < 236)
+				case State.FillingJar:
+					if (_stateTicks < FillTicks)
 					{
 						++_stateTicks;
-						if (_stateTicks > 100)
+						if (_stateTicks > FillSplashTicks)
 							_willJarSplashRobotnik = true;
-						if (_stateTicks > 176 /*0xB0*/)
-						{
+						if (_stateTicks > FillFullTicks)
 							_jarFull = true;
-							break;
-						}
 						break;
 					}
-					_state = WaterEggmanInstance.State.RaisingTube;
+					_state = State.RaisingTube;
 					break;
-				case WaterEggmanInstance.State.RaisingTube:
+				case State.RaisingTube:
 					if (_tubeY > 0)
 					{
-						_tubeY -= 33;
+						_tubeY -= TubeSpeed;
 						break;
 					}
 					_tubeY = 0;
-					_state = WaterEggmanInstance.State.Aiming;
+					_state = State.Aiming;
 					break;
-				case WaterEggmanInstance.State.Aiming:
-					_armExtension = Math.Min(256 /*0x0100*/, _armExtension + 8);
-					if (_armExtension >= 24)
+				case State.Aiming:
+					// Extend the arm and fly to a position where the jar is above the protagonist.
+					_armExtension = Math.Min(MaxArmExtension, _armExtension + ArmSpeed);
+					if (_armExtension >= ArmSplashLimit)
 						_willJarSplashRobotnik = false;
 					ICharacter protagonist = Level.Player.Protagonist;
-					int dest2 = _fillSide != -1 ? protagonist.Position.X + 256 /*0x0100*/ + 48 /*0x30*/ : protagonist.Position.X - 256 /*0x0100*/ - 48 /*0x30*/;
-					_nonHoverPosition.X = MathX.GoTowards(_nonHoverPosition.X, dest2, 12.0);
-					if (_armExtension == 256 /*0x0100*/ && _nonHoverPosition.X == dest2)
+					int aimX = _fillSide != -1 ? protagonist.Position.X + AimDistance : protagonist.Position.X - AimDistance;
+					_nonHoverPosition.X = MathX.GoTowards(_nonHoverPosition.X, aimX, FlySpeed);
+					if (_armExtension == MaxArmExtension && _nonHoverPosition.X == aimX)
 					{
 						_stateTicks = 0;
-						_state = WaterEggmanInstance.State.DroppingChemical;
-						break;
+						_state = State.DroppingChemical;
 					}
 					break;
-				case WaterEggmanInstance.State.DroppingChemical:
-					if (_stateTicks == 2)
+				case State.DroppingChemical:
+					if (_stateTicks == DropTick)
 					{
-						Vector2i vector2i = new Vector2i(_flipX ? 33 : -33, -186);
-						vector2i.X += _flipX ? _armExtension : -_armExtension;
-						vector2i.X += _flipX ? 8 : -8;
-						vector2i.Y -= 16 /*0x10*/;
-						WaterEggmanInstance.ChemicalDroplet chemicalDroplet = Level.ObjectManager.AddSubObject<WaterEggmanInstance.ChemicalDroplet>(this);
+						Vector2i dropletOffset = JarOffset;
+						dropletOffset.X += _flipX ? 8 : -8;
+						dropletOffset.Y -= 16;
+						ChemicalDroplet chemicalDroplet = Level.ObjectManager.AddSubObject<ChemicalDroplet>(this);
 						chemicalDroplet.FlipX = _flipX;
-						chemicalDroplet.Position = Position + vector2i;
+						chemicalDroplet.Position = Position + dropletOffset;
 						_jarEmpty = true;
 						_jarFull = false;
 					}
-					if (_stateTicks < 30)
+					if (_stateTicks < DropTicks)
 					{
 						++_stateTicks;
 						break;
 					}
 					_fillSide = _fillSide == -1 ? 1 : -1;
-					_state = WaterEggmanInstance.State.MoveToSide;
+					_state = State.MoveToSide;
 					break;
 			}
 			yield return UpdateResult.Next();
 		}
-		_animationEggMobileChasis.Index = 47;
-		_animationEggMobileScreen.Index = 49;
+
+		// The defeat: the parts of the machine explode one by one.
+		_animationEggMobileChasis.Index = AnimationBrokenEggMobileChasis;
+		_animationEggMobileScreen.Index = AnimationBrokenEggMobileScreen;
 		_isFaceSplash = _willJarSplashRobotnik;
 		_velocityY = 0.0;
 		_mobileExploding = true;
@@ -359,34 +452,38 @@ public class WaterEggmanInstance : BossObject
 		_boiler.Fall();
 		yield return UpdateResult.Wait(40);
 		_mobileExploding = false;
+
+		// The egg mobile falls, and then it rises again.
 		do
 		{
-			_velocityY += 0.375;
+			_velocityY += DefeatedFallGravity;
 			_nonHoverPosition += new Vector2(0.0, _velocityY);
 			PositionPrecise = _nonHoverPosition;
 			yield return UpdateResult.Next();
 		}
-		while (_velocityY < 15.0);
+		while (_velocityY < DefeatedMaxFallVelocity);
 		_isFaceSplash = false;
 		DoRobotnikNormal();
-		_state = WaterEggmanInstance.State.Recover;
-		for (int i = 0; i < 60; ++i)
+		_state = State.Recover;
+		for (int i = 0; i < RecoverTicks; ++i)
 		{
-			_nonHoverPosition += new Vector2(0.0, -6.0);
+			_nonHoverPosition += new Vector2(0.0, -RecoverRiseSpeed);
 			PositionPrecise = _nonHoverPosition;
 			yield return UpdateResult.Next();
 		}
+
+		// The escape: turn to face right and fly away. The damaged egg mobile dips and smokes as it flies.
 		Defeated = true;
-		_state = WaterEggmanInstance.State.Fleeing;
+		_state = State.Fleeing;
 		Fleeing = true;
 		PositionPrecise = _nonHoverPosition;
-		int hover_failure_ticks = 0;
+		int hoverFailureTicks = 0;
 		while (true)
 		{
-			_nonHoverPosition += new Vector2(12.0, 0.0);
+			_nonHoverPosition += new Vector2(FleeSpeed, 0.0);
 			if (!_turning)
 			{
-				switch (hover_failure_ticks)
+				switch (hoverFailureTicks)
 				{
 					case 7:
 						EmitSmoke(new Vector2(85.0, -160.0), new Vector2(-7.0, -5.0));
@@ -411,43 +508,46 @@ public class WaterEggmanInstance : BossObject
 			}
 			if (!_flipX)
 			{
-				if (_animationEggMobileChasis.Index != 51)
+				if (_animationEggMobileChasis.Index != AnimationBrokenEggMobileChasisTurn1)
 				{
-					_animationEggMobileChasis.Index = 51;
+					_animationEggMobileChasis.Index = AnimationBrokenEggMobileChasisTurn1;
 					_animationEggMobileChasis.Cycles = 0;
-					_animationEggMobileScreen.Index = 53;
-					_animationEggMobileCap.Index = 56;
+					_animationEggMobileScreen.Index = AnimationBrokenEggMobileScreenTurn1;
+					_animationEggMobileCap.Index = AnimationBrokenEggMobileCapTurn1;
 					_turning = false;
 				}
 				else if (_animationEggMobileChasis.Cycles >= 1)
 				{
-					_animationEggMobileChasis.Index = 52;
-					_animationEggMobileScreen.Index = 54;
-					_animationEggMobileCap.Index = 57;
+					_animationEggMobileChasis.Index = AnimationBrokenEggMobileChasisTurn2;
+					_animationEggMobileScreen.Index = AnimationBrokenEggMobileScreenTurn2;
+					_animationEggMobileCap.Index = AnimationBrokenEggMobileCapTurn2;
 					_flipX = true;
 				}
 			}
 			else if (_animationEggMobileChasis.Cycles >= 2 && _turning)
 			{
 				_turning = false;
-				_animationEggMobileScreen.Index = 49;
+				_animationEggMobileScreen.Index = AnimationBrokenEggMobileScreen;
 			}
-			if (!_turning && hover_failure_ticks < 15 && _flipX)
+			if (!_turning && hoverFailureTicks < 15 && _flipX)
 			{
-				_animationEggMobileChasis.Index = hover_failure_ticks % 5 != 0 ? 47 : 48 /*0x30*/;
-				++hover_failure_ticks;
+				// The egg mobile dips down, and the flame flickers.
+				_animationEggMobileChasis.Index = hoverFailureTicks % 5 != 0 ? AnimationBrokenEggMobileChasis : AnimationBrokenEggMobileChasisFlame;
+				++hoverFailureTicks;
 				_nonHoverPosition += new Vector2(0.0, 2.0);
 			}
-			else if (!_turning && hover_failure_ticks >= 15 && hover_failure_ticks < 45 && _flipX)
+			else if (!_turning && hoverFailureTicks >= 15 && hoverFailureTicks < 45 && _flipX)
 			{
-				if (_animationEggMobileChasis.Index != 48 /*0x30*/)
-					_animationEggMobileChasis.Index = 48 /*0x30*/;
-				if (hover_failure_ticks < 30)
+				// The egg mobile rises again with the flame on.
+				if (_animationEggMobileChasis.Index != AnimationBrokenEggMobileChasisFlame)
+					_animationEggMobileChasis.Index = AnimationBrokenEggMobileChasisFlame;
+				if (hoverFailureTicks < 30)
 					_nonHoverPosition += new Vector2(0.0, -2.0);
-				++hover_failure_ticks;
+				++hoverFailureTicks;
 			}
 			else
-				hover_failure_ticks = 0;
+				hoverFailureTicks = 0;
+			// No code changes _stateTicks after the defeat, so this condition is never true.
 			if (_stateTicks > 600)
 				LockLifetime = false;
 			yield return UpdateResult.Next();
@@ -456,15 +556,18 @@ public class WaterEggmanInstance : BossObject
 
 	private void EmitSmoke(Vector2 offset, Vector2 velocity)
 	{
-		Matrix4 matrix4 = Matrix4.Identity * Matrix4.CreateTranslation((Vector2)Position);
+		Matrix4 matrix = Matrix4.Identity * Matrix4.CreateTranslation((Vector2)Position);
 		if (_flipX)
-			matrix4 *= Matrix4.CreateScale(-1.0, 1.0);
-		Vector2i position = (Vector2i)((matrix4 * Matrix4.CreateTranslation(offset)).RotateZ(0.0) * new Vector2(0.0, 100.0));
-		DustInstance dustInstance = Level.ObjectManager.AddObject(new ObjectPlacement("SONICORCA/OBJECTS/DUST", Level.Map.Layers.IndexOf(Layer), position)) as DustInstance;
-		dustInstance.SetDustAnimationIndex(1);
+			matrix *= Matrix4.CreateScale(-1.0, 1.0);
+		Vector2i position = (Vector2i)((matrix * Matrix4.CreateTranslation(offset)).RotateZ(0.0) * new Vector2(0.0, 100.0));
+		DustInstance dustInstance = Level.ObjectManager.AddObject(new ObjectPlacement(WaterEggmanType.DefaultBrokenSmokeResourceKey, Level.Map.Layers.IndexOf(Layer), position)) as DustInstance;
+		dustInstance.SetDustAnimationIndex(AnimationDustSmoke);
 		dustInstance.Velocity = velocity;
 	}
 
+	/// <summary>
+	/// Moves the boss up and down around the hover position.
+	/// </summary>
 	private void Hover()
 	{
 		PositionPrecise = _nonHoverPosition + new Vector2(0.0, Math.Sin(_floatOffsetAngle) / Math.PI * 16.0);
@@ -481,121 +584,50 @@ public class WaterEggmanInstance : BossObject
 
 	protected override void Defeat()
 	{
-		_state = WaterEggmanInstance.State.Defeated;
+		_state = State.Defeated;
 		_stateTicks = 0;
 		_nonHoverPosition = PositionPrecise;
 		DoRobotnikDefeated();
 		CollisionRectangles = new CollisionRectangle[0];
-		Level.Player.GainScore(1000);
-		Level.CreateScoreObject(1000, Position + new Vector2i(0, sbyte.MinValue));
+		Level.Player.GainScore(DefeatScore);
+		Level.CreateScoreObject(DefeatScore, Position + new Vector2i(0, -128));
 	}
 
 	protected override void OnHurtCharacter(ICharacter character) => DoRobotnikSmile();
 
 	public void DoRobotnikSmile()
 	{
-		if (_animationRobotnik.Index != 0)
+		if (_animationRobotnik.Index != AnimationRobotnikNormal)
 			return;
-		_animationRobotnik.Index = 1;
+		_animationRobotnik.Index = AnimationRobotnikSmiling;
 	}
 
-	public void DoRobotnikFrown() => _animationRobotnik.Index = 2;
+	public void DoRobotnikFrown() => _animationRobotnik.Index = AnimationRobotnikFrown;
 
-	public void DoRobotnikDefeated() => _animationRobotnik.Index = 3;
+	public void DoRobotnikDefeated() => _animationRobotnik.Index = AnimationRobotnikDefeated;
 
-	public void DoRobotnikNormal() => _animationRobotnik.Index = 0;
+	public void DoRobotnikNormal() => _animationRobotnik.Index = AnimationRobotnikNormal;
 
 	protected override void OnAnimate()
 	{
 		switch (_state)
 		{
-			case WaterEggmanInstance.State.MoveToSide:
-				_animationArmTapCog.Index = 3;
-				_animationArmTap.Index = 9;
+			case State.MoveToSide:
+				_animationArmTapCog.Index = AnimationArmCog;
+				_animationArmTap.Index = AnimationArmTap;
 				break;
-			case WaterEggmanInstance.State.LoweringTube:
-				_animationArmTapCog.Index = 3;
-				_animationArmTap.Index = 9;
+			case State.LoweringTube:
+				_animationArmTapCog.Index = AnimationArmCog;
+				_animationArmTap.Index = AnimationArmTap;
 				_jarFillY = 0;
 				_jarEmpty = true;
 				_dripVisible = false;
-				_suctionTube.TubeSuctionIndex = 22f;
+				_suctionTube.TubeSuctionIndex = SuctionTube.TubeMaxIndex;
 				break;
-			case WaterEggmanInstance.State.FillingJar:
-				if (_stateTicks < 140)
-				{
-					_animationArmTapCog.Index = 4;
-					_animationArmTap.Index = 10;
-					_suctionTube.TubeSuctionIndex -= 0.5f;
-					if ((double)_suctionTube.TubeSuctionIndex <= 0.0)
-						_suctionTube.TubeSuctionIndex = 22f;
-				}
-				else if ((double)_suctionTube.TubeSuctionIndex > 0.0)
-					_suctionTube.TubeSuctionIndex = Math.Max(0.0f, _suctionTube.TubeSuctionIndex - 0.5f);
-				if (_dripVisible)
-					_dripPosition.Y += 12;
-				if (_stateTicks == 20)
-				{
-					_dripVisible = true;
-					_dripPosition = new Vector2i();
-				}
-				else if (_stateTicks == 24)
-				{
-					_dripVisible = false;
-					_animationArmJarFill.Index = 14;
-					_animationArmJarFill.ResetFrame();
-					_jarEmpty = false;
-				}
-				else if (_stateTicks == 50)
-				{
-					_dripVisible = true;
-					_dripPosition = new Vector2i();
-				}
-				else if (_stateTicks == 54)
-				{
-					_dripVisible = false;
-					_animationArmJarFill.Index = 15;
-				}
-				else if (_stateTicks == 80 /*0x50*/)
-				{
-					_dripVisible = true;
-					_dripPosition = new Vector2i();
-				}
-				else if (_stateTicks == 84)
-				{
-					_dripVisible = false;
-					_animationArmJarFill.Index = 16 /*0x10*/;
-					_jarFillY -= 20;
-				}
-				else if (_stateTicks == 110)
-				{
-					_dripVisible = true;
-					_dripPosition = new Vector2i();
-				}
-				else if (_stateTicks == 114)
-				{
-					_dripVisible = false;
-					_animationArmJarFill.Index = 16 /*0x10*/;
-					_animationArmJarFill.ResetFrame();
-					_jarFillY -= 20;
-				}
-				else if (_stateTicks == 138)
-				{
-					_dripVisible = true;
-					_dripPosition = new Vector2i();
-				}
-				else if (_stateTicks == 139)
-					_dripVisible = false;
-				else if (_stateTicks == 140)
-				{
-					_animationArmJarFill.Index = 16 /*0x10*/;
-					_animationArmJarFill.ResetFrame();
-					_jarFillY -= 20;
-				}
-				_animationArmJarFill.Animate();
-				_animationArmJarFilled.Animate();
+			case State.FillingJar:
+				AnimateFillingJar();
 				break;
-			case WaterEggmanInstance.State.DroppingChemical:
+			case State.DroppingChemical:
 				if (_stateTicks == 0)
 				{
 					_jarLidOpen = true;
@@ -603,15 +635,11 @@ public class WaterEggmanInstance : BossObject
 					_animationArmJarLidFront.ResetFrame();
 					_animationArmJarLidBack.Cycles = 0;
 					_animationArmJarLidFront.Cycles = 0;
-					break;
 				}
 				break;
-			case WaterEggmanInstance.State.Defeated:
+			case State.Defeated:
 				if (_isFaceSplash)
-				{
 					_animationRobotnikFaceSplash.Animate();
-					break;
-				}
 				break;
 		}
 		_animationEggMobileChasis.Animate();
@@ -633,6 +661,86 @@ public class WaterEggmanInstance : BossObject
 		_jarLidOpen = false;
 	}
 
+	/// <summary>
+	/// Animates the suction tube, the tap and the drips that fill the jar. Each drip falls from the tap
+	/// for a few ticks, and then the jar fluid rises one step.
+	/// </summary>
+	private void AnimateFillingJar()
+	{
+		if (_stateTicks < SuctionTicks)
+		{
+			_animationArmTapCog.Index = AnimationArmCogTurn;
+			_animationArmTap.Index = AnimationArmTapDrip;
+			_suctionTube.TubeSuctionIndex -= SuctionStep;
+			if (_suctionTube.TubeSuctionIndex <= 0.0)
+				_suctionTube.TubeSuctionIndex = SuctionTube.TubeMaxIndex;
+		}
+		else if (_suctionTube.TubeSuctionIndex > 0.0)
+			_suctionTube.TubeSuctionIndex = Math.Max(0.0f, _suctionTube.TubeSuctionIndex - SuctionStep);
+		if (_dripVisible)
+			_dripPosition.Y += 12;
+		if (_stateTicks == 20)
+		{
+			_dripVisible = true;
+			_dripPosition = new Vector2i();
+		}
+		else if (_stateTicks == 24)
+		{
+			_dripVisible = false;
+			_animationArmJarFill.Index = AnimationJarFillA;
+			_animationArmJarFill.ResetFrame();
+			_jarEmpty = false;
+		}
+		else if (_stateTicks == 50)
+		{
+			_dripVisible = true;
+			_dripPosition = new Vector2i();
+		}
+		else if (_stateTicks == 54)
+		{
+			_dripVisible = false;
+			_animationArmJarFill.Index = AnimationJarFillB;
+		}
+		else if (_stateTicks == 80)
+		{
+			_dripVisible = true;
+			_dripPosition = new Vector2i();
+		}
+		else if (_stateTicks == 84)
+		{
+			_dripVisible = false;
+			_animationArmJarFill.Index = AnimationJarFillC;
+			_jarFillY -= JarFillStep;
+		}
+		else if (_stateTicks == 110)
+		{
+			_dripVisible = true;
+			_dripPosition = new Vector2i();
+		}
+		else if (_stateTicks == 114)
+		{
+			_dripVisible = false;
+			_animationArmJarFill.Index = AnimationJarFillC;
+			_animationArmJarFill.ResetFrame();
+			_jarFillY -= JarFillStep;
+		}
+		else if (_stateTicks == 138)
+		{
+			_dripVisible = true;
+			_dripPosition = new Vector2i();
+		}
+		else if (_stateTicks == 139)
+			_dripVisible = false;
+		else if (_stateTicks == 140)
+		{
+			_animationArmJarFill.Index = AnimationJarFillC;
+			_animationArmJarFill.ResetFrame();
+			_jarFillY -= JarFillStep;
+		}
+		_animationArmJarFill.Animate();
+		_animationArmJarFilled.Animate();
+	}
+
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 	{
 		DrawEggMobile(renderer.GetObjectRenderer());
@@ -644,62 +752,64 @@ public class WaterEggmanInstance : BossObject
 		{
 			if (_flipX)
 				or.ModelMatrix *= Matrix4.CreateScale(-1.0, 1.0);
-			Vector2i destination1 = new Vector2i(-26);
-			Vector2i destination2 = destination1 + new Vector2i(0, 0);
-			Vector2i destination3 = destination1 + new Vector2i(0, -76);
-			Vector2i destination4 = destination1 + new Vector2i(25, -223);
-			Vector2i destination5 = destination1 + new Vector2i(0, 0);
+			Vector2i chasisDestination = new Vector2i(-26);
+			Vector2i capDestination = chasisDestination;
+			Vector2i robotnikDestination = chasisDestination + new Vector2i(0, -76);
+			Vector2i faceSplashDestination = chasisDestination + new Vector2i(25, -223);
+			Vector2i screenDestination = chasisDestination;
 			or.FilterAmount *= 0.5;
 			if (IsInvincibleFlashing)
 				or.AdditiveColour = BossObject.FlashAdditiveColour;
-			or.Render(_animationEggMobileCap, (Vector2)destination2);
-			or.Render(_animationEggMobileChasis, (Vector2)destination1);
+			or.Render(_animationEggMobileCap, (Vector2)capDestination);
+			or.Render(_animationEggMobileChasis, (Vector2)chasisDestination);
 			or.AdditiveColour = Colours.Black;
 			if (_isFaceSplash)
-				or.Render(_animationRobotnikFaceSplash, (Vector2)destination4);
+				or.Render(_animationRobotnikFaceSplash, (Vector2)faceSplashDestination);
 			else
-				or.Render(_animationRobotnik, (Vector2)destination3);
+				or.Render(_animationRobotnik, (Vector2)robotnikDestination);
 			if (IsInvincibleFlashing)
 				or.AdditiveColour = BossObject.FlashAdditiveColour;
-			or.Render(_animationEggMobileScreen, (Vector2)destination5);
+			or.Render(_animationEggMobileScreen, (Vector2)screenDestination);
 		}
 		using (or.BeginMatixState())
 		{
 			if (_flipX)
 				or.ModelMatrix *= Matrix4.CreateScale(-1.0, 1.0);
-			Vector2i vector2i1 = new Vector2i(0);
-			Vector2i vector2i2 = new Vector2i(60, -171);
-			if (_animationArmTurn.Index == 30)
+			// The arm turns with the egg mobile. Its height follows the frames of the turn animation.
+			Vector2i armOffset = new Vector2i(60, -171);
+			if (_animationArmTurn.Index == AnimationArmTurn1)
 			{
 				if (_animationArmTurn.CurrentFrameIndex == 0)
-					vector2i2.Y = -172;
+					armOffset.Y = -172;
 				else if (_animationArmTurn.CurrentFrameIndex > 0)
-					vector2i2.Y = -195;
+					armOffset.Y = -195;
 			}
-			if (_animationArmTurn.Index == 31 /*0x1F*/)
+			if (_animationArmTurn.Index == AnimationArmTurn2)
 			{
 				if (_animationArmTurn.CurrentFrameIndex == 3)
-					vector2i2.Y = -172;
+					armOffset.Y = -172;
 				else if (_animationArmTurn.CurrentFrameIndex == 2)
-					vector2i2.Y = -172;
+					armOffset.Y = -172;
 				else if (_animationArmTurn.CurrentFrameIndex < 3)
-					vector2i2.Y = -195;
+					armOffset.Y = -195;
 			}
-			or.ModelMatrix *= Matrix4.CreateTranslation(vector2i2.X, vector2i2.Y);
-			Vector2i vector2i3 = new Vector2i(-64, 0);
-			Vector2i destination = vector2i1 + vector2i3;
-			if (!_turning || _state >= WaterEggmanInstance.State.Defeated)
+			or.ModelMatrix *= Matrix4.CreateTranslation(armOffset.X, armOffset.Y);
+			Vector2i armTurnDestination = new Vector2i(-64, 0);
+			if (!_turning || _state >= State.Defeated)
 				return;
-			or.Render(_animationArmTurn, (Vector2)destination);
+			or.Render(_animationArmTurn, (Vector2)armTurnDestination);
 		}
 	}
 
+	/// <summary>
+	/// Releases a number of broken pieces in random directions. If explode is true, also makes an explosion.
+	/// </summary>
 	private void ReleaseFragmentMetal(Vector2i position, double speed, int count = 1, bool explode = true)
 	{
 		for (int index = 0; index < count; ++index)
 		{
-			double num = Level.Random.NextRadians();
-			Vector2 velocity = new Vector2(speed * Math.Cos(num), speed * Math.Sin(num));
+			double angle = Level.Random.NextRadians();
+			Vector2 velocity = new Vector2(speed * Math.Cos(angle), speed * Math.Sin(angle));
 			ReleaseFragmentMetal(position, velocity);
 		}
 		if (!explode)
@@ -711,12 +821,25 @@ public class WaterEggmanInstance : BossObject
 	{
 		Fragment fragment = Level.ObjectManager.AddSubObject<Fragment>(this);
 		fragment.AnimationGroup = _animationGroup;
-		fragment.AnimationIndex = Level.Random.Next(40, 47);
+		fragment.AnimationIndex = Level.Random.Next(AnimationBrokenPieces, AnimationBrokenPieces + BrokenPiecesCount);
 		fragment.Position = position;
 		fragment.Velocity = velocity;
 		fragment.AngularVelocity = Math.PI / 30.0;
 		fragment.FlipX = Level.Random.NextBoolean();
 		fragment.Initialise();
+	}
+
+	/// <summary>
+	/// Starts the explosion of a part. Returns true while the part is still exploding.
+	/// </summary>
+	private static bool Explode(ref ExplodeState explodeState)
+	{
+		if (explodeState == ExplodeState.NotExploding)
+		{
+			explodeState = ExplodeState.Exploding;
+			return true;
+		}
+		return explodeState == ExplodeState.Exploding;
 	}
 
 	public enum State
@@ -740,12 +863,15 @@ public class WaterEggmanInstance : BossObject
 		Falling,
 	}
 
+	/// <summary>
+	/// The boiler below the egg mobile, with the tap and the light. After the defeat it explodes and falls.
+	/// </summary>
 	private class Boiler : ActiveObject
 	{
 		private static Vector2i OriginOffset = new Vector2i(60, -176);
 		private Updater _updater;
 		private bool _flipX;
-		private WaterEggmanInstance.ExplodeState _explodeState;
+		private ExplodeState _explodeState;
 		private AnimationInstance _explodedAnimationInstance;
 		private Vector2 _velocity;
 		private double _angle;
@@ -771,12 +897,12 @@ public class WaterEggmanInstance : BossObject
 				if (_flipX)
 					objectRenderer.ModelMatrix *= Matrix4.CreateScale(-1.0, 1.0);
 				objectRenderer.ModelMatrix *= Matrix4.CreateTranslation(OriginOffset.X, OriginOffset.Y);
-				if (_explodeState == WaterEggmanInstance.ExplodeState.Falling)
+				if (_explodeState == ExplodeState.Falling)
 					objectRenderer.ModelMatrix = objectRenderer.ModelMatrix.RotateZ(_angle);
 				objectRenderer.Render(Parent._animationBaseShadow, new Vector2(3.0, 100.0));
 				if (Parent.IsInvincibleFlashing)
 					objectRenderer.AdditiveColour = BossObject.FlashAdditiveColour;
-				if (_explodeState < WaterEggmanInstance.ExplodeState.Exploded)
+				if (_explodeState < ExplodeState.Exploded)
 				{
 					objectRenderer.Render(Parent._animationBase, new Vector2(0.0, 0.0));
 					objectRenderer.Render(Parent._animationArmTap, new Vector2(-69.0, -68.0));
@@ -793,15 +919,19 @@ public class WaterEggmanInstance : BossObject
 
 		private Vector2i GetAbsolutePosition(Vector2i offset)
 		{
-			Vector2i vector2i = WaterEggmanInstance.Boiler.OriginOffset + offset;
+			Vector2i position = OriginOffset + offset;
 			if (_flipX)
-				vector2i.X *= -1;
-			return Position + vector2i;
+				position.X *= -1;
+			return Position + position;
 		}
 
+		/// <summary>
+		/// The script of the boiler. It follows the egg mobile until it explodes. Then it waits until it falls,
+		/// and it turns as it falls, slower in the water.
+		/// </summary>
 		private IEnumerable<UpdateResult> GetUpdates()
 		{
-			while (_explodeState == WaterEggmanInstance.ExplodeState.NotExploding)
+			while (_explodeState == ExplodeState.NotExploding)
 			{
 				_flipX = Parent._flipX;
 				Position = Parent.Position;
@@ -815,11 +945,11 @@ public class WaterEggmanInstance : BossObject
 			yield return UpdateResult.Wait(2);
 			Parent.ReleaseFragmentMetal(GetAbsolutePosition(new Vector2i(-69, -68)), 8.0);
 			yield return UpdateResult.Next();
-			_explodeState = WaterEggmanInstance.ExplodeState.Exploded;
-			_explodedAnimationInstance = new AnimationInstance(Parent._animationGroup, 37);
+			_explodeState = ExplodeState.Exploded;
+			_explodedAnimationInstance = new AnimationInstance(Parent._animationGroup, AnimationBrokenBoiler);
 			yield return UpdateResult.Wait(60);
 			int flipMultiplier = _flipX ? -1 : 1;
-			while (_explodeState != WaterEggmanInstance.ExplodeState.Falling)
+			while (_explodeState != ExplodeState.Falling)
 				yield return UpdateResult.Next();
 			Parent.ReleaseFragmentMetal(GetAbsolutePosition(new Vector2i(0, 100)), 8.0);
 			for (int i = 0; i < 12; ++i)
@@ -859,26 +989,21 @@ public class WaterEggmanInstance : BossObject
 
 		private void EmitSmoke()
 		{
-			Matrix4 matrix4 = Matrix4.Identity * Matrix4.CreateTranslation((Vector2)Position);
+			Matrix4 matrix = Matrix4.Identity * Matrix4.CreateTranslation((Vector2)Position);
 			if (_flipX)
-				matrix4 *= Matrix4.CreateScale(-1.0, 1.0);
-			Vector2i position = (Vector2i)((matrix4 * Matrix4.CreateTranslation((Vector2)WaterEggmanInstance.Boiler.OriginOffset)).RotateZ(_angle) * new Vector2(0.0, 100.0));
-			(Level.ObjectManager.AddObject(new ObjectPlacement("SONICORCA/OBJECTS/DUST", Level.Map.Layers.IndexOf(Layer), position)) as DustInstance).SetDustAnimationIndex(1);
+				matrix *= Matrix4.CreateScale(-1.0, 1.0);
+			Vector2i position = (Vector2i)((matrix * Matrix4.CreateTranslation((Vector2)OriginOffset)).RotateZ(_angle) * new Vector2(0.0, 100.0));
+			(Level.ObjectManager.AddObject(new ObjectPlacement(WaterEggmanType.DefaultBrokenSmokeResourceKey, Level.Map.Layers.IndexOf(Layer), position)) as DustInstance).SetDustAnimationIndex(AnimationDustSmoke);
 		}
 
-		public bool Explode()
-		{
-			if (_explodeState == WaterEggmanInstance.ExplodeState.NotExploding)
-			{
-				_explodeState = WaterEggmanInstance.ExplodeState.Exploding;
-				return true;
-			}
-			return _explodeState == WaterEggmanInstance.ExplodeState.Exploding;
-		}
+		public bool Explode() => WaterEggmanInstance.Explode(ref _explodeState);
 
-		public void Fall() => _explodeState = WaterEggmanInstance.ExplodeState.Falling;
+		public void Fall() => _explodeState = ExplodeState.Falling;
 	}
 
+	/// <summary>
+	/// The back of the jar: the reflection and the back half of the open lid. It draws behind the arm.
+	/// </summary>
 	private class JarBack : ActiveObject
 	{
 		public WaterEggmanInstance Parent => ParentObject as WaterEggmanInstance;
@@ -902,7 +1027,7 @@ public class WaterEggmanInstance : BossObject
 				return;
 			IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
 			WaterEggmanInstance parent = Parent;
-			if (parent._state == WaterEggmanInstance.State.Fleeing)
+			if (parent._state == State.Fleeing)
 				return;
 			using (objectRenderer.BeginMatixState())
 			{
@@ -917,15 +1042,34 @@ public class WaterEggmanInstance : BossObject
 		}
 	}
 
+	/// <summary>
+	/// The arm of the egg mobile and the jar at its end, with the drip and the fluid. After the defeat,
+	/// the jar breaks and the arm bars break off one by one.
+	/// </summary>
 	private class ArmFront : ActiveObject
 	{
 		private static readonly Vector2i ArmBeginPoint = new Vector2i(10, -186);
+
+		/// <summary>
+		/// The length of one arm bar.
+		/// </summary>
+		private const int ArmBarLength = 16;
+
+		/// <summary>
+		/// The position of the bottom of the jar fluid, relative to the jar.
+		/// </summary>
+		private const int JarFluidBottomY = 47;
+
+		/// <summary>
+		/// The distance between two filled fluid sections.
+		/// </summary>
+		private const int JarFilledSectionHeight = 11;
+
 		private Updater _updater;
 		private bool _flipX;
-		private WaterEggmanInstance.ExplodeState _jarExplodeState;
-		private WaterEggmanInstance.ExplodeState _barExplodeState;
+		private ExplodeState _jarExplodeState;
+		private ExplodeState _barExplodeState;
 		private int _barExplodedLength;
-		private int _armJarPlaceholderY;
 
 		public Vector2 Velocity { get; set; }
 
@@ -936,7 +1080,6 @@ public class WaterEggmanInstance : BossObject
 			_updater = new Updater(GetUpdates());
 			Priority = 330;
 			LockLifetime = true;
-			_armJarPlaceholderY = 0;
 		}
 
 		protected override void OnUpdate()
@@ -951,7 +1094,7 @@ public class WaterEggmanInstance : BossObject
 				return;
 			IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
 			DrawArm(objectRenderer);
-			if (_jarExplodeState != WaterEggmanInstance.ExplodeState.NotExploding)
+			if (_jarExplodeState != ExplodeState.NotExploding)
 				return;
 			DrawJar(objectRenderer, (Vector2)Parent.JarOffset);
 		}
@@ -977,56 +1120,56 @@ public class WaterEggmanInstance : BossObject
 			if (!Parent._jarEmpty)
 			{
 				int x = _flipX ? 8 : -8;
-				int num1 = 47;
-				bool flag;
-				if (Parent._jarFillY < 0)
-				{
-					flag = true;
-					_armJarPlaceholderY = num1 + Parent._jarFillY;
-				}
-				else
-					flag = false;
-				for (int index = num1; index > num1 + Parent._jarFillY; index -= 11)
+				bool hasFilledSections = Parent._jarFillY < 0;
+
+				// Draw the filled sections of the fluid, from the bottom up.
+				for (int sectionY = JarFluidBottomY; sectionY > JarFluidBottomY + Parent._jarFillY; sectionY -= JarFilledSectionHeight)
 				{
 					Rectanglei source = Parent._animationArmJarFilled.CurrentFrame.Source;
-					Rectanglei destination = new Rectanglei((int)offset.X + x - source.Width / 2, (int)offset.Y + index - 16 /*0x10*/ - source.Height / 2, source.Width, source.Height);
+					Rectanglei destination = new Rectanglei((int)offset.X + x - source.Width / 2, (int)offset.Y + sectionY - 16 - source.Height / 2, source.Width, source.Height);
 					or.Texture = Parent._animationArmJarFilled.CurrentTexture;
 					or.Render((Rectangle)source, (Rectangle)destination, _flipX);
 				}
-				int y = num1 + Parent._jarFillY - Parent._animationArmJarFill.CurrentFrame.Source.Height / 2;
-				if (Parent._animationArmJarFill.Index == 16 /*0x10*/)
-					y += 17;
-				or.Render(Parent._animationArmJarFill, offset + new Vector2(x, y), _flipX);
-				if (Parent._animationArmJarFill.Index >= 15 && flag)
+
+				// Draw the fluid surface.
+				int surfaceY = JarFluidBottomY + Parent._jarFillY - Parent._animationArmJarFill.CurrentFrame.Source.Height / 2;
+				if (Parent._animationArmJarFill.Index == AnimationJarFillC)
+					surfaceY += 17;
+				or.Render(Parent._animationArmJarFill, offset + new Vector2(x, surfaceY), _flipX);
+
+				// Draw the bottom of the fluid. The first and the last parts use the primary animation, and
+				// the last part is flipped vertically. The parts between use the secondary animation.
+				if (Parent._animationArmJarFill.Index >= AnimationJarFillB && hasFilledSections)
 				{
-					int num2 = Parent._jarFillY / -20;
-					for (int index = 0; index < num2; ++index)
+					int bottomPartCount = Parent._jarFillY / -JarFillStep;
+					for (int index = 0; index < bottomPartCount; ++index)
 					{
-						switch (num2)
+						Vector2 destination = offset + new Vector2(x, JarFluidBottomY + index * -JarFillStep - 16 + Math.Sign(index) * 8 * index);
+						switch (bottomPartCount)
 						{
 							case 1:
-								or.Render(Parent._animationArmJarFillPlaceholderPrimary, offset + new Vector2(x, num1 + index * -20 - 16 /*0x10*/ + Math.Sign(index) * 8 * index), _flipX);
+								or.Render(Parent._animationArmJarFillPlaceholderPrimary, destination, _flipX);
 								break;
 							case 2:
 								if (index == 0)
 								{
-									or.Render(Parent._animationArmJarFillPlaceholderPrimary, offset + new Vector2(x, num1 + index * -20 - 16 /*0x10*/ + Math.Sign(index) * 8 * index), _flipX);
+									or.Render(Parent._animationArmJarFillPlaceholderPrimary, destination, _flipX);
 									break;
 								}
-								or.Render(Parent._animationArmJarFillPlaceholderPrimary, offset + new Vector2(x, num1 + index * -20 - 16 /*0x10*/ + Math.Sign(index) * 8 * index), _flipX, true);
+								or.Render(Parent._animationArmJarFillPlaceholderPrimary, destination, _flipX, true);
 								break;
 							default:
 								if (index == 0)
 								{
-									or.Render(Parent._animationArmJarFillPlaceholderPrimary, offset + new Vector2(x, num1 + index * -20 - 16 /*0x10*/ + Math.Sign(index) * 8 * index), _flipX);
+									or.Render(Parent._animationArmJarFillPlaceholderPrimary, destination, _flipX);
 									break;
 								}
-								if (index == num2 - 1)
+								if (index == bottomPartCount - 1)
 								{
-									or.Render(Parent._animationArmJarFillPlaceholderPrimary, offset + new Vector2(x, num1 + index * -20 - 16 /*0x10*/ + Math.Sign(index) * 8 * index), _flipX, true);
+									or.Render(Parent._animationArmJarFillPlaceholderPrimary, destination, _flipX, true);
 									break;
 								}
-								or.Render(Parent._animationArmJarFillPlaceholderSecondary, offset + new Vector2(x, num1 + index * -20 - 16 /*0x10*/ + Math.Sign(index) * 8 * index), _flipX);
+								or.Render(Parent._animationArmJarFillPlaceholderSecondary, destination, _flipX);
 								break;
 						}
 					}
@@ -1042,9 +1185,13 @@ public class WaterEggmanInstance : BossObject
 				or.Render(Parent._animationArmJarLidClosed, offset + new Vector2(_flipX ? 8.0 : -8.0, 53.0), _flipX);
 		}
 
+		/// <summary>
+		/// The script of the arm. It follows the egg mobile until the jar explodes. When the bar explosion starts,
+		/// the broken jar falls and the bars break off one by one, from the end of the arm.
+		/// </summary>
 		private IEnumerable<UpdateResult> GetUpdates()
 		{
-			while (_jarExplodeState == WaterEggmanInstance.ExplodeState.NotExploding)
+			while (_jarExplodeState == ExplodeState.NotExploding)
 			{
 				_flipX = Parent._flipX;
 				Position = Parent.Position;
@@ -1052,80 +1199,66 @@ public class WaterEggmanInstance : BossObject
 					Finish();
 				yield return UpdateResult.Next();
 			}
-			WaterEggmanInstance.BrokenJar brokenJar = CreateBrokenJar();
-			_jarExplodeState = WaterEggmanInstance.ExplodeState.Exploded;
-			while (_barExplodeState != WaterEggmanInstance.ExplodeState.Exploding)
+			BrokenJar brokenJar = CreateBrokenJar();
+			_jarExplodeState = ExplodeState.Exploded;
+			while (_barExplodeState != ExplodeState.Exploding)
 				yield return UpdateResult.Next();
 			brokenJar.Fall();
-			_jarExplodeState = WaterEggmanInstance.ExplodeState.Falling;
+			_jarExplodeState = ExplodeState.Falling;
 			yield return UpdateResult.Wait(2);
-			Vector2i[] vector2iArray = GetArmBarPositions().Reverse<Vector2i>().ToArray<Vector2i>();
-			for (int index = 0; index < vector2iArray.Length; ++index)
+			// Take the positions before the loop, because the loop makes the arm shorter.
+			Vector2i[] armBarPositions = GetArmBarPositions().Reverse().ToArray();
+			for (int index = 0; index < armBarPositions.Length; ++index)
 			{
-				Vector2i vector2i = vector2iArray[index];
-				_barExplodedLength += 16 /*0x10*/;
-				EmitBar(Position + vector2i);
+				Vector2i armBarPosition = armBarPositions[index];
+				_barExplodedLength += ArmBarLength;
+				EmitBar(Position + armBarPosition);
 				yield return UpdateResult.Wait(4);
 			}
-			vector2iArray = null;
-			_barExplodeState = WaterEggmanInstance.ExplodeState.Exploded;
+			_barExplodeState = ExplodeState.Exploded;
 		}
 
+		/// <summary>
+		/// Gets the positions of the arm bars, from the egg mobile to the end of the arm.
+		/// The bars that broke off are not included.
+		/// </summary>
 		private IEnumerable<Vector2i> GetArmBarPositions()
 		{
-			for (Vector2i position = WaterEggmanInstance.ArmFront.ArmBeginPoint; position.X >= -Parent._armExtension + 4 + _barExplodedLength; position.X -= 16 /*0x10*/)
-			{
-				if (_flipX)
-					yield return position;
-				else
-					yield return position;
-			}
+			for (Vector2i position = ArmBeginPoint; position.X >= -Parent._armExtension + 4 + _barExplodedLength; position.X -= ArmBarLength)
+				yield return position;
 		}
 
-		private WaterEggmanInstance.BrokenJar CreateBrokenJar()
+		private BrokenJar CreateBrokenJar()
 		{
 			Parent._jarBack.Finish();
 			Vector2i position = Position + Parent.JarOffset;
 			Parent.ReleaseFragmentMetal(position, 12.0, 12);
-			WaterEggmanInstance.BrokenJar brokenJar = Level.ObjectManager.AddSubObject<WaterEggmanInstance.BrokenJar>(Parent);
+			BrokenJar brokenJar = Level.ObjectManager.AddSubObject<BrokenJar>(Parent);
 			brokenJar.Position = position;
 			return brokenJar;
 		}
 
 		private void EmitBar(Vector2i position)
 		{
-			Vector2 vector2 = new Vector2(Level.Random.NextSign() * Level.Random.NextDouble(2.0, 8.0), -12.0);
+			Vector2 velocity = new Vector2(Level.Random.NextSign() * Level.Random.NextDouble(2.0, 8.0), -12.0);
 			Fragment fragment = Level.ObjectManager.AddSubObject<Fragment>(this);
 			fragment.AnimationGroup = Parent._animationGroup;
-			fragment.AnimationIndex = 39;
+			fragment.AnimationIndex = AnimationBrokenBar;
 			fragment.Position = position;
-			fragment.Velocity = vector2;
+			fragment.Velocity = velocity;
 			fragment.AngularVelocity = Math.PI / 20.0;
 			fragment.Initialise();
 			Parent.ExplodeAt(position);
 		}
 
-		public bool ExplodeJar()
-		{
-			if (_jarExplodeState == WaterEggmanInstance.ExplodeState.NotExploding)
-			{
-				_jarExplodeState = WaterEggmanInstance.ExplodeState.Exploding;
-				return true;
-			}
-			return _jarExplodeState == WaterEggmanInstance.ExplodeState.Exploding;
-		}
+		public bool ExplodeJar() => WaterEggmanInstance.Explode(ref _jarExplodeState);
 
-		public bool ExplodeBar()
-		{
-			if (_barExplodeState == WaterEggmanInstance.ExplodeState.NotExploding)
-			{
-				_barExplodeState = WaterEggmanInstance.ExplodeState.Exploding;
-				return true;
-			}
-			return _barExplodeState == WaterEggmanInstance.ExplodeState.Exploding;
-		}
+		public bool ExplodeBar() => WaterEggmanInstance.Explode(ref _barExplodeState);
 	}
 
+	/// <summary>
+	/// The broken jar. It falls and turns, slower in the water.
+	/// </summary>
 	private class BrokenJar : ActiveObject
 	{
 		private AnimationInstance _animation;
@@ -1138,14 +1271,14 @@ public class WaterEggmanInstance : BossObject
 
 		protected override void OnStart()
 		{
-			_animation = new AnimationInstance(Parent._animationGroup, 36);
+			_animation = new AnimationInstance(Parent._animationGroup, AnimationBrokenJar);
 		}
 
 		protected override void OnUpdate()
 		{
 			if (!_falling)
 				return;
-			int num = Parent._flipX ? -1 : 1;
+			int flipMultiplier = Parent._flipX ? -1 : 1;
 			if (!_isUnderwater)
 			{
 				if (Level.WaterManager.IsUnderwater(Position))
@@ -1156,13 +1289,13 @@ public class WaterEggmanInstance : BossObject
 				}
 				else
 				{
-					_angle -= Math.PI / 30.0 * num;
+					_angle -= Math.PI / 30.0 * flipMultiplier;
 					_velocity += new Vector2(0.0, 0.875);
 				}
 			}
 			else
 			{
-				_angle -= Math.PI / 75.0 * num;
+				_angle -= Math.PI / 75.0 * flipMultiplier;
 				_velocity += new Vector2(0.0, 7.0 / 16.0);
 			}
 			MovePrecise(_velocity);
@@ -1183,18 +1316,39 @@ public class WaterEggmanInstance : BossObject
 		public void Fall() => _falling = true;
 	}
 
+	/// <summary>
+	/// The suction tube that goes down into the chemical water. After the defeat it explodes and falls.
+	/// </summary>
 	private class SuctionTube : ActiveObject
 	{
 		public const int TubeMaxIndex = 22;
+
+		/// <summary>
+		/// The top of the tube relative to the egg mobile, and the height of one tube segment.
+		/// </summary>
+		private const int TubeTopY = 80;
+		private const int SegmentHeight = 16;
+
 		private Updater _updater;
 		private bool _flipX;
 		private int _numSegments;
+
+		/// <summary>
+		/// The suction animation frame of each tube segment. Frame 0 is the tube without suction.
+		/// </summary>
 		private int[] _frameMap = new int[26];
-		private WaterEggmanInstance.ExplodeState _explodeState;
+		private ExplodeState _explodeState;
 		private AnimationInstance _explodedAnimationInstance;
 		private Vector2 _velocity;
+
+		/// <summary>
+		/// The angles of the two kinds of broken tube pieces. The pieces alternate along the tube.
+		/// </summary>
 		private double[] _angle = new double[2];
 
+		/// <summary>
+		/// The position of the suction bulge along the tube, in segments.
+		/// </summary>
 		public float TubeSuctionIndex { get; set; }
 
 		public WaterEggmanInstance Parent => ParentObject as WaterEggmanInstance;
@@ -1212,12 +1366,13 @@ public class WaterEggmanInstance : BossObject
 		{
 			IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
 			int x = _flipX ? 14 : -14;
-			int y1 = 80 /*0x50*/;
-			if (_explodeState <= WaterEggmanInstance.ExplodeState.Exploded)
+			int y = TubeTopY;
+			if (_explodeState <= ExplodeState.Exploded)
 			{
-				Animation animation = Parent._animationGroup[7];
+				Animation animation = Parent._animationGroup[AnimationTubeSucking];
 				int[] frameMap = _frameMap;
 				Array.Clear(frameMap, 0, frameMap.Length);
+				// Put the bulge frames on the segments at the suction index. The half steps use other frames.
 				int tubeSuctionIndex = (int)TubeSuctionIndex;
 				if ((double)TubeSuctionIndex - tubeSuctionIndex < 0.5)
 				{
@@ -1233,65 +1388,70 @@ public class WaterEggmanInstance : BossObject
 				}
 				for (int index = 0; index < _numSegments; ++index)
 				{
-					Animation.Frame frame = animation.Frames[index + 4 >= 22 ? 0 : frameMap[index + 4]];
+					Animation.Frame frame = animation.Frames[index + 4 >= TubeMaxIndex ? 0 : frameMap[index + 4]];
 					objectRenderer.Texture = Parent._animationGroup.Textures[frame.TextureIndex];
-					objectRenderer.Render((Rectangle)frame.Source, new Vector2(x, y1));
-					y1 += 16 /*0x10*/;
+					objectRenderer.Render((Rectangle)frame.Source, new Vector2(x, y));
+					y += SegmentHeight;
 				}
 			}
 			else
 			{
-				int num = 80 /*0x50*/ + _numSegments * 16 /*0x10*/;
-				int index = 0;
-				int y2 = y1 - 8;
-				while (y2 < num)
+				// Draw the broken tube pieces down to the bottom of the tube. Each piece turns on its own.
+				int bottomY = TubeTopY + _numSegments * SegmentHeight;
+				int angleIndex = 0;
+				int pieceY = y - 8;
+				while (pieceY < bottomY)
 				{
 					Rectanglei source = _explodedAnimationInstance.CurrentFrame.Source;
-					Rectanglei destination = (Rectanglei)new Rectangle(x - source.Width / 2, y2, source.Width, source.Height);
-					if (destination.Bottom > num)
+					Rectanglei destination = (Rectanglei)new Rectangle(x - source.Width / 2, pieceY, source.Width, source.Height);
+					if (destination.Bottom > bottomY)
 					{
-						destination.Bottom = num;
+						destination.Bottom = bottomY;
 						source.Height = destination.Height;
 					}
 					using (objectRenderer.BeginMatixState())
 					{
-						objectRenderer.ModelMatrix = objectRenderer.ModelMatrix.Translate(destination.Centre.X, destination.Centre.Y).RotateZ(_angle[index]);
+						objectRenderer.ModelMatrix = objectRenderer.ModelMatrix.Translate(destination.Centre.X, destination.Centre.Y).RotateZ(_angle[angleIndex]);
 						destination.X = -destination.Width / 2;
 						destination.Y = -destination.Height / 2;
 						objectRenderer.Texture = _explodedAnimationInstance.CurrentTexture;
 						objectRenderer.Render((Rectangle)source, (Rectangle)destination);
-						y2 += source.Height;
+						pieceY += source.Height;
 					}
-					index = (index + 1) % 2;
+					angleIndex = (angleIndex + 1) % 2;
 				}
 			}
 		}
 
+		/// <summary>
+		/// The script of the tube. It follows the egg mobile until it explodes. The explosions go down the tube.
+		/// Then it waits until it falls.
+		/// </summary>
 		private IEnumerable<UpdateResult> GetUpdates()
 		{
-			while (_explodeState == WaterEggmanInstance.ExplodeState.NotExploding)
+			while (_explodeState == ExplodeState.NotExploding)
 			{
 				_flipX = Parent._flipX;
-				_numSegments = (Parent._tubeY - 80 /*0x50*/) / 16 /*0x10*/;
+				_numSegments = (Parent._tubeY - TubeTopY) / SegmentHeight;
 				Position = Parent.Position;
 				if (Parent.Finished)
 					Finish();
 				yield return UpdateResult.Next();
 			}
-			int maxY = 80 /*0x50*/ + _numSegments * 16 /*0x10*/;
-			int x = _flipX ? 32 /*0x20*/ : -24;
-			int y = 80 /*0x50*/;
+			int maxY = TubeTopY + _numSegments * SegmentHeight;
+			int x = _flipX ? 32 : -24;
+			int y = TubeTopY;
 			while (y < maxY)
 			{
 				Parent.ReleaseFragmentMetal(Position + new Vector2i(x, y), 4.0);
 				y += 136;
 				yield return UpdateResult.Wait(4);
 			}
-			_explodeState = WaterEggmanInstance.ExplodeState.Exploded;
-			_explodedAnimationInstance = new AnimationInstance(Parent._animationGroup, 38);
-			while (_explodeState != WaterEggmanInstance.ExplodeState.Falling)
+			_explodeState = ExplodeState.Exploded;
+			_explodedAnimationInstance = new AnimationInstance(Parent._animationGroup, AnimationBrokenTube);
+			while (_explodeState != ExplodeState.Falling)
 				yield return UpdateResult.Next();
-			Parent.ReleaseFragmentMetal(Position + new Vector2i(0, 80 /*0x50*/), 4.0);
+			Parent.ReleaseFragmentMetal(Position + new Vector2i(0, TubeTopY), 4.0);
 			LockLifetime = false;
 			while (true)
 			{
@@ -1303,19 +1463,15 @@ public class WaterEggmanInstance : BossObject
 			}
 		}
 
-		public bool Explode()
-		{
-			if (_explodeState == WaterEggmanInstance.ExplodeState.NotExploding)
-			{
-				_explodeState = WaterEggmanInstance.ExplodeState.Exploding;
-				return true;
-			}
-			return _explodeState == WaterEggmanInstance.ExplodeState.Exploding;
-		}
+		public bool Explode() => WaterEggmanInstance.Explode(ref _explodeState);
 
-		public void Fall() => _explodeState = WaterEggmanInstance.ExplodeState.Falling;
+		public void Fall() => _explodeState = ExplodeState.Falling;
 	}
 
+	/// <summary>
+	/// The chemical that drops from the jar. It hurts characters. When it hits the floor, it splashes into
+	/// small projectiles. It goes away in the water.
+	/// </summary>
 	private class ChemicalDroplet : Enemy
 	{
 		private AnimationInstance _animationInstance;
@@ -1330,11 +1486,11 @@ public class WaterEggmanInstance : BossObject
 		{
 			base.OnStart();
 			_updater = new Updater(GetUpdates());
-			_animationInstance = new AnimationInstance(Parent._animationGroup, 18);
+			_animationInstance = new AnimationInstance(Parent._animationGroup, AnimationJarDroplet);
 			Priority = 320;
-			CollisionRectangles = new CollisionRectangle[1]
+			CollisionRectangles = new CollisionRectangle[]
 			{
-		new CollisionRectangle( this, 0, -64, -64, 128 /*0x80*/, 128 /*0x80*/)
+				new CollisionRectangle(this, 0, -64, -64, 128, 128)
 			};
 		}
 
@@ -1361,19 +1517,23 @@ public class WaterEggmanInstance : BossObject
 			EmitProjectiles();
 			EmitSmallProjectile(new Vector2i(-64, -12));
 			EmitSmallProjectile(new Vector2i(-38, -22));
-			EmitSmallProjectile(new Vector2i(32 /*0x20*/, -22));
+			EmitSmallProjectile(new Vector2i(32, -22));
 			EmitSmallProjectile(new Vector2i(60, -14));
 			_splashed = true;
-			_animationInstance = new AnimationInstance(Parent._animationGroup, 32 /*0x20*/);
+			_animationInstance = new AnimationInstance(Parent._animationGroup, AnimationSplash);
 			while (_animationInstance.Cycles == 0)
 				yield return UpdateResult.Next();
 			Finish();
 		}
 
+		/// <summary>
+		/// Checks for a floor below the droplet. If there is one, moves the droplet onto it and returns true.
+		/// Objects that own a floor can tell the droplet to ignore it.
+		/// </summary>
 		private bool HasHitFloor()
 		{
-			double num = double.MaxValue;
-			foreach (CollisionInfo collision in CollisionVector.GetCollisions(this, 64 /*0x40*/))
+			double shift = double.MaxValue;
+			foreach (CollisionInfo collision in CollisionVector.GetCollisions(this, 64))
 			{
 				if (collision.Vector.Mode == CollisionMode.Top)
 				{
@@ -1385,12 +1545,12 @@ public class WaterEggmanInstance : BossObject
 						if (e.IgnoreCollision)
 							continue;
 					}
-					num = Math.Min(num, collision.Shift);
+					shift = Math.Min(shift, collision.Shift);
 				}
 			}
-			if (num == double.MaxValue)
+			if (shift == double.MaxValue)
 				return false;
-			MovePrecise(0.0, num);
+			MovePrecise(0.0, shift);
 			return true;
 		}
 
@@ -1398,18 +1558,21 @@ public class WaterEggmanInstance : BossObject
 		{
 			for (int index = 0; index < 5; ++index)
 			{
-				WaterEggmanInstance.ChemicalDropletProjectile dropletProjectile = Level.ObjectManager.AddSubObject<WaterEggmanInstance.ChemicalDropletProjectile>(Parent);
+				ChemicalDropletProjectile dropletProjectile = Level.ObjectManager.AddSubObject<ChemicalDropletProjectile>(Parent);
 				dropletProjectile.Position = Position;
 				dropletProjectile.Velocity = new Vector2(Level.Random.NextSign() * Level.Random.Next(2, 5), -_velocityY - Level.Random.Next(0, 4));
 			}
 		}
 
-		private void EmitSmallProjectile(Vector2i position)
+		/// <summary>
+		/// Emits a small splash projectile at the offset. It moves away from the droplet in the direction of the offset.
+		/// </summary>
+		private void EmitSmallProjectile(Vector2i offset)
 		{
-			WaterEggmanInstance.SmallChemicalDropletProjectile dropletProjectile = Level.ObjectManager.AddSubObject<WaterEggmanInstance.SmallChemicalDropletProjectile>(ParentObject);
-			dropletProjectile.Position = Position + position;
-			double num = Math.Atan2(position.Y, position.X);
-			dropletProjectile.Velocity = new Vector2(8.0 * Math.Cos(num), 32.0 * Math.Sin(num));
+			SmallChemicalDropletProjectile dropletProjectile = Level.ObjectManager.AddSubObject<SmallChemicalDropletProjectile>(ParentObject);
+			dropletProjectile.Position = Position + offset;
+			double angle = Math.Atan2(offset.Y, offset.X);
+			dropletProjectile.Velocity = new Vector2(8.0 * Math.Cos(angle), 32.0 * Math.Sin(angle));
 		}
 
 		protected override void OnHurtCharacter(ICharacter character) => Parent.DoRobotnikSmile();
@@ -1435,9 +1598,10 @@ public class WaterEggmanInstance : BossObject
 				{
 					if (_animationInstance.Cycles != 0)
 						return;
-					Vector2 vector2 = new Vector2(32.0, 0.0);
+					// Draw the splash so that its bottom is on the floor.
+					Vector2 splashOffset = new Vector2(32.0, 0.0);
 					Rectanglei source = _animationInstance.CurrentFrame.Source;
-					Rectanglei destination = (Rectanglei)new Rectangle(-source.Width / 2 + vector2.X, 64 /*0x40*/ - source.Height, source.Width, source.Height);
+					Rectanglei destination = (Rectanglei)new Rectangle(-source.Width / 2 + splashOffset.X, 64 - source.Height, source.Width, source.Height);
 					objectRenderer.Texture = _animationInstance.CurrentTexture;
 					objectRenderer.Render((Rectangle)source, (Rectangle)destination);
 				}
@@ -1445,6 +1609,9 @@ public class WaterEggmanInstance : BossObject
 		}
 	}
 
+	/// <summary>
+	/// A drop of chemical from the splash. It hurts characters, falls, and goes away on the floor or in the water.
+	/// </summary>
 	private class ChemicalDropletProjectile : Enemy
 	{
 		private AnimationInstance _animationInstance;
@@ -1456,11 +1623,11 @@ public class WaterEggmanInstance : BossObject
 		protected override void OnStart()
 		{
 			base.OnStart();
-			_animationInstance = new AnimationInstance(Parent._animationGroup, 34);
+			_animationInstance = new AnimationInstance(Parent._animationGroup, AnimationSplashSmallDrop);
 			Priority = 320;
-			CollisionRectangles = new CollisionRectangle[1]
+			CollisionRectangles = new CollisionRectangle[]
 			{
-		new CollisionRectangle( this, 0, -8, -8, 16 /*0x10*/, 16 /*0x10*/)
+				new CollisionRectangle(this, 0, -8, -8, 16, 16)
 			};
 		}
 
@@ -1468,7 +1635,7 @@ public class WaterEggmanInstance : BossObject
 		{
 			base.OnUpdate();
 			Velocity += new Vector2(0.0, 0.875);
-			PositionPrecise = PositionPrecise + Velocity;
+			PositionPrecise += Velocity;
 			if (!Level.WaterManager.IsUnderwater(Position) && !HasHitFloor())
 				return;
 			Finish();
@@ -1494,12 +1661,15 @@ public class WaterEggmanInstance : BossObject
 		}
 	}
 
+	/// <summary>
+	/// A small drop of chemical from the splash. It is only an effect and does not hurt characters.
+	/// </summary>
 	private class SmallChemicalDropletProjectile : ParticleObject
 	{
 		public Vector2 Velocity { get; set; }
 
 		public SmallChemicalDropletProjectile()
-		  : base("/ANIGROUP", 33, 0)
+			: base(WaterEggmanType.AnimationGroupResourceKey, AnimationSplashDrop, 0)
 		{
 		}
 

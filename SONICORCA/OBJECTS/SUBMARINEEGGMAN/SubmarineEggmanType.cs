@@ -10,6 +10,11 @@ using SonicOrca.Core.Objects.Metadata;
 #nullable disable
 namespace SONICORCA.OBJECTS.SUBMARINEEGGMAN;
 
+/// <summary>
+/// The object type for the Hill Top Zone boss. It declares the resources that the boss needs.
+/// See <see cref="SubmarineEggmanInstance"/> for the behavior.
+/// </summary>
+
 [SonicOrca.Core.Objects.Metadata.Name("Submarine Eggman")]
 [Description("Submarine Eggman from Hill Top Zone, Sonic 2")]
 [ObjectInstance(typeof(SubmarineEggmanInstance))]

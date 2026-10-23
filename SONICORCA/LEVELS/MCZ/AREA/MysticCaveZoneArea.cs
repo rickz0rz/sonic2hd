@@ -13,25 +13,31 @@ using SonicOrca.Resources;
 #nullable disable
 namespace SONICORCA.LEVELS.MCZ.AREA;
 
+/// <summary>
+/// The area for Mystic Cave Zone. It loads the tile set, the map and the binding, and sets the level music.
+/// The level bounds are the bounds of the map.
+/// </summary>
 public class MysticCaveZoneArea : Area
 {
 	private const string TileSetResourceKey = "//TILESET";
 	private const string MapResourceKey = "//MAP";
 	private const string BindingResourceKey = "//BINDING";
 	private const string LevelMusicResourceKey = "SONICORCA/MUSIC/LEVELS/MCZ/COOPERATIVE";
-	public static IReadOnlyList<string> AreaDependencies = (new string[4]
+
+	public static IReadOnlyList<string> AreaDependencies = new string[]
 	{
-	"//TILESET",
-	"//MAP",
-	"//BINDING",
-	"SONICORCA/MUSIC/LEVELS/MCZ/COOPERATIVE"
-	}).ToArray<string>();
+		TileSetResourceKey,
+		MapResourceKey,
+		BindingResourceKey,
+		LevelMusicResourceKey
+	}.ToArray();
+
 	private SonicOrcaGameContext _gameContext;
 	private ResourceTree _resourceTree;
 	private Level _level;
 
 	public MysticCaveZoneArea()
-	  : base(AreaDependencies)
+		: base(AreaDependencies)
 	{
 	}
 
@@ -44,12 +50,12 @@ public class MysticCaveZoneArea : Area
 		_level.ShowAsZone = true;
 		_level.ShowAsAct = true;
 		_level.Scheme = LevelScheme.S2;
-		_level.LevelMusic = "SONICORCA/MUSIC/LEVELS/MCZ/COOPERATIVE";
+		_level.LevelMusic = LevelMusicResourceKey;
 		if (!settings.Seamless)
 		{
-			_level.TileSet = _resourceTree.GetLoadedResource<TileSet>(this, "//TILESET");
-			_level.LoadMap(_resourceTree.GetLoadedResource<LevelMap>(this, "//MAP"));
-			_level.LoadBinding(_resourceTree.GetLoadedResource<LevelBinding>(this, "//BINDING"));
+			_level.TileSet = _resourceTree.GetLoadedResource<TileSet>(this, TileSetResourceKey);
+			_level.LoadMap(_resourceTree.GetLoadedResource<LevelMap>(this, MapResourceKey));
+			_level.LoadBinding(_resourceTree.GetLoadedResource<LevelBinding>(this, BindingResourceKey));
 		}
 		_level.Bounds = _level.Map.Bounds;
 	}

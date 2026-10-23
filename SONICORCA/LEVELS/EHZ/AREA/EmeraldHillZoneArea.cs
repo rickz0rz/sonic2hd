@@ -18,16 +18,20 @@ using SonicOrca.Geometry;
 #nullable disable
 namespace SONICORCA.LEVELS.EHZ.AREA;
 
+/// <summary>
+/// The area for Emerald Hill Zone. It sets the act bounds and music, plays the waterfall sound near waterfalls,
+/// and makes characters darker inside caves. In act 2 it runs the Drill Eggman boss fight and the sunset at the end.
+/// </summary>
 public class EmeraldHillZoneArea : Area
 {
 	private const string TileSetResourceKey = "//TILESET";
 	private const string MapResourceKey = "//MAP";
 	private const string BindingResourceKey = "//BINDING";
 	private const string BossObjectResourceKey = "SONICORCA/OBJECTS/DRILLEGGMAN";
-	private static IReadOnlyList<string> AnimalResourceKeys = new string[2]
+	private static IReadOnlyList<string> AnimalResourceKeys = new string[]
 	{
-	"SONICORCA/OBJECTS/FLICKY",
-	"SONICORCA/OBJECTS/RICKY"
+		"SONICORCA/OBJECTS/FLICKY",
+		"SONICORCA/OBJECTS/RICKY"
 	};
 	private const string Act1MusicResourceKey = "SONICORCA/MUSIC/LEVELS/EHZ/COOPERATIVE/ACT1";
 	private const string Act2MusicResourceKey = "SONICORCA/MUSIC/LEVELS/EHZ/COOPERATIVE/ACT2";
@@ -35,19 +39,85 @@ public class EmeraldHillZoneArea : Area
 	private const string Act1FastMusicResourceKey = "SONICORCA/MUSIC/LEVELS/EHZ/COOPERATIVE/ACT1/FAST";
 	private const string Act2FastMusicResourceKey = "SONICORCA/MUSIC/LEVELS/EHZ/COOPERATIVE/ACT2/FAST";
 	private const string WaterfallResourceKey = "SONICORCA/SOUND/WATERFALL";
-	public static IReadOnlyList<string> AreaDependencies = (new string[10]
+
+	// AnimalResourceKeys must stay above AreaDependencies, because static fields are set in the order of the source.
+	public static IReadOnlyList<string> AreaDependencies = new string[]
 	{
-	"//TILESET",
-	"//MAP",
-	"//BINDING",
-	"SONICORCA/OBJECTS/DRILLEGGMAN",
-	"SONICORCA/MUSIC/LEVELS/EHZ/COOPERATIVE/ACT1",
-	"SONICORCA/MUSIC/LEVELS/EHZ/COOPERATIVE/ACT2",
-	"SONICORCA/MUSIC/BOSS/S2",
-	"SONICORCA/MUSIC/LEVELS/EHZ/COOPERATIVE/ACT1/FAST",
-	"SONICORCA/MUSIC/LEVELS/EHZ/COOPERATIVE/ACT2/FAST",
-	"SONICORCA/SOUND/WATERFALL"
-	}).Concat<string>(AnimalResourceKeys).ToArray<string>();
+		TileSetResourceKey,
+		MapResourceKey,
+		BindingResourceKey,
+		BossObjectResourceKey,
+		Act1MusicResourceKey,
+		Act2MusicResourceKey,
+		BossMusicResourceKey,
+		Act1FastMusicResourceKey,
+		Act2FastMusicResourceKey,
+		WaterfallResourceKey
+	}.Concat(AnimalResourceKeys).ToArray();
+
+	/// <summary>
+	/// The size of a map tile, in level units.
+	/// </summary>
+	private const int TileSize = 64;
+
+	/// <summary>
+	/// The map layer that has the waterfall tiles.
+	/// </summary>
+	private const int WaterfallTileLayerIndex = 10;
+
+	/// <summary>
+	/// The map layer that draws the waterfall effects.
+	/// </summary>
+	private const int WaterfallEffectLayerIndex = 8;
+
+	/// <summary>
+	/// The largest horizontal and vertical distances from the camera centre at which the waterfall sound plays.
+	/// </summary>
+	private const int WaterfallAudibleDistanceX = 1000;
+	private const int WaterfallAudibleDistanceY = 1400;
+
+	private const double WaterfallMaxVolume = 0.75;
+
+	/// <summary>
+	/// The tile index range of all waterfall tiles, and the range of the tiles at the top of a waterfall.
+	/// </summary>
+	private const int WaterfallFirstTile = 780;
+	private const int WaterfallLastTile = 803;
+	private const int WaterfallTopFirstTile = 792;
+	private const int WaterfallTopLastTile = 795;
+
+	/// <summary>
+	/// The bits of a tile value that hold the tile index. The other bits hold the flags.
+	/// </summary>
+	private const int TileIndexMask = 0x0FFF;
+
+	/// <summary>
+	/// The distance into an inside marker, after the marker shrinks by <see cref="InsideMarkerInset"/>,
+	/// at which a character becomes fully dark.
+	/// </summary>
+	private const int InsideFadeDistance = 64;
+	private const int InsideMarkerInset = 32;
+	private const double InsideBrightness = -0.41;
+
+	/// <summary>
+	/// The number of ticks between the boss arena lock and the boss spawn.
+	/// </summary>
+	private const int BossSpawnDelay = 90;
+
+	/// <summary>
+	/// The speed at which the bounds open to the right after the boss flees.
+	/// </summary>
+	private const double BoundsOpenSpeed = 8.0;
+
+	/// <summary>
+	/// The distance from the right edge of the bounds at which the sunset starts.
+	/// </summary>
+	private const int SunsetStartDistance = 128;
+
+	private const int SunsetNightModeDelay = 120;
+	private const double SunsetNightModeStep = 1.0 / 160.0;
+	private const int SunsetFadeOutTicks = 380;
+
 	private SonicOrcaGameContext _gameContext;
 	private Level _level;
 	private int _state;
@@ -62,16 +132,16 @@ public class EmeraldHillZoneArea : Area
 	{
 		get
 		{
-			return new KeyValuePair<string, object>[2]
+			return new KeyValuePair<string, object>[]
 			{
-		new KeyValuePair<string, object>("STATE",  _state),
-		new KeyValuePair<string, object>("BOSS DEFEATED",  _bossDefeated)
+				new KeyValuePair<string, object>("STATE", _state),
+				new KeyValuePair<string, object>("BOSS DEFEATED", _bossDefeated)
 			};
 		}
 	}
 
 	public EmeraldHillZoneArea()
-	  : base(AreaDependencies)
+		: base(AreaDependencies)
 	{
 	}
 
@@ -85,12 +155,12 @@ public class EmeraldHillZoneArea : Area
 		_level.ShowAsZone = true;
 		_level.ShowAsAct = true;
 		_level.Scheme = LevelScheme.S2;
-		_level.AnimalResourceKeys = EmeraldHillZoneArea.AnimalResourceKeys.Select<string, string>(x => this.GetAbsolutePath(x)).ToArray<string>();
+		_level.AnimalResourceKeys = AnimalResourceKeys.Select(x => this.GetAbsolutePath(x)).ToArray();
 		if (!settings.Seamless)
 		{
-			_level.TileSet = _gameContext.ResourceTree.GetLoadedResource<TileSet>(this, "//TILESET");
-			_level.LoadMap(_gameContext.ResourceTree.GetLoadedResource<LevelMap>(this, "//MAP"));
-			_level.LoadBinding(_gameContext.ResourceTree.GetLoadedResource<LevelBinding>(this, "//BINDING"));
+			_level.TileSet = _gameContext.ResourceTree.GetLoadedResource<TileSet>(this, TileSetResourceKey);
+			_level.LoadMap(_gameContext.ResourceTree.GetLoadedResource<LevelMap>(this, MapResourceKey));
+			_level.LoadBinding(_gameContext.ResourceTree.GetLoadedResource<LevelBinding>(this, BindingResourceKey));
 			PrepareWaterfalls();
 		}
 		if (settings.Act == 1)
@@ -102,18 +172,18 @@ public class EmeraldHillZoneArea : Area
 
 	private void PrepareAct1()
 	{
-		_level.LevelMusic = "SONICORCA/MUSIC/LEVELS/EHZ/COOPERATIVE/ACT1";
+		_level.LevelMusic = Act1MusicResourceKey;
 		_level.CurrentAct = 1;
 		_level.SetStartPosition("startpos_stk_1");
 		_level.Bounds = GetAct1Bounds();
 		_level.RingsPerfectTarget = _level.ObjectManager.ObjectEntryTable.GetRingCountInRegion(_level.Bounds);
-		_level.SoundManager.SetJingle(JingleType.SpeedShoes, "SONICORCA/MUSIC/LEVELS/EHZ/COOPERATIVE/ACT1/FAST");
+		_level.SoundManager.SetJingle(JingleType.SpeedShoes, Act1FastMusicResourceKey);
 	}
 
 	private void PrepareAct2(bool seamless)
 	{
-		_level.SoundManager.SetJingle(JingleType.SpeedShoes, "SONICORCA/MUSIC/LEVELS/EHZ/COOPERATIVE/ACT2/FAST");
-		_level.LevelMusic = "SONICORCA/MUSIC/LEVELS/EHZ/COOPERATIVE/ACT2";
+		_level.SoundManager.SetJingle(JingleType.SpeedShoes, Act2FastMusicResourceKey);
+		_level.LevelMusic = Act2MusicResourceKey;
 		_level.CurrentAct = 2;
 		_level.SetStartPosition("startpos_stk_2");
 		Rectanglei act2Bounds = GetAct2Bounds() with
@@ -131,30 +201,35 @@ public class EmeraldHillZoneArea : Area
 
 	private void PrepareWaterfalls()
 	{
-		_waterfallSampleInstance = new SampleInstance(_gameContext, _gameContext.ResourceTree.GetLoadedResource<SampleInfo>("SONICORCA/SOUND/WATERFALL"));
-		_waterfallRects = GetWaterfalls(_level.Map.Layers[10]).AsArray<Rectanglei>();
-		_level.Map.Layers[8].WaterfallEffects = _waterfallRects;
+		_waterfallSampleInstance = new SampleInstance(_gameContext, _gameContext.ResourceTree.GetLoadedResource<SampleInfo>(WaterfallResourceKey));
+		_waterfallRects = GetWaterfalls(_level.Map.Layers[WaterfallTileLayerIndex]).AsArray();
+		_level.Map.Layers[WaterfallEffectLayerIndex].WaterfallEffects = _waterfallRects;
 	}
 
+	/// <summary>
+	/// Plays the waterfall sound for the waterfall that is horizontally nearest to the camera centre.
+	/// The volume and the pan change with the distance.
+	/// </summary>
 	private void UpdateWaterfallSounds()
 	{
 		Vector2i centre = (Vector2i)_level.Camera.Bounds.Centre;
-		Rectanglei rectanglei = new Rectanglei();
-		int num1 = int.MaxValue;
+		Rectanglei nearestWaterfall = new Rectanglei();
+		int distanceX = int.MaxValue;
 		foreach (Rectanglei waterfallRect in _waterfallRects)
 		{
-			int num2 = centre.X - waterfallRect.Centre.X * 64 /*0x40*/;
-			if (Math.Abs(num2) < Math.Abs(num1))
+			// The waterfall rectangles are in tiles.
+			int waterfallDistanceX = centre.X - waterfallRect.Centre.X * TileSize;
+			if (Math.Abs(waterfallDistanceX) < Math.Abs(distanceX))
 			{
-				num1 = num2;
-				rectanglei = waterfallRect;
+				distanceX = waterfallDistanceX;
+				nearestWaterfall = waterfallRect;
 			}
 		}
-		int num3 = Math.Min(Math.Abs(centre.Y - rectanglei.Top * 64 /*0x40*/), Math.Abs(centre.Y - rectanglei.Bottom * 64 /*0x40*/));
-		if (!_level.StateFlags.HasFlag(LevelStateFlags.Paused) && !_level.Player.Protagonist.IsDead && Math.Abs(num1) < 1000 && num3 < 1400)
+		int distanceY = Math.Min(Math.Abs(centre.Y - nearestWaterfall.Top * TileSize), Math.Abs(centre.Y - nearestWaterfall.Bottom * TileSize));
+		if (!_level.StateFlags.HasFlag(LevelStateFlags.Paused) && !_level.Player.Protagonist.IsDead && Math.Abs(distanceX) < WaterfallAudibleDistanceX && distanceY < WaterfallAudibleDistanceY)
 		{
-			_waterfallSampleInstance.Volume = 0.75 * Math.Min(1.0 - Math.Abs(num1) / 1000.0, 1.0 - num3 / 1400.0);
-			_waterfallSampleInstance.Pan = num1 / 1000.0;
+			_waterfallSampleInstance.Volume = WaterfallMaxVolume * Math.Min(1.0 - Math.Abs(distanceX) / 1000.0, 1.0 - distanceY / 1400.0);
+			_waterfallSampleInstance.Pan = distanceX / 1000.0;
 			_waterfallSampleInstance.Play();
 		}
 		else
@@ -173,29 +248,23 @@ public class EmeraldHillZoneArea : Area
 		switch (_state)
 		{
 			case 0:
-				double left = _level.Camera.Bounds.Left;
-				Vector2i position = _level.GetMarker("boss_oneway").Position;
-				double x1 = position.X;
-				if (left < x1)
+				// Wait until the camera passes the one-way marker, then move the bounds to the boss arena.
+				Vector2i oneWayPosition = _level.GetMarker("boss_oneway").Position;
+				if (_level.Camera.Bounds.Left < oneWayPosition.X)
 					break;
-				Rectanglei bounds1 = _level.Bounds;
-				ref Rectanglei local1 = ref bounds1;
-				position = _level.GetMarker("boss_oneway").Position;
-				int x2 = position.X;
-				local1.Left = x2;
-				ref Rectanglei local2 = ref bounds1;
-				position = _level.GetMarker("boss_bottom").Position;
-				int y = position.Y;
-				local2.Bottom = y;
-				_level.ScrollBoundsTo(bounds1, 2);
+				Rectanglei arenaApproachBounds = _level.Bounds;
+				arenaApproachBounds.Left = oneWayPosition.X;
+				arenaApproachBounds.Bottom = _level.GetMarker("boss_bottom").Position.Y;
+				_level.ScrollBoundsTo(arenaApproachBounds, 2);
 				++_state;
 				break;
 			case 1:
+				// Lock the boss arena and start the boss music.
 				if (_level.IsScrollingBounds || _level.Camera.Bounds.Left < _level.GetMarker("boss_left").Position.X)
 					break;
 				_level.Bounds = GetBossBounds();
-				_level.SoundManager.CrossFadeMusic(this.GetAbsolutePath("SONICORCA/MUSIC/BOSS/S2"));
-				_stateTimer = 90;
+				_level.SoundManager.CrossFadeMusic(this.GetAbsolutePath(BossMusicResourceKey));
+				_stateTimer = BossSpawnDelay;
 				++_state;
 				break;
 			case 2:
@@ -206,139 +275,137 @@ public class EmeraldHillZoneArea : Area
 				++_state;
 				break;
 			case 3:
+				// The boss fight. When the boss is defeated, play the level music again.
 				if (!_bossDefeated && _bossObject.Defeated)
 				{
 					_bossDefeated = true;
-					_level.SoundManager.PlayMusic(this.GetAbsolutePath("SONICORCA/MUSIC/LEVELS/EHZ/COOPERATIVE/ACT2"));
+					_level.SoundManager.PlayMusic(this.GetAbsolutePath(Act2MusicResourceKey));
 				}
 				if (!_bossObject.Fleeing)
 					break;
 				++_state;
 				break;
 			case 4:
-				Rectangle bounds2 = (Rectangle)_level.Bounds;
-				ref Rectangle local3 = ref bounds2;
-				double val1 = bounds2.Right + 8.0;
-				Rectanglei rectanglei = GetAct2Bounds();
-				double right1 = rectanglei.Right;
-				double num = Math.Min(val1, right1);
-				local3.Right = num;
-				bounds2.Left = Math.Max(bounds2.Left, _level.Camera.Bounds.Left);
-				_level.Bounds = (Rectanglei)bounds2;
-				if (!_level.StateFlags.HasFlag(LevelStateFlags.StageCompleted))
+				{
+					// Open the bounds to the right until the stage is complete.
+					Rectangle bounds = (Rectangle)_level.Bounds;
+					bounds.Right = Math.Min(bounds.Right + BoundsOpenSpeed, GetAct2Bounds().Right);
+					bounds.Left = Math.Max(bounds.Left, _level.Camera.Bounds.Left);
+					_level.Bounds = (Rectanglei)bounds;
+					if (!_level.StateFlags.HasFlag(LevelStateFlags.StageCompleted))
+						break;
+					++_state;
+					// Lock the camera, but let the characters run to the right edge of the map.
+					bounds = (Rectangle)_level.Bounds;
+					_level.Camera.Limits = (Rectanglei)bounds;
+					bounds.Right = _level.Map.Bounds.Right;
+					_level.Bounds = (Rectanglei)bounds;
 					break;
-				++_state;
-				bounds2 = (Rectangle)_level.Bounds;
-				_level.Camera.Limits = (Rectanglei)bounds2;
-				ref Rectangle local4 = ref bounds2;
-				rectanglei = _level.Map.Bounds;
-				double right2 = rectanglei.Right;
-				local4.Right = right2;
-				_level.Bounds = (Rectanglei)bounds2;
-				break;
+				}
 			case 5:
 				_level.StateFlags &= ~LevelStateFlags.AllowCharacterControl;
-				CharacterIntelligence.SimpleMoveRightJumpObsticals(_level.Player.Protagonist);
-				if (_level.Player.Sidekick != null)
-					CharacterIntelligence.SimpleMoveRightJumpObsticals(_level.Player.Sidekick);
-				if (_level.Player.Protagonist.Position.X <= _level.Bounds.Right - 128 /*0x80*/)
+				MoveCharactersRight();
+				if (_level.Player.Protagonist.Position.X <= _level.Bounds.Right - SunsetStartDistance)
 					break;
 				++_state;
 				_sunFallTimer = 0;
 				break;
 			case 6:
-				CharacterIntelligence.SimpleMoveRightJumpObsticals(_level.Player.Protagonist);
-				if (_level.Player.Sidekick != null)
-					CharacterIntelligence.SimpleMoveRightJumpObsticals(_level.Player.Sidekick);
+				// The sunset: the level becomes darker, and then it fades out.
+				MoveCharactersRight();
 				++_sunFallTimer;
-				if (_sunFallTimer >= 120)
-					_level.NightMode = Math.Min(_level.NightMode + 1.0 / 160.0, 1.0);
-				if (_sunFallTimer < 380)
+				if (_sunFallTimer >= SunsetNightModeDelay)
+					_level.NightMode = Math.Min(_level.NightMode + SunsetNightModeStep, 1.0);
+				if (_sunFallTimer < SunsetFadeOutTicks)
 					break;
 				_level.FadeOut(LevelState.StageCompleted);
 				++_state;
 				break;
 			case 7:
-				CharacterIntelligence.SimpleMoveRightJumpObsticals(_level.Player.Protagonist);
-				if (_level.Player.Sidekick == null)
-					break;
-				CharacterIntelligence.SimpleMoveRightJumpObsticals(_level.Player.Sidekick);
+				MoveCharactersRight();
 				break;
 		}
 	}
 
+	/// <summary>
+	/// Moves the protagonist and the sidekick (if there is one) to the right, and jumps over obstacles.
+	/// </summary>
+	private void MoveCharactersRight()
+	{
+		CharacterIntelligence.SimpleMoveRightJumpObsticals(_level.Player.Protagonist);
+		if (_level.Player.Sidekick != null)
+			CharacterIntelligence.SimpleMoveRightJumpObsticals(_level.Player.Sidekick);
+	}
+
+	/// <summary>
+	/// Makes each character darker when it is inside an area that has an "inside" marker.
+	/// The character becomes darker gradually near the edge of the area.
+	/// </summary>
 	private void UpdateInsideLighting()
 	{
 		foreach (ICharacter character in _level.ObjectManager.Characters)
 		{
-			float num1 = 0.0f;
+			float brightness = 0.0f;
 			foreach (LevelMarker levelMarker in _level.GetMarkersWithTag("inside"))
 			{
-				Rectanglei rectanglei = levelMarker.Bounds;
-				rectanglei = rectanglei.Inflate(new Vector2i(-32, -32));
-				Vector2i position = character.Position;
-				int val1;
-				if (position.X < rectanglei.X + rectanglei.Width / 2)
+				Rectanglei insideBounds = levelMarker.Bounds.Inflate(new Vector2i(-InsideMarkerInset, -InsideMarkerInset));
+				int edgeDistance = Math.Min(GetHorizontalEdgeDistance(insideBounds, character.Position), GetVerticalEdgeDistance(insideBounds, character.Position));
+				if (edgeDistance >= -InsideFadeDistance)
 				{
-					position = character.Position;
-					val1 = position.X - rectanglei.Left;
-				}
-				else
-				{
-					int right = rectanglei.Right;
-					position = character.Position;
-					int x = position.X;
-					val1 = right - x;
-				}
-				position = character.Position;
-				int num2;
-				if (position.Y < rectanglei.Y + rectanglei.Height / 2)
-				{
-					position = character.Position;
-					num2 = position.Y - rectanglei.Top;
-				}
-				else
-				{
-					int bottom = rectanglei.Bottom;
-					position = character.Position;
-					int y = position.Y;
-					num2 = bottom - y;
-				}
-				int val2 = num2;
-				int num3 = Math.Min(val1, val2);
-				if (num3 >= -64)
-				{
-					num1 = (float)(MathX.Clamp(0.0, (num3 + 64 /*0x40*/) / 64.0, 1.0) * -0.41);
+					brightness = (float)(MathX.Clamp(0.0, (edgeDistance + InsideFadeDistance) / 64.0, 1.0) * InsideBrightness);
 					break;
 				}
 			}
-			character.Brightness = num1;
+			character.Brightness = brightness;
 		}
+	}
+
+	/// <summary>
+	/// Gets the distance from the position to the nearest left or right edge of the rectangle.
+	/// The value is positive when the position is inside the rectangle horizontally.
+	/// </summary>
+	private static int GetHorizontalEdgeDistance(Rectanglei rect, Vector2i position)
+	{
+		if (position.X < rect.X + rect.Width / 2)
+			return position.X - rect.Left;
+		return rect.Right - position.X;
+	}
+
+	/// <summary>
+	/// Gets the distance from the position to the nearest top or bottom edge of the rectangle.
+	/// The value is positive when the position is inside the rectangle vertically.
+	/// </summary>
+	private static int GetVerticalEdgeDistance(Rectanglei rect, Vector2i position)
+	{
+		if (position.Y < rect.Y + rect.Height / 2)
+			return position.Y - rect.Top;
+		return rect.Bottom - position.Y;
 	}
 
 	private void SpawnBoss()
 	{
 		Rectanglei bossBounds = GetBossBounds();
 		LevelMarker marker = _level.GetMarker("boss_position");
-		_bossObject = _level.ObjectManager.AddObject(new ObjectPlacement(this.GetAbsolutePath("SONICORCA/OBJECTS/DRILLEGGMAN"), _level.Map.Layers.IndexOf(marker.Layer), marker.Position, new
+		// The property names of the state object must match the state variables of the boss.
+		_bossObject = _level.ObjectManager.AddObject(new ObjectPlacement(this.GetAbsolutePath(BossObjectResourceKey), _level.Map.Layers.IndexOf(marker.Layer), marker.Position, new
 		{
 			LeftEdge = bossBounds.Left,
 			RightEdge = bossBounds.Right
 		})) as BossObject;
 	}
 
-	private Rectanglei GetAct1Bounds()
-	{
-		Vector2i position1 = _level.GetMarker("bounds_1_lt").Position;
-		Vector2i position2 = _level.GetMarker("bounds_1_rb").Position;
-		return Rectanglei.FromLTRB(position1.X, position1.Y, position2.X, position2.Y);
-	}
+	private Rectanglei GetAct1Bounds() => GetMarkerBounds("bounds_1_lt", "bounds_1_rb");
 
-	private Rectanglei GetAct2Bounds()
+	private Rectanglei GetAct2Bounds() => GetMarkerBounds("bounds_2_lt", "bounds_2_rb");
+
+	/// <summary>
+	/// Gets the rectangle between a left-top marker and a right-bottom marker.
+	/// </summary>
+	private Rectanglei GetMarkerBounds(string leftTopMarkerName, string rightBottomMarkerName)
 	{
-		Vector2i position1 = _level.GetMarker("bounds_2_lt").Position;
-		Vector2i position2 = _level.GetMarker("bounds_2_rb").Position;
-		return Rectanglei.FromLTRB(position1.X, position1.Y, position2.X, position2.Y);
+		Vector2i leftTop = _level.GetMarker(leftTopMarkerName).Position;
+		Vector2i rightBottom = _level.GetMarker(rightBottomMarkerName).Position;
+		return Rectanglei.FromLTRB(leftTop.X, leftTop.Y, rightBottom.X, rightBottom.Y);
 	}
 
 	private Rectanglei GetBossBounds()
@@ -346,25 +413,31 @@ public class EmeraldHillZoneArea : Area
 		return Rectanglei.FromLTRB(_level.GetMarker("boss_left").Position.X, _level.Bounds.Top, _level.GetMarker("boss_right").Position.X, _level.GetMarker("boss_bottom").Position.Y);
 	}
 
+	/// <summary>
+	/// Finds the waterfalls in the layer. Each waterfall is a rectangle in tiles.
+	/// A column of waterfall tiles becomes one rectangle, and the method joins rectangles of the same height
+	/// in adjacent columns.
+	/// </summary>
 	private IEnumerable<Rectanglei> GetWaterfalls(LevelLayer layer)
 	{
 		List<Rectanglei> rects = new List<Rectanglei>();
 		for (int x = 0; x < layer.Columns; ++x)
 		{
 			Rectanglei currentRect = new Rectanglei(x, 0, 1, 0);
-			for (int index = 0; index < layer.Rows; ++index)
+			for (int y = 0; y < layer.Rows; ++y)
 			{
-				if (IsWaterfallTopTile(layer.Tiles[x, index]) && currentRect.Height != 0)
+				if (IsWaterfallTopTile(layer.Tiles[x, y]) && currentRect.Height != 0)
 				{
+					// A new waterfall starts below the current waterfall.
 					AggregateWaterfalls(rects, currentRect);
-					currentRect.Y = index;
+					currentRect.Y = y;
 					currentRect.Height = 1;
 				}
-				else if (IsWaterfallTile(layer.Tiles[x, index]))
+				else if (IsWaterfallTile(layer.Tiles[x, y]))
 				{
 					if (currentRect.Height == 0)
 					{
-						currentRect.Y = index;
+						currentRect.Y = y;
 						currentRect.Height = 1;
 					}
 					else
@@ -383,9 +456,13 @@ public class EmeraldHillZoneArea : Area
 		return rects;
 	}
 
+	/// <summary>
+	/// Makes each rectangle that touches the left side of the current rectangle, and has the same top and height,
+	/// one column wider. If no rectangle matches, adds the current rectangle.
+	/// </summary>
 	private void AggregateWaterfalls(IList<Rectanglei> rects, Rectanglei currentRect)
 	{
-		bool flag = false;
+		bool joined = false;
 		for (int index = 0; index < rects.Count; ++index)
 		{
 			Rectanglei rect = rects[index];
@@ -393,23 +470,23 @@ public class EmeraldHillZoneArea : Area
 			{
 				++rect.Width;
 				rects[index] = rect;
-				flag = true;
+				joined = true;
 			}
 		}
-		if (flag)
+		if (joined)
 			return;
 		rects.Add(currentRect);
 	}
 
 	private bool IsWaterfallTile(int tile)
 	{
-		int num = tile & 4095 /*0x0FFF*/;
-		return num >= 780 && num <= 803;
+		int tileIndex = tile & TileIndexMask;
+		return tileIndex >= WaterfallFirstTile && tileIndex <= WaterfallLastTile;
 	}
 
 	private bool IsWaterfallTopTile(int tile)
 	{
-		int num = tile & 4095 /*0x0FFF*/;
-		return num >= 792 && num <= 795;
+		int tileIndex = tile & TileIndexMask;
+		return tileIndex >= WaterfallTopFirstTile && tileIndex <= WaterfallTopLastTile;
 	}
 }
