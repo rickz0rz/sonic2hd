@@ -1,5 +1,8 @@
 namespace SonicOrca.Core.Network;
 
+/// <summary>
+/// A packet that has only a type and no data.
+/// </summary>
 internal class NotifyPacket : Packet
 {
 	public NotifyPacket(PacketType packetType)

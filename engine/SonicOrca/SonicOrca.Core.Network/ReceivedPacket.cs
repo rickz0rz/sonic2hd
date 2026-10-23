@@ -2,6 +2,9 @@ using System.Net;
 
 namespace SonicOrca.Core.Network;
 
+/// <summary>
+/// A packet and the end point that sent it.
+/// </summary>
 internal class ReceivedPacket
 {
 	private readonly IPEndPoint _sender;

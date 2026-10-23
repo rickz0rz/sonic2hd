@@ -9,6 +9,10 @@ using SonicOrca.Geometry;
 
 namespace SonicOrca.Core.Network;
 
+/// <summary>
+/// The client side of a network game. It connects to the server, sends the local input and applies the
+/// input and the character states that the server sends.
+/// </summary>
 internal class NetworkGameClient : IDisposable, IObserver<ReceivedPacket>
 {
 	private enum ConnectionState
@@ -17,6 +21,9 @@ internal class NetworkGameClient : IDisposable, IObserver<ReceivedPacket>
 		ConnectingToServer,
 		Connected
 	}
+
+	/// <summary>The number of characters that receive network input.</summary>
+	private const int CharacterCount = 2;
 
 	private readonly ConcurrentQueue<Packet> _receivedPackets = new ConcurrentQueue<Packet>();
 
@@ -30,11 +37,11 @@ internal class NetworkGameClient : IDisposable, IObserver<ReceivedPacket>
 
 	private int _characterId;
 
-	private Vector2[] _characterInputDirection = new Vector2[2];
+	private Vector2[] _characterInputDirection = new Vector2[CharacterCount];
 
-	private bool[] _characterInputAction = new bool[2];
+	private bool[] _characterInputAction = new bool[CharacterCount];
 
-	private TaskCompletionSource<bool> _handshakeAcknoledged;
+	private TaskCompletionSource<bool> _handshakeAcknowledged;
 
 	public bool Ready { get; set; }
 
@@ -61,12 +68,12 @@ internal class NetworkGameClient : IDisposable, IObserver<ReceivedPacket>
 		_radio = new UdpPacketRadio(serverHost, port);
 		_radio.Subscribe(this);
 		_connectionState = ConnectionState.ConnectingToServer;
-		_handshakeAcknoledged = new TaskCompletionSource<bool>();
+		_handshakeAcknowledged = new TaskCompletionSource<bool>();
 		await _radio.SendPacketAsync(new NotifyPacket(PacketType.Connect));
-		await Task.WhenAny(Task.Delay(timeout), _handshakeAcknoledged.Task);
-		if (_handshakeAcknoledged.Task.IsCompleted)
+		await Task.WhenAny(Task.Delay(timeout), _handshakeAcknowledged.Task);
+		if (_handshakeAcknowledged.Task.IsCompleted)
 		{
-			if (!_handshakeAcknoledged.Task.Result)
+			if (!_handshakeAcknowledged.Task.Result)
 			{
 				throw new NetworkException("Server refused connection.");
 			}
@@ -76,11 +83,11 @@ internal class NetworkGameClient : IDisposable, IObserver<ReceivedPacket>
 		throw new TimeoutException("Connecting to server timed out.");
 	}
 
-	private void OnReceiveHandshakeAcknoledgement(Packet packet)
+	private void OnReceiveHandshakeAcknowledgement(Packet packet)
 	{
 		if (_connectionState == ConnectionState.ConnectingToServer)
 		{
-			_handshakeAcknoledged.SetResult(result: true);
+			_handshakeAcknowledged.SetResult(result: true);
 		}
 	}
 
@@ -104,7 +111,7 @@ internal class NetworkGameClient : IDisposable, IObserver<ReceivedPacket>
 		switch (receivedPacket.Packet.Type)
 		{
 			case PacketType.ConnectAck:
-				OnReceiveHandshakeAcknoledgement(receivedPacket.Packet);
+				OnReceiveHandshakeAcknowledgement(receivedPacket.Packet);
 				break;
 			case PacketType.Ping:
 				{
@@ -127,10 +134,9 @@ internal class NetworkGameClient : IDisposable, IObserver<ReceivedPacket>
 	public void Update()
 	{
 		_outgoingPackets.Clear();
-		Packet result;
-		while (_receivedPackets.TryDequeue(out result))
+		while (_receivedPackets.TryDequeue(out Packet packet))
 		{
-			ProcessPacket(result);
+			ProcessPacket(packet);
 		}
 		if (Level != null)
 		{
@@ -140,9 +146,9 @@ internal class NetworkGameClient : IDisposable, IObserver<ReceivedPacket>
 		IEnumerable<Packet> packetsToSend = _outgoingPackets.ToArray();
 		Task.Run(async () =>
 		{
-			foreach (Packet item in packetsToSend)
+			foreach (Packet outgoing in packetsToSend)
 			{
-				await _radio.SendPacketAsync(item);
+				await _radio.SendPacketAsync(outgoing);
 			}
 		});
 	}
@@ -183,7 +189,6 @@ internal class NetworkGameClient : IDisposable, IObserver<ReceivedPacket>
 		if (characterSynchronisation != null)
 		{
 			characterSynchronisation.Apply(Level.ObjectManager.Characters.ToArray(), _roundTripTime);
-			characterSynchronisation = null;
 		}
 	}
 
@@ -194,19 +199,19 @@ internal class NetworkGameClient : IDisposable, IObserver<ReceivedPacket>
 		{
 			_characterInputDirection[_characterId] = gameContext.Current[0].DirectionLeft;
 			_characterInputAction[_characterId] = gameContext.Current[0].Action1;
-			PlayInputPacket item = new PlayInputPacket(_characterId, _characterInputDirection[_characterId], _characterInputAction[_characterId]);
-			_outgoingPackets.Enqueue(item);
+			PlayInputPacket playInputPacket = new PlayInputPacket(_characterId, _characterInputDirection[_characterId], _characterInputAction[_characterId]);
+			_outgoingPackets.Enqueue(playInputPacket);
 		}
 	}
 
 	private void PerformCharacterInputs()
 	{
-		ICharacter[] array = Level.ObjectManager.Characters.ToArray();
-		for (int i = 0; i < 2; i++)
+		ICharacter[] characters = Level.ObjectManager.Characters.ToArray();
+		for (int i = 0; i < CharacterCount; i++)
 		{
-			if (array.Length > i)
+			if (characters.Length > i)
 			{
-				array[i].Input = new CharacterInputState
+				characters[i].Input = new CharacterInputState
 				{
 					Throttle = _characterInputDirection[i].X,
 					VerticalDirection = Math.Sign(_characterInputDirection[i].Y),

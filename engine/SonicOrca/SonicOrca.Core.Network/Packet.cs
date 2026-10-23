@@ -4,8 +4,14 @@ using System.Threading.Tasks;
 
 namespace SonicOrca.Core.Network;
 
+/// <summary>
+/// The base class for network packets. A packet is a header (type and data length) followed by the data.
+/// </summary>
 internal abstract class Packet
 {
+	/// <summary>The size of the packet header: one byte for the type and four bytes for the data length.</summary>
+	private const int HeaderSize = 5;
+
 	private readonly PacketType _type;
 
 	public PacketType Type => _type;
@@ -19,28 +25,27 @@ internal abstract class Packet
 
 	public byte[] Serialise()
 	{
-		byte[] array = SerialiseData();
+		byte[] data = SerialiseData();
 		using MemoryStream memoryStream = new MemoryStream();
 		BinaryWriter binaryWriter = new BinaryWriter(memoryStream);
 		binaryWriter.Write((byte)_type);
-		binaryWriter.Write(array.Length);
-		binaryWriter.Write(array);
+		binaryWriter.Write(data.Length);
+		binaryWriter.Write(data);
 		return memoryStream.ToArray();
 	}
 
 	public static async Task<Packet> FromStreamAsync(Stream stream)
 	{
-		_ = 1;
 		try
 		{
-			byte[] header = new byte[5];
+			byte[] header = new byte[HeaderSize];
 			await stream.ReadExactlyAsync(header, 0, header.Length);
 			PacketType packetType = (PacketType)header[0];
-			int num = BitConverter.ToInt32(header, 1);
-			byte[] data = new byte[num];
-			if (num > 0)
+			int dataLength = BitConverter.ToInt32(header, 1);
+			byte[] data = new byte[dataLength];
+			if (dataLength > 0)
 			{
-				await stream.ReadExactlyAsync(data, 0, num);
+				await stream.ReadExactlyAsync(data, 0, dataLength);
 			}
 			return CreateSpecialisedPacket(packetType, data);
 		}
@@ -58,16 +63,16 @@ internal abstract class Packet
 	{
 		try
 		{
-			byte[] array = new byte[5];
-			Array.Copy(buffer, array, array.Length);
-			byte packetType = array[0];
-			int num = BitConverter.ToInt32(array, 1);
-			byte[] array2 = new byte[num];
-			if (num > 0)
+			byte[] header = new byte[HeaderSize];
+			Array.Copy(buffer, header, header.Length);
+			byte packetType = header[0];
+			int dataLength = BitConverter.ToInt32(header, 1);
+			byte[] data = new byte[dataLength];
+			if (dataLength > 0)
 			{
-				Array.Copy(buffer, array.Length, array2, 0, num);
+				Array.Copy(buffer, header.Length, data, 0, dataLength);
 			}
-			return CreateSpecialisedPacket((PacketType)packetType, array2);
+			return CreateSpecialisedPacket((PacketType)packetType, data);
 		}
 		catch (NetworkException)
 		{

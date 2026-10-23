@@ -3,8 +3,13 @@ using SonicOrca.Geometry;
 
 namespace SonicOrca.Core.Lighting;
 
+/// <summary>
+/// A horizontal light source from point <see cref="A"/> to point <see cref="B"/>. It moves the shadows of objects below it up.
+/// </summary>
 public class VectorLightSource : ILightSource
 {
+	private const int MaxVerticalOffset = 48;
+
 	public int Intensity { get; set; }
 
 	public Vector2i A { get; set; }
@@ -21,24 +26,26 @@ public class VectorLightSource : ILightSource
 	public Vector2i GetShadowOffset(Vector2i occlusionPosition, IShadowInfo shadowInfo)
 	{
 		Vector2i occlusionSize = shadowInfo.OcclusionSize;
-		Rectanglei rectanglei = new Rectanglei(occlusionPosition.X - occlusionSize.X, occlusionPosition.Y - occlusionSize.Y, occlusionSize.X * 2, occlusionSize.Y * 2);
-		if (rectanglei.Top > A.Y)
+		Rectanglei occlusionBounds = new Rectanglei(occlusionPosition.X - occlusionSize.X, occlusionPosition.Y - occlusionSize.Y, occlusionSize.X * 2, occlusionSize.Y * 2);
+		if (occlusionBounds.Top > A.Y)
 		{
 			return default;
 		}
-		int num = 0;
-		if (rectanglei.Right < A.X)
+
+		// The horizontal distance from the light segment makes the offset smaller.
+		int horizontalDistance = 0;
+		if (occlusionBounds.Right < A.X)
 		{
-			num += A.X - rectanglei.Right;
+			horizontalDistance += A.X - occlusionBounds.Right;
 		}
-		if (rectanglei.Left > B.X)
+		if (occlusionBounds.Left > B.X)
 		{
-			num += rectanglei.Left - B.X;
+			horizontalDistance += occlusionBounds.Left - B.X;
 		}
-		num /= 4;
-		int num2 = Math.Max(0, A.Y - occlusionPosition.Y) / 16;
-		int num3 = -Math.Max(0, 48 - num2);
-		num3 = Math.Min(0, num3 + num);
-		return new Vector2i(0, num3);
+		horizontalDistance /= 4;
+		int verticalDistance = Math.Max(0, A.Y - occlusionPosition.Y) / 16;
+		int offsetY = -Math.Max(0, MaxVerticalOffset - verticalDistance);
+		offsetY = Math.Min(0, offsetY + horizontalDistance);
+		return new Vector2i(0, offsetY);
 	}
 }

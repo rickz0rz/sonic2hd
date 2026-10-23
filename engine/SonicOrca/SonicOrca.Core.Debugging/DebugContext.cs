@@ -11,11 +11,25 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Core.Debugging;
 
+/// <summary>
+/// The in-level debug menu. It has pages of debug options, reads the arrow keys and draws the menu over the level.
+/// </summary>
 public class DebugContext : IDisposable
 {
 	private const string FontResourceKey = "SONICORCA/FONTS/HUD";
 
 	private const string FocusResourceKey = "SONICORCA/SOUND/TALLY/SWITCH";
+
+	// SDL scan codes of the keys that operate the menu.
+	private const int ScancodeRight = 79;
+
+	private const int ScancodeLeft = 80;
+
+	private const int ScancodeDown = 81;
+
+	private const int ScancodeUp = 82;
+
+	private const int ScancodeLeftCtrl = 224;
 
 	private readonly SonicOrcaGameContext _gameContext;
 
@@ -55,23 +69,23 @@ public class DebugContext : IDisposable
 	{
 		_gameContext = level.GameContext;
 		_level = level;
-		_pages.AddRange(from x in DebugOptionDefinitions.CreateOptionsInOrder(this)
-						group x by x.Page into x
-						select new DebugPage(this, x.Key, x));
+		_pages.AddRange(from option in DebugOptionDefinitions.CreateOptionsInOrder(this)
+						group option by option.Page into pageOptions
+						select new DebugPage(this, pageOptions.Key, pageOptions));
 		if (_pages.Count > 0)
 		{
 			SelectPage(_pages.First());
 		}
 	}
 
-	public async Task LoadAsync(CancellationToken ct = default(CancellationToken))
+	public async Task LoadAsync(CancellationToken ct = default)
 	{
 		ResourceTree resourceTree = _gameContext.ResourceTree;
 		_resourceSession = new ResourceSession(resourceTree);
-		_resourceSession.PushDependencies("SONICORCA/FONTS/HUD", "SONICORCA/SOUND/TALLY/SWITCH");
+		_resourceSession.PushDependencies(FontResourceKey, FocusResourceKey);
 		await _resourceSession.LoadAsync(ct);
-		Font = resourceTree.GetLoadedResource<Font>("SONICORCA/FONTS/HUD");
-		_focusSample = resourceTree.GetLoadedResource<Sample>("SONICORCA/SOUND/TALLY/SWITCH");
+		Font = resourceTree.GetLoadedResource<Font>(FontResourceKey);
+		_focusSample = resourceTree.GetLoadedResource<Sample>(FocusResourceKey);
 	}
 
 	public void Dispose()
@@ -93,7 +107,7 @@ public class DebugContext : IDisposable
 	private void SelectPage(DebugPage page)
 	{
 		_currentPage = page;
-		_currentOption = _currentPage.Options.FirstOrDefault((DebugOption x) => x.Selectable);
+		_currentOption = _currentPage.Options.FirstOrDefault(x => x.Selectable);
 	}
 
 	private void HandleInput()
@@ -101,33 +115,36 @@ public class DebugContext : IDisposable
 		KeyboardState keyboard = _gameContext.Input.Pressed.Keyboard;
 		if (Visible)
 		{
-			if (keyboard[80])
+			if (keyboard[ScancodeLeft])
 			{
 				OnPressLeft();
 			}
-			else if (keyboard[79])
+			else if (keyboard[ScancodeRight])
 			{
 				OnPressRight();
 			}
-			if (keyboard[82])
+			if (keyboard[ScancodeUp])
 			{
 				OnPressUp();
 			}
-			else if (keyboard[81])
+			else if (keyboard[ScancodeDown])
 			{
 				OnPressDown();
 			}
 		}
 	}
 
+	/// <summary>
+	/// With Ctrl, selects the previous page. Without Ctrl, sends the key to the current option.
+	/// </summary>
 	private void OnPressLeft()
 	{
-		if (_gameContext.Input.CurrentState.Keyboard[224])
+		if (_gameContext.Input.CurrentState.Keyboard[ScancodeLeftCtrl])
 		{
-			int num = _pages.IndexOf(_currentPage);
-			if (num > 0)
+			int pageIndex = _pages.IndexOf(_currentPage);
+			if (pageIndex > 0)
 			{
-				SelectPage(_pages[num - 1]);
+				SelectPage(_pages[pageIndex - 1]);
 				PlayFocusSound();
 			}
 		}
@@ -137,14 +154,17 @@ public class DebugContext : IDisposable
 		}
 	}
 
+	/// <summary>
+	/// With Ctrl, selects the next page. Without Ctrl, sends the key to the current option.
+	/// </summary>
 	private void OnPressRight()
 	{
-		if (_gameContext.Input.CurrentState.Keyboard[224])
+		if (_gameContext.Input.CurrentState.Keyboard[ScancodeLeftCtrl])
 		{
-			int num = _pages.IndexOf(_currentPage);
-			if (num < _pages.Count - 1)
+			int pageIndex = _pages.IndexOf(_currentPage);
+			if (pageIndex < _pages.Count - 1)
 			{
-				SelectPage(_pages[num + 1]);
+				SelectPage(_pages[pageIndex + 1]);
 				PlayFocusSound();
 			}
 		}
@@ -154,19 +174,22 @@ public class DebugContext : IDisposable
 		}
 	}
 
+	// OnPressUp and OnPressDown always read the option next to the current option, not the option at the loop index.
+	// They also do not stop at the first selectable option, so the focus sound can play more than one time.
+	// This is possibly a bug in the original code.
 	private void OnPressUp()
 	{
 		if (_currentPage.Options.Count == 0)
 		{
 			return;
 		}
-		int num = _currentPage.Options.IndexOf(_currentOption);
-		for (int num2 = num - 1; num2 >= 0; num2--)
+		int currentIndex = _currentPage.Options.IndexOf(_currentOption);
+		for (int i = currentIndex - 1; i >= 0; i--)
 		{
-			DebugOption debugOption = _currentPage.Options[num - 1];
-			if (debugOption.Selectable)
+			DebugOption option = _currentPage.Options[currentIndex - 1];
+			if (option.Selectable)
 			{
-				_currentOption = debugOption;
+				_currentOption = option;
 				PlayFocusSound();
 			}
 		}
@@ -178,13 +201,13 @@ public class DebugContext : IDisposable
 		{
 			return;
 		}
-		int num = _currentPage.Options.IndexOf(_currentOption);
-		for (int i = num + 1; i < _currentPage.Options.Count; i++)
+		int currentIndex = _currentPage.Options.IndexOf(_currentOption);
+		for (int i = currentIndex + 1; i < _currentPage.Options.Count; i++)
 		{
-			DebugOption debugOption = _currentPage.Options[num + 1];
-			if (debugOption.Selectable)
+			DebugOption option = _currentPage.Options[currentIndex + 1];
+			if (option.Selectable)
 			{
-				_currentOption = debugOption;
+				_currentOption = option;
 				PlayFocusSound();
 			}
 		}
@@ -214,11 +237,11 @@ public class DebugContext : IDisposable
 
 	private void DrawPageTabs(Renderer renderer)
 	{
-		int num = 0;
+		int x = 0;
 		foreach (DebugPage page in _pages)
 		{
-			DrawText(renderer, page.Name, FontAlignment.Left, num, 0.0, 1.0, (_currentPage == page) ? 1 : 0);
-			num += (int)Font.MeasureString(page.Name).Width + 64;
+			DrawText(renderer, page.Name, FontAlignment.Left, x, 0.0, DebugTextNormal, (_currentPage == page) ? DebugTextGold : DebugTextSilver);
+			x += (int)Font.MeasureString(page.Name).Width + 64;
 		}
 	}
 
@@ -232,6 +255,9 @@ public class DebugContext : IDisposable
 		return DrawText(renderer, text, alignment, x, y, scale, null, colour);
 	}
 
+	/// <summary>
+	/// Draws a line of text with a shadow and returns the height of the line, with spacing.
+	/// </summary>
 	public double DrawText(Renderer renderer, string text, FontAlignment alignment, double x, double y, double scale, int? overlay, Colour colour)
 	{
 		I2dRenderer i2dRenderer = renderer.Get2dRenderer();

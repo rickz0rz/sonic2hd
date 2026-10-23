@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -123,7 +124,7 @@ public static class FrameProfiler
 		}
 	}
 
-	private static readonly System.Collections.Generic.HashSet<int> CaptureFrames = new System.Collections.Generic.HashSet<int>(
+	private static readonly HashSet<int> CaptureFrames = new HashSet<int>(
 		(Environment.GetEnvironmentVariable("S2HD_CAPTURE_FRAMES") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse));
 
 	/// <summary>

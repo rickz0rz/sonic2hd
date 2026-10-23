@@ -2,6 +2,9 @@ using SonicOrca.Geometry;
 
 namespace SonicOrca.Core.Collision;
 
+/// <summary>
+/// The result of a collision with a collision vector: the vector, the touch point, the shift and the angle.
+/// </summary>
 public class CollisionInfo
 {
 	private readonly CollisionVector _vector;

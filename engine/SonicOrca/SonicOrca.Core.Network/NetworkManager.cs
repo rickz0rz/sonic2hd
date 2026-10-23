@@ -2,6 +2,9 @@ using System.Threading.Tasks;
 
 namespace SonicOrca.Core.Network;
 
+/// <summary>
+/// Starts a network game as the host or as a client, and updates the server or the client each frame.
+/// </summary>
 public class NetworkManager
 {
 	public const int DefaultPort = 7237;
@@ -18,14 +21,15 @@ public class NetworkManager
 
 	public bool AllConnected { get; private set; }
 
-	public void Host(int port = 7237)
+	// Host ignores the port parameter and always uses DefaultPort. This is possibly a bug in the original code.
+	public void Host(int port = DefaultPort)
 	{
-		Server = new NetworkGameServer(null, 7237);
+		Server = new NetworkGameServer(null, DefaultPort);
 		NetworkPlay = true;
 		Hosting = true;
 	}
 
-	public void Join(string serverHost, int port = 7237)
+	public void Join(string serverHost, int port = DefaultPort)
 	{
 		Client = new NetworkGameClient(null);
 		_joiningServer = Client.InitiateHandshake(serverHost, port);

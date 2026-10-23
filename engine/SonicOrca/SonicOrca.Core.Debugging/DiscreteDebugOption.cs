@@ -4,6 +4,9 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.Core.Debugging;
 
+/// <summary>
+/// A debug option with a fixed list of values. The left and right keys select a value.
+/// </summary>
 internal class DiscreteDebugOption<T> : DebugOption
 {
 	private readonly string _name;
@@ -64,16 +67,17 @@ internal class DiscreteDebugOption<T> : DebugOption
 
 	public override int Draw(Renderer renderer)
 	{
-		Context.DrawText(renderer, _name, FontAlignment.Left, 0.0, 0.0, 0.5, (Context.CurrentOption == this) ? 1 : 0);
-		int num = 1888;
-		int num2 = _values.Length - 1;
+		Context.DrawText(renderer, _name, FontAlignment.Left, 0.0, 0.0, DebugContext.DebugTextXSmall, (Context.CurrentOption == this) ? DebugContext.DebugTextGold : DebugContext.DebugTextSilver);
+		// Draw the values from right to left, with the last value at the right edge.
+		int right = 1888;
+		int valueIndex = _values.Length - 1;
 		foreach (KeyValuePair<string, T> item in _values.Reverse())
 		{
-			bool flag = num2 == _selectedIndex;
-			Context.DrawText(renderer, item.Key, FontAlignment.Right, num, 0.0, 0.5, flag ? 1 : 0);
-			num += -(int)(Context.Font.MeasureString(item.Key).Width * 0.5) - 16;
-			num2--;
+			bool isSelected = valueIndex == _selectedIndex;
+			Context.DrawText(renderer, item.Key, FontAlignment.Right, right, 0.0, DebugContext.DebugTextXSmall, isSelected ? DebugContext.DebugTextGold : DebugContext.DebugTextSilver);
+			right += -(int)(Context.Font.MeasureString(item.Key).Width * 0.5) - 16;
+			valueIndex--;
 		}
-		return (int)(Context.Font.Height * 0.5);
+		return (int)(Context.Font.Height * DebugContext.DebugTextXSmall);
 	}
 }

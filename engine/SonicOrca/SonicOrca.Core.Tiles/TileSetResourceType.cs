@@ -9,6 +9,9 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Core.Tiles;
 
+/// <summary>
+/// Loads a tile set from an XML resource: the texture list, the tiles with their animation frames, and the tile sequences.
+/// </summary>
 internal class TileSetResourceType : ResourceType
 {
 	public override string Name => "tileset, xml";
@@ -22,7 +25,7 @@ internal class TileSetResourceType : ResourceType
 	{
 	}
 
-	public override async Task<ILoadedResource> LoadAsync(ResourceLoadArgs e, CancellationToken ct = default(CancellationToken))
+	public override async Task<ILoadedResource> LoadAsync(ResourceLoadArgs e, CancellationToken ct = default)
 	{
 		XmlDocument xmlDocument = new XmlDocument();
 		await Task.Run(() =>
@@ -30,18 +33,19 @@ internal class TileSetResourceType : ResourceType
 			xmlDocument.Load(e.InputStream);
 		});
 		XmlNode xmlNode = xmlDocument.SelectSingleNode("tileset");
-		IEnumerable<string> enumerable = from x in xmlNode.SelectNodes("textures/texture").OfType<XmlNode>()
-										 select e.GetAbsolutePath(x.InnerText);
-		e.PushDependencies(enumerable);
-		TileSet tileSet = new TileSet(e.ResourceTree, enumerable);
+		// This query is lazy. PushDependencies and the TileSet constructor both get the same query, not a list.
+		IEnumerable<string> texturePaths = from x in xmlNode.SelectNodes("textures/texture").OfType<XmlNode>()
+										   select e.GetAbsolutePath(x.InnerText);
+		e.PushDependencies(texturePaths);
+		TileSet tileSet = new TileSet(e.ResourceTree, texturePaths);
 		tileSet.Resource = e.Resource;
-		IEnumerable<Tile> source = from x in xmlNode.SelectNodes("tiles/tile").OfType<XmlNode>()
-								   select ParseXmlTile(x, tileSet);
-		IEnumerable<TileSequence> source2 = from x in xmlNode.SelectNodes("tiles/tileseq").OfType<XmlNode>()
-											select ParseXmlTileSequence(x, tileSet);
-		foreach (ITile item in source.Cast<ITile>().Concat(source2.Cast<ITile>()))
+		IEnumerable<Tile> tiles = from x in xmlNode.SelectNodes("tiles/tile").OfType<XmlNode>()
+								  select ParseXmlTile(x, tileSet);
+		IEnumerable<TileSequence> tileSequences = from x in xmlNode.SelectNodes("tiles/tileseq").OfType<XmlNode>()
+												  select ParseXmlTileSequence(x, tileSet);
+		foreach (ITile tile in tiles.Cast<ITile>().Concat(tileSequences.Cast<ITile>()))
 		{
-			tileSet[item.Id] = item;
+			tileSet[tile.Id] = tile;
 		}
 		return tileSet;
 	}
@@ -49,21 +53,23 @@ internal class TileSetResourceType : ResourceType
 	private static Tile ParseXmlTile(XmlNode node, TileSet tileSet)
 	{
 		int id = int.Parse(node.Attributes["id"].Value);
-		int defaultTextureId = (node.TryGetAttributeValue("texture", out var value) ? int.Parse(value) : 0);
+		int defaultTextureId = (node.TryGetAttributeValue("texture", out string value) ? int.Parse(value) : 0);
 		int defaultX = (node.TryGetAttributeValue("x", out value) ? int.Parse(value) : 0);
 		int defaultY = (node.TryGetAttributeValue("y", out value) ? int.Parse(value) : 0);
 		int defaultDelay = (node.TryGetAttributeValue("delay", out value) ? int.Parse(value) : 0);
 		float defaultOpacity = (node.TryGetAttributeValue("opacity", out value) ? float.Parse(value) : 1f);
 		TileBlendMode blend = TileBlendMode.Alpha;
-		if (node.TryGetAttributeValue("blend", out value) && Enum.TryParse<TileBlendMode>(value, ignoreCase: true, out var result))
+		if (node.TryGetAttributeValue("blend", out value) && Enum.TryParse(value, ignoreCase: true, out TileBlendMode parsedBlend))
 		{
-			blend = result;
+			blend = parsedBlend;
 		}
-		XmlNode[] array = node.SelectNodes("frame").OfType<XmlNode>().ToArray();
-		IEnumerable<Tile.Frame> enumerable2;
-		if (array.Length == 0)
+		// A tile without frame elements has one frame that uses the attributes of the tile.
+		// A frame element uses the attributes of the tile for the attributes that it does not have.
+		XmlNode[] frameNodes = node.SelectNodes("frame").OfType<XmlNode>().ToArray();
+		IEnumerable<Tile.Frame> frames;
+		if (frameNodes.Length == 0)
 		{
-			IEnumerable<Tile.Frame> enumerable = new Tile.Frame[1]
+			frames = new Tile.Frame[1]
 			{
 				new Tile.Frame
 				{
@@ -74,13 +80,11 @@ internal class TileSetResourceType : ResourceType
 					Opacity = defaultOpacity
 				}
 			};
-			enumerable2 = enumerable;
 		}
 		else
 		{
-			enumerable2 = array.Select((XmlNode x) => ParseXmlTileFrame(x, defaultX, defaultY, defaultTextureId, defaultDelay, defaultOpacity));
+			frames = frameNodes.Select(x => ParseXmlTileFrame(x, defaultX, defaultY, defaultTextureId, defaultDelay, defaultOpacity));
 		}
-		IEnumerable<Tile.Frame> frames = enumerable2;
 		return new Tile(tileSet, id, frames, blend);
 	}
 
@@ -100,15 +104,15 @@ internal class TileSetResourceType : ResourceType
 	private static TileSequence ParseXmlTileSequence(XmlNode node, TileSet tileSet)
 	{
 		int id = int.Parse(node.Attributes["id"].Value);
-		List<int> list = new List<int>();
-		XmlNode[] array = node.SelectNodes("tile").OfType<XmlNode>().ToArray();
-		for (int i = 0; i < array.Length; i++)
+		List<int> tileIds = new List<int>();
+		XmlNode[] tileNodes = node.SelectNodes("tile").OfType<XmlNode>().ToArray();
+		for (int i = 0; i < tileNodes.Length; i++)
 		{
-			if (array[i].TryGetAttributeValue("id", out var value))
+			if (tileNodes[i].TryGetAttributeValue("id", out string value))
 			{
-				list.Add(int.Parse(value));
+				tileIds.Add(int.Parse(value));
 			}
 		}
-		return new TileSequence(tileSet, id, list);
+		return new TileSequence(tileSet, id, tileIds);
 	}
 }

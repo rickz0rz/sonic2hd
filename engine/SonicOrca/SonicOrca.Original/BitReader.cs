@@ -3,6 +3,9 @@ using System.IO;
 
 namespace SonicOrca.Original;
 
+/// <summary>
+/// Reads single bits from a stream. It reads little-endian blocks of 1 to 4 bytes and gives the bits from the lowest bit up.
+/// </summary>
 internal class BitReader
 {
 	private readonly Stream _stream;
@@ -20,17 +23,19 @@ internal class BitReader
 		ReadBlock();
 	}
 
+	// The value shifts only when the bit is 1. Thus a 0 bit does not add a binary digit to the result.
+	// This is possibly a bug in the original code.
 	public int ReadBits(int count)
 	{
-		int num = 0;
+		int value = 0;
 		while (count-- > 0)
 		{
 			if (ReadBit())
 			{
-				num = (num << 1) | 1;
+				value = (value << 1) | 1;
 			}
 		}
-		return num;
+		return value;
 	}
 
 	public bool ReadBit()

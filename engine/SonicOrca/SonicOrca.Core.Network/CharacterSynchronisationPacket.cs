@@ -7,8 +7,14 @@ using SonicOrca.Geometry;
 
 namespace SonicOrca.Core.Network;
 
+/// <summary>
+/// A packet with the state of each character, so that the client can match the server.
+/// </summary>
 internal class CharacterSynchronisationPacket : Packet
 {
+	/// <summary>
+	/// The state flags, the position and the velocity of one character.
+	/// </summary>
 	public class CharacterStateInfo
 	{
 		private readonly CharacterState _state;
@@ -31,6 +37,9 @@ internal class CharacterSynchronisationPacket : Packet
 		}
 	}
 
+	/// <summary>The duration of one frame at 60 frames each second, in milliseconds.</summary>
+	private const double MillisecondsPerFrame = 16.666666666666668;
+
 	private readonly IReadOnlyList<CharacterStateInfo> _characterStates;
 
 	public IReadOnlyList<CharacterStateInfo> CharacterStates => _characterStates;
@@ -38,7 +47,7 @@ internal class CharacterSynchronisationPacket : Packet
 	public CharacterSynchronisationPacket(IEnumerable<ICharacter> characters)
 		: base(PacketType.CharacterSynchronisation)
 	{
-		_characterStates = characters.Select((ICharacter x) => new CharacterStateInfo(x.StateFlags, x.PositionPrecise, x.Velocity)).ToArray();
+		_characterStates = characters.Select(x => new CharacterStateInfo(x.StateFlags, x.PositionPrecise, x.Velocity)).ToArray();
 	}
 
 	public CharacterSynchronisationPacket(byte[] data)
@@ -46,13 +55,13 @@ internal class CharacterSynchronisationPacket : Packet
 	{
 		using MemoryStream input = new MemoryStream(data);
 		BinaryReader binaryReader = new BinaryReader(input);
-		int num = binaryReader.ReadByte();
-		CharacterStateInfo[] array = new CharacterStateInfo[num];
-		for (int i = 0; i < num; i++)
+		int count = binaryReader.ReadByte();
+		CharacterStateInfo[] states = new CharacterStateInfo[count];
+		for (int i = 0; i < count; i++)
 		{
-			array[i] = new CharacterStateInfo((CharacterState)binaryReader.ReadInt32(), new Vector2(binaryReader.ReadDouble(), binaryReader.ReadDouble()), new Vector2(binaryReader.ReadDouble(), binaryReader.ReadDouble()));
+			states[i] = new CharacterStateInfo((CharacterState)binaryReader.ReadInt32(), new Vector2(binaryReader.ReadDouble(), binaryReader.ReadDouble()), new Vector2(binaryReader.ReadDouble(), binaryReader.ReadDouble()));
 		}
-		_characterStates = array;
+		_characterStates = states;
 	}
 
 	protected override byte[] SerialiseData()
@@ -73,18 +82,19 @@ internal class CharacterSynchronisationPacket : Packet
 
 	public void Apply(IReadOnlyList<ICharacter> characters, int roundTripTime)
 	{
-		int num = 0;
+		int index = 0;
 		foreach (CharacterStateInfo characterState in _characterStates)
 		{
-			if (characters.Count > num)
+			if (characters.Count > index)
 			{
-				characters[num].StateFlags = characterState.StateFlags;
-				characters[num].PositionPrecise = characterState.PositionPrecise;
-				characters[num].Velocity = characterState.Velocity;
-				double num2 = roundTripTime / 16.666666666666668;
-				characters[num].PositionPrecise += characterState.Velocity * (num2 / 2.0);
+				characters[index].StateFlags = characterState.StateFlags;
+				characters[index].PositionPrecise = characterState.PositionPrecise;
+				characters[index].Velocity = characterState.Velocity;
+				// Move the character forward by half of the round trip time, to predict where it is now.
+				double roundTripFrames = roundTripTime / MillisecondsPerFrame;
+				characters[index].PositionPrecise += characterState.Velocity * (roundTripFrames / 2.0);
 			}
-			num++;
+			index++;
 		}
 	}
 

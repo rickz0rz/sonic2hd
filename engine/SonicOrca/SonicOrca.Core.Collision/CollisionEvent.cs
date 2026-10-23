@@ -1,5 +1,8 @@
 namespace SonicOrca.Core.Collision;
 
+/// <summary>
+/// The data that the engine sends to an object when a collision occurs.
+/// </summary>
 public class CollisionEvent
 {
 	private readonly ActiveObject _object;

@@ -5,6 +5,9 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.Core.Debugging;
 
+/// <summary>
+/// A debug option that only shows rows of names and values. The user cannot select it.
+/// </summary>
 internal class InformationDebugOption : DebugOption
 {
 	public InformationDebugOption(DebugContext context, string page, string category)
@@ -22,27 +25,30 @@ internal class InformationDebugOption : DebugOption
 
 	public override int Draw(Renderer renderer)
 	{
-		int num = (int)(Context.Font.Height * 0.5);
-		Rectangle rectangle = new Rectangle(0.0, 0.0, 1888.0, num);
-		foreach (IEnumerable<KeyValuePair<string, object>> item in GetInformation())
+		int rowHeight = (int)(Context.Font.Height * DebugContext.DebugTextXSmall);
+		Rectangle rowBounds = new Rectangle(0.0, 0.0, 1888.0, rowHeight);
+		foreach (IEnumerable<KeyValuePair<string, object>> row in GetInformation())
 		{
-			Draw(renderer, rectangle, item.ToArray());
-			rectangle.Y += num + 16;
+			Draw(renderer, rowBounds, row.ToArray());
+			rowBounds.Y += rowHeight + 16;
 		}
-		return (int)rectangle.Y - 16;
+		return (int)rowBounds.Y - 16;
 	}
 
+	/// <summary>
+	/// Draws one row. The row width is divided equally between the cells, with a gap between cells.
+	/// </summary>
 	private void Draw(Renderer renderer, Rectanglei bounds, KeyValuePair<string, object>[] horizontalInfos)
 	{
 		if (horizontalInfos.Length != 0)
 		{
-			int num = bounds.Width / horizontalInfos.Length;
+			int cellWidth = bounds.Width / horizontalInfos.Length;
 			for (int i = 0; i < horizontalInfos.Length; i++)
 			{
-				int num2 = ((i != horizontalInfos.Length - 1) ? 32 : 0);
-				int num3 = ((i != 0) ? 32 : 0);
-				Rectanglei bounds2 = new Rectanglei(bounds.X + num * i + num3, bounds.Y, num - num3 - num2, bounds.Height);
-				Draw(renderer, bounds2, horizontalInfos[i]);
+				int rightPadding = ((i != horizontalInfos.Length - 1) ? 32 : 0);
+				int leftPadding = ((i != 0) ? 32 : 0);
+				Rectanglei cellBounds = new Rectanglei(bounds.X + cellWidth * i + leftPadding, bounds.Y, cellWidth - leftPadding - rightPadding, bounds.Height);
+				Draw(renderer, cellBounds, horizontalInfos[i]);
 			}
 		}
 	}

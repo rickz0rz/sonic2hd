@@ -9,6 +9,9 @@ using System.Threading.Tasks;
 
 namespace SonicOrca.Core.Network;
 
+/// <summary>
+/// Sends and receives packets over UDP. A background task receives packets and gives them to the subscribers.
+/// </summary>
 internal class UdpPacketRadio : IPacketRadio, IDisposable, IObservable<ReceivedPacket>
 {
 	private readonly Lockable<List<IObserver<ReceivedPacket>>> _subscribers = new Lockable<List<IObserver<ReceivedPacket>>>(new List<IObserver<ReceivedPacket>>());
@@ -36,7 +39,7 @@ internal class UdpPacketRadio : IPacketRadio, IDisposable, IObservable<ReceivedP
 	public UdpPacketRadio(string serverHost, int port)
 	{
 		_udpClient = new UdpClient();
-		if (IPAddress.TryParse(serverHost, out var address))
+		if (IPAddress.TryParse(serverHost, out IPAddress address))
 		{
 			_udpClient.Connect(address, port);
 		}
@@ -58,8 +61,8 @@ internal class UdpPacketRadio : IPacketRadio, IDisposable, IObservable<ReceivedP
 		{
 			while (true)
 			{
-				UdpReceiveResult udpReceiveResult = await _udpClient.ReceiveAsync();
-				OnReceivePacket(new ReceivedPacket(udpReceiveResult.RemoteEndPoint, Packet.FromBuffer(udpReceiveResult.Buffer)));
+				UdpReceiveResult result = await _udpClient.ReceiveAsync();
+				OnReceivePacket(new ReceivedPacket(result.RemoteEndPoint, Packet.FromBuffer(result.Buffer)));
 			}
 		});
 	}
@@ -70,25 +73,25 @@ internal class UdpPacketRadio : IPacketRadio, IDisposable, IObservable<ReceivedP
 		Interlocked.Increment(ref _packetsReceived);
 		lock (_subscribers.Sync)
 		{
-			foreach (IObserver<ReceivedPacket> item in _subscribers.Instance)
+			foreach (IObserver<ReceivedPacket> subscriber in _subscribers.Instance)
 			{
-				item.OnNext(receivedPacket);
+				subscriber.OnNext(receivedPacket);
 			}
 		}
 	}
 
 	public async Task SendPacketAsync(Packet packet)
 	{
-		byte[] array = packet.Serialise();
-		await _udpClient.SendAsync(array, array.Length);
+		byte[] buffer = packet.Serialise();
+		await _udpClient.SendAsync(buffer, buffer.Length);
 		Interlocked.Increment(ref _packetsSent);
 		Console.WriteLine("SEND " + packet);
 	}
 
 	public async Task SendPacketAsync(IPEndPoint destination, Packet packet)
 	{
-		byte[] array = packet.Serialise();
-		await _udpClient.SendAsync(array, array.Length, destination);
+		byte[] buffer = packet.Serialise();
+		await _udpClient.SendAsync(buffer, buffer.Length, destination);
 		Interlocked.Increment(ref _packetsSent);
 		Console.WriteLine("SEND " + packet);
 	}
@@ -110,6 +113,6 @@ internal class UdpPacketRadio : IPacketRadio, IDisposable, IObservable<ReceivedP
 
 	public override string ToString()
 	{
-		return string.Format("UdpPacketRadio Sent = {0} Received {1}", _packetsSent, _packetsReceived, _udpClient);
+		return string.Format("UdpPacketRadio Sent = {0} Received = {1}", _packetsSent, _packetsReceived);
 	}
 }

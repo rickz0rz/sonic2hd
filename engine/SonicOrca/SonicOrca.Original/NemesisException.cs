@@ -2,6 +2,9 @@ using System;
 
 namespace SonicOrca.Original;
 
+/// <summary>
+/// The exception that occurs when Nemesis data is not correct.
+/// </summary>
 [Serializable]
 public class NemesisException : Exception
 {

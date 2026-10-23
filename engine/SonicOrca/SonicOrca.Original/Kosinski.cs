@@ -3,12 +3,15 @@ using System.IO;
 
 namespace SonicOrca.Original;
 
+/// <summary>
+/// Decompresses data in the Kosinski format of the original game.
+/// </summary>
 public static class Kosinski
 {
 	public static byte[] Decompress(byte[] input)
 	{
-		using MemoryStream input2 = new MemoryStream(input);
-		return Decompress(input2);
+		using MemoryStream inputStream = new MemoryStream(input);
+		return Decompress(inputStream);
 	}
 
 	public static byte[] Decompress(Stream input)
@@ -18,58 +21,66 @@ public static class Kosinski
 		return memoryStream.ToArray();
 	}
 
+	/// <summary>
+	/// Decompresses <paramref name="input"/> into <paramref name="output"/> and returns the number of bytes written.
+	/// </summary>
 	public static int Decompress(Stream input, Stream output)
 	{
+		// The description field bits come from 16-bit blocks. The data bytes come from the same stream.
 		BitReader bitReader = new BitReader(input, 2);
 		BinaryReader binaryReader = new BinaryReader(input);
-		List<byte> list = new List<byte>();
+		List<byte> history = new List<byte>();
 		while (true)
 		{
+			// Bit 1: copy one byte without change.
 			if (bitReader.ReadBit())
 			{
-				byte b = binaryReader.ReadByte();
-				output.WriteByte(b);
-				list.Add(b);
+				byte value = binaryReader.ReadByte();
+				output.WriteByte(value);
+				history.Add(value);
 				continue;
 			}
-			int num4;
-			int num3;
+			int offset;
+			int count;
 			if (bitReader.ReadBit())
 			{
-				int num = binaryReader.ReadByte();
-				int num2 = binaryReader.ReadByte();
-				num3 = num2 & 7;
-				if (num3 == 0)
+				// Bits 01: a full match with a 13-bit offset.
+				int low = binaryReader.ReadByte();
+				int high = binaryReader.ReadByte();
+				count = high & 7;
+				if (count == 0)
 				{
-					num3 = binaryReader.ReadByte();
-					switch (num3)
+					// A count of zero means that the next byte holds the count, or an end or skip marker.
+					count = binaryReader.ReadByte();
+					switch (count)
 					{
 						case 1:
 							continue;
 						case 0:
-							return list.Count;
+							return history.Count;
 					}
 				}
 				else
 				{
-					num3++;
+					count++;
 				}
-				num4 = (short)(0xE000 | ((num2 & 0xF8) << 5) | num);
+				offset = (short)(0xE000 | ((high & 0xF8) << 5) | low);
 			}
 			else
 			{
-				int num5 = (bitReader.ReadBit() ? 1 : 0);
-				int num6 = (bitReader.ReadBit() ? 1 : 0);
-				num3 = ((num5 << 1) | num6) + 1;
-				num4 = (short)(0xFF00 | binaryReader.ReadByte());
+				// Bits 00: an inline match with a 2-bit count and an 8-bit offset.
+				int countHigh = (bitReader.ReadBit() ? 1 : 0);
+				int countLow = (bitReader.ReadBit() ? 1 : 0);
+				count = ((countHigh << 1) | countLow) + 1;
+				offset = (short)(0xFF00 | binaryReader.ReadByte());
 			}
-			num3++;
-			int num7 = list.Count + num4;
-			for (int i = 0; i < num3; i++)
+			count++;
+			int source = history.Count + offset;
+			for (int i = 0; i < count; i++)
 			{
-				output.WriteByte(list[num7]);
-				list.Add(list[num7]);
-				num7++;
+				output.WriteByte(history[source]);
+				history.Add(history[source]);
+				source++;
 			}
 		}
 	}
