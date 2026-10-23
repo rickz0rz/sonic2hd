@@ -204,6 +204,10 @@ internal class LevelCompleteHud : IDisposable
 			PerfectBonus = PerfectBonusPoints;
 		}
 		_total = 0;
+		// The level keeps this HUD for all acts, so clear the counters from the previous act.
+		_ticks = 0;
+		_flyTicks = 0;
+		_shineTicks = 0;
 		_state = State.PreDelay;
 		_level.SoundManager.FadeOutMusic(MusicFadeOutDuration);
 	}
