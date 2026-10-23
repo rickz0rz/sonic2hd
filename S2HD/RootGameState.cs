@@ -7,7 +7,6 @@ using SonicOrca.Core;
 using SonicOrca.Geometry;
 using SonicOrca.Input;
 
-#nullable disable
 namespace S2HD;
 
 /// <summary>

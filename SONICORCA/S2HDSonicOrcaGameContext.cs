@@ -15,7 +15,6 @@ using SonicOrca.Graphics;
 using SonicOrca.Input;
 using SonicOrca.Resources;
 
-#nullable disable
 namespace SonicOrca;
 
 /// <summary>

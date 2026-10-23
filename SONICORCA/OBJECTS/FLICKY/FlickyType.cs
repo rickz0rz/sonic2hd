@@ -1,13 +1,6 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: SONICORCA.OBJECTS.FLICKY.FlickyType
-// Assembly: S2HD, Version=2.0.1012.10521, Culture=neutral, PublicKeyToken=null
-// MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
-// Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
-
 using SonicOrca.Core;
 using SonicOrca.Core.Objects.Metadata;
 
-#nullable disable
 namespace SONICORCA.OBJECTS.FLICKY;
 
 /// <summary>The object type of the Flicky bird that comes out of a destroyed badnik.</summary>

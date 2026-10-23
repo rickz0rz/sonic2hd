@@ -2,7 +2,6 @@ using SonicOrca;
 using SonicOrca.Audio;
 using SonicOrca.Graphics;
 
-#nullable disable
 namespace S2HD;
 
 /// <summary>

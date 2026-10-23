@@ -10,7 +10,6 @@ using SonicOrca.Graphics;
 using SonicOrca.Input;
 using SonicOrca.Resources;
 
-#nullable disable
 namespace S2HD.Title;
 
 /// <summary>

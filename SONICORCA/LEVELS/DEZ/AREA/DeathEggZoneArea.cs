@@ -1,16 +1,9 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: SONICORCA.LEVELS.DEZ.AREA.DeathEggZoneArea
-// Assembly: S2HD, Version=2.0.1012.10521, Culture=neutral, PublicKeyToken=null
-// MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
-// Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
-
 using System.Collections.Generic;
 using System.Linq;
 using SonicOrca;
 using SonicOrca.Core;
 using SonicOrca.Resources;
 
-#nullable disable
 namespace SONICORCA.LEVELS.DEZ.AREA;
 
 /// <summary>

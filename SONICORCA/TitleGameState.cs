@@ -10,7 +10,6 @@ using SonicOrca.Geometry;
 using SonicOrca.Graphics;
 using SonicOrca.Resources;
 
-#nullable disable
 namespace SonicOrca;
 
 /// <summary>
