@@ -2,6 +2,9 @@ using System;
 
 namespace SonicOrca.Core.Collision;
 
+/// <summary>
+/// Flags that set how a collision vector or object interacts with a character.
+/// </summary>
 [Flags]
 public enum CollisionFlags
 {

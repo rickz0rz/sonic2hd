@@ -7,8 +7,14 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.Core.Debugging;
 
+/// <summary>
+/// The options of the debug menu, in the order that the menu shows them.
+/// </summary>
 internal static class DebugOptionDefinitions
 {
+	/// <summary>
+	/// Shows the version, the operating system, the memory and the graphics resources.
+	/// </summary>
 	public class PlatformStats : InformationDebugOption
 	{
 		public PlatformStats(DebugContext context)
@@ -20,9 +26,9 @@ internal static class DebugOptionDefinitions
 		{
 			IPlatform platform = Context.Level.GameContext.Platform;
 			IGraphicsContext graphicsContext = platform.Window.GraphicsContext;
-			double num = platform.TotalMemory;
-			double num2 = Environment.WorkingSet / 1048576.0;
-			int num3 = (int)Math.Ceiling(num2 / num * 100.0);
+			double totalMemoryMb = platform.TotalMemory;
+			double workingSetMb = Environment.WorkingSet / 1048576.0;
+			int memoryUsagePercent = (int)Math.Ceiling(workingSetMb / totalMemoryMb * 100.0);
 			return new KeyValuePair<string, object>[10][]
 			{
 				new KeyValuePair<string, object>[2]
@@ -32,7 +38,7 @@ internal static class DebugOptionDefinitions
 				},
 				new KeyValuePair<string, object>[2]
 				{
-					new KeyValuePair<string, object>("ARCHITECTURE", Environment.Is64BitOperatingSystem ? "x64" : "x86"),
+					new KeyValuePair<string, object>("ARCHITECTURE", Environment.Is64BitProcess ? "x64" : "x86"),
 					new KeyValuePair<string, object>("OS ARCHITECTURE", Environment.Is64BitOperatingSystem ? "x64" : "x86")
 				},
 				new KeyValuePair<string, object>[2]
@@ -43,12 +49,12 @@ internal static class DebugOptionDefinitions
 				new KeyValuePair<string, object>[2]
 				{
 					new KeyValuePair<string, object>("LOGICAL PROCESSORS", Environment.ProcessorCount),
-					new KeyValuePair<string, object>("TOTAL MEMORY", $"{num / 1024.0:0.0} GB")
+					new KeyValuePair<string, object>("TOTAL MEMORY", $"{totalMemoryMb / 1024.0:0.0} GB")
 				},
 				new KeyValuePair<string, object>[2]
 				{
 					new KeyValuePair<string, object>("USER", Environment.UserName),
-					new KeyValuePair<string, object>("MEMORY USAGE", $"{num2:0.0} MB ({num3}%)")
+					new KeyValuePair<string, object>("MEMORY USAGE", $"{workingSetMb:0.0} MB ({memoryUsagePercent}%)")
 				},
 				new KeyValuePair<string, object>[0],
 				new KeyValuePair<string, object>[2]
@@ -75,6 +81,9 @@ internal static class DebugOptionDefinitions
 		}
 	}
 
+	/// <summary>
+	/// Shows the level name, the time, the bounds and the state variables of the area.
+	/// </summary>
 	public class LevelInfo : InformationDebugOption
 	{
 		public LevelInfo(DebugContext context)
@@ -85,24 +94,25 @@ internal static class DebugOptionDefinitions
 		protected override IEnumerable<IEnumerable<KeyValuePair<string, object>>> GetInformation()
 		{
 			Level level = Context.Level;
-			KeyValuePair<string, object>[] array = level.Area.StateVariables.ToArray();
-			KeyValuePair<string, object>[] array2 = new KeyValuePair<string, object>[(array.Length + 1) / 2];
-			KeyValuePair<string, object>[] array3 = new KeyValuePair<string, object>[array.Length - array2.Length];
-			if (array2.Length != 0)
+			// Show the state variables in two columns: the first half on the left, the second half on the right.
+			KeyValuePair<string, object>[] stateVariables = level.Area.StateVariables.ToArray();
+			KeyValuePair<string, object>[] leftColumn = new KeyValuePair<string, object>[(stateVariables.Length + 1) / 2];
+			KeyValuePair<string, object>[] rightColumn = new KeyValuePair<string, object>[stateVariables.Length - leftColumn.Length];
+			if (leftColumn.Length != 0)
 			{
-				Array.Copy(array, 0, array2, 0, array2.Length);
+				Array.Copy(stateVariables, 0, leftColumn, 0, leftColumn.Length);
 			}
-			if (array3.Length != 0)
+			if (rightColumn.Length != 0)
 			{
-				Array.Copy(array, array2.Length, array3, 0, array3.Length);
+				Array.Copy(stateVariables, leftColumn.Length, rightColumn, 0, rightColumn.Length);
 			}
-			List<IEnumerable<KeyValuePair<string, object>>> list = new List<IEnumerable<KeyValuePair<string, object>>>();
-			for (int i = 0; i < array2.Length; i++)
+			List<IEnumerable<KeyValuePair<string, object>>> stateRows = new List<IEnumerable<KeyValuePair<string, object>>>();
+			for (int i = 0; i < leftColumn.Length; i++)
 			{
-				list.Add(new KeyValuePair<string, object>[2]
+				stateRows.Add(new KeyValuePair<string, object>[2]
 				{
-					array2[i],
-					(array3.Length > i) ? array3[i] : new KeyValuePair<string, object>("", "")
+					leftColumn[i],
+					(rightColumn.Length > i) ? rightColumn[i] : new KeyValuePair<string, object>("", "")
 				});
 			}
 			return new KeyValuePair<string, object>[5][]
@@ -128,10 +138,13 @@ internal static class DebugOptionDefinitions
 					new KeyValuePair<string, object>("", "")
 				},
 				new KeyValuePair<string, object>[0]
-			}.Concat(list);
+			}.Concat(stateRows);
 		}
 	}
 
+	/// <summary>
+	/// Shows the score, the rings, the lives and the power-ups of the player.
+	/// </summary>
 	public class PlayerInfo : InformationDebugOption
 	{
 		public PlayerInfo(DebugContext context)
@@ -184,14 +197,13 @@ internal static class DebugOptionDefinitions
 		}
 	}
 
+	/// <summary>
+	/// Shows or hides the HUD.
+	/// </summary>
 	public class ShowHud : DiscreteDebugOption<bool>
 	{
 		public ShowHud(DebugContext context)
-			: base(context, "LEVEL", "", "SHOW HUD", new KeyValuePair<string, bool>[2]
-			{
-				new KeyValuePair<string, bool>("YES", value: true),
-				new KeyValuePair<string, bool>("NO", value: false)
-			})
+			: base(context, "LEVEL", "", "SHOW HUD", YesNo())
 		{
 			SelectedValue = true;
 		}
@@ -202,14 +214,13 @@ internal static class DebugOptionDefinitions
 		}
 	}
 
+	/// <summary>
+	/// Turns the classic debug mode on or off.
+	/// </summary>
 	public class ClassicDebugMode : DiscreteDebugOption<bool>
 	{
 		public ClassicDebugMode(DebugContext context)
-			: base(context, "LEVEL", "", "CLASSIC DEBUG MODE", new KeyValuePair<string, bool>[2]
-			{
-				new KeyValuePair<string, bool>("YES", value: true),
-				new KeyValuePair<string, bool>("NO", value: false)
-			})
+			: base(context, "LEVEL", "", "CLASSIC DEBUG MODE", YesNo())
 		{
 			SelectedValue = false;
 		}
@@ -220,6 +231,9 @@ internal static class DebugOptionDefinitions
 		}
 	}
 
+	/// <summary>
+	/// Shows the bounds, the velocity and the acceleration of the camera.
+	/// </summary>
 	public class CameraInfo : InformationDebugOption
 	{
 		public CameraInfo(DebugContext context)
@@ -246,14 +260,13 @@ internal static class DebugOptionDefinitions
 		}
 	}
 
+	/// <summary>
+	/// Shows or hides the debug information of the camera.
+	/// </summary>
 	public class CameraShowInfo : DiscreteDebugOption<bool>
 	{
 		public CameraShowInfo(DebugContext context)
-			: base(context, "CAMERA", "", "SHOW INFO", new KeyValuePair<string, bool>[2]
-			{
-				new KeyValuePair<string, bool>("YES", value: true),
-				new KeyValuePair<string, bool>("NO", value: false)
-			})
+			: base(context, "CAMERA", "", "SHOW INFO", YesNo())
 		{
 		}
 
@@ -263,6 +276,9 @@ internal static class DebugOptionDefinitions
 		}
 	}
 
+	/// <summary>
+	/// Sets the camera to track the player or to move freely.
+	/// </summary>
 	public class CameraMode : DiscreteDebugOption<int>
 	{
 		public CameraMode(DebugContext context)
@@ -280,6 +296,9 @@ internal static class DebugOptionDefinitions
 		}
 	}
 
+	/// <summary>
+	/// Sets the zoom of the camera.
+	/// </summary>
 	public class CameraZoom : DiscreteDebugOption<double>
 	{
 		public CameraZoom(DebugContext context)
@@ -301,6 +320,9 @@ internal static class DebugOptionDefinitions
 		}
 	}
 
+	/// <summary>
+	/// Shows the number of tiles and tile set textures.
+	/// </summary>
 	public class LandscapeInfo : InformationDebugOption
 	{
 		public LandscapeInfo(DebugContext context)
@@ -316,7 +338,7 @@ internal static class DebugOptionDefinitions
 				new KeyValuePair<string, object>[2]
 				{
 					new KeyValuePair<string, object>("TOTAL TILES", tileSet.Count),
-					new KeyValuePair<string, object>("ANIMATED TILES", tileSet.Values.Count((ITile x) => x.Animated))
+					new KeyValuePair<string, object>("ANIMATED TILES", tileSet.Values.Count(x => x.Animated))
 				},
 				new KeyValuePair<string, object>[2]
 				{
@@ -327,14 +349,13 @@ internal static class DebugOptionDefinitions
 		}
 	}
 
+	/// <summary>
+	/// Shows or hides the landscape.
+	/// </summary>
 	public class LandscapeVisible : DiscreteDebugOption<bool>
 	{
 		public LandscapeVisible(DebugContext context)
-			: base(context, "LANDSCAPE", "", "VISIBLE", new KeyValuePair<string, bool>[2]
-			{
-				new KeyValuePair<string, bool>("YES", value: true),
-				new KeyValuePair<string, bool>("NO", value: false)
-			})
+			: base(context, "LANDSCAPE", "", "VISIBLE", YesNo())
 		{
 		}
 
@@ -344,14 +365,13 @@ internal static class DebugOptionDefinitions
 		}
 	}
 
+	/// <summary>
+	/// Turns the landscape animation on or off.
+	/// </summary>
 	public class LandscapeAnimate : DiscreteDebugOption<bool>
 	{
 		public LandscapeAnimate(DebugContext context)
-			: base(context, "LANDSCAPE", "", "ANIMATE", new KeyValuePair<string, bool>[2]
-			{
-				new KeyValuePair<string, bool>("YES", value: true),
-				new KeyValuePair<string, bool>("NO", value: false)
-			})
+			: base(context, "LANDSCAPE", "", "ANIMATE", YesNo())
 		{
 		}
 
@@ -361,6 +381,9 @@ internal static class DebugOptionDefinitions
 		}
 	}
 
+	/// <summary>
+	/// Shows the number of collision vectors and the depth of the quad tree.
+	/// </summary>
 	public class CollisionStats : InformationDebugOption
 	{
 		public CollisionStats(DebugContext context)
@@ -370,7 +393,6 @@ internal static class DebugOptionDefinitions
 
 		protected override IEnumerable<IEnumerable<KeyValuePair<string, object>>> GetInformation()
 		{
-			_ = Context.Level;
 			CollisionTable collisionTable = Context.Level.CollisionTable;
 			QuadTree<CollisionVector> internalTree = collisionTable.InternalTree;
 			return new KeyValuePair<string, object>[1][] { new KeyValuePair<string, object>[2]
@@ -381,14 +403,13 @@ internal static class DebugOptionDefinitions
 		}
 	}
 
+	/// <summary>
+	/// Shows or hides the landscape collision vectors.
+	/// </summary>
 	public class CollisionShowLandscape : DiscreteDebugOption<bool>
 	{
 		public CollisionShowLandscape(DebugContext context)
-			: base(context, "COLLISION", "", "SHOW LANDSCAPE", new KeyValuePair<string, bool>[2]
-			{
-				new KeyValuePair<string, bool>("YES", value: true),
-				new KeyValuePair<string, bool>("NO", value: false)
-			})
+			: base(context, "COLLISION", "", "SHOW LANDSCAPE", YesNo())
 		{
 			SelectedValue = false;
 		}
@@ -399,14 +420,13 @@ internal static class DebugOptionDefinitions
 		}
 	}
 
+	/// <summary>
+	/// Shows or hides the object collision vectors.
+	/// </summary>
 	public class CollisionShowObjects : DiscreteDebugOption<bool>
 	{
 		public CollisionShowObjects(DebugContext context)
-			: base(context, "COLLISION", "", "SHOW OBJECTS", new KeyValuePair<string, bool>[2]
-			{
-				new KeyValuePair<string, bool>("YES", value: true),
-				new KeyValuePair<string, bool>("NO", value: false)
-			})
+			: base(context, "COLLISION", "", "SHOW OBJECTS", YesNo())
 		{
 			SelectedValue = false;
 		}
@@ -417,14 +437,13 @@ internal static class DebugOptionDefinitions
 		}
 	}
 
+	/// <summary>
+	/// Shows or hides the objects.
+	/// </summary>
 	public class ObjectsVisible : DiscreteDebugOption<bool>
 	{
 		public ObjectsVisible(DebugContext context)
-			: base(context, "OBJECTS", "", "VISIBLE", new KeyValuePair<string, bool>[2]
-			{
-				new KeyValuePair<string, bool>("YES", value: true),
-				new KeyValuePair<string, bool>("NO", value: false)
-			})
+			: base(context, "OBJECTS", "", "VISIBLE", YesNo())
 		{
 		}
 
@@ -434,14 +453,13 @@ internal static class DebugOptionDefinitions
 		}
 	}
 
+	/// <summary>
+	/// Turns the object animation on or off.
+	/// </summary>
 	public class ObjectsAnimate : DiscreteDebugOption<bool>
 	{
 		public ObjectsAnimate(DebugContext context)
-			: base(context, "OBJECTS", "", "ANIMATE", new KeyValuePair<string, bool>[2]
-			{
-				new KeyValuePair<string, bool>("YES", value: true),
-				new KeyValuePair<string, bool>("NO", value: false)
-			})
+			: base(context, "OBJECTS", "", "ANIMATE", YesNo())
 		{
 		}
 
@@ -451,14 +469,13 @@ internal static class DebugOptionDefinitions
 		}
 	}
 
+	/// <summary>
+	/// Shows or hides the debug information of the characters.
+	/// </summary>
 	public class ObjectsShowCharacterInfo : DiscreteDebugOption<bool>
 	{
 		public ObjectsShowCharacterInfo(DebugContext context)
-			: base(context, "OBJECTS", "", "SHOW CHARACTER INFO", new KeyValuePair<string, bool>[2]
-			{
-				new KeyValuePair<string, bool>("YES", value: true),
-				new KeyValuePair<string, bool>("NO", value: false)
-			})
+			: base(context, "OBJECTS", "", "SHOW CHARACTER INFO", YesNo())
 		{
 			SelectedValue = false;
 		}
@@ -469,14 +486,13 @@ internal static class DebugOptionDefinitions
 		}
 	}
 
+	/// <summary>
+	/// Shows or hides the debug information of the sidekick AI.
+	/// </summary>
 	public class ObjectsShowSidekickIntel : DiscreteDebugOption<bool>
 	{
 		public ObjectsShowSidekickIntel(DebugContext context)
-			: base(context, "OBJECTS", "", "SHOW SIDEKICK INTELLIGENCE", new KeyValuePair<string, bool>[2]
-			{
-				new KeyValuePair<string, bool>("YES", value: true),
-				new KeyValuePair<string, bool>("NO", value: false)
-			})
+			: base(context, "OBJECTS", "", "SHOW SIDEKICK INTELLIGENCE", YesNo())
 		{
 			SelectedValue = false;
 		}
@@ -487,6 +503,9 @@ internal static class DebugOptionDefinitions
 		}
 	}
 
+	/// <summary>
+	/// Shows the number of objects, active objects and sub-objects.
+	/// </summary>
 	public class ObjectsStats : InformationDebugOption
 	{
 		public ObjectsStats(DebugContext context)
@@ -506,13 +525,16 @@ internal static class DebugOptionDefinitions
 				},
 				new KeyValuePair<string, object>[2]
 				{
-					new KeyValuePair<string, object>("SUB OBJECTS", level.ObjectManager.ActiveObjects.Count((ActiveObject x) => x.IsSubObject)),
+					new KeyValuePair<string, object>("SUB OBJECTS", level.ObjectManager.ActiveObjects.Count(x => x.IsSubObject)),
 					new KeyValuePair<string, object>("RESPAWN PREVENTED OBJECTS", "")
 				}
 			};
 		}
 	}
 
+	/// <summary>
+	/// Shows the water areas, the colour adjustments and the ripple values.
+	/// </summary>
 	public class WaterInfo : InformationDebugOption
 	{
 		public WaterInfo(DebugContext context)
@@ -549,14 +571,13 @@ internal static class DebugOptionDefinitions
 		}
 	}
 
+	/// <summary>
+	/// Shows or hides the water.
+	/// </summary>
 	public class WaterVisible : DiscreteDebugOption<bool>
 	{
 		public WaterVisible(DebugContext context)
-			: base(context, "WATER", "", "VISIBLE", new KeyValuePair<string, bool>[2]
-			{
-				new KeyValuePair<string, bool>("YES", value: true),
-				new KeyValuePair<string, bool>("NO", value: false)
-			})
+			: base(context, "WATER", "", "VISIBLE", YesNo())
 		{
 		}
 
@@ -564,6 +585,18 @@ internal static class DebugOptionDefinitions
 		{
 			Context.Level.LayerViewOptions.ShowWater = SelectedValue;
 		}
+	}
+
+	/// <summary>
+	/// Makes the "YES" and "NO" values for a debug option of type bool.
+	/// </summary>
+	private static KeyValuePair<string, bool>[] YesNo()
+	{
+		return new KeyValuePair<string, bool>[2]
+		{
+			new KeyValuePair<string, bool>("YES", value: true),
+			new KeyValuePair<string, bool>("NO", value: false)
+		};
 	}
 
 	public static IEnumerable<DebugOption> CreateOptionsInOrder(DebugContext context)

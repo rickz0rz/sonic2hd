@@ -4,6 +4,9 @@ using SonicOrca.Geometry;
 
 namespace SonicOrca.Core.Lighting;
 
+/// <summary>
+/// Keeps the list of light sources in a level and combines their shadow offsets.
+/// </summary>
 internal class LightingManager : ILightingManager
 {
 	private readonly LinkedList<ILightSource> _lightSources = new LinkedList<ILightSource>();
@@ -20,58 +23,63 @@ internal class LightingManager : ILightingManager
 
 	public Vector2i GetShadowOffset(Vector2i forPosition, IShadowInfo shadowInfo)
 	{
-		Vector2i vector2i = new Vector2i(int.MaxValue, int.MaxValue);
-		Vector2i vector2i2 = new Vector2i(int.MinValue, int.MinValue);
-		bool flag = false;
-		bool flag2 = false;
-		bool flag3 = false;
-		bool flag4 = false;
+		// Find the most negative and the most positive offset on each axis.
+		Vector2i minOffset = new Vector2i(int.MaxValue, int.MaxValue);
+		Vector2i maxOffset = new Vector2i(int.MinValue, int.MinValue);
+		bool hasNegativeX = false;
+		bool hasNegativeY = false;
+		bool hasPositiveX = false;
+		bool hasPositiveY = false;
 		foreach (ILightSource lightSource in _lightSources)
 		{
 			Vector2i shadowOffset = lightSource.GetShadowOffset(forPosition, shadowInfo);
 			if (shadowOffset.X < 0)
 			{
-				vector2i.X = Math.Min(vector2i.X, shadowOffset.X);
-				flag = true;
+				minOffset.X = Math.Min(minOffset.X, shadowOffset.X);
+				hasNegativeX = true;
 			}
 			else if (shadowOffset.X > 0)
 			{
-				vector2i2.X = Math.Max(vector2i2.X, shadowOffset.X);
-				flag3 = true;
+				maxOffset.X = Math.Max(maxOffset.X, shadowOffset.X);
+				hasPositiveX = true;
 			}
 			if (shadowOffset.Y < 0)
 			{
-				vector2i.Y = Math.Min(vector2i.Y, shadowOffset.Y);
-				flag2 = true;
+				minOffset.Y = Math.Min(minOffset.Y, shadowOffset.Y);
+				hasNegativeY = true;
 			}
 			else if (shadowOffset.Y > 0)
 			{
-				vector2i2.Y = Math.Max(vector2i2.Y, shadowOffset.Y);
-				flag4 = true;
+				maxOffset.Y = Math.Max(maxOffset.Y, shadowOffset.Y);
+				hasPositiveY = true;
 			}
 		}
+
+		// When light comes from the two sides of an axis, use the average of the two extremes.
 		Vector2i result = default;
-		if (flag)
+		if (hasNegativeX)
 		{
-			result.X += vector2i.X;
+			result.X += minOffset.X;
 		}
-		if (flag3)
+		if (hasPositiveX)
 		{
-			result.X += vector2i2.X;
+			result.X += maxOffset.X;
 		}
-		if (flag & flag3)
+		if (hasNegativeX & hasPositiveX)
 		{
 			result.X /= 2;
 		}
-		if (flag2)
+		if (hasNegativeY)
 		{
-			result.Y += vector2i.Y;
+			result.Y += minOffset.Y;
 		}
-		if (flag4)
+		if (hasPositiveY)
 		{
-			result.Y += vector2i2.Y;
+			result.Y += maxOffset.Y;
 		}
-		if (flag2 & flag3)
+		// This condition uses hasPositiveX, not hasPositiveY. This is possibly a bug in the original code.
+		// Do not change it, because a change can change the shadows on the screen.
+		if (hasNegativeY & hasPositiveX)
 		{
 			result.Y /= 2;
 		}
@@ -79,17 +87,5 @@ internal class LightingManager : ILightingManager
 		result.X = MathX.Clamp(-maxShadowOffset.X, result.X, maxShadowOffset.X);
 		result.Y = MathX.Clamp(-maxShadowOffset.Y, result.Y, maxShadowOffset.Y);
 		return result;
-	}
-
-	private static int UpdateShadowOffset(int globalOffset, int localOffset)
-	{
-		int num = globalOffset;
-		if (num < 0)
-		{
-			num = Math.Min(num, localOffset);
-			return Math.Min(num, 0);
-		}
-		num = Math.Max(num, localOffset);
-		return Math.Max(num, 0);
 	}
 }

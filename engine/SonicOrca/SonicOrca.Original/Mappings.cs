@@ -3,100 +3,131 @@ using SonicOrca.Core;
 
 namespace SonicOrca.Original;
 
+/// <summary>
+/// Converts the chunks and the level layout of the original game into a level map file.
+/// </summary>
 public static class Mappings
 {
+	private const int ChunkCount = 256;
+
+	/// <summary>The size of one chunk in the file: 8 x 8 tiles of 2 bytes each.</summary>
+	private const int ChunkByteSize = 128;
+
+	/// <summary>The width and the height of a chunk, in tiles.</summary>
+	private const int ChunkSize = 8;
+
+	private const int MapColumns = 1024;
+
+	private const int MapRows = 128;
+
+	/// <summary>The width of the layout, in chunks.</summary>
+	private const int LayoutColumns = 128;
+
+	/// <summary>The height of the layout, in chunks.</summary>
+	private const int LayoutRows = 16;
+
+	/// <summary>The tile flag for a horizontal flip.</summary>
+	private const int FlipXFlag = 0x4000;
+
+	/// <summary>The tile flag for a vertical flip.</summary>
+	private const int FlipYFlag = 0x8000;
+
+	/// <summary>The value to add to the tile indices of the second layer.</summary>
+	private const int SecondLayerTileOffset = 2048;
+
 	public static void Export(string tilesFilename, string chunksFilename, string layoutFilename, string outputFilename)
 	{
-		byte[] chunks = Kosinski.Decompress(File.ReadAllBytes(chunksFilename));
-		int[][,] array = new int[256][,];
-		for (int i = 0; i < 256; i++)
+		byte[] data = Kosinski.Decompress(File.ReadAllBytes(chunksFilename));
+		int[][,] chunks = new int[ChunkCount][,];
+		for (int i = 0; i < ChunkCount; i++)
 		{
-			array[i] = GetChunk(chunks, i * 128);
+			chunks[i] = GetChunk(data, i * ChunkByteSize);
 		}
-		chunks = Kosinski.Decompress(File.ReadAllBytes(layoutFilename));
-		byte[,] backgroundLayout = GetBackgroundLayout(chunks);
-		byte[,] foregroundLayout = GetForegroundLayout(chunks);
-		int[,] array2 = new int[1024, 128];
-		int[,] array3 = new int[1024, 128];
-		for (int j = 0; j < 128; j++)
+		data = Kosinski.Decompress(File.ReadAllBytes(layoutFilename));
+		byte[,] backgroundLayout = GetBackgroundLayout(data);
+		byte[,] foregroundLayout = GetForegroundLayout(data);
+		int[,] backgroundTiles = new int[MapColumns, MapRows];
+		int[,] foregroundTiles = new int[MapColumns, MapRows];
+		for (int y = 0; y < MapRows; y++)
 		{
-			for (int k = 0; k < 1024; k++)
+			for (int x = 0; x < MapColumns; x++)
 			{
-				int[,] array4 = array[backgroundLayout[k / 8, j / 8]];
-				array2[k, j] = array4[k % 8, j % 8];
-				array4 = array[foregroundLayout[k / 8, j / 8]];
-				array3[k, j] = array4[k % 8, j % 8];
+				int[,] chunk = chunks[backgroundLayout[x / ChunkSize, y / ChunkSize]];
+				backgroundTiles[x, y] = chunk[x % ChunkSize, y % ChunkSize];
+				chunk = chunks[foregroundLayout[x / ChunkSize, y / ChunkSize]];
+				foregroundTiles[x, y] = chunk[x % ChunkSize, y % ChunkSize];
 			}
 		}
 		LevelMap levelMap = new LevelMap();
 		levelMap.Layers.Add(new LevelLayer(levelMap));
 		levelMap.Layers.Add(new LevelLayer(levelMap));
-		levelMap.Layers[0].Resize(1024, 128);
-		for (int l = 0; l < levelMap.Layers[0].Rows; l++)
+		levelMap.Layers[0].Resize(MapColumns, MapRows);
+		for (int row = 0; row < levelMap.Layers[0].Rows; row++)
 		{
-			for (int m = 0; m < levelMap.Layers[0].Columns; m++)
+			for (int column = 0; column < levelMap.Layers[0].Columns; column++)
 			{
-				levelMap.Layers[0].Tiles[m, l] = array2[m, l];
+				levelMap.Layers[0].Tiles[column, row] = backgroundTiles[column, row];
 			}
 		}
-		levelMap.Layers[1].Resize(1024, 128);
-		for (int n = 0; n < levelMap.Layers[1].Rows; n++)
+		levelMap.Layers[1].Resize(MapColumns, MapRows);
+		for (int row = 0; row < levelMap.Layers[1].Rows; row++)
 		{
-			for (int num = 0; num < levelMap.Layers[1].Columns; num++)
+			for (int column = 0; column < levelMap.Layers[1].Columns; column++)
 			{
-				levelMap.Layers[1].Tiles[num, n] = array3[num, n] + 2048;
+				levelMap.Layers[1].Tiles[column, row] = foregroundTiles[column, row] + SecondLayerTileOffset;
 			}
 		}
 		new LevelMapWriter(levelMap).Save(outputFilename);
 	}
 
+	/// <summary>
+	/// Reads one chunk. Each tile is a big-endian 16-bit value: the tile index in bits 0-9 and the flip flags in bits 10 and 11.
+	/// </summary>
 	private static int[,] GetChunk(byte[] chunks, int index)
 	{
-		int[,] array = new int[8, 8];
-		for (int i = 0; i < 8; i++)
+		int[,] chunk = new int[ChunkSize, ChunkSize];
+		for (int y = 0; y < ChunkSize; y++)
 		{
-			for (int j = 0; j < 8; j++)
+			for (int x = 0; x < ChunkSize; x++)
 			{
-				byte b = chunks[index + i * 16 + j * 2];
-				byte b2 = chunks[index + i * 16 + j * 2 + 1];
-				int num = (b << 8) | b2;
-				array[j, i] = num & 0x3FF;
-				if ((num & 0x400) != 0)
+				byte high = chunks[index + y * 16 + x * 2];
+				byte low = chunks[index + y * 16 + x * 2 + 1];
+				int value = (high << 8) | low;
+				chunk[x, y] = value & 0x3FF;
+				if ((value & 0x400) != 0)
 				{
-					array[j, i] |= 16384;
+					chunk[x, y] |= FlipXFlag;
 				}
-				if ((num & 0x800) != 0)
+				if ((value & 0x800) != 0)
 				{
-					array[j, i] |= 32768;
+					chunk[x, y] |= FlipYFlag;
 				}
 			}
 		}
-		return array;
+		return chunk;
 	}
 
+	// Each row of the layout has 128 foreground bytes and then 128 background bytes.
 	private static byte[,] GetBackgroundLayout(byte[] layout)
 	{
-		byte[,] array = new byte[128, 16];
-		for (int i = 0; i < 16; i++)
-		{
-			for (int j = 0; j < 128; j++)
-			{
-				array[j, i] = layout[256 * i + j + 128];
-			}
-		}
-		return array;
+		return GetLayout(layout, LayoutColumns);
 	}
 
 	private static byte[,] GetForegroundLayout(byte[] layout)
 	{
-		byte[,] array = new byte[128, 16];
-		for (int i = 0; i < 16; i++)
+		return GetLayout(layout, 0);
+	}
+
+	private static byte[,] GetLayout(byte[] layout, int rowOffset)
+	{
+		byte[,] result = new byte[LayoutColumns, LayoutRows];
+		for (int y = 0; y < LayoutRows; y++)
 		{
-			for (int j = 0; j < 128; j++)
+			for (int x = 0; x < LayoutColumns; x++)
 			{
-				array[j, i] = layout[256 * i + j];
+				result[x, y] = layout[256 * y + x + rowOffset];
 			}
 		}
-		return array;
+		return result;
 	}
 }

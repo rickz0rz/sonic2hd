@@ -3,8 +3,22 @@ using System.IO;
 
 namespace SonicOrca.Original;
 
+/// <summary>
+/// Decompresses data in the Nemesis format of the original game. The format codes runs of 4-bit nibbles with a
+/// prefix code tree. The output size is a number of 32-byte tiles.
+/// </summary>
 public static class Nemesis
 {
+	/// <summary>The number of bits of output for each tile: 32 bytes of 8 bits.</summary>
+	private const int TileBitsShift = 8;
+
+	/// <summary>The bit in the tile count that turns on XOR mode.</summary>
+	private const int XorModeFlag = 0x8000;
+
+	/// <summary>
+	/// A nibble value and the number of times it repeats.
+	/// A count of 255 marks the inline code: the run follows in the next 7 bits.
+	/// </summary>
 	private struct NibbleRun
 	{
 		public byte Nibble { get; set; }
@@ -13,7 +27,6 @@ public static class Nemesis
 
 		public NibbleRun(byte nibble, byte count)
 		{
-			this = default;
 			Nibble = nibble;
 			Count = count;
 		}
@@ -24,6 +37,9 @@ public static class Nemesis
 		}
 	}
 
+	/// <summary>
+	/// A node of the prefix code tree. A 0 bit selects <see cref="Clear"/> and a 1 bit selects <see cref="Set"/>.
+	/// </summary>
 	private class CodeTreeNode
 	{
 		public CodeTreeNode Clear { get; set; }
@@ -44,8 +60,8 @@ public static class Nemesis
 
 	public static byte[] Decompress(byte[] input)
 	{
-		using MemoryStream input2 = new MemoryStream(input);
-		return Decompress(input2);
+		using MemoryStream inputStream = new MemoryStream(input);
+		return Decompress(inputStream);
 	}
 
 	public static byte[] Decompress(Stream input)
@@ -57,69 +73,76 @@ public static class Nemesis
 
 	public static int Decompress(Stream input, Stream output)
 	{
-		byte[] array = new byte[4];
+		byte[] xorRow = new byte[4];
 		MemoryStream memoryStream = new MemoryStream();
 		CodeTreeNode codeTree = new CodeTreeNode();
-		int num = (byte)input.ReadByte() << 8;
-		num |= (byte)input.ReadByte();
-		int num2 = (((num & 0x8000) != 0) ? 1 : 0);
-		num &= -32769;
+		int tileCount = (byte)input.ReadByte() << 8;
+		tileCount |= (byte)input.ReadByte();
+		int xorMode = (((tileCount & XorModeFlag) != 0) ? 1 : 0);
+		tileCount &= ~XorModeFlag;
 		ReadHeader(input, memoryStream, codeTree);
-		ReadInternal(input, memoryStream, codeTree, (ushort)num, num2);
-		int num3 = (int)memoryStream.Length;
+		ReadInternal(input, memoryStream, codeTree, (ushort)tileCount, xorMode);
+		int length = (int)memoryStream.Length;
 		memoryStream.Position = 0L;
-		if (num2 != 0)
+		if (xorMode != 0)
 		{
-			Array.Clear(array, 0, array.Length);
-			for (int i = 0; i < num3; i++)
+			// In XOR mode, each 4-byte row is stored as the XOR with the previous row.
+			Array.Clear(xorRow, 0, xorRow.Length);
+			for (int i = 0; i < length; i++)
 			{
-				array[i % 4] ^= (byte)memoryStream.ReadByte();
-				output.WriteByte(array[i % 4]);
+				xorRow[i % 4] ^= (byte)memoryStream.ReadByte();
+				output.WriteByte(xorRow[i % 4]);
 			}
 		}
 		else
 		{
 			memoryStream.CopyTo(output);
 		}
-		return num3;
+		return length;
 	}
 
+	/// <summary>
+	/// Reads the code table and builds the code tree. The table ends with 0xFF.
+	/// A byte with bit 7 set selects the nibble for the next entries. Each entry is a byte with the run count
+	/// and the code length, and then a byte with the code.
+	/// </summary>
 	private static void ReadHeader(Stream input, Stream output, CodeTreeNode codeTree)
 	{
 		byte nibble = 0;
-		byte b;
-		while ((b = (byte)input.ReadByte()) != byte.MaxValue)
+		byte entry;
+		while ((entry = (byte)input.ReadByte()) != byte.MaxValue)
 		{
-			if ((b & 0x80) != 0)
+			if ((entry & 0x80) != 0)
 			{
-				nibble = (byte)(b & 0xF);
-				b = (byte)input.ReadByte();
+				nibble = (byte)(entry & 0xF);
+				entry = (byte)input.ReadByte();
 			}
-			SetCode(codeTree, (byte)input.ReadByte(), b & 0xF, new NibbleRun(nibble, (byte)(((b & 0x70) >> 4) + 1)));
+			SetCode(codeTree, (byte)input.ReadByte(), entry & 0xF, new NibbleRun(nibble, (byte)(((entry & 0x70) >> 4) + 1)));
 		}
+		// The 6-bit code 111111 is always the inline code.
 		SetCode(codeTree, 63, 6, new NibbleRun(0, byte.MaxValue));
 	}
 
 	private static void ReadInternal(Stream input, Stream output, CodeTreeNode codeTree, ushort numTiles, int xorOutput)
 	{
 		BitReader bitReader = new BitReader(input, 1);
-		BitWriter output2 = new BitWriter(output, 1);
-		int num = numTiles << 8;
+		BitWriter bitWriter = new BitWriter(output, 1);
+		int totalBits = numTiles << TileBitsShift;
 		int bitsWritten = 0;
 		CodeTreeNode codeTreeNode = codeTree;
-		while (bitsWritten < num)
+		while (bitsWritten < totalBits)
 		{
 			NibbleRun nibbleRun = codeTreeNode.NibbleRun;
 			if (nibbleRun.Count == byte.MaxValue)
 			{
 				byte count = (byte)(bitReader.ReadBits(3) + 1);
 				byte nibble = (byte)bitReader.ReadBits(4);
-				WriteNibbleRun(output2, count, nibble, ref bitsWritten);
+				WriteNibbleRun(bitWriter, count, nibble, ref bitsWritten);
 				codeTreeNode = codeTree;
 			}
 			else if (nibbleRun.Count != 0)
 			{
-				WriteNibbleRun(output2, nibbleRun.Count, nibbleRun.Nibble, ref bitsWritten);
+				WriteNibbleRun(bitWriter, nibbleRun.Count, nibbleRun.Nibble, ref bitsWritten);
 				codeTreeNode = codeTree;
 			}
 			else

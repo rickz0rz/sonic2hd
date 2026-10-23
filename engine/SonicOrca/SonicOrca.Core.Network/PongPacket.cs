@@ -2,6 +2,9 @@ using System.IO;
 
 namespace SonicOrca.Core.Network;
 
+/// <summary>
+/// A reply to a ping packet. It has the ID of that ping packet.
+/// </summary>
 internal class PongPacket : Packet
 {
 	private readonly int _id;
@@ -31,6 +34,6 @@ internal class PongPacket : Packet
 
 	public override string ToString()
 	{
-		return $"Packet = Pong";
+		return "Packet = Pong";
 	}
 }

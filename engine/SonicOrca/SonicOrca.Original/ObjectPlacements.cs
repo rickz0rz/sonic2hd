@@ -6,8 +6,15 @@ using SonicOrca.Geometry;
 
 namespace SonicOrca.Original;
 
+/// <summary>
+/// Reads the object placements of a level from the data format of the original game and converts them to
+/// SonicOrca object placements.
+/// </summary>
 public static class ObjectPlacements
 {
+	/// <summary>
+	/// One 6-byte object entry of the original game: the position, the flags, the object type and the subtype.
+	/// </summary>
 	public class OriginalObjectPlacement
 	{
 		private readonly Vector2i _position;
@@ -51,67 +58,75 @@ public static class ObjectPlacements
 		return FromStream(stream);
 	}
 
+	/// <summary>
+	/// Reads 6-byte entries until the end of the stream or an 0xFFFF marker.
+	/// </summary>
 	public static IReadOnlyCollection<OriginalObjectPlacement> FromStream(Stream stream)
 	{
-		List<OriginalObjectPlacement> list = new List<OriginalObjectPlacement>();
-		byte[] array = new byte[6];
-		while (stream.Read(array, 0, 2) == 2 && (array[0] != byte.MaxValue || array[1] != byte.MaxValue) && stream.Read(array, 2, 4) == 4)
+		List<OriginalObjectPlacement> placements = new List<OriginalObjectPlacement>();
+		byte[] entry = new byte[6];
+		while (stream.Read(entry, 0, 2) == 2 && (entry[0] != byte.MaxValue || entry[1] != byte.MaxValue) && stream.Read(entry, 2, 4) == 4)
 		{
-			list.Add(new OriginalObjectPlacement(array));
+			placements.Add(new OriginalObjectPlacement(entry));
 		}
-		return list.ToArray();
+		return placements.ToArray();
 	}
 
 	public static IEnumerable<ObjectPlacement> ConvertOriginalObjectPlacement(IEnumerable<OriginalObjectPlacement> originalPlacements)
 	{
-		return from x in originalPlacements
-			   select ConvertOriginalObjectPlacement(x) into x
-			   where x != null
-			   select x;
+		return from original in originalPlacements
+			   select ConvertOriginalObjectPlacement(original) into placement
+			   where placement != null
+			   select placement;
 	}
 
+	/// <summary>
+	/// Converts one object of the original game. The original type selects the SonicOrca object and the subtype
+	/// selects its behaviour. Returns null for an object type that has no SonicOrca object.
+	/// </summary>
 	public static ObjectPlacement ConvertOriginalObjectPlacement(OriginalObjectPlacement originalPlacement)
 	{
-		string text = null;
-		object obj = null;
+		string key = null;
+		object behaviour = null;
+		// SonicOrca levels use four times the resolution of the original game.
 		Vector2i position = originalPlacement.Position * 4;
 		switch (originalPlacement.Type)
 		{
 			case 3:
 				{
-					text = "SONICORCA/OBJECTS/LAYERSWITCH";
-					int[] array = new int[4] { 256, 512, 1024, 2048 };
-					obj = (((originalPlacement.SubType & 4) == 0) ? (new
+					key = "SONICORCA/OBJECTS/LAYERSWITCH";
+					int[] layerSwitchSizes = new int[4] { 256, 512, 1024, 2048 };
+					behaviour = (((originalPlacement.SubType & 4) == 0) ? (new
 					{
 						AllowAirborne = ((originalPlacement.SubType & 0x80) == 0),
-						Height = array[originalPlacement.SubType & 3],
+						Height = layerSwitchSizes[originalPlacement.SubType & 3],
 						Left = (((originalPlacement.SubType & 0x10) != 0) ? 1 : 0),
 						Right = (((originalPlacement.SubType & 8) != 0) ? 1 : 0)
 					}) : (new
 					{
 						AllowAirborne = ((originalPlacement.SubType & 0x80) == 0),
-						Width = array[originalPlacement.SubType & 3],
+						Width = layerSwitchSizes[originalPlacement.SubType & 3],
 						Above = (((originalPlacement.SubType & 0x10) != 0) ? 1 : 0),
 						Below = (((originalPlacement.SubType & 8) != 0) ? 1 : 0)
 					}));
 					break;
 				}
 			case 11:
-				text = "SONICORCA/OBJECTS/CPZTRAPDOOR";
-				obj = new
+				key = "SONICORCA/OBJECTS/CPZTRAPDOOR";
+				behaviour = new
 				{
 					TimeOffset = (originalPlacement.SubType & 0xF) * 16
 				};
 				break;
 			case 13:
-				text = "SONICORCA/OBJECTS/SIGNPOST";
+				key = "SONICORCA/OBJECTS/SIGNPOST";
 				break;
 			case 20:
-				text = "SONICORCA/OBJECTS/HTZSEESAW";
+				key = "SONICORCA/OBJECTS/HTZSEESAW";
 				break;
 			case 22:
-				text = "SONICORCA/OBJECTS/HTZVINELIFT";
-				obj = new
+				key = "SONICORCA/OBJECTS/HTZVINELIFT";
+				behaviour = new
 				{
 					Duration = originalPlacement.SubType * 8,
 					Direction = (originalPlacement.FlipX ? "left" : "right")
@@ -119,29 +134,29 @@ public static class ObjectPlacements
 				position.Y += 152;
 				break;
 			case 24:
-				text = "SONICORCA/OBJECTS/EHZPLATFORM";
+				key = "SONICORCA/OBJECTS/EHZPLATFORM";
 				if (((originalPlacement.SubType >> 4) & 1) != 0)
 				{
-					text = "SONICORCA/OBJECTS/EHZBLOCK";
+					key = "SONICORCA/OBJECTS/EHZBLOCK";
 				}
 				switch (originalPlacement.SubType & 3)
 				{
 					case 1:
-						obj = new
+						behaviour = new
 						{
 							RadiusX = 256,
 							TimePeriod = 256
 						};
 						break;
 					case 2:
-						obj = new
+						behaviour = new
 						{
 							RadiusY = 256,
 							TimePeriod = 256
 						};
 						break;
 					case 3:
-						obj = new
+						behaviour = new
 						{
 							Falling = true
 						};
@@ -150,23 +165,23 @@ public static class ObjectPlacements
 				break;
 			case 25:
 				{
-					text = "SONICORCA/OBJECTS/CPZPLATFORM";
-					bool flag = ((originalPlacement.SubType >> 4) & 1) == 0;
+					key = "SONICORCA/OBJECTS/CPZPLATFORM";
+					bool isLarge = ((originalPlacement.SubType >> 4) & 1) == 0;
 					switch (originalPlacement.SubType & 7)
 					{
 						case 0:
-							obj = new
+							behaviour = new
 							{
-								Size = (flag ? "large" : "small"),
+								Size = (isLarge ? "large" : "small"),
 								RadiusX = 256,
 								TimePeriod = 256
 							};
 							break;
 						case 1:
 							position += new Vector2i(-192, 0);
-							obj = new
+							behaviour = new
 							{
-								Size = (flag ? "large" : "small"),
+								Size = (isLarge ? "large" : "small"),
 								RadiusX = 192,
 								TimePeriod = 440,
 								TimeOffset = 110
@@ -174,9 +189,9 @@ public static class ObjectPlacements
 							break;
 						case 2:
 							position += new Vector2i(0, -256);
-							obj = new
+							behaviour = new
 							{
-								Size = (flag ? "large" : "small"),
+								Size = (isLarge ? "large" : "small"),
 								RadiusY = 256,
 								TimePeriod = 360,
 								TimeOffset = 90
@@ -184,9 +199,9 @@ public static class ObjectPlacements
 							break;
 						case 6:
 							position += new Vector2i(0, -384);
-							obj = new
+							behaviour = new
 							{
-								Size = (flag ? "large" : "small"),
+								Size = (isLarge ? "large" : "small"),
 								RadiusY = 384,
 								TimePeriod = 312,
 								TimeOffset = 78
@@ -194,9 +209,9 @@ public static class ObjectPlacements
 							break;
 						case 7:
 							position += new Vector2i(0, -392);
-							obj = new
+							behaviour = new
 							{
-								Size = (flag ? "large" : "small"),
+								Size = (isLarge ? "large" : "small"),
 								RadiusY = 392,
 								TimePeriod = 316,
 								TimeOffset = 79
@@ -206,8 +221,8 @@ public static class ObjectPlacements
 					break;
 				}
 			case 27:
-				text = "SONICORCA/OBJECTS/CPZSPEEDBOOSTER";
-				obj = new
+				key = "SONICORCA/OBJECTS/CPZSPEEDBOOSTER";
+				behaviour = new
 				{
 					Strength = (new int[2] { 64, 40 })[(originalPlacement.SubType & 2) >> 1] * ((!originalPlacement.FlipX) ? 1 : (-1))
 				};
@@ -216,14 +231,14 @@ public static class ObjectPlacements
 				switch (originalPlacement.SubType)
 				{
 					case 2:
-						text = "SONICORCA/OBJECTS/EHZBRIDGE/STAKE";
+						key = "SONICORCA/OBJECTS/EHZBRIDGE/STAKE";
 						break;
 					case 4:
-						text = "SONICORCA/OBJECTS/HTZVINELIFT/PILLAR";
+						key = "SONICORCA/OBJECTS/HTZVINELIFT/PILLAR";
 						break;
 					case 5:
-						text = "SONICORCA/OBJECTS/HTZVINELIFT/PILLAR";
-						obj = new
+						key = "SONICORCA/OBJECTS/HTZVINELIFT/PILLAR";
+						behaviour = new
 						{
 							Right = true
 						};
@@ -231,44 +246,44 @@ public static class ObjectPlacements
 				}
 				break;
 			case 29:
-				text = "SONICORCA/OBJECTS/CPZBLOBS";
-				obj = new
+				key = "SONICORCA/OBJECTS/CPZBLOBS";
+				behaviour = new
 				{
 					Count = (originalPlacement.SubType & 0xF),
 					Type = (((originalPlacement.SubType & 0xF0) != 0) ? "straight" : "arc")
 				};
 				break;
 			case 30:
-				text = "SONICORCA/OBJECTS/CPZTUBEENTRANCE";
-				obj = new
+				key = "SONICORCA/OBJECTS/CPZTUBEENTRANCE";
+				behaviour = new
 				{
 					Subtype = originalPlacement.SubType
 				};
 				break;
 			case 38:
-				text = "SONICORCA/OBJECTS/MONITOR";
-				obj = new
+				key = "SONICORCA/OBJECTS/MONITOR";
+				behaviour = new
 				{
 					Contents = (new string[10] { "none", "life", "life", "robotnik", "ring", "speedshoes", "barrier", "invincibility", "swapplaces", "random" })[originalPlacement.SubType]
 				};
 				break;
 			case 45:
-				text = "SONICORCA/OBJECTS/HTZDOOR";
+				key = "SONICORCA/OBJECTS/HTZDOOR";
 				break;
 			case 50:
-				text = "SONICORCA/OBJECTS/HTZROCK";
+				key = "SONICORCA/OBJECTS/HTZROCK";
 				break;
 			case 54:
-				text = "SONICORCA/OBJECTS/SPIKES";
+				key = "SONICORCA/OBJECTS/SPIKES";
 				break;
 			case 62:
-				text = "SONICORCA/OBJECTS/CAPSULE";
+				key = "SONICORCA/OBJECTS/CAPSULE";
 				break;
 			case 64:
-				text = "SONICORCA/OBJECTS/SPRINGBOARD";
+				key = "SONICORCA/OBJECTS/SPRINGBOARD";
 				if (originalPlacement.FlipX)
 				{
-					obj = new
+					behaviour = new
 					{
 						flipX = true
 					};
@@ -276,7 +291,7 @@ public static class ObjectPlacements
 				break;
 			case 65:
 				{
-					text = "SONICORCA/OBJECTS/SPRING";
+					key = "SONICORCA/OBJECTS/SPRING";
 					int direction = 0;
 					switch ((originalPlacement.SubType >> 4) & 7)
 					{
@@ -293,7 +308,7 @@ public static class ObjectPlacements
 							direction = (originalPlacement.FlipX ? 5 : 3);
 							break;
 					}
-					obj = new
+					behaviour = new
 					{
 						Strength = (((originalPlacement.SubType & 2) != 0) ? 40 : 64),
 						Direction = direction
@@ -301,39 +316,39 @@ public static class ObjectPlacements
 					break;
 				}
 			case 107:
-				text = "SONICORCA/OBJECTS/CPZBLOCK";
-				obj = new
+				key = "SONICORCA/OBJECTS/CPZBLOCK";
+				behaviour = new
 				{
 					Type = originalPlacement.SubType
 				};
 				break;
 			case 120:
-				text = "SONICORCA/OBJECTS/CPZBLOCK";
-				obj = new
+				key = "SONICORCA/OBJECTS/CPZBLOCK";
+				behaviour = new
 				{
 					Type = "stairs " + originalPlacement.SubType
 				};
 				break;
 			case 121:
-				text = "SONICORCA/OBJECTS/STARPOST";
-				obj = new
+				key = "SONICORCA/OBJECTS/STARPOST";
+				behaviour = new
 				{
 					Index = originalPlacement.SubType
 				};
 				position.Y -= 32;
 				break;
 			case 123:
-				text = "SONICORCA/OBJECTS/CPZTUBESPRING";
-				obj = new
+				key = "SONICORCA/OBJECTS/CPZTUBESPRING";
+				behaviour = new
 				{
 					Type = originalPlacement.SubType
 				};
 				break;
 			case 132:
-				text = "SONICORCA/OBJECTS/FORCESPINBALL";
+				key = "SONICORCA/OBJECTS/FORCESPINBALL";
 				break;
 			case 146:
-				text = "SONICORCA/OBJECTS/SPIKER";
+				key = "SONICORCA/OBJECTS/SPIKER";
 				if (originalPlacement.FlipY)
 				{
 					position.Y += 64;
@@ -342,40 +357,40 @@ public static class ObjectPlacements
 				{
 					position.Y -= 64;
 				}
-				obj = new
+				behaviour = new
 				{
 					UpsideDown = originalPlacement.FlipY
 				};
 				break;
 			case 148:
 			case 150:
-				text = "SONICORCA/OBJECTS/REXON";
+				key = "SONICORCA/OBJECTS/REXON";
 				break;
 			case 149:
-				text = "SONICORCA/OBJECTS/SOL";
+				key = "SONICORCA/OBJECTS/SOL";
 				break;
 			case 165:
-				text = "SONICORCA/OBJECTS/SPINY";
+				key = "SONICORCA/OBJECTS/SPINY";
 				break;
 			case 166:
-				text = "SONICORCA/OBJECTS/SPINY";
-				obj = new
+				key = "SONICORCA/OBJECTS/SPINY";
+				behaviour = new
 				{
 					Wall = true
 				};
 				break;
 			case 167:
-				text = "SONICORCA/OBJECTS/GRABBER";
+				key = "SONICORCA/OBJECTS/GRABBER";
 				break;
 		}
-		if (text == null)
+		if (key == null)
 		{
 			return null;
 		}
-		if (obj == null)
+		if (behaviour == null)
 		{
-			return new ObjectPlacement(text, -1, position);
+			return new ObjectPlacement(key, -1, position);
 		}
-		return new ObjectPlacement(text, -1, position, obj);
+		return new ObjectPlacement(key, -1, position, behaviour);
 	}
 }

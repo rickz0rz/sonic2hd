@@ -2,11 +2,14 @@ using System.IO;
 
 namespace SonicOrca.Core.Network;
 
+/// <summary>
+/// A packet with the ticks and the time of the level.
+/// </summary>
 internal class LevelSynchronisationPacket : Packet
 {
-	private int _ticks;
+	private readonly int _ticks;
 
-	private int _time;
+	private readonly int _time;
 
 	public LevelSynchronisationPacket(Level level)
 		: base(PacketType.LevelSynchronisation)
@@ -41,6 +44,6 @@ internal class LevelSynchronisationPacket : Packet
 
 	public override string ToString()
 	{
-		return $"Packet = LevelSynchronisationPacket";
+		return "Packet = LevelSynchronisationPacket";
 	}
 }

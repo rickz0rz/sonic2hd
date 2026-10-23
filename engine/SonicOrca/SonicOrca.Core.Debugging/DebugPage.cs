@@ -3,6 +3,9 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.Core.Debugging;
 
+/// <summary>
+/// One page of the debug menu. It draws its options in groups, with a heading for each category.
+/// </summary>
 internal class DebugPage
 {
 	private readonly DebugContext _context;
@@ -30,18 +33,18 @@ internal class DebugPage
 
 	public void Draw(Renderer renderer)
 	{
-		string text = string.Empty;
+		string currentCategory = string.Empty;
 		I2dRenderer i2dRenderer = renderer.Get2dRenderer();
 		using (i2dRenderer.BeginMatixState())
 		{
 			foreach (DebugOption option in _options)
 			{
-				if (option.Category != text)
+				if (option.Category != currentCategory)
 				{
-					text = option.Category;
+					currentCategory = option.Category;
 					i2dRenderer.ModelMatrix = i2dRenderer.ModelMatrix.Translate(0.0, 32.0);
-					int num = (int)_context.DrawText(renderer, text, FontAlignment.Left, 0.0, 0.0, 0.75, 0);
-					i2dRenderer.ModelMatrix = i2dRenderer.ModelMatrix.Translate(0.0, num + 16);
+					int headingHeight = (int)_context.DrawText(renderer, currentCategory, FontAlignment.Left, 0.0, 0.0, DebugContext.DebugTextSmall, DebugContext.DebugTextSilver);
+					i2dRenderer.ModelMatrix = i2dRenderer.ModelMatrix.Translate(0.0, headingHeight + 16);
 				}
 				i2dRenderer.ModelMatrix = i2dRenderer.ModelMatrix.Translate(0.0, option.Draw(renderer) + 16);
 			}

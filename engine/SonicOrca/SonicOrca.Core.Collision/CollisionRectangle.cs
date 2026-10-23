@@ -3,6 +3,9 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.Core.Collision;
 
+/// <summary>
+/// A rectangular hit box. The bounds are relative to the owner object.
+/// </summary>
 public class CollisionRectangle : IBounds
 {
 	private readonly ActiveObject _owner;

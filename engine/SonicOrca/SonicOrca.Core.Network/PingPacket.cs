@@ -2,6 +2,9 @@ using System.IO;
 
 namespace SonicOrca.Core.Network;
 
+/// <summary>
+/// A packet that the server sends to measure the round trip time. It also has the last round trip time.
+/// </summary>
 internal class PingPacket : Packet
 {
 	private readonly int _id;

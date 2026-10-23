@@ -1,28 +1,29 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using SonicOrca.Core.Objects;
 using SonicOrca.Core.Objects.Base;
-using SonicOrca.Geometry;
 
 namespace SonicOrca.Core.Network;
 
+/// <summary>
+/// The host side of a network game. It accepts clients, sends their input to the other clients and synchronises the characters.
+/// </summary>
 internal class NetworkGameServer : IDisposable, IObserver<ReceivedPacket>
 {
-	private readonly ConcurrentQueue<Packet> _receivedPackets = new ConcurrentQueue<Packet>();
-
 	private readonly Lockable<Queue<Tuple<IPEndPoint, Packet>>> _outgoingPackets = new Lockable<Queue<Tuple<IPEndPoint, Packet>>>(new Queue<Tuple<IPEndPoint, Packet>>());
+
+	/// <summary>The time without packets, in milliseconds, after which a client is disconnected.</summary>
+	private const int ConnectionTimeoutMs = 30000;
+
+	/// <summary>The time between character synchronisation packets, in milliseconds.</summary>
+	private const int CharacterSynchronisationIntervalMs = 200;
 
 	private IPacketRadio _radio;
 
 	private readonly Lockable<List<NetworkPlayer>> _networkPlayers = new Lockable<List<NetworkPlayer>>(new List<NetworkPlayer>());
-
-	private Vector2[] _characterInputDirection = new Vector2[2];
-
-	private bool[] _characterInputAction = new bool[2];
 
 	private int _lastCharacterSynchronisationTickCount;
 
@@ -58,7 +59,7 @@ internal class NetworkGameServer : IDisposable, IObserver<ReceivedPacket>
 	{
 		lock (_networkPlayers.Sync)
 		{
-			return _networkPlayers.Instance.FirstOrDefault((NetworkPlayer x) => x.RemoteEndPoint.Equals(remoteEndPoint));
+			return _networkPlayers.Instance.FirstOrDefault(x => x.RemoteEndPoint.Equals(remoteEndPoint));
 		}
 	}
 
@@ -75,23 +76,25 @@ internal class NetworkGameServer : IDisposable, IObserver<ReceivedPacket>
 		}
 	}
 
+	// Nothing calls this method. It removes items from the list while it enumerates the list,
+	// thus it causes an InvalidOperationException when a client times out. This is possibly a bug in the original code.
 	private void MaintainConnections()
 	{
-		List<NetworkPlayer> list = new List<NetworkPlayer>();
+		List<NetworkPlayer> timedOutPlayers = new List<NetworkPlayer>();
 		lock (_networkPlayers.Sync)
 		{
-			foreach (NetworkPlayer item in _networkPlayers.Instance)
+			foreach (NetworkPlayer networkPlayer in _networkPlayers.Instance)
 			{
-				if (Environment.TickCount >= item.LastPacketReceivedTickCount + 30000)
+				if (Environment.TickCount >= networkPlayer.LastPacketReceivedTickCount + ConnectionTimeoutMs)
 				{
-					_networkPlayers.Instance.Remove(item);
-					list.Add(item);
+					_networkPlayers.Instance.Remove(networkPlayer);
+					timedOutPlayers.Add(networkPlayer);
 				}
 			}
 		}
-		foreach (NetworkPlayer item2 in list)
+		foreach (NetworkPlayer networkPlayer in timedOutPlayers)
 		{
-			OnDisconnect(item2);
+			OnDisconnect(networkPlayer);
 		}
 	}
 
@@ -142,9 +145,9 @@ internal class NetworkGameServer : IDisposable, IObserver<ReceivedPacket>
 	{
 		lock (_networkPlayers.Sync)
 		{
-			foreach (NetworkPlayer item in _networkPlayers.Instance)
+			foreach (NetworkPlayer networkPlayer in _networkPlayers.Instance)
 			{
-				SendPacket(item, packet);
+				SendPacket(networkPlayer, packet);
 			}
 		}
 	}
@@ -153,9 +156,9 @@ internal class NetworkGameServer : IDisposable, IObserver<ReceivedPacket>
 	{
 		lock (_networkPlayers.Sync)
 		{
-			foreach (NetworkPlayer item in _networkPlayers.Instance)
+			foreach (NetworkPlayer networkPlayer in _networkPlayers.Instance)
 			{
-				item.Update();
+				networkPlayer.Update();
 			}
 		}
 		if (Level != null)
@@ -171,16 +174,16 @@ internal class NetworkGameServer : IDisposable, IObserver<ReceivedPacket>
 		}
 		Task.Run(async () =>
 		{
-			foreach (Tuple<IPEndPoint, Packet> item2 in packetsToSend)
+			foreach (Tuple<IPEndPoint, Packet> outgoing in packetsToSend)
 			{
-				await _radio.SendPacketAsync(item2.Item1, item2.Item2);
+				await _radio.SendPacketAsync(outgoing.Item1, outgoing.Item2);
 			}
 		});
 	}
 
 	private void ConstructPackets()
 	{
-		if (_lastCharacterSynchronisationTickCount + 200 < Environment.TickCount)
+		if (_lastCharacterSynchronisationTickCount + CharacterSynchronisationIntervalMs < Environment.TickCount)
 		{
 			_lastCharacterSynchronisationTickCount = Environment.TickCount;
 			SendCharacterSynchronisation();
@@ -189,17 +192,17 @@ internal class NetworkGameServer : IDisposable, IObserver<ReceivedPacket>
 
 	private void PerformCharacterInputs()
 	{
-		ICharacter[] array = Level.ObjectManager.Characters.ToArray();
+		ICharacter[] characters = Level.ObjectManager.Characters.ToArray();
 		lock (_networkPlayers.Sync)
 		{
 			foreach (NetworkPlayer networkPlayer in _networkPlayers.Instance)
 			{
 				int characterId = networkPlayer.CharacterId;
-				if (characterId < 0 || characterId >= array.Length)
+				if (characterId < 0 || characterId >= characters.Length)
 				{
 					continue;
 				}
-				array[characterId].Input = new CharacterInputState
+				characters[characterId].Input = new CharacterInputState
 				{
 					Throttle = networkPlayer.InputDirection.X,
 					VerticalDirection = Math.Sign(networkPlayer.InputDirection.Y),
@@ -209,9 +212,10 @@ internal class NetworkGameServer : IDisposable, IObserver<ReceivedPacket>
 				{
 					continue;
 				}
-				foreach (NetworkPlayer item in _networkPlayers.Instance.Where((NetworkPlayer x) => x != networkPlayer))
+				// Send the new input to the other clients.
+				foreach (NetworkPlayer otherPlayer in _networkPlayers.Instance.Where(x => x != networkPlayer))
 				{
-					item.SendPacket(new PlayInputPacket(characterId, networkPlayer.InputDirection, networkPlayer.InputAction));
+					otherPlayer.SendPacket(new PlayInputPacket(characterId, networkPlayer.InputDirection, networkPlayer.InputAction));
 				}
 				networkPlayer.InputDirty = false;
 			}
@@ -220,10 +224,10 @@ internal class NetworkGameServer : IDisposable, IObserver<ReceivedPacket>
 
 	private void SendCharacterSynchronisation()
 	{
-		ICharacter[] array = Level.ObjectManager.Characters.ToArray();
-		if (array.Length != 0)
+		ICharacter[] characters = Level.ObjectManager.Characters.ToArray();
+		if (characters.Length != 0)
 		{
-			SendPacketToAllClients(new CharacterSynchronisationPacket(array));
+			SendPacketToAllClients(new CharacterSynchronisationPacket(characters));
 		}
 	}
 }

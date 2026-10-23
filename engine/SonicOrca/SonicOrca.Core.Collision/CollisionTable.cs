@@ -6,6 +6,9 @@ using SonicOrca.Geometry;
 
 namespace SonicOrca.Core.Collision;
 
+/// <summary>
+/// Keeps the landscape collision vectors of a level in a quad tree and connects vectors that share end points.
+/// </summary>
 public class CollisionTable
 {
 	private readonly Level _level;
@@ -26,9 +29,9 @@ public class CollisionTable
 		Trace.WriteLine("Initialising collision table");
 		IEnumerable<CollisionVector> collisionVectors = map.CollisionVectors;
 		_newCollisionQuadTree = new QuadTree<CollisionVector>(collisionVectors);
-		foreach (CollisionVector item in collisionVectors)
+		foreach (CollisionVector vector in collisionVectors)
 		{
-			item.UpdateDerrivedFields();
+			vector.UpdateDerrivedFields();
 		}
 		UpdateAllConnections();
 	}
@@ -52,32 +55,35 @@ public class CollisionTable
 		}
 	}
 
+	/// <summary>
+	/// Updates the connections of the given vectors, of the vectors that connect to them, and of the
+	/// landscape vectors that share an end point with them.
+	/// </summary>
 	public void UpdateConnectionsFast(IEnumerable<CollisionVector> vectors)
 	{
-		_ = _level.Map.CollisionPathLayers.Count;
 		Queue<CollisionVector> queue = new Queue<CollisionVector>(vectors);
-		HashSet<CollisionVector> hashSet = new HashSet<CollisionVector>();
+		HashSet<CollisionVector> visited = new HashSet<CollisionVector>();
 		while (queue.Count > 0)
 		{
-			CollisionVector collisionVector = queue.Dequeue();
-			if (!hashSet.Add(collisionVector))
+			CollisionVector current = queue.Dequeue();
+			if (!visited.Add(current))
 			{
 				continue;
 			}
-			foreach (CollisionVector vectorConnection in GetVectorConnections(collisionVector))
+			foreach (CollisionVector connection in GetVectorConnections(current))
 			{
-				queue.Enqueue(vectorConnection);
+				queue.Enqueue(connection);
 			}
-			Rectanglei bounds = collisionVector.Bounds.Inflate(new Vector2i(8, 8));
-			foreach (CollisionVector possibleCollisionIntersection in GetPossibleCollisionIntersections(bounds, landscape: true, objects: false))
+			Rectanglei searchBounds = current.Bounds.Inflate(new Vector2i(8, 8));
+			foreach (CollisionVector candidate in GetPossibleCollisionIntersections(searchBounds, landscape: true, objects: false))
 			{
-				if (possibleCollisionIntersection.AbsoluteA == collisionVector.AbsoluteA || possibleCollisionIntersection.AbsoluteA == collisionVector.AbsoluteB || possibleCollisionIntersection.AbsoluteB == collisionVector.AbsoluteA || possibleCollisionIntersection.AbsoluteB == collisionVector.AbsoluteB)
+				if (candidate.AbsoluteA == current.AbsoluteA || candidate.AbsoluteA == current.AbsoluteB || candidate.AbsoluteB == current.AbsoluteA || candidate.AbsoluteB == current.AbsoluteB)
 				{
-					queue.Enqueue(possibleCollisionIntersection);
+					queue.Enqueue(candidate);
 				}
 			}
 		}
-		UpdateConnections(hashSet.ToArray());
+		UpdateConnections(visited.ToArray());
 	}
 
 	public void UpdateAllConnections()
@@ -87,47 +93,18 @@ public class CollisionTable
 
 	public void UpdateConnections(IEnumerable<CollisionVector> vectors)
 	{
-		int count = _level.Map.CollisionPathLayers.Count;
+		int pathCount = _level.Map.CollisionPathLayers.Count;
 		foreach (CollisionVector vector in vectors)
 		{
 			vector.ResetConnections();
 		}
-		foreach (CollisionVector vector2 in vectors)
+		foreach (CollisionVector vector in vectors)
 		{
-			foreach (CollisionVector vector3 in vectors)
+			foreach (CollisionVector other in vectors)
 			{
-				if (vector2 == vector3)
+				if (vector != other)
 				{
-					continue;
-				}
-				if (vector2.AbsoluteA == vector3.AbsoluteB && CollisionVector.TestConnection(vector2, vector3))
-				{
-					for (int i = 0; i < count; i++)
-					{
-						if (vector3.HasPath(i))
-						{
-							vector2.SetConnectionA(i, vector3);
-						}
-						if (vector2.HasPath(i))
-						{
-							vector3.SetConnectionB(i, vector2);
-						}
-					}
-				}
-				if (!(vector2.AbsoluteB == vector3.AbsoluteA) || !CollisionVector.TestConnection(vector2, vector3))
-				{
-					continue;
-				}
-				for (int j = 0; j < count; j++)
-				{
-					if (vector3.HasPath(j))
-					{
-						vector2.SetConnectionB(j, vector3);
-					}
-					if (vector2.HasPath(j))
-					{
-						vector3.SetConnectionA(j, vector2);
-					}
+					ConnectIfJoined(vector, other, pathCount);
 				}
 			}
 		}
@@ -136,40 +113,47 @@ public class CollisionTable
 	public void UpdateConnectionsForVector(CollisionVector v1)
 	{
 		IList<CollisionVector> collisionVectors = _level.Map.CollisionVectors;
-		int count = _level.Map.CollisionPathLayers.Count;
-		foreach (CollisionVector item in collisionVectors)
+		int pathCount = _level.Map.CollisionPathLayers.Count;
+		foreach (CollisionVector other in collisionVectors)
 		{
-			if (v1 == item)
+			if (v1 != other)
 			{
-				continue;
+				ConnectIfJoined(v1, other, pathCount);
 			}
-			if (v1.AbsoluteA == item.AbsoluteB && CollisionVector.TestConnection(v1, item))
+		}
+	}
+
+	/// <summary>
+	/// Connects <paramref name="vector"/> and <paramref name="other"/> on each path that they use,
+	/// when the start of one vector is at the end of the other vector.
+	/// </summary>
+	private static void ConnectIfJoined(CollisionVector vector, CollisionVector other, int pathCount)
+	{
+		if (vector.AbsoluteA == other.AbsoluteB && CollisionVector.TestConnection(vector, other))
+		{
+			for (int path = 0; path < pathCount; path++)
 			{
-				for (int i = 0; i < count; i++)
+				if (other.HasPath(path))
 				{
-					if (item.HasPath(i))
-					{
-						v1.SetConnectionA(i, item);
-					}
-					if (v1.HasPath(i))
-					{
-						item.SetConnectionB(i, v1);
-					}
+					vector.SetConnectionA(path, other);
+				}
+				if (vector.HasPath(path))
+				{
+					other.SetConnectionB(path, vector);
 				}
 			}
-			if (!(v1.AbsoluteB == item.AbsoluteA) || !CollisionVector.TestConnection(v1, item))
+		}
+		if (vector.AbsoluteB == other.AbsoluteA && CollisionVector.TestConnection(vector, other))
+		{
+			for (int path = 0; path < pathCount; path++)
 			{
-				continue;
-			}
-			for (int j = 0; j < count; j++)
-			{
-				if (item.HasPath(j))
+				if (other.HasPath(path))
 				{
-					v1.SetConnectionB(j, item);
+					vector.SetConnectionB(path, other);
 				}
-				if (v1.HasPath(j))
+				if (vector.HasPath(path))
 				{
-					item.SetConnectionA(j, v1);
+					other.SetConnectionA(path, vector);
 				}
 			}
 		}
@@ -179,18 +163,18 @@ public class CollisionTable
 	{
 		if (objects)
 		{
-			foreach (CollisionVector item in _level.ObjectManager.ActiveObjects.SelectMany((ActiveObject x) => x.CollisionVectors))
+			foreach (CollisionVector vector in _level.ObjectManager.ActiveObjects.SelectMany(x => x.CollisionVectors))
 			{
-				yield return item;
+				yield return vector;
 			}
 		}
 		if (!landscape)
 		{
 			yield break;
 		}
-		foreach (CollisionVector item2 in _newCollisionQuadTree.Query(bounds))
+		foreach (CollisionVector vector in _newCollisionQuadTree.Query(bounds))
 		{
-			yield return item2;
+			yield return vector;
 		}
 	}
 

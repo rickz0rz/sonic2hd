@@ -3,6 +3,9 @@ using System.IO;
 
 namespace SonicOrca.Original;
 
+/// <summary>
+/// Writes single bits to a stream. It fills blocks of 1 to 4 bytes from the highest bit down and writes each block in little-endian order.
+/// </summary>
 internal class BitWriter
 {
 	private readonly Stream _stream;
@@ -29,14 +32,14 @@ internal class BitWriter
 
 	public void WriteBit(int bit)
 	{
-		int num = 1 << _blockSize * 8 - 1 - _bitIndex++;
+		int mask = 1 << _blockSize * 8 - 1 - _bitIndex++;
 		if (bit != 0)
 		{
-			_data |= num;
+			_data |= mask;
 		}
 		else
 		{
-			_data &= ~num;
+			_data &= ~mask;
 		}
 		if (_bitIndex >= _blockSize * 8)
 		{

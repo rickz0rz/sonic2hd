@@ -6,8 +6,14 @@ using SonicOrca.Geometry;
 
 namespace SonicOrca.Core.Network;
 
+/// <summary>
+/// A client that is connected to the server. The server keeps one for each client.
+/// </summary>
 internal class NetworkPlayer
 {
+	/// <summary>The time between ping packets, in milliseconds.</summary>
+	private const int PingIntervalMs = 5000;
+
 	private readonly NetworkGameServer _networkGameServer;
 
 	private readonly IPEndPoint _remoteEndPoint;
@@ -57,8 +63,7 @@ internal class NetworkPlayer
 	public void ReceivePacket(Packet packet)
 	{
 		_lastPacketReceivedTickCount = Environment.TickCount;
-		PacketType type = packet.Type;
-		if (type == PacketType.Pong)
+		if (packet.Type == PacketType.Pong)
 		{
 			ReceivePong(((PongPacket)packet).Id);
 		}
@@ -75,12 +80,11 @@ internal class NetworkPlayer
 
 	public void Update()
 	{
-		if (Environment.TickCount > _lastPingTickCount + 5000)
+		if (Environment.TickCount > _lastPingTickCount + PingIntervalMs)
 		{
 			Ping();
 		}
-		Packet packet;
-		while (TryGetNextPacket(out packet))
+		while (TryGetNextPacket(out Packet packet))
 		{
 			ProcessPacket(packet);
 		}
@@ -119,7 +123,6 @@ internal class NetworkPlayer
 
 	private void ProcessPlayInput(PlayInputPacket playInputPacket)
 	{
-		_ = playInputPacket.CharacterId;
 		InputDirection = playInputPacket.Direction;
 		InputAction = playInputPacket.Action;
 		InputDirty = true;

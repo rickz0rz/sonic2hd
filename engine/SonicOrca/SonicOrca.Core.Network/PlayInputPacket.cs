@@ -3,6 +3,9 @@ using SonicOrca.Geometry;
 
 namespace SonicOrca.Core.Network;
 
+/// <summary>
+/// The input direction and the action button state of one character.
+/// </summary>
 internal class PlayInputPacket : Packet
 {
 	private readonly int _characterId;

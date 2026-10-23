@@ -2,6 +2,9 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.Core.Debugging;
 
+/// <summary>
+/// The base class for one line in the debug menu.
+/// </summary>
 public class DebugOption
 {
 	private readonly DebugContext _context;

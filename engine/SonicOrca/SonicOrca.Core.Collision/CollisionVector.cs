@@ -7,6 +7,9 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.Core.Collision;
 
+/// <summary>
+/// A collision line from point A to point B. The landscape and the objects use it for floors, walls and ceilings.
+/// </summary>
 public class CollisionVector : IBounds
 {
 	public const uint AllPaths = uint.MaxValue;
@@ -143,20 +146,20 @@ public class CollisionVector : IBounds
 
 	public bool IsFloor => !IsWall;
 
-	public bool IsThereConnectionA => _connectionA.Any((CollisionVector x) => x != null);
+	public bool IsThereConnectionA => _connectionA.Any(x => x != null);
 
-	public bool IsThereConnectionB => _connectionB.Any((CollisionVector x) => x != null);
+	public bool IsThereConnectionB => _connectionB.Any(x => x != null);
 
 	public CollisionVector()
 	{
 	}
 
-	public CollisionVector(Vector2i a, Vector2i b, uint paths = uint.MaxValue, CollisionFlags flags = 0)
+	public CollisionVector(Vector2i a, Vector2i b, uint paths = AllPaths, CollisionFlags flags = 0)
 		: this(null, a, b, paths, flags)
 	{
 	}
 
-	public CollisionVector(ActiveObject owner, Vector2i a, Vector2i b, uint paths = uint.MaxValue, CollisionFlags flags = 0)
+	public CollisionVector(ActiveObject owner, Vector2i a, Vector2i b, uint paths = AllPaths, CollisionFlags flags = 0)
 	{
 		Owner = owner;
 		RelativeA = a;
@@ -170,7 +173,11 @@ public class CollisionVector : IBounds
 		return FromRectangle(null, rect);
 	}
 
-	public static CollisionVector[] FromRectangle(ActiveObject owner, Rectanglei rect, uint paths = uint.MaxValue, CollisionFlags flags = 0)
+	/// <summary>
+	/// Makes four vectors around a rectangle: left, top, right and bottom.
+	/// </summary>
+	/// <remarks>The vectors do not get <paramref name="flags"/>. This is possibly a bug in the original code.</remarks>
+	public static CollisionVector[] FromRectangle(ActiveObject owner, Rectanglei rect, uint paths = AllPaths, CollisionFlags flags = 0)
 	{
 		return new CollisionVector[4]
 		{
@@ -232,6 +239,8 @@ public class CollisionVector : IBounds
 		return _connectionB[path];
 	}
 
+	// SetConnectionA and SetConnectionB resize the array to "path" items, not "path + 1" items.
+	// Thus a path that is out of range causes an IndexOutOfRangeException. This is possibly a bug in the original code.
 	public void SetConnectionA(int path, CollisionVector v)
 	{
 		if (_connectionA.Length <= path)
@@ -286,9 +295,9 @@ public class CollisionVector : IBounds
 		{
 			Mode = ((FlipY <= 0) ? CollisionMode.Left : CollisionMode.Right);
 		}
-		double num = AbsoluteB.X - AbsoluteA.X;
-		double num2 = AbsoluteB.Y - AbsoluteA.Y;
-		Ratio = ((num2 == 0.0) ? 0.0 : (num / num2));
+		double deltaX = AbsoluteB.X - AbsoluteA.X;
+		double deltaY = AbsoluteB.Y - AbsoluteA.Y;
+		Ratio = ((deltaY == 0.0) ? 0.0 : (deltaX / deltaY));
 		Angle = (AbsoluteB - AbsoluteA).Angle;
 	}
 
@@ -303,71 +312,79 @@ public class CollisionVector : IBounds
 		return (Paths & (1 << path)) != 0;
 	}
 
+	/// <summary>
+	/// Finds where a radial floor sensor touches this vector. When the sensor is past an end that has a
+	/// connection, the touch point stays at that end and the angle comes from the sensor position.
+	/// </summary>
 	public bool FindFloor(Vector2 sensorPosition, double sensorSize, int path, out CollisionInfo info)
 	{
-		bool flag = false;
-		double num = Angle;
-		double num2 = sensorPosition.X - Math.Sin(num) * sensorSize;
-		double num3 = AbsoluteA.Y;
-		if (GetConnectionB(path) != null && (num2 - AbsoluteB.X) * FlipX > 0.0)
+		bool isAtEnd = false;
+		double angle = Angle;
+		double touchX = sensorPosition.X - Math.Sin(angle) * sensorSize;
+		double touchY = AbsoluteA.Y;
+		if (GetConnectionB(path) != null && (touchX - AbsoluteB.X) * FlipX > 0.0)
 		{
-			num2 = AbsoluteB.X;
-			flag = true;
+			touchX = AbsoluteB.X;
+			isAtEnd = true;
 		}
-		else if (GetConnectionA(path) != null && (num2 - AbsoluteA.X) * FlipX < 0.0)
+		else if (GetConnectionA(path) != null && (touchX - AbsoluteA.X) * FlipX < 0.0)
 		{
-			num2 = AbsoluteA.X;
-			flag = true;
+			touchX = AbsoluteA.X;
+			isAtEnd = true;
 		}
-		if (flag)
+		if (isAtEnd)
 		{
-			num = Math.Asin(MathX.Clamp(-1.0, (num2 - sensorPosition.X) / sensorSize, 1.0)) * FlipX;
+			angle = Math.Asin(MathX.Clamp(-1.0, (touchX - sensorPosition.X) / sensorSize, 1.0)) * FlipX;
 			if (FlipX < 0)
 			{
-				num += Math.PI;
+				angle += Math.PI;
 			}
 		}
 		if (Height > 0)
 		{
-			num3 += (num2 - AbsoluteA.X) / Ratio;
+			touchY += (touchX - AbsoluteA.X) / Ratio;
 		}
-		double num4 = num3 - Math.Cos(num) * sensorSize - sensorPosition.Y;
-		info = new CollisionInfo(this, new Vector2(num2, num3), num4, num);
-		return num4 * FlipX < 0.0;
+		double shift = touchY - Math.Cos(angle) * sensorSize - sensorPosition.Y;
+		info = new CollisionInfo(this, new Vector2(touchX, touchY), shift, angle);
+		return shift * FlipX < 0.0;
 	}
 
+	/// <summary>
+	/// Finds where a radial wall sensor touches this vector. When the sensor is past an end that has a
+	/// connection, the touch point stays at that end and the angle comes from the sensor position.
+	/// </summary>
 	public bool FindWall(Vector2 sensorPosition, double sensorSize, int path, out CollisionInfo info)
 	{
-		bool flag = false;
-		double num = Angle;
-		double num2 = AbsoluteA.X;
-		double num3 = sensorPosition.Y + Math.Cos(num) * sensorSize;
-		if (GetConnectionB(path) != null && (num3 - AbsoluteB.Y) * FlipY > 0.0)
+		bool isAtEnd = false;
+		double angle = Angle;
+		double touchX = AbsoluteA.X;
+		double touchY = sensorPosition.Y + Math.Cos(angle) * sensorSize;
+		if (GetConnectionB(path) != null && (touchY - AbsoluteB.Y) * FlipY > 0.0)
 		{
-			num3 = AbsoluteB.Y;
-			flag = true;
+			touchY = AbsoluteB.Y;
+			isAtEnd = true;
 		}
-		else if (GetConnectionA(path) != null && (num3 - AbsoluteA.Y) * FlipY < 0.0)
+		else if (GetConnectionA(path) != null && (touchY - AbsoluteA.Y) * FlipY < 0.0)
 		{
-			num3 = AbsoluteA.Y;
-			flag = true;
+			touchY = AbsoluteA.Y;
+			isAtEnd = true;
 		}
-		if (flag)
+		if (isAtEnd)
 		{
-			num = Math.Asin(MathX.Clamp(-1.0, (num3 - sensorPosition.Y) / sensorSize, 1.0)) * FlipY;
+			angle = Math.Asin(MathX.Clamp(-1.0, (touchY - sensorPosition.Y) / sensorSize, 1.0)) * FlipY;
 			if (FlipY > 0)
 			{
-				num += Math.PI;
+				angle += Math.PI;
 			}
-			num -= Math.PI / 2.0;
+			angle -= Math.PI / 2.0;
 		}
 		if (Width > 0)
 		{
-			num2 += (num3 - AbsoluteA.Y) * Ratio;
+			touchX += (touchY - AbsoluteA.Y) * Ratio;
 		}
-		double num4 = num2 + Math.Sin(num) * sensorSize - sensorPosition.X;
-		info = new CollisionInfo(this, new Vector2(num2, num3), num4, num);
-		return num4 * FlipY > 0.0;
+		double shift = touchX + Math.Sin(angle) * sensorSize - sensorPosition.X;
+		info = new CollisionInfo(this, new Vector2(touchX, touchY), shift, angle);
+		return shift * FlipY > 0.0;
 	}
 
 	public static bool TestConnection(CollisionVector a, CollisionVector b)
@@ -449,50 +466,55 @@ public class CollisionVector : IBounds
 			colour = Colours.Fuchsia;
 		}
 		i2dRenderer.RenderLine(colour, pa, pb, 1.0);
-		double num = 16.0 * scale.X;
-		if (num > 2.0)
+
+		// Draw the normal from the middle of the vector.
+		double normalLength = 16.0 * scale.X;
+		if (normalLength > 2.0)
 		{
-			double num2 = Angle - Math.PI / 2.0;
-			Vector2 vector = new Vector2((pb.X - pa.X) / 2.0 + pa.X, (pb.Y - pa.Y) / 2.0 + pa.Y);
-			Vector2 b = vector + new Vector2(Math.Cos(num2) * num, Math.Sin(num2) * num);
-			i2dRenderer.RenderLine(colour, vector, b, 1.0);
+			double normalAngle = Angle - Math.PI / 2.0;
+			Vector2 midpoint = new Vector2((pb.X - pa.X) / 2.0 + pa.X, (pb.Y - pa.Y) / 2.0 + pa.Y);
+			Vector2 normalEnd = midpoint + new Vector2(Math.Cos(normalAngle) * normalLength, Math.Sin(normalAngle) * normalLength);
+			i2dRenderer.RenderLine(colour, midpoint, normalEnd, 1.0);
 		}
-		double num3 = 8.0 * scale.X;
+
+		// Draw a circle at a connected end and a square at an end without a connection.
+		double endMarkerRadius = 8.0 * scale.X;
 		int sectors = (int)(8.0 * scale.X);
-		if (num3 > 1.0)
+		if (endMarkerRadius > 1.0)
 		{
 			if (IsThereConnectionA)
 			{
-				i2dRenderer.RenderEllipse(colour, pa, 0.0, num3 + 0.5, sectors);
+				i2dRenderer.RenderEllipse(colour, pa, 0.0, endMarkerRadius + 0.5, sectors);
 			}
 			else
 			{
-				i2dRenderer.RenderRectangle(colour, new Rectangle(pa.X - num3, pa.Y - num3, num3 * 2.0, num3 * 2.0), 1.0);
+				i2dRenderer.RenderRectangle(colour, new Rectangle(pa.X - endMarkerRadius, pa.Y - endMarkerRadius, endMarkerRadius * 2.0, endMarkerRadius * 2.0), 1.0);
 			}
 			if (IsThereConnectionB)
 			{
-				i2dRenderer.RenderEllipse(colour, pb, 0.0, num3 + 0.5, sectors);
+				i2dRenderer.RenderEllipse(colour, pb, 0.0, endMarkerRadius + 0.5, sectors);
 			}
 			else
 			{
-				i2dRenderer.RenderRectangle(colour, new Rectangle(pb.X - num3, pb.Y - num3, num3 * 2.0, num3 * 2.0), 1.0);
+				i2dRenderer.RenderRectangle(colour, new Rectangle(pb.X - endMarkerRadius, pb.Y - endMarkerRadius, endMarkerRadius * 2.0, endMarkerRadius * 2.0), 1.0);
 			}
 		}
 	}
 
 	public static bool GetIntersection(CollisionVector a, CollisionVector b, out Vector2 intersection)
 	{
-		Vector2 vector = a.AbsoluteA;
-		Vector2 vector2 = a.AbsoluteB;
-		Vector2 vector3 = b.AbsoluteA;
-		Vector2 vector4 = b.AbsoluteB;
-		Vector2 vector5 = new Vector2(vector2.X - vector.X, vector2.Y - vector.Y);
-		Vector2 vector6 = new Vector2(vector4.X - vector3.X, vector4.Y - vector3.Y);
-		double num = ((0.0 - vector5.Y) * (vector.X - vector3.X) + vector5.X * (vector.Y - vector3.Y)) / ((0.0 - vector6.X) * vector5.Y + vector5.X * vector6.Y);
-		double num2 = (vector6.X * (vector.Y - vector3.Y) - vector6.Y * (vector.X - vector3.X)) / ((0.0 - vector6.X) * vector5.Y + vector5.X * vector6.Y);
-		if (num >= 0.0 && num <= 1.0 && num2 >= 0.0 && num2 <= 1.0)
+		Vector2 startA = a.AbsoluteA;
+		Vector2 endA = a.AbsoluteB;
+		Vector2 startB = b.AbsoluteA;
+		Vector2 endB = b.AbsoluteB;
+		Vector2 directionA = new Vector2(endA.X - startA.X, endA.Y - startA.Y);
+		Vector2 directionB = new Vector2(endB.X - startB.X, endB.Y - startB.Y);
+		// s is the position along segment B and t is the position along segment A, from 0 to 1.
+		double s = ((0.0 - directionA.Y) * (startA.X - startB.X) + directionA.X * (startA.Y - startB.Y)) / ((0.0 - directionB.X) * directionA.Y + directionA.X * directionB.Y);
+		double t = (directionB.X * (startA.Y - startB.Y) - directionB.Y * (startA.X - startB.X)) / ((0.0 - directionB.X) * directionA.Y + directionA.X * directionB.Y);
+		if (s >= 0.0 && s <= 1.0 && t >= 0.0 && t <= 1.0)
 		{
-			intersection = new Vector2(vector.X + num2 * vector5.X, vector.Y + num2 * vector5.Y);
+			intersection = new Vector2(startA.X + t * directionA.X, startA.Y + t * directionA.Y);
 			return true;
 		}
 		intersection = default;
@@ -501,20 +523,19 @@ public class CollisionVector : IBounds
 
 	public static bool Intersects(CollisionVector a, CollisionVector b)
 	{
-		Vector2 intersection;
-		return GetIntersection(a, b, out intersection);
+		return GetIntersection(a, b, out _);
 	}
 
-	public static IEnumerable<CollisionInfo> GetCollisions(ActiveObject obj, int radialSensorSize, uint paths = uint.MaxValue)
+	public static IEnumerable<CollisionInfo> GetCollisions(ActiveObject obj, int radialSensorSize, uint paths = AllPaths)
 	{
 		return GetCollisions(obj, radialSensorSize, radialSensorSize, paths);
 	}
 
-	public static IEnumerable<CollisionInfo> GetCollisions(ActiveObject obj, int floorSensorSize, int wallSensorSize, uint paths = uint.MaxValue)
+	public static IEnumerable<CollisionInfo> GetCollisions(ActiveObject obj, int floorSensorSize, int wallSensorSize, uint paths = AllPaths)
 	{
-		Vector2i vector2i = (Vector2i)obj.PositionPrecise;
-		Rectanglei floorRect = Rectanglei.FromLTRB(vector2i.X - wallSensorSize, vector2i.Y - floorSensorSize, vector2i.X + wallSensorSize, vector2i.Y + floorSensorSize);
-		Rectanglei wallRect = Rectanglei.FromLTRB(vector2i.X - wallSensorSize, vector2i.Y - wallSensorSize, vector2i.X + wallSensorSize, vector2i.Y + wallSensorSize);
+		Vector2i position = (Vector2i)obj.PositionPrecise;
+		Rectanglei floorRect = Rectanglei.FromLTRB(position.X - wallSensorSize, position.Y - floorSensorSize, position.X + wallSensorSize, position.Y + floorSensorSize);
+		Rectanglei wallRect = Rectanglei.FromLTRB(position.X - wallSensorSize, position.Y - wallSensorSize, position.X + wallSensorSize, position.Y + wallSensorSize);
 		return GetCollisions(obj, floorSensorSize, wallSensorSize, floorRect, wallRect, paths, CollisionMode.Air, null);
 	}
 
@@ -528,24 +549,24 @@ public class CollisionVector : IBounds
 			{
 				continue;
 			}
+			// Give at most one collision for each vector: the one on the first path that collides.
 			for (int i = 0; i < numPaths; i++)
 			{
-				if ((t.Paths & (1 << i)) == 0L)
+				if (!t.HasPath(i))
 				{
 					continue;
 				}
-				CollisionInfo info2;
 				if (t.IsWall)
 				{
-					if (RectangleCheckCollision(wallRect, t.Bounds) && t.FindWall(obj.PositionPrecise, wallSensorSize, i, out var info) && !CheckSolidAngle(t, obj.LastPositionPrecise, info.Touch) && !CheckSolidAngle(t, obj.LastPositionPrecise, obj.PositionPrecise))
+					if (RectangleCheckCollision(wallRect, t.Bounds) && t.FindWall(obj.PositionPrecise, wallSensorSize, i, out CollisionInfo wallInfo) && !CheckSolidAngle(t, obj.LastPositionPrecise, wallInfo.Touch) && !CheckSolidAngle(t, obj.LastPositionPrecise, obj.PositionPrecise))
 					{
-						yield return info;
+						yield return wallInfo;
 						break;
 					}
 				}
-				else if (RectangleCheckCollision(floorRect, t.Bounds) && t.FindFloor(obj.PositionPrecise, floorSensorSize, i, out info2) && !CheckSolidAngle(t, obj.LastPositionPrecise, info2.Touch) && !CheckSolidAngle(t, obj.LastPositionPrecise, obj.PositionPrecise))
+				else if (RectangleCheckCollision(floorRect, t.Bounds) && t.FindFloor(obj.PositionPrecise, floorSensorSize, i, out CollisionInfo floorInfo) && !CheckSolidAngle(t, obj.LastPositionPrecise, floorInfo.Touch) && !CheckSolidAngle(t, obj.LastPositionPrecise, obj.PositionPrecise))
 				{
-					yield return info2;
+					yield return floorInfo;
 					break;
 				}
 			}

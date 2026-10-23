@@ -2,6 +2,9 @@ using System.IO;
 
 namespace SonicOrca.Core.Network;
 
+/// <summary>
+/// A chat message and the name of its sender.
+/// </summary>
 internal class ChatMessagePacket : Packet
 {
 	private readonly string _sender;
