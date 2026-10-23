@@ -11,6 +11,7 @@ using SonicOrca.Geometry;
 #nullable disable
 namespace SONICORCA.OBJECTS.SIGNPOST;
 
+/// <summary>The object type for the signpost at the end of an act.</summary>
 [SonicOrca.Core.Objects.Metadata.Name("Signpost")]
 [Description("Signpost from Sonic 1")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.General)]
@@ -24,6 +25,8 @@ public class SignpostType : ObjectType
 	[Dependency]
 	public const string SoundResourceKey = "SONICORCA/SOUND/SIGNPOST";
 
+	// ObjectType.GetLifeRadius finds this method by dynamic dispatch. The signpost stays active over the full
+	// height of the level.
 	public new Vector2 GetLifeRadius(ActiveObject state)
 	{
 		return (Vector2)new Vector2i(0, Level.Bounds.Height);

@@ -16,14 +16,21 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.STARPOST;
 
+/// <summary>
+/// A starpost (checkpoint). When the protagonist touches it, it sets the restart position of the player. The star on
+/// top spins two turns and then glows.
+/// </summary>
 public class StarpostInstance : ActiveObject
 {
 	public const int AnimationStand = 0;
 	public const int AnimationStarInactive = 1;
 	public const int AnimationStarActive = 2;
 	public const int AnimationStarActiveGlow = 3;
-	private static double StarAxelRadius = 44.0;
-	private static Vector2 StarAxelMidpoint = new Vector2(0.0, -52.0);
+
+	/// <summary>The distance from the star to the axle that it turns around.</summary>
+	private const double StarAxleRadius = 44.0;
+	private static readonly Vector2 StarAxleMidpoint = new Vector2(0.0, -52.0);
+
 	private AnimationInstance _standAnimation;
 	private AnimationInstance _starAnimation;
 	private AnimationInstance _starGlowAnimation;
@@ -45,16 +52,16 @@ public class StarpostInstance : ActiveObject
 
 	protected override void OnStart()
 	{
-		AnimationGroup loadedResource = Level.GameContext.ResourceTree.GetLoadedResource<AnimationGroup>(Type, "/ANIGROUP");
-		_standAnimation = new AnimationInstance(loadedResource);
-		_starAnimation = new AnimationInstance(loadedResource);
-		_starGlowAnimation = new AnimationInstance(loadedResource);
-		_standAnimation.Index = 0;
-		_starAnimation.Index = 1;
-		_starGlowAnimation.Index = 3;
-		CollisionRectangles = new CollisionRectangle[1]
+		AnimationGroup animationGroup = Level.GameContext.ResourceTree.GetLoadedResource<AnimationGroup>(Type, StarpostType.AnimationGroupResourceKey);
+		_standAnimation = new AnimationInstance(animationGroup);
+		_starAnimation = new AnimationInstance(animationGroup);
+		_starGlowAnimation = new AnimationInstance(animationGroup);
+		_standAnimation.Index = AnimationStand;
+		_starAnimation.Index = AnimationStarInactive;
+		_starGlowAnimation.Index = AnimationStarActiveGlow;
+		CollisionRectangles = new CollisionRectangle[]
 		{
-	  new CollisionRectangle( this, 0, -32,  sbyte.MinValue, 64 /*0x40*/, 256 /*0x0100*/)
+			new CollisionRectangle(this, 0, -32, -128, 64, 256)
 		};
 		_activated = Level.Player.IsStarpostActivated(_index);
 		_glowing = _activated;
@@ -63,6 +70,7 @@ public class StarpostInstance : ActiveObject
 
 	protected override void OnUpdate()
 	{
+		// A starpost with a higher index also activates this starpost.
 		if (!_activated && Level.Player.IsStarpostActivated(_index))
 		{
 			_activated = true;
@@ -70,6 +78,7 @@ public class StarpostInstance : ActiveObject
 		}
 		if (_starSpinning)
 		{
+			// Spin two full turns in 30 ticks, then glow.
 			_starAngle += 2.0 * Math.PI / 15.0;
 			if (_starAngle >= 4.0 * Math.PI)
 			{
@@ -83,27 +92,27 @@ public class StarpostInstance : ActiveObject
 
 	private void UpdateStarPosition()
 	{
-		_starPosition = new Vector2(StarpostInstance.StarAxelMidpoint.X + Math.Sin(_starAngle) * StarpostInstance.StarAxelRadius, StarpostInstance.StarAxelMidpoint.Y - Math.Cos(_starAngle) * StarpostInstance.StarAxelRadius);
+		_starPosition = new Vector2(StarAxleMidpoint.X + Math.Sin(_starAngle) * StarAxleRadius, StarAxleMidpoint.Y - Math.Cos(_starAngle) * StarAxleRadius);
 	}
 
 	protected override void OnCollision(CollisionEvent e)
 	{
 		if (_activated || e.ActiveObject.Type.Classification != ObjectClassification.Character)
 			return;
-		ICharacter activeObject = (ICharacter)e.ActiveObject;
-		if (activeObject.IsSidekick)
+		ICharacter character = (ICharacter)e.ActiveObject;
+		if (character.IsSidekick)
 			return;
-		activeObject.Player.ActivateStarpost(_index, Position + new Vector2i(0, 64 /*0x40*/));
+		character.Player.ActivateStarpost(_index, Position + new Vector2i(0, 64));
 		_activated = true;
 		_starSpinning = true;
-		Level.SoundManager.PlaySound(this, Type.GetAbsolutePath("SONICORCA/SOUND/STARPOST"));
+		Level.SoundManager.PlaySound(this, Type.GetAbsolutePath(StarpostType.SoundResourceKey));
 	}
 
 	protected override void OnAnimate()
 	{
 		if (_glowing)
 		{
-			_starAnimation.Index = 2;
+			_starAnimation.Index = AnimationStarActive;
 			_starGlowAnimation.CurrentFrameIndex = _starAnimation.CurrentFrameIndex;
 		}
 		_standAnimation.Animate();

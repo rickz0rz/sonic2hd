@@ -7,6 +7,7 @@
 #nullable disable
 namespace SONICORCA.OBJECTS.MONITOR;
 
+/// <summary>The item in a monitor.</summary>
 public enum MonitorContents
 {
 	None,

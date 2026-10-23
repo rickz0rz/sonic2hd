@@ -16,10 +16,20 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.SPIKES;
 
+/// <summary>
+/// A solid block of spikes that points in one of four directions. The pointed side hurts a character. Moving spikes
+/// go back into their base and come out again at a fixed interval.
+/// </summary>
 public class SpikesInstance : ActiveObject
 {
+	/// <summary>The collision vector ID of the pointed side.</summary>
+	private const int SpikeCollisionId = 1;
+
+	/// <summary>The number of ticks between two movements of moving spikes.</summary>
+	private const int MovementInterval = 60;
+
 	private AnimationInstance _animation;
-	private SpikesInstance.SpikesDirection _direction;
+	private SpikesDirection _direction;
 	private bool _moving;
 	private Vector2i _velocity;
 	private Vector2i _currentDisplacement;
@@ -28,7 +38,7 @@ public class SpikesInstance : ActiveObject
 	private bool _shouldBeAtTarget;
 
 	[StateVariable]
-	private SpikesInstance.SpikesDirection Direction
+	private SpikesDirection Direction
 	{
 		get => _direction;
 		set => _direction = value;
@@ -43,40 +53,43 @@ public class SpikesInstance : ActiveObject
 
 	public SpikesInstance()
 	{
-		DesignBounds = new Rectanglei(-64, -64, 128 /*0x80*/, 128 /*0x80*/);
+		DesignBounds = new Rectanglei(-64, -64, 128, 128);
 	}
 
 	protected override void OnStart()
 	{
-		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"));
-		CollisionVectors = CollisionVector.FromRectangle(this, (Rectanglei)new Rectangle(-64.0, -64.0, 128.0, 128.0));
-		int index;
+		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath(SpikesType.AnimationGroupResourceKey));
+		CollisionVectors = CollisionVector.FromRectangle(this, new Rectanglei(-64, -64, 128, 128));
+
+		// Select the collision vector of the pointed side (0 = left, 1 = top, 2 = right, 3 = bottom).
+		// The target displacement is the position where the spikes are back in their base.
+		int spikeVectorIndex;
 		switch (_direction)
 		{
-			case SpikesInstance.SpikesDirection.Right:
-				index = 2;
-				_targetDisplacement = new Vector2i(128 /*0x80*/, 0);
-				_velocity = new Vector2i(32 /*0x20*/, 0);
+			case SpikesDirection.Right:
+				spikeVectorIndex = 2;
+				_targetDisplacement = new Vector2i(128, 0);
+				_velocity = new Vector2i(32, 0);
 				break;
-			case SpikesInstance.SpikesDirection.Down:
-				index = 3;
-				_targetDisplacement = new Vector2i(0, sbyte.MinValue);
+			case SpikesDirection.Down:
+				spikeVectorIndex = 3;
+				_targetDisplacement = new Vector2i(0, -128);
 				_velocity = new Vector2i(0, -32);
 				break;
-			case SpikesInstance.SpikesDirection.Left:
-				index = 0;
-				_targetDisplacement = new Vector2i(sbyte.MinValue, 0);
+			case SpikesDirection.Left:
+				spikeVectorIndex = 0;
+				_targetDisplacement = new Vector2i(-128, 0);
 				_velocity = new Vector2i(-32, 0);
 				break;
 			default:
-				index = 1;
-				_targetDisplacement = new Vector2i(0, 128 /*0x80*/);
-				_velocity = new Vector2i(0, 32 /*0x20*/);
+				spikeVectorIndex = 1;
+				_targetDisplacement = new Vector2i(0, 128);
+				_velocity = new Vector2i(0, 32);
 				break;
 		}
-		CollisionVectors[index].Id = 1;
-		CollisionVectors[index].Flags |= CollisionFlags.Conveyor | CollisionFlags.Solid;
-		_movementDelay = 60;
+		CollisionVectors[spikeVectorIndex].Id = SpikeCollisionId;
+		CollisionVectors[spikeVectorIndex].Flags |= CollisionFlags.Conveyor | CollisionFlags.Solid;
+		_movementDelay = MovementInterval;
 		_shouldBeAtTarget = true;
 		Priority = -256;
 	}
@@ -88,21 +101,21 @@ public class SpikesInstance : ActiveObject
 		--_movementDelay;
 		if (_movementDelay <= 0)
 		{
-			_movementDelay = 60;
+			_movementDelay = MovementInterval;
 			_shouldBeAtTarget = !_shouldBeAtTarget;
 			_velocity *= -1;
-			Level.SoundManager.PlaySound(this, Type.GetAbsolutePath("SONICORCA/SOUND/SPIKESLASH"));
+			Level.SoundManager.PlaySound(this, Type.GetAbsolutePath(SpikesType.SpikeMovementSoundResourceKey));
 		}
 		if (_shouldBeAtTarget)
 		{
-			if (!(_currentDisplacement != _targetDisplacement))
+			if (_currentDisplacement == _targetDisplacement)
 				return;
 			_currentDisplacement += _velocity;
 			Position = Position + _velocity;
 		}
 		else
 		{
-			if (!((Vector2)_currentDisplacement != new Vector2()))
+			if (_currentDisplacement == new Vector2i())
 				return;
 			_currentDisplacement += _velocity;
 			Position = Position + _velocity;
@@ -111,14 +124,10 @@ public class SpikesInstance : ActiveObject
 
 	protected override void OnCollision(CollisionEvent e)
 	{
-		if (e.Id != 1 || e.ActiveObject.Type.Classification != ObjectClassification.Character)
+		if (e.Id != SpikeCollisionId || e.ActiveObject.Type.Classification != ObjectClassification.Character)
 			return;
-		ICharacter activeObject = (ICharacter)e.ActiveObject;
-		Vector2i position = activeObject.Position;
-		int x1 = position.X;
-		position = Position;
-		int x2 = position.X;
-		activeObject.Hurt(Math.Sign(x1 - x2), PlayerDeathCause.Spikes);
+		ICharacter character = (ICharacter)e.ActiveObject;
+		character.Hurt(Math.Sign(character.Position.X - Position.X), PlayerDeathCause.Spikes);
 	}
 
 	protected override void OnAnimate() => _animation.Animate();
@@ -128,7 +137,7 @@ public class SpikesInstance : ActiveObject
 		IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
 		using (objectRenderer.BeginMatixState())
 		{
-			if (_direction != SpikesInstance.SpikesDirection.Up)
+			if (_direction != SpikesDirection.Up)
 				objectRenderer.ModelMatrix *= Matrix4.CreateRotationZ(Math.PI / 2.0 * (double)_direction);
 			objectRenderer.Render(_animation);
 		}

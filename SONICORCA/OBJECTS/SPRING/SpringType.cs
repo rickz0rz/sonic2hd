@@ -10,6 +10,7 @@ using SonicOrca.Core.Objects.Metadata;
 #nullable disable
 namespace SONICORCA.OBJECTS.SPRING;
 
+/// <summary>The object type for a spring that bounces a character in one of eight directions.</summary>
 [SonicOrca.Core.Objects.Metadata.Name("Spring")]
 [Description("Spring from Sonic 1")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.General)]

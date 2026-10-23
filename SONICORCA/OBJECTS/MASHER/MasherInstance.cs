@@ -14,6 +14,9 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.MASHER;
 
+/// <summary>
+/// Masher, a piranha badnik that jumps up from its start position and falls back again and again.
+/// </summary>
 public class MasherInstance : Badnik
 {
 	private const double InitialVelocity = -1.5625;
@@ -30,29 +33,31 @@ public class MasherInstance : Badnik
 	protected override void OnStart()
 	{
 		base.OnStart();
-		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"));
-		CollisionRectangles = new CollisionRectangle[1]
+		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath(MasherType.AnimationGroupResourceKey));
+		CollisionRectangles = new CollisionRectangle[]
 		{
-	  new CollisionRectangle( this, 0, -48, -64, 96 /*0x60*/, 128 /*0x80*/)
+			new CollisionRectangle(this, 0, -48, -64, 96, 128)
 		};
 		_initialY = Position.Y;
-		_velocityY = -25.0 / 16.0;
+		_velocityY = InitialVelocity;
 	}
 
 	protected override void OnUpdate()
 	{
 		base.OnUpdate();
 		PositionPrecise = PositionPrecise + new Vector2(0.0, _velocityY);
-		_velocityY += 0.375;
+		_velocityY += Acceleration;
 		if (Position.Y <= _initialY)
 			return;
+
+		// Masher fell below its start position: put it back and jump again.
 		PositionPrecise = new Vector2(Position.X, _initialY);
-		_velocityY = -20.0;
+		_velocityY = LaunchVelocity;
 	}
 
 	protected override void OnAnimate()
 	{
-		_animation.Index = _velocityY >= 0.0 ? 0 : 1;
+		_animation.Index = _velocityY >= 0.0 ? AnimationNormal : AnimationMunching;
 		_animation.Animate();
 	}
 

@@ -19,15 +19,29 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.RING;
 
+/// <summary>
+/// A ring that a character collects. A placed ring stays in position. A scattered ring (from a hurt character)
+/// bounces on the terrain and goes away after a time. A character with a lightning barrier pulls rings near it.
+/// </summary>
 public class RingInstance : ActiveObject
 {
-	private static readonly IReadOnlyList<Vector2i> SparkleParticleOffsets = new Vector2i[4]
+	private static readonly IReadOnlyList<Vector2i> SparkleParticleOffsets = new Vector2i[]
 	{
-	new Vector2i(16 /*0x10*/, 4),
-	new Vector2i(-16, 12),
-	new Vector2i(-12, -16),
-	new Vector2i(20, -24)
+		new Vector2i(16, 4),
+		new Vector2i(-16, 12),
+		new Vector2i(-12, -16),
+		new Vector2i(20, -24)
 	};
+
+	/// <summary>The number of ticks that a scattered ring stays.</summary>
+	private const int MaxLifeTicks = byte.MaxValue;
+
+	/// <summary>A scattered ring can be collected only when its life ticks go below this value.</summary>
+	private const int CollectableLifeTicks = 175;
+
+	private const double AttractDistance = 256.0;
+	private const double Gravity = 0.375;
+
 	private bool _scatter;
 	private bool _stationary;
 	private bool _attracted;
@@ -51,27 +65,26 @@ public class RingInstance : ActiveObject
 		set => _velocity = value;
 	}
 
-	public RingInstance() => DesignBounds = new Rectanglei(-32, -32, 64 /*0x40*/, 64 /*0x40*/);
+	public RingInstance() => DesignBounds = new Rectanglei(-32, -32, 64, 64);
 
 	protected override void OnStart()
 	{
-		CollisionRectangles = new CollisionRectangle[1]
+		CollisionRectangles = new CollisionRectangle[]
 		{
-	  new CollisionRectangle( this, 0, -16, -16, 32 /*0x20*/, 32 /*0x20*/)
+			new CollisionRectangle(this, 0, -16, -16, 32, 32)
 		};
 		if (Scatter)
 		{
 			_stationary = false;
-			_lifeTicks = byte.MaxValue;
 		}
 		else
 		{
 			_stationary = true;
-			_lifeTicks = byte.MaxValue;
 			_velocity = new Vector2();
 		}
-		Priority = 4096 /*0x1000*/;
-		_glowTexture = ResourceTree.GetLoadedResource<ITexture>(Type.GetAbsolutePath("SONICORCA/PARTICLE/GLOW"));
+		_lifeTicks = MaxLifeTicks;
+		Priority = 4096;
+		_glowTexture = ResourceTree.GetLoadedResource<ITexture>(Type.GetAbsolutePath(RingType.GlowParticleResourceKey));
 		ShadowInfo = null;
 		_lightSource = new PointLightSource(8, Position);
 		Level.LightingManager.RegisterLightSource(_lightSource);
@@ -80,41 +93,37 @@ public class RingInstance : ActiveObject
 	protected override void OnUpdate()
 	{
 		_lightSource.Position = Position;
-		ICharacter character1 = null;
-		double num1 = double.MaxValue;
-		foreach (ICharacter character2 in Level.ObjectManager.Characters)
+
+		// Find the nearest character with a lightning barrier. After a ring is attracted, it follows at any distance.
+		ICharacter attractor = null;
+		double attractorDistance = double.MaxValue;
+		foreach (ICharacter character in Level.ObjectManager.Characters)
 		{
-			if (character2.Barrier == BarrierType.Lightning)
+			if (character.Barrier == BarrierType.Lightning)
 			{
-				double length = (character2.Position - Position).Length;
-				if (length < num1 && (_attracted || length < 256.0))
+				double distance = (character.Position - Position).Length;
+				if (distance < attractorDistance && (_attracted || distance < AttractDistance))
 				{
-					character1 = character2;
-					num1 = length;
+					attractor = character;
+					attractorDistance = distance;
 				}
 			}
 		}
-		if (character1 != null)
+		if (attractor != null)
 		{
 			_stationary = false;
-			Vector2i position = character1.Position;
-			int x1 = position.X;
-			position = Position;
-			int x2 = position.X;
-			int num2 = x1 - x2;
-			if (Math.Sign(num2) != Math.Sign(_velocity.X) && _velocity.X != 0.0)
-				_velocity.X += 1.5 * Math.Sign(num2);
+
+			// Accelerate toward the character. Turn faster when the ring moves away from it.
+			int deltaX = attractor.Position.X - Position.X;
+			if (Math.Sign(deltaX) != Math.Sign(_velocity.X) && _velocity.X != 0.0)
+				_velocity.X += 1.5 * Math.Sign(deltaX);
 			else
-				_velocity.X += 0.75 * Math.Sign(num2);
-			position = character1.Position;
-			int y1 = position.Y;
-			position = Position;
-			int y2 = position.Y;
-			int num3 = y1 - y2;
-			if (Math.Sign(num3) != Math.Sign(_velocity.Y) && _velocity.Y != 0.0)
-				_velocity.Y += 1.5 * Math.Sign(num3);
+				_velocity.X += 0.75 * Math.Sign(deltaX);
+			int deltaY = attractor.Position.Y - Position.Y;
+			if (Math.Sign(deltaY) != Math.Sign(_velocity.Y) && _velocity.Y != 0.0)
+				_velocity.Y += 1.5 * Math.Sign(deltaY);
 			else
-				_velocity.Y += 0.75 * Math.Sign(num3);
+				_velocity.Y += 0.75 * Math.Sign(deltaY);
 			PositionPrecise = PositionPrecise + _velocity;
 			_attracted = true;
 		}
@@ -125,7 +134,7 @@ public class RingInstance : ActiveObject
 			if (_animation == null)
 			{
 				_animation = new AnimationInstance((Type as RingType).AnimationInstance.AnimationGroup);
-				_animation.OverrideDelay = new int?(0);
+				_animation.OverrideDelay = 0;
 			}
 			if (_lifeTicks == 0)
 			{
@@ -133,56 +142,58 @@ public class RingInstance : ActiveObject
 			}
 			else
 			{
-				_animation.OverrideDelay = new int?((byte.MaxValue - _lifeTicks) / 32 /*0x20*/);
+				// The ring spins slower as it gets older.
+				_animation.OverrideDelay = (MaxLifeTicks - _lifeTicks) / 32;
 				--_lifeTicks;
 				UpdateMovement();
 			}
 		}
 	}
 
+	/// <summary>Moves a scattered ring and bounces it on the terrain.</summary>
 	private void UpdateMovement()
 	{
 		PositionPrecise = PositionPrecise + _velocity;
-		bool flag1 = Math.Abs(_velocity.Y) < 4.0;
-		bool flag2 = false;
-		bool flag3 = false;
-		bool flag4 = false;
-		foreach (CollisionInfo collision in CollisionVector.GetCollisions(this, 32 /*0x20*/))
+		bool isSlow = Math.Abs(_velocity.Y) < 4.0;
+		bool hitCeiling = false;
+		bool hitWall = false;
+		bool hitFloor = false;
+		foreach (CollisionInfo collision in CollisionVector.GetCollisions(this, 32))
 		{
-			if (!(collision.Vector.Mode != CollisionMode.Bottom & flag1))
+			// A slow ring reacts only to the bottom of the terrain.
+			if (collision.Vector.Mode != CollisionMode.Bottom && isSlow)
+				continue;
+			if (collision.Vector.IsWall)
 			{
-				if (collision.Vector.IsWall)
-				{
-					PositionPrecise = new Vector2(PositionPrecise.X + collision.Shift, PositionPrecise.Y);
-					flag3 = true;
-				}
-				else
-				{
-					PositionPrecise = new Vector2(PositionPrecise.X, PositionPrecise.Y + collision.Shift);
-					flag2 = collision.Vector.Mode == CollisionMode.Top;
-					flag4 = collision.Vector.Mode == CollisionMode.Bottom;
-				}
+				PositionPrecise = new Vector2(PositionPrecise.X + collision.Shift, PositionPrecise.Y);
+				hitWall = true;
+			}
+			else
+			{
+				PositionPrecise = new Vector2(PositionPrecise.X, PositionPrecise.Y + collision.Shift);
+				hitCeiling = collision.Vector.Mode == CollisionMode.Top;
+				hitFloor = collision.Vector.Mode == CollisionMode.Bottom;
 			}
 		}
-		if (flag3)
+		if (hitWall)
 			_velocity.X *= -0.25;
-		if (flag2)
+		if (hitCeiling)
 			_velocity.Y *= -0.75;
-		if (flag4)
+		if (hitFloor)
 			_velocity.Y = 0.0;
-		if (flag2 || flag4)
+		if (hitCeiling || hitFloor)
 			return;
-		_velocity.Y += 0.375;
+		_velocity.Y += Gravity;
 	}
 
 	protected override void OnCollision(CollisionEvent e)
 	{
 		if (e.ActiveObject.Type.Classification != ObjectClassification.Character)
 			return;
-		ICharacter activeObject = (ICharacter)e.ActiveObject;
-		if (!_stationary && !_attracted && _lifeTicks >= 175)
+		ICharacter character = (ICharacter)e.ActiveObject;
+		if (!_stationary && !_attracted && _lifeTicks >= CollectableLifeTicks)
 			return;
-		Collect(activeObject.Player);
+		Collect(character.Player);
 	}
 
 	private void Collect(Player player)
@@ -191,18 +202,19 @@ public class RingInstance : ActiveObject
 		CreateSparkles();
 		++Level.RingsCollected;
 		if (Level.RingsCollected == Level.RingsPerfectTarget)
-			Level.SoundManager.PlaySound(this, Type.GetAbsolutePath("SONICORCA/SOUND/PERFECT"));
+			Level.SoundManager.PlaySound(this, Type.GetAbsolutePath(RingType.PerfectSoundResourceKey));
 		else
-			Level.SoundManager.PlaySound(this, Type.GetAbsolutePath("SONICORCA/SOUND/RING"));
+			Level.SoundManager.PlaySound(this, Type.GetAbsolutePath(RingType.CollectSoundResourceKey));
 		FinishForever();
 	}
 
+	/// <summary>Creates four sparkle objects around the ring, one every two ticks.</summary>
 	private void CreateSparkles()
 	{
 		int ticks = 0;
-		foreach (Vector2i sparkleParticleOffset in (IEnumerable<Vector2i>)RingInstance.SparkleParticleOffsets)
+		foreach (Vector2i sparkleParticleOffset in SparkleParticleOffsets)
 		{
-			ObjectPlacement objectPlacement = new ObjectPlacement(Type.GetAbsolutePath("/SPARKLE"), Level.Map.Layers.IndexOf(Layer), Position + sparkleParticleOffset);
+			ObjectPlacement objectPlacement = new ObjectPlacement(Type.GetAbsolutePath(RingType.SparkleObjectResourceKey), Level.Map.Layers.IndexOf(Layer), Position + sparkleParticleOffset);
 			Level.SetInterval(ticks, () => Level.ObjectManager.AddObject(objectPlacement));
 			ticks += 2;
 		}
@@ -219,15 +231,19 @@ public class RingInstance : ActiveObject
 	{
 		IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
 		objectRenderer.FilterAmount *= 0.25;
-		double a1 = MathX.Clamp(_lifeTicks * (16.0 / byte.MaxValue), 1.0);
-		double a2 = 0.25 * a1 * viewOptions.FilterAmount;
-		if (a2 > 0.0)
+
+		// A scattered ring fades out in its last ticks.
+		double opacity = MathX.Clamp(_lifeTicks * (16.0 / byte.MaxValue), 1.0);
+		double glowOpacity = 0.25 * opacity * viewOptions.FilterAmount;
+		if (glowOpacity > 0.0)
 		{
 			objectRenderer.BlendMode = BlendMode.Additive;
 			objectRenderer.Texture = _glowTexture;
-			objectRenderer.MultiplyColour = new Colour(a2, 1.0, 1.0, 0.0);
+			objectRenderer.MultiplyColour = new Colour(glowOpacity, 1.0, 1.0, 0.0);
 			objectRenderer.Render();
 		}
+
+		// Placed rings use the shared animation of the ring type, so that all of them spin together.
 		AnimationInstance animationInstance;
 		if (_stationary || _animation == null)
 		{
@@ -237,7 +253,7 @@ public class RingInstance : ActiveObject
 		else
 		{
 			animationInstance = _animation;
-			objectRenderer.MultiplyColour = new Colour(a1, 1.0, 1.0, 1.0);
+			objectRenderer.MultiplyColour = new Colour(opacity, 1.0, 1.0, 1.0);
 		}
 		objectRenderer.BlendMode = BlendMode.Alpha;
 		objectRenderer.Render(animationInstance);

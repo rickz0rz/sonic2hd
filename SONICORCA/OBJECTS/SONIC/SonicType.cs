@@ -10,6 +10,7 @@ using SonicOrca.Core.Objects.Metadata;
 #nullable disable
 namespace SONICORCA.OBJECTS.SONIC;
 
+/// <summary>The object type for Sonic, a playable character.</summary>
 [SonicOrca.Core.Objects.Metadata.Name("Sonic")]
 [Description("Sonic from Sonic 1")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Character)]
