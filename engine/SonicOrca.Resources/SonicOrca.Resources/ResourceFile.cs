@@ -1,11 +1,21 @@
 using System;
 using System.IO;
-using System.Linq;
 using System.Text;
 using SonicOrca.Extensions;
 
 namespace SonicOrca.Resources;
 
+/// <summary>
+/// A resource archive (.dat), format "SORF" version 2. All numbers are little-endian.
+/// <code>
+/// header: "SORF", version (byte), table size (int64)
+/// table:  the root node, then each node's children directly after it (depth first)
+/// node:   flags (byte), [child count (uint16) if HasChildren], key (null-terminated string),
+///         [if HasResource: type (uint16), [path (string) if External], offset (uint32), size (uint32)]
+/// data:   the resource data. Offsets count from the end of the table, unless the resource is External.
+/// </code>
+/// A Compressed resource is stored as gzip.
+/// </summary>
 public class ResourceFile
 {
 	[Flags]
@@ -13,17 +23,19 @@ public class ResourceFile
 	{
 		HasChildren = 2,
 		HasResource = 4,
+		/// <summary>The data is in another file, at an absolute offset. Read, but never written.</summary>
 		External = 8,
 		Compressed = 0x10
 	}
 
-	private static readonly char[] MagicNumberChars = new char[4] { 'S', 'O', 'R', 'F' };
-
 	private const int LatestSupportedVersion = 2;
 
-	private readonly string _path;
+	/// <summary>Size of the header: magic number, version and table size.</summary>
+	private const int HeaderSize = 13;
 
-	private static int MagicNumber => BitConverter.ToInt32(Encoding.ASCII.GetBytes(MagicNumberChars), 0);
+	private static readonly int MagicNumber = BitConverter.ToInt32(Encoding.ASCII.GetBytes("SORF"), 0);
+
+	private readonly string _path;
 
 	public string Filename => _path;
 
@@ -32,29 +44,26 @@ public class ResourceFile
 		_path = path;
 	}
 
-	public override string ToString()
-	{
-		return _path;
-	}
+	public override string ToString() => _path;
 
 	public ResourceTree Scan()
 	{
 		try
 		{
-			using FileStream fileStream = new FileStream(_path, FileMode.Open, FileAccess.Read);
-			BinaryReader binaryReader = new BinaryReader(fileStream);
-			if (binaryReader.ReadInt32() != MagicNumber)
+			using FileStream stream = new FileStream(_path, FileMode.Open, FileAccess.Read);
+			BinaryReader reader = new BinaryReader(stream);
+			if (stream.Length < HeaderSize || reader.ReadInt32() != MagicNumber)
 			{
 				throw new ResourceException("Invalid resource file.");
 			}
-			if (binaryReader.ReadByte() > 2)
+			if (reader.ReadByte() > LatestSupportedVersion)
 			{
-				throw new ResourceException("Unsupport resouce file version.");
+				throw new ResourceException("Unsupported resource file version.");
 			}
-			long dataOffset = binaryReader.ReadInt64() + 13;
-			ResourceTree resourceTree = new ResourceTree();
-			ScanTableEntry(resourceTree.Head, fileStream, dataOffset);
-			return resourceTree;
+			long dataOffset = reader.ReadInt64() + HeaderSize;
+			ResourceTree tree = new ResourceTree();
+			ReadNode(reader, tree.Head, dataOffset, parentKeyPath: null);
+			return tree;
 		}
 		catch (IOException ex)
 		{
@@ -62,165 +71,97 @@ public class ResourceFile
 		}
 	}
 
-	private void ScanTableEntry(ResourceTree.Node resourceNode, Stream stream, long dataOffset, string fullKeyPath = null)
+	private void ReadNode(BinaryReader reader, ResourceTree.Node parent, long dataOffset, string parentKeyPath)
 	{
-		BinaryReader binaryReader = new BinaryReader(stream);
-		NodeFlags nodeFlags = (NodeFlags)binaryReader.ReadByte();
-		ushort num = 0;
-		if (nodeFlags.HasFlag(NodeFlags.HasChildren))
-		{
-			num = binaryReader.ReadUInt16();
-		}
-		string text = binaryReader.ReadNullTerminatedString();
-		if (!string.IsNullOrEmpty(fullKeyPath))
-		{
-			fullKeyPath += "/";
-		}
-		fullKeyPath += text;
+		NodeFlags flags = (NodeFlags)reader.ReadByte();
+		int childCount = flags.HasFlag(NodeFlags.HasChildren) ? reader.ReadUInt16() : 0;
+		string key = reader.ReadNullTerminatedString();
+		string fullKeyPath = string.IsNullOrEmpty(parentKeyPath) ? key : parentKeyPath + "/" + key;
 		Resource resource = null;
-		if (nodeFlags.HasFlag(NodeFlags.HasResource))
+		if (flags.HasFlag(NodeFlags.HasResource))
 		{
-			ResourceTypeIdentifier identifier = (ResourceTypeIdentifier)binaryReader.ReadUInt16();
-			string path = (nodeFlags.HasFlag(NodeFlags.External) ? binaryReader.ReadNullTerminatedString() : _path);
-			long num2 = binaryReader.ReadUInt32();
-			long size = binaryReader.ReadUInt32();
-			if (!nodeFlags.HasFlag(NodeFlags.External))
+			ResourceTypeIdentifier identifier = (ResourceTypeIdentifier)reader.ReadUInt16();
+			bool external = flags.HasFlag(NodeFlags.External);
+			string path = external ? reader.ReadNullTerminatedString() : _path;
+			long offset = reader.ReadUInt32();
+			long size = reader.ReadUInt32();
+			if (!external)
 			{
-				num2 += dataOffset;
+				offset += dataOffset;
 			}
-			resource = new Resource(fullKeyPath, identifier, new FileResourceSource(path, num2, size, nodeFlags.HasFlag(NodeFlags.Compressed)));
+			resource = new Resource(fullKeyPath, identifier, new FileResourceSource(path, offset, size, flags.HasFlag(NodeFlags.Compressed)));
 		}
-		if (!string.IsNullOrEmpty(text))
+		// The root node has an empty key and is the tree's head
+		ResourceTree.Node node = string.IsNullOrEmpty(key) ? parent : parent.Add(key, resource);
+		for (int i = 0; i < childCount; i++)
 		{
-			resourceNode = resourceNode.Add(text, resource);
-		}
-		for (uint num3 = 0u; num3 < num; num3++)
-		{
-			ScanTableEntry(resourceNode, stream, dataOffset, fullKeyPath);
+			ReadNode(reader, node, dataOffset, fullKeyPath);
 		}
 	}
 
+	/// <summary>
+	/// Writes every resource of the tree into this file. The data of each resource is copied into the file. Types
+	/// with <see cref="ResourceType.CompressByDefault"/> are stored compressed.
+	/// </summary>
 	public void Write(ResourceTree tree)
 	{
-		MemoryStream memoryStream = new MemoryStream();
-		MemoryStream memoryStream2 = new MemoryStream();
 		try
 		{
-			WriteTableEntry(tree.Head, memoryStream, memoryStream2);
+			using MemoryStream table = new MemoryStream();
+			using MemoryStream data = new MemoryStream();
+			WriteNode(tree.Head, new BinaryWriter(table), data);
 			using FileStream output = new FileStream(_path, FileMode.Create, FileAccess.Write);
-			BinaryWriter binaryWriter = new BinaryWriter(output);
-			binaryWriter.Write(MagicNumber);
-			binaryWriter.Write((byte)2);
-			binaryWriter.Write(memoryStream.Position);
-			binaryWriter.Write(memoryStream.ToArray());
-			binaryWriter.Write(memoryStream2.ToArray());
+			BinaryWriter writer = new BinaryWriter(output);
+			writer.Write(MagicNumber);
+			writer.Write((byte)LatestSupportedVersion);
+			writer.Write(table.Length);
+			table.Position = 0;
+			table.CopyTo(output);
+			data.Position = 0;
+			data.CopyTo(output);
 		}
 		catch (IOException ex)
 		{
 			throw new ResourceException(ex.Message, ex);
 		}
-		finally
-		{
-			memoryStream.Dispose();
-			memoryStream2.Dispose();
-		}
 	}
 
-	private void WriteTableEntry(ResourceTree.Node resourceNode, Stream tableStream, Stream dataStream)
+	private static void WriteNode(ResourceTree.Node node, BinaryWriter table, Stream data)
 	{
-		BinaryWriter binaryWriter = new BinaryWriter(tableStream);
-		new BinaryWriter(dataStream);
-		NodeFlags nodeFlags = (NodeFlags)0;
-		if (resourceNode.Resource != null)
+		Resource resource = node.Resource;
+		NodeFlags flags = 0;
+		if (node.Children.Count > 0)
 		{
-			ResourceType resourceType = ResourceType.FromIdentifier(resourceNode.Resource.Identifier);
-			if (resourceType != null && resourceType.CompressByDefault)
+			flags |= NodeFlags.HasChildren;
+		}
+		if (resource != null)
+		{
+			flags |= NodeFlags.HasResource;
+			if (ResourceType.FromIdentifier(resource.Identifier).CompressByDefault)
 			{
-				nodeFlags |= NodeFlags.Compressed;
+				flags |= NodeFlags.Compressed;
 			}
 		}
-		if (resourceNode.Children.Count > 0)
+		table.Write((byte)flags);
+		if (flags.HasFlag(NodeFlags.HasChildren))
 		{
-			nodeFlags |= NodeFlags.HasChildren;
+			table.Write(checked((ushort)node.Children.Count));
 		}
-		if (resourceNode.Resource != null)
+		table.WriteNullTerminatedString(node.Key);
+		if (resource != null)
 		{
-			nodeFlags |= NodeFlags.HasResource;
-			if (resourceNode.Resource.Source is FileResourceSource fileResourceSource && string.Compare(fileResourceSource.Path, _path, ignoreCase: true) != 0)
+			table.Write((ushort)resource.Identifier);
+			long start = data.Position;
+			using (Stream source = flags.HasFlag(NodeFlags.Compressed) ? resource.Source.ReadCompressed() : resource.Source.ReadUncompressed())
 			{
-				nodeFlags |= NodeFlags.External;
+				source.CopyTo(data);
 			}
-			nodeFlags &= ~NodeFlags.External;
+			table.Write(checked((uint)start));
+			table.Write(checked((uint)(data.Position - start)));
 		}
-		binaryWriter.Write((byte)nodeFlags);
-		if (nodeFlags.HasFlag(NodeFlags.HasChildren))
+		foreach (ResourceTree.Node child in node.Children)
 		{
-			binaryWriter.Write((short)resourceNode.Children.Count);
-		}
-		binaryWriter.WriteNullTerminatedString(resourceNode.Key);
-		if (nodeFlags.HasFlag(NodeFlags.HasResource))
-		{
-			binaryWriter.Write((ushort)resourceNode.Resource.Identifier);
-			if (nodeFlags.HasFlag(NodeFlags.External))
-			{
-				FileResourceSource fileResourceSource2 = resourceNode.Resource.Source as FileResourceSource;
-				binaryWriter.WriteNullTerminatedString(fileResourceSource2.Path);
-				binaryWriter.Write((uint)fileResourceSource2.Offset);
-				binaryWriter.Write((uint)resourceNode.Resource.Source.Size);
-			}
-			else
-			{
-				binaryWriter.Write((uint)dataStream.Position);
-				long position = dataStream.Position;
-				using (Stream stream = (nodeFlags.HasFlag(NodeFlags.Compressed) ? resourceNode.Resource.Source.ReadCompressed() : resourceNode.Resource.Source.ReadUncompressed()))
-				{
-					stream.CopyTo(dataStream);
-				}
-				position = dataStream.Position - position;
-				binaryWriter.Write((uint)position);
-			}
-		}
-		foreach (ResourceTree.Node child in resourceNode.Children)
-		{
-			WriteTableEntry(child, tableStream, dataStream);
-		}
-	}
-
-	public static void GetResourcesFromDirectory(ResourceTree tree, string path, string currentFullKeyPath = null)
-	{
-		if (!string.IsNullOrEmpty(currentFullKeyPath))
-		{
-			if (!currentFullKeyPath.EndsWith("/"))
-			{
-				currentFullKeyPath += "/";
-			}
-		}
-		else
-		{
-			currentFullKeyPath = string.Empty;
-		}
-		currentFullKeyPath += Path.GetFileName(path).ToUpper();
-		string[] files = Directory.GetFiles(path);
-		foreach (string text in files)
-		{
-			FileInfo fileInfo = new FileInfo(text);
-			if (fileInfo.Name.Contains("."))
-			{
-				string text2 = fileInfo.Name.Remove(fileInfo.Name.IndexOf('.')).Replace('_', '/').ToUpper();
-				string extension = fileInfo.Name.Substring(fileInfo.Name.IndexOf('.'));
-				string fullKeyPath = ((text2 == "/") ? currentFullKeyPath : (currentFullKeyPath + "/" + text2));
-				ResourceType resourceType = ResourceType.RegisteredResourceTypes.FirstOrDefault((ResourceType x) => x.DefaultExtension == extension);
-				if (resourceType != null)
-				{
-					Resource resource = new Resource(fullKeyPath, resourceType.Identifier, new FileResourceSource(text, 0L, fileInfo.Length));
-					tree.GetOrAdd(fullKeyPath).Resource = resource;
-				}
-			}
-		}
-		files = Directory.GetDirectories(path);
-		foreach (string path2 in files)
-		{
-			GetResourcesFromDirectory(tree, path2, currentFullKeyPath);
+			WriteNode(child, table, data);
 		}
 	}
 }

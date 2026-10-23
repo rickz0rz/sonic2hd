@@ -14,7 +14,7 @@ non-profit fan project, not affiliated with SEGA or Sonic Team.
 | `assets/` | Shaders (patched for core-profile OpenGL) and the app icon |
 | `lib/` | `SDL2-CS.dll`; FFmpeg for Windows is downloaded into `lib/ffmpeg` |
 | `tests/` | Tests: the resource file format and a screenshot regression test |
-| `tools/` | Release scripts |
+| `tools/` | Release scripts, the resource tool `s2hd-data` and the local web server |
 
 ## Game files
 
@@ -78,10 +78,42 @@ because browsers block audio until then. Gamepads and the credits video are not 
 with WebGL2 and a keyboard is required.
 
 To put the game data into the site, add `-p:BundleGameData=true` to the publish command. The build then writes the
-`data/` folder to `wwwroot/game.zip`, and the page downloads it and starts without asking for files. It reads the
+`data/` and `mods/` folders to `wwwroot/game.zip`, and the page downloads it and starts without asking for files. It reads the
 game files from `GameDir`, as the desktop build does. The zip is about 115 MB. Some hosts limit file size, for
 example GitHub Pages (100 MB) and Cloudflare Pages (25 MB). The game data belongs to its owners, so only publish it
 where you have permission. A publish without the property removes `game.zip`.
+
+When players choose their own files, the page also loads the `.dat` files in a `mods/` folder of the zip or folder.
+
+## Modding
+
+The game data is in `data/sonicorca.dat`. This file holds 841 resources: PNG images, OGG music and XML files for
+levels, tile sets, animations and fonts. The tool `tools/s2hd-data` converts it to normal files and back:
+
+```sh
+dotnet run --project tools/s2hd-data -- list   data/sonicorca.dat
+dotnet run --project tools/s2hd-data -- unpack data/sonicorca.dat my-mod
+dotnet run --project tools/s2hd-data -- pack   my-mod my-mod.dat --base data/sonicorca.dat
+```
+
+1. Unpack the game data into an empty folder.
+2. Edit the files. Keep the file names: the folders and the name give the resource key, and the extension gives the
+   type. For example, `SONICORCA/LEVELS/EHZ/MAP.map.xml` is the Emerald Hill map. A resource that also contains
+   other resources is the file `_` in its folder, for example `SONICORCA/FONTS/HUD/_.font.xml`.
+3. Pack the folder with `--base`. The tool then writes only the resources that are new or changed.
+4. Put the `.dat` file in a `mods` folder. The game loads mods from two folders:
+   - `mods/` next to `data/` (on macOS, in `S2HD.app/Contents/Resources`).
+   - `mods/` in the user data folder (see "Logs and settings"). This folder is outside the macOS app bundle, so
+     the app signature stays valid and an update does not remove the mod.
+
+The game loads `data/`, then each `mods/` folder, and each folder in file name order. A resource in a later file
+replaces the resource with the same key. A mod cannot remove a resource. To turn mods off, add `use_mods=false` to
+the `[general]` section of `sonicorca.cfg`.
+
+Without `--base`, `pack` writes all resources of the folder. That file can replace `data/sonicorca.dat`.
+
+The behavior of levels and objects is C# code in `SONICORCA/`, not data. The `AREA.area.cs` and `.object.cs`
+resources only name the class to use.
 
 ## Logs and settings
 

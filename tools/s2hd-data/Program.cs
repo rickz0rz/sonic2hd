@@ -1,0 +1,104 @@
+// Lists, unpacks and packs the game's resource files (.dat).
+//   dotnet run --project tools/s2hd-data -- list   <file.dat>
+//   dotnet run --project tools/s2hd-data -- unpack <file.dat> <folder>
+//   dotnet run --project tools/s2hd-data -- pack   <folder> <file.dat> [--base <original.dat>]
+// unpack writes each resource as a normal file (.png, .ogg, .map.xml and so on) that you can edit. pack makes a
+// .dat file from such a folder. With --base, pack writes only the resources that are new or changed compared to
+// the original, which gives a small file for the game's mods folder.
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using SonicOrca.HelperLibraries.Png;
+using SonicOrca.Resources;
+
+ResourceType.RegisterTypesFrom(typeof(PngResourceType).Assembly);
+
+try
+{
+	return args switch
+	{
+		["list", string file] => List(file),
+		["unpack", string file, string folder] => Unpack(file, folder),
+		["pack", string folder, string file] => Pack(folder, file, null),
+		["pack", string folder, string file, "--base", string baseFile] => Pack(folder, file, baseFile),
+		_ => Usage(),
+	};
+}
+catch (Exception ex) when (ex is ResourceException or IOException or UnauthorizedAccessException)
+{
+	Console.Error.WriteLine("Error: " + ex.Message);
+	return 1;
+}
+
+static int List(string file)
+{
+	foreach (var (key, resource) in Scan(file).GetResourceListing().OrderBy(r => r.Key, StringComparer.Ordinal))
+	{
+		string compressed = resource.Source.Compressed ? "gzip" : "";
+		Console.WriteLine($"{resource.Identifier,-18} {resource.Source.Size,10} {compressed,-4} {key}");
+	}
+	return 0;
+}
+
+static int Unpack(string file, string folder)
+{
+	if (Directory.Exists(folder) && Directory.EnumerateFileSystemEntries(folder).Any())
+	{
+		Console.Error.WriteLine($"Error: The folder {folder} is not empty. Use an empty folder.");
+		return 1;
+	}
+	int count = ResourceDirectory.Export(Scan(file), folder);
+	Console.WriteLine($"Wrote {count} files to {folder}.");
+	return 0;
+}
+
+static int Pack(string folder, string file, string baseFile)
+{
+	if (!Directory.Exists(folder))
+	{
+		Console.Error.WriteLine($"Error: The folder {folder} does not exist.");
+		return 1;
+	}
+	var skipped = new List<string>();
+	ResourceTree tree = ResourceDirectory.Import(folder, skipped);
+	foreach (string path in skipped)
+	{
+		Console.Error.WriteLine($"Warning: Not packed, unknown file type: {path}");
+	}
+	if (baseFile != null)
+	{
+		tree = ResourceComparison.GetChanges(tree, Scan(baseFile));
+	}
+	int count = tree.GetResourceListing().Count;
+	if (count == 0)
+	{
+		Console.Error.WriteLine(baseFile != null
+			? "Error: No resources are different from the base file. The tool did not write a file."
+			: "Error: The folder has no resources. The tool did not write a file.");
+		return 1;
+	}
+	new ResourceFile(file).Write(tree);
+	Console.WriteLine($"Wrote {count} resources to {file}.");
+	return 0;
+}
+
+static ResourceTree Scan(string file)
+{
+	if (!File.Exists(file))
+	{
+		throw new ResourceException($"The file {file} does not exist.");
+	}
+	return new ResourceFile(file).Scan();
+}
+
+static int Usage()
+{
+	Console.Error.WriteLine("""
+		Usage:
+		  s2hd-data list   <file.dat>
+		  s2hd-data unpack <file.dat> <folder>
+		  s2hd-data pack   <folder> <file.dat> [--base <original.dat>]
+		""");
+	return 2;
+}

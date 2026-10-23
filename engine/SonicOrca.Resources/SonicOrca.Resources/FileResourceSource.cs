@@ -3,8 +3,10 @@ using System.IO;
 
 namespace SonicOrca.Resources;
 
+/// <summary>A resource stored in a file, from <see cref="Offset"/> for <see cref="Size"/> bytes.</summary>
 public class FileResourceSource : ResourceSource
 {
+	/// <summary>A read-only view of the resource's bytes. Positions are relative to the start of the resource.</summary>
 	public class Stream : System.IO.Stream
 	{
 		private readonly FileStream _fileStream;
@@ -23,17 +25,14 @@ public class FileResourceSource : ResourceSource
 
 		public override long Position
 		{
-			get
-			{
-				return _fileStream.Position - _offset;
-			}
+			get => _fileStream.Position - _offset;
 			set
 			{
-				if (value > _size)
+				if (value < 0 || value > _size)
 				{
-					throw new ArgumentException("Position greater than resource size.");
+					throw new ArgumentOutOfRangeException(nameof(value), "Position outside the resource.");
 				}
-				_fileStream.Position = value - _offset;
+				_fileStream.Position = _offset + value;
 			}
 		}
 
@@ -41,55 +40,53 @@ public class FileResourceSource : ResourceSource
 		{
 			_offset = source._offset;
 			_size = source._size;
-			_fileStream = new FileStream(source._path, FileMode.Open, FileAccess.Read);
+			_fileStream = new FileStream(source._path, FileMode.Open, FileAccess.Read, FileShare.Read);
 			if (_fileStream.Length < _offset + _size)
 			{
 				_fileStream.Dispose();
 				throw new FileLoadException("File not large enough to contain resource.");
 			}
-			_fileStream.Position = source._offset;
-		}
-
-		public override void Flush()
-		{
-			throw new NotImplementedException();
+			_fileStream.Position = _offset;
 		}
 
 		public override int Read(byte[] buffer, int offset, int count)
 		{
 			count = (int)Math.Min(count, _size - Position);
-			if (count > 0)
-			{
-				return _fileStream.Read(buffer, offset, count);
-			}
-			return 0;
+			return count > 0 ? _fileStream.Read(buffer, offset, count) : 0;
 		}
 
 		public override long Seek(long offset, SeekOrigin origin)
 		{
-			long num = origin switch
+			long position = origin switch
 			{
-				SeekOrigin.Begin => _offset + offset, 
-				SeekOrigin.Current => Position + offset, 
-				SeekOrigin.End => _offset + _size - offset, 
-				_ => throw new ArgumentException("Invalid seek origin", "origin"), 
+				SeekOrigin.Begin => offset,
+				SeekOrigin.Current => Position + offset,
+				SeekOrigin.End => _size + offset,
+				_ => throw new ArgumentException("Invalid seek origin", nameof(origin)),
 			};
-			if (num < _offset || num > _offset + _size)
+			if (position < 0 || position > _size)
 			{
 				throw new IOException("Invalid position to seek to");
 			}
-			Position = num;
-			return num;
+			Position = position;
+			return position;
 		}
 
-		public override void SetLength(long value)
+		public override void Flush()
 		{
-			throw new NotImplementedException();
 		}
 
-		public override void Write(byte[] buffer, int offset, int count)
+		public override void SetLength(long value) => throw new NotSupportedException();
+
+		public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+		protected override void Dispose(bool disposing)
 		{
-			throw new NotImplementedException();
+			if (disposing)
+			{
+				_fileStream.Dispose();
+			}
+			base.Dispose(disposing);
 		}
 	}
 
@@ -113,8 +110,5 @@ public class FileResourceSource : ResourceSource
 		_size = size;
 	}
 
-	public override System.IO.Stream Read()
-	{
-		return new Stream(this);
-	}
+	public override System.IO.Stream Read() => new Stream(this);
 }

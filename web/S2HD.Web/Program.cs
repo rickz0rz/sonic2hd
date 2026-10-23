@@ -63,8 +63,9 @@ public static partial class Program
 			{
 				string name = entry.FullName.Replace('\\', '/');
 				string destination = null;
-				if (name.EndsWith(".dat", StringComparison.OrdinalIgnoreCase) && (name.StartsWith("data/") || name.Contains("/data/")))
-					destination = Path.Combine(ContentPath, "data", entry.Name);
+				string folder = GetDatFolder(name);
+				if (folder != null)
+					destination = Path.Combine(ContentPath, folder, entry.Name);
 				else if (entry.Name.Equals("credits.film", StringComparison.OrdinalIgnoreCase))
 					destination = Path.Combine(ContentPath, entry.Name);
 				if (destination == null)
@@ -76,6 +77,19 @@ public static partial class Program
 		}
 		File.Delete(zipPath);
 		return count;
+	}
+
+	/// <summary>"data" or "mods" for a .dat file in one of those folders (at any depth in the zip), else null.</summary>
+	private static string GetDatFolder(string path)
+	{
+		if (!path.EndsWith(".dat", StringComparison.OrdinalIgnoreCase))
+			return null;
+		foreach (string folder in new[] { "data", "mods" })
+		{
+			if (path.StartsWith(folder + "/", StringComparison.OrdinalIgnoreCase) || path.Contains("/" + folder + "/", StringComparison.OrdinalIgnoreCase))
+				return folder;
+		}
+		return null;
 	}
 
 	/// <summary>Initialises the game. Returns an error message, or null on success.</summary>

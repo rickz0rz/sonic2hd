@@ -1,16 +1,15 @@
 using System.Runtime.CompilerServices;
+using SonicOrca.HelperLibraries.Png;
+using SonicOrca.Resources;
 
 namespace S2HD.Tests;
 
 internal static class EngineAssemblyLoader
 {
-	/// <summary>
-	/// ResourceType registers the resource types it finds in the loaded assemblies, the first time it is used.
-	/// They are defined in the SonicOrca engine assembly, so load that assembly before any test runs.
-	/// </summary>
+	/// <summary>Registers the resource types of the SonicOrca engine assembly before any test runs.</summary>
 	[ModuleInitializer]
-	internal static void LoadEngineAssembly()
+	internal static void RegisterResourceTypes()
 	{
-		RuntimeHelpers.RunClassConstructor(typeof(SonicOrca.HelperLibraries.Png.PngResourceType).TypeHandle);
+		ResourceType.RegisterTypesFrom(typeof(PngResourceType).Assembly);
 	}
 }

@@ -70,17 +70,15 @@ internal class S2HDSonicOrcaGameContext(IPlatform platform) : SonicOrcaGameConte
     string directoryName = ContentDirectory.Path;
     this.LoadResourceFiles(Path.Combine(directoryName, "data"));
     if (bool.Parse(this.Configuration.GetProperty("general", "use_mods", "true")))
+    {
+      // Mods next to the game data, then mods in the user data folder (outside the macOS app bundle)
       this.LoadResourceFiles(Path.Combine(directoryName, "mods"));
+      this.LoadResourceFiles(Path.Combine(this.UserDataDirectory, "mods"));
+    }
     this.RenderFactory = DefaultRendererFactory.Create(this.Window.GraphicsContext);
     this._rootGameState = (IGameState) new RootGameState(this);
     this._gameStateUpdater = new Updater(this._rootGameState.Update());
     this.Begin();
-  }
-
-  private void LoadResources(string path)
-  {
-    foreach (string file in Directory.GetFiles(path, "*.dat", SearchOption.AllDirectories))
-      this.ResourceTree.MergeWith(new ResourceFile(file).Scan());
   }
 
   public override void Dispose()
@@ -307,28 +305,19 @@ internal class S2HDSonicOrcaGameContext(IPlatform platform) : SonicOrcaGameConte
     obj1.Deactivate();
   }
 
-  private void CreateDataResourceFiles(string inputDirectory, string outputDirectory)
-  {
-    if (!Directory.Exists(inputDirectory))
-      return;
-    if (!Directory.Exists(outputDirectory))
-      Directory.CreateDirectory(outputDirectory);
-    foreach (string directory in Directory.GetDirectories(inputDirectory))
-    {
-      string path2 = Path.GetFileName(directory) + ".dat";
-      string path = Path.Combine(directory, "sonicorca");
-      ResourceTree tree = new ResourceTree();
-      ResourceFile.GetResourcesFromDirectory(tree, path);
-      new ResourceFile(Path.Combine(outputDirectory, path2)).Write(tree);
-    }
-  }
-
+  /// <summary>
+  /// Merges each .dat file in the folder into the resource tree, in name order. A later file replaces the
+  /// resources with the same key, so mods/ overrides data/, and mods/20-x.dat overrides mods/10-y.dat.
+  /// </summary>
   private void LoadResourceFiles(string inputDirectory)
   {
     if (!Directory.Exists(inputDirectory))
       return;
-    foreach (string file in Directory.GetFiles(inputDirectory))
+    foreach (string file in Directory.GetFiles(inputDirectory, "*.dat").OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
+    {
+      Trace.WriteLine("Loading resource file " + file);
       this.ResourceTree.MergeWith(new ResourceFile(file).Scan());
+    }
   }
 
   protected override Renderer CreateRenderer() => (Renderer) new TheRenderer(this.Window);
