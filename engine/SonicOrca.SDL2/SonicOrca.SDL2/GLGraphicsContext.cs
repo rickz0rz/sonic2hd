@@ -162,7 +162,9 @@ internal class GLGraphicsContext : IGraphicsContext
 		{
 			_videoAdapter.Dispatch(() =>
 			{
+				long start = FrameProfiler.Timestamp();
 				texture = new GLTexture(this, width, height, channels, pixels, toCompress);
+				FrameProfiler.Note($"Create {width}x{height} texture (dispatched)", start, 2.0);
 				autoResetEvent.Set();
 			});
 			if (!autoResetEvent.WaitOne(5000))
