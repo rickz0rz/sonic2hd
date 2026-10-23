@@ -406,8 +406,7 @@ public class GrabberInstance : Badnik
 					_animationLegs.Index = _grabbedCharacter == null || !_grabbedCharacter.Entry.Name.Contains("Tails") ? AnimationLegsHoldWiggle : AnimationLegsHold;
 					_showLegs = true;
 					break;
-				// The body index is never 9, so this case never runs. AnimationBodyClose (5) was possibly intended.
-				case AnimationLegsClose:
+				case AnimationBodyClose:
 					_animationLegs.Index = AnimationLegsClose;
 					_showLegs = true;
 					break;
