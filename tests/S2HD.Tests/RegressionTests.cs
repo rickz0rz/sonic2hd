@@ -8,9 +8,9 @@ using Xunit;
 namespace S2HD.Tests;
 
 /// <summary>
-/// Plays the Emerald Hill attract demo in the built game, saves screenshots at fixed level ticks and compares them
-/// with golden screenshots from a known-good build. The demo is deterministic with a fixed random seed, so the
-/// screenshots match exactly on the same machine. A small tolerance allows for GPU driver differences.
+/// Runs the built game, saves screenshots at fixed level ticks and compares them with golden screenshots from a
+/// known-good build. With a fixed random seed the game is deterministic, so the screenshots match exactly on the same
+/// machine. A small tolerance allows for GPU driver differences.
 /// </summary>
 /// <remarks>
 /// To record golden screenshots, build a known-good version of the game, then run the tests with
@@ -18,7 +18,10 @@ namespace S2HD.Tests;
 /// </remarks>
 public sealed class RegressionTests
 {
-	private static readonly int[] CaptureTicks = { 60, 300, 600, 1200, 1800 };
+	private static readonly int[] DemoTicks = { 60, 300, 600, 1200, 1800 };
+
+	/// <summary>Tick 120 is after the title card starts, tick 480 is after the player gets control.</summary>
+	private static readonly int[] LevelTicks = { 120, 480 };
 
 	private static readonly TimeSpan Timeout = TimeSpan.FromMinutes(3);
 
@@ -28,9 +31,37 @@ public sealed class RegressionTests
 
 	private const double MaxDifferentPixelRatio = 0.001;
 
+	/// <summary>Plays the Emerald Hill attract demo, which moves the player through the first part of the level.</summary>
 	[Fact]
 	[Trait("Category", "Regression")]
 	public void AttractDemo_MatchesGoldenScreenshots()
+	{
+		RunAndCompare("--demo", DemoTicks, TestPaths.GoldenDirectory, "demo");
+	}
+
+	/// <summary>
+	/// Starts a level with no input, so the player stands at the start position. These are the levels that the demo
+	/// data contains. The other levels do not load, because their music is not in the data.
+	/// </summary>
+	[Theory]
+	[Trait("Category", "Regression")]
+	[InlineData("ehz", 1)]
+	[InlineData("ehz", 2)]
+	[InlineData("cpz", 1)]
+	[InlineData("cpz", 2)]
+	[InlineData("htz", 1)]
+	[InlineData("htz", 2)]
+	[InlineData("mtz", 1)]
+	[InlineData("mtz", 2)]
+	[InlineData("dez", 1)]
+	[InlineData("dez", 2)]
+	public void LevelStart_MatchesGoldenScreenshots(string level, int act)
+	{
+		string name = $"{level}-{act}";
+		RunAndCompare($"--level {level} --act {act}", LevelTicks, Path.Combine(TestPaths.GoldenDirectory, "levels", name), name);
+	}
+
+	private static void RunAndCompare(string arguments, int[] ticks, string goldenDirectory, string name)
 	{
 		string exe = TestPaths.GameExecutable;
 		if (!File.Exists(exe))
@@ -38,26 +69,26 @@ public sealed class RegressionTests
 			Assert.Skip($"Game not built: {exe}. Build it as the README describes, or set S2HD_EXE.");
 		}
 		bool record = Environment.GetEnvironmentVariable("S2HD_RECORD_GOLDEN") == "1";
-		if (!record && !CaptureTicks.All(tick => File.Exists(GoldenPath(tick))))
+		if (!record && !ticks.All(tick => File.Exists(GoldenPath(goldenDirectory, tick))))
 		{
-			Assert.Skip($"No golden screenshots in {TestPaths.GoldenDirectory}. Record them with S2HD_RECORD_GOLDEN=1.");
+			Assert.Skip($"No golden screenshots in {goldenDirectory}. Record them with S2HD_RECORD_GOLDEN=1.");
 		}
 
 		string userData = Directory.CreateTempSubdirectory("s2hd-regression-").FullName;
 		try
 		{
-			RunDemo(exe, userData);
+			RunGame(exe, arguments, ticks, userData);
 			if (record)
 			{
-				Directory.CreateDirectory(TestPaths.GoldenDirectory);
-				foreach (int tick in CaptureTicks)
+				Directory.CreateDirectory(goldenDirectory);
+				foreach (int tick in ticks)
 				{
-					File.Copy(CapturePath(userData, tick), GoldenPath(tick), overwrite: true);
+					File.Copy(CapturePath(userData, tick), GoldenPath(goldenDirectory, tick), overwrite: true);
 				}
 				return;
 			}
-			string[] failures = CaptureTicks
-				.Select(tick => CompareWithGolden(CapturePath(userData, tick), GoldenPath(tick)))
+			string[] failures = ticks
+				.Select(tick => CompareWithGolden(CapturePath(userData, tick), GoldenPath(goldenDirectory, tick), name))
 				.Where(failure => failure != null)
 				.ToArray();
 			Assert.True(failures.Length == 0, string.Join(Environment.NewLine, failures));
@@ -68,18 +99,18 @@ public sealed class RegressionTests
 		}
 	}
 
-	private static void RunDemo(string exe, string userData)
+	private static void RunGame(string exe, string arguments, int[] ticks, string userData)
 	{
-		// No frame limiter, so the demo runs as fast as the machine allows
+		// No frame limiter, so the game runs as fast as the machine allows
 		File.WriteAllText(Path.Combine(userData, "sonicorca.cfg"), "[graphics]\nmax_performance=1\n");
-		var startInfo = new ProcessStartInfo(exe, "--demo")
+		var startInfo = new ProcessStartInfo(exe, arguments)
 		{
 			UseShellExecute = false,
 			Environment =
 			{
 				["S2HD_USER_DATA_DIR"] = userData,
 				["S2HD_RANDOM_SEED"] = "1",
-				["S2HD_CAPTURE_LEVEL_TICKS"] = string.Join(",", CaptureTicks),
+				["S2HD_CAPTURE_LEVEL_TICKS"] = string.Join(",", ticks),
 				["S2HD_EXIT_AFTER_CAPTURES"] = "1",
 			},
 		};
@@ -87,24 +118,24 @@ public sealed class RegressionTests
 		if (!process.WaitForExit(Timeout))
 		{
 			process.Kill(entireProcessTree: true);
-			Assert.Fail($"The game did not finish the demo in {Timeout.TotalMinutes} minutes. See {userData}/sonicorca.log.");
+			Assert.Fail($"The game did not finish in {Timeout.TotalMinutes} minutes ({arguments}). See {userData}/sonicorca.log.");
 		}
-		foreach (int tick in CaptureTicks)
+		foreach (int tick in ticks)
 		{
 			Assert.True(File.Exists(CapturePath(userData, tick)),
-				$"No screenshot for level tick {tick} (game exit code {process.ExitCode}).");
+				$"No screenshot for level tick {tick} ({arguments}, game exit code {process.ExitCode}).");
 		}
 	}
 
 	/// <summary>Returns null when the images match, or a description of the difference.</summary>
-	private static string CompareWithGolden(string actualPath, string goldenPath)
+	private static string CompareWithGolden(string actualPath, string goldenPath, string name)
 	{
 		(int width, int height, byte[] pixels) actual = ReadRgb(actualPath);
 		(int width, int height, byte[] pixels) golden = ReadRgb(goldenPath);
-		string name = Path.GetFileName(actualPath);
+		string label = $"{name}/{Path.GetFileName(actualPath)}";
 		if (actual.width != golden.width || actual.height != golden.height)
 		{
-			return KeepActual(actualPath, $"{name}: size {actual.width}x{actual.height}, expected {golden.width}x{golden.height}");
+			return KeepActual(actualPath, name, $"{label}: size {actual.width}x{actual.height}, expected {golden.width}x{golden.height}");
 		}
 		int differentPixels = 0;
 		for (int i = 0; i < actual.pixels.Length; i += 3)
@@ -119,12 +150,12 @@ public sealed class RegressionTests
 		double ratio = differentPixels / (double)(actual.width * actual.height);
 		return ratio <= MaxDifferentPixelRatio
 			? null
-			: KeepActual(actualPath, $"{name}: {differentPixels} pixels differ ({ratio:P2})");
+			: KeepActual(actualPath, name, $"{label}: {differentPixels} pixels differ ({ratio:P2})");
 	}
 
-	private static string KeepActual(string actualPath, string message)
+	private static string KeepActual(string actualPath, string name, string message)
 	{
-		string directory = Path.Combine(TestPaths.GoldenDirectory, "actual");
+		string directory = Path.Combine(TestPaths.GoldenDirectory, "actual", name);
 		Directory.CreateDirectory(directory);
 		string copy = Path.Combine(directory, Path.GetFileName(actualPath));
 		File.Copy(actualPath, copy, overwrite: true);
@@ -159,5 +190,5 @@ public sealed class RegressionTests
 
 	private static string CapturePath(string userData, int tick) => Path.Combine(userData, $"level-tick-{tick:D5}.png");
 
-	private static string GoldenPath(int tick) => Path.Combine(TestPaths.GoldenDirectory, $"level-tick-{tick:D5}.png");
+	private static string GoldenPath(string goldenDirectory, int tick) => Path.Combine(goldenDirectory, $"level-tick-{tick:D5}.png");
 }
