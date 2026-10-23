@@ -10,6 +10,11 @@ using SonicOrca.Core.Objects.Metadata;
 #nullable disable
 namespace SONICORCA.OBJECTS.DRILLEGGMAN;
 
+/// <summary>
+/// The object type for the Emerald Hill Zone boss. It declares the resources that the boss needs.
+/// See <see cref="DrillEggmanInstance"/> for the behavior.
+/// </summary>
+
 [SonicOrca.Core.Objects.Metadata.Name("Drill Eggman")]
 [Description("Drill Eggman from Emerald Hill Zone, Sonic 2")]
 [ObjectInstance(typeof(DrillEggmanInstance))]

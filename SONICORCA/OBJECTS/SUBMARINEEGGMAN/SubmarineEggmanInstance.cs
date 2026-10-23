@@ -19,6 +19,11 @@ using SONICORCA.OBJECTS.DUST;
 #nullable disable
 namespace SONICORCA.OBJECTS.SUBMARINEEGGMAN;
 
+/// <summary>
+/// The Hill Top Zone boss. Eggman rises out of one of two lava pits in a submarine. He fires a flame thrower,
+/// sinks back into the lava and throws two fireballs that set fire to the ground. Then he comes up again
+/// in the pit on the side of the protagonist.
+/// </summary>
 public class SubmarineEggmanInstance : BossObject
 {
 	public const int AnimationMobileInside = 0;
@@ -37,7 +42,7 @@ public class SubmarineEggmanInstance : BossObject
 	public const int AnimationBrokenPartsLavaB = 13;
 	public const int AnimationBrokenPartsLavaC = 14;
 	public const int AnimationBrokenPartsLavaD = 15;
-	public const int AnimationBrokenPartsLavaE = 16 /*0x10*/;
+	public const int AnimationBrokenPartsLavaE = 16;
 	public const int AnimationFireballTransition = 17;
 	public const int AnimationFireballIntro = 18;
 	public const int AnimationFireballEnd = 19;
@@ -47,6 +52,21 @@ public class SubmarineEggmanInstance : BossObject
 	private const int AnimationDustSmoke = 1;
 	private const double AltitudeSpeed = 3.5;
 	private const int AltitudeSpeedDefeated = 8;
+
+	private const int InitialHealth = 8;
+	private const int DefeatScore = 1000;
+	private const int BrokenPartCount = 5;
+
+	/// <summary>
+	/// The largest upward velocity that a character keeps after it hits the boss.
+	/// </summary>
+	private const double MaxHitBounceVelocityY = -15.125;
+
+	/// <summary>
+	/// The size of the area around the boss in which explosions appear after the defeat.
+	/// </summary>
+	private const int ExplosionAreaSize = 128;
+
 	private AnimationInstance _animationInside;
 	private AnimationInstance _animationRobotnik;
 	private AnimationInstance _animationBody;
@@ -55,24 +75,35 @@ public class SubmarineEggmanInstance : BossObject
 	private AnimationInstance _animationHighlightsIntro;
 	private AnimationInstance _animationHighlightsEnd;
 	private AnimationInstance _animationHighlightsLava;
+
+	/// <summary>
+	/// The draw offset of each broken part, by its animation index.
+	/// </summary>
 	private Dictionary<int, Vector2i> _brokenPartsPositions = new Dictionary<int, Vector2i>();
+
+	/// <summary>
+	/// The animation index of each broken part, in the order that the parts come off.
+	/// </summary>
 	private Dictionary<int, int> _brokenPartsIndexOrder = new Dictionary<int, int>();
 	private AnimationInstance _brokenPartsA;
 	private AnimationInstance _brokenPartsB;
 	private AnimationInstance _brokenPartsC;
 	private AnimationInstance _brokenPartsD;
 	private AnimationInstance _brokenPartsE;
+
+	// The pit positions and heights are offsets from the start position until OnStart adds the start position.
+	// The right pit is at the start position.
 	private int _leftX = -1024;
 	private int _rightX;
 	private int _leftPeekY = -416;
 	private int _leftFireballY = -288;
-	private int _leftSpawnY = 128 /*0x80*/;
+	private int _leftSpawnY = 128;
 	private int _rightPeekY = -528;
 	private int _rightFireballY = -224;
 	private int _rightSpawnY;
 	private Vector2i _startPosition;
 	private Vector2 _nonHoverPosition;
-	private SubmarineEggmanInstance.State _state;
+	private State _state;
 	private Vector2 _velocity;
 	private bool _flipX;
 	private bool _isRightPit;
@@ -86,37 +117,37 @@ public class SubmarineEggmanInstance : BossObject
 	protected override void OnStart()
 	{
 		ResourceTree resourceTree = Level.GameContext.ResourceTree;
-		AnimationGroup loadedResource1 = resourceTree.GetLoadedResource<AnimationGroup>(Type, "/ANIGROUP");
-		AnimationGroup loadedResource2 = resourceTree.GetLoadedResource<AnimationGroup>(Type, "SONICORCA/OBJECTS/ROBOTNIK/ANIGROUP");
-		_animationInside = new AnimationInstance(loadedResource1);
-		_animationRobotnik = new AnimationInstance(loadedResource2);
-		_animationBody = new AnimationInstance(loadedResource1, 1);
-		_animationLights = new AnimationInstance(loadedResource1, 4);
-		_animationHighlightsSpawnIntro = new AnimationInstance(loadedResource1, 8);
-		_animationHighlightsIntro = new AnimationInstance(loadedResource1, 9);
-		_animationHighlightsEnd = new AnimationInstance(loadedResource1, 10);
-		_animationHighlightsLava = new AnimationInstance(loadedResource1, 11);
-		_brokenPartsPositions[12] = new Vector2i(-20, -64);
-		_brokenPartsPositions[14] = new Vector2i(-8, -88);
-		_brokenPartsPositions[15] = new Vector2i(-16, -112);
-		_brokenPartsPositions[13] = new Vector2i(-44, -112);
-		_brokenPartsPositions[16 /*0x10*/] = new Vector2i(-80, -112);
-		_brokenPartsIndexOrder[0] = 16 /*0x10*/;
-		_brokenPartsIndexOrder[1] = 13;
-		_brokenPartsIndexOrder[2] = 15;
-		_brokenPartsIndexOrder[3] = 14;
-		_brokenPartsIndexOrder[4] = 12;
-		_animationGroup = loadedResource1;
-		_brokenPartsA = new AnimationInstance(_animationGroup, 12);
-		_brokenPartsB = new AnimationInstance(_animationGroup, 13);
-		_brokenPartsC = new AnimationInstance(_animationGroup, 14);
-		_brokenPartsD = new AnimationInstance(_animationGroup, 15);
-		_brokenPartsE = new AnimationInstance(_animationGroup, 16 /*0x10*/);
-		ExplosionResourceKey = Type.GetAbsolutePath("SONICORCA/OBJECTS/EXPLOSION/BOSS");
-		HitSoundResourceKey = Type.GetAbsolutePath("SONICORCA/SOUND/BOSSHIT");
-		CollisionRectangles = new CollisionRectangle[1]
+		AnimationGroup animationGroup = resourceTree.GetLoadedResource<AnimationGroup>(Type, SubmarineEggmanType.AnimationGroupResourceKey);
+		AnimationGroup robotnikAnimationGroup = resourceTree.GetLoadedResource<AnimationGroup>(Type, SubmarineEggmanType.RobotnikAnimationGroupResourceKey);
+		_animationInside = new AnimationInstance(animationGroup);
+		_animationRobotnik = new AnimationInstance(robotnikAnimationGroup);
+		_animationBody = new AnimationInstance(animationGroup, AnimationMobileBody);
+		_animationLights = new AnimationInstance(animationGroup, AnimationMobileLights);
+		_animationHighlightsSpawnIntro = new AnimationInstance(animationGroup, AnimationHighlightsSpawnIntro);
+		_animationHighlightsIntro = new AnimationInstance(animationGroup, AnimationHighlightsIntro);
+		_animationHighlightsEnd = new AnimationInstance(animationGroup, AnimationHighlightsEnd);
+		_animationHighlightsLava = new AnimationInstance(animationGroup, AnimationHighlightsLava);
+		_brokenPartsPositions[AnimationBrokenPartsLavaA] = new Vector2i(-20, -64);
+		_brokenPartsPositions[AnimationBrokenPartsLavaC] = new Vector2i(-8, -88);
+		_brokenPartsPositions[AnimationBrokenPartsLavaD] = new Vector2i(-16, -112);
+		_brokenPartsPositions[AnimationBrokenPartsLavaB] = new Vector2i(-44, -112);
+		_brokenPartsPositions[AnimationBrokenPartsLavaE] = new Vector2i(-80, -112);
+		_brokenPartsIndexOrder[0] = AnimationBrokenPartsLavaE;
+		_brokenPartsIndexOrder[1] = AnimationBrokenPartsLavaB;
+		_brokenPartsIndexOrder[2] = AnimationBrokenPartsLavaD;
+		_brokenPartsIndexOrder[3] = AnimationBrokenPartsLavaC;
+		_brokenPartsIndexOrder[4] = AnimationBrokenPartsLavaA;
+		_animationGroup = animationGroup;
+		_brokenPartsA = new AnimationInstance(_animationGroup, AnimationBrokenPartsLavaA);
+		_brokenPartsB = new AnimationInstance(_animationGroup, AnimationBrokenPartsLavaB);
+		_brokenPartsC = new AnimationInstance(_animationGroup, AnimationBrokenPartsLavaC);
+		_brokenPartsD = new AnimationInstance(_animationGroup, AnimationBrokenPartsLavaD);
+		_brokenPartsE = new AnimationInstance(_animationGroup, AnimationBrokenPartsLavaE);
+		ExplosionResourceKey = Type.GetAbsolutePath(SubmarineEggmanType.BossExplosionResourceKey);
+		HitSoundResourceKey = Type.GetAbsolutePath(SubmarineEggmanType.BossHitSoundResourceKey);
+		CollisionRectangles = new CollisionRectangle[]
 		{
-	  new CollisionRectangle( this, 0, -100, -100, 200, 200)
+			new CollisionRectangle(this, 0, -100, -100, 200, 200)
 		};
 		_startPosition = Position;
 		_leftX += _startPosition.X;
@@ -128,10 +159,10 @@ public class SubmarineEggmanInstance : BossObject
 		_rightFireballY += _startPosition.Y;
 		_rightSpawnY += _startPosition.Y;
 		LockLifetime = true;
-		_velocity = new Vector2(0.0, -3.5);
+		_velocity = new Vector2(0.0, -AltitudeSpeed);
 		_isRightPit = true;
-		_state = SubmarineEggmanInstance.State.Raise;
-		Health = 8;
+		_state = State.Raise;
+		Health = InitialHealth;
 	}
 
 	private void ResetHighlights()
@@ -155,20 +186,22 @@ public class SubmarineEggmanInstance : BossObject
 	{
 		base.OnUpdate();
 		if (Health == 1 && Level.Random.Next(15) == 0)
-			EmitSmoke((Vector2)new Vector2i(Level.Random.Next(sbyte.MinValue, 128 /*0x80*/), Level.Random.Next(-64, -32)), new Vector2(0.0, -4.0));
+			EmitSmoke((Vector2)new Vector2i(Level.Random.Next(-128, 128), Level.Random.Next(-64, -32)), new Vector2(0.0, -4.0));
 		switch (_state)
 		{
-			case SubmarineEggmanInstance.State.Raise:
-				PositionPrecise = PositionPrecise + _velocity;
+			case State.Raise:
+				// Rise out of the lava to the peek height of the current pit.
+				PositionPrecise += _velocity;
 				if (Position.Y > (_isRightPit ? _rightPeekY : _leftPeekY))
 					break;
 				_velocity.Y = 0.0;
-				_state = SubmarineEggmanInstance.State.PrepareFlameThrower;
+				_state = State.PrepareFlameThrower;
 				_stateTimer = 60;
 				_nonHoverPosition = PositionPrecise;
 				_floatOffsetAngle = 0.0;
 				break;
-			case SubmarineEggmanInstance.State.PrepareFlameThrower:
+			case State.PrepareFlameThrower:
+				// Hover, then show the flame thrower flame, and then fire the flame thrower shot.
 				--_stateTimer;
 				if (_stateTimer > 0)
 				{
@@ -186,9 +219,9 @@ public class SubmarineEggmanInstance : BossObject
 				CreateFlameThrowerShot();
 				_currentHighlight = _animationHighlightsIntro;
 				_stateTimer = 47;
-				_state = SubmarineEggmanInstance.State.Hover;
+				_state = State.Hover;
 				break;
-			case SubmarineEggmanInstance.State.Hover:
+			case State.Hover:
 				--_stateTimer;
 				if (_stateTimer > 0)
 				{
@@ -196,105 +229,126 @@ public class SubmarineEggmanInstance : BossObject
 					break;
 				}
 				_currentHighlight = _animationHighlightsEnd;
-				_velocity = new Vector2(0.0, 3.5);
-				_state = SubmarineEggmanInstance.State.Lower;
+				_velocity = new Vector2(0.0, AltitudeSpeed);
+				_state = State.Lower;
 				break;
-			case SubmarineEggmanInstance.State.Lower:
-				PositionPrecise = PositionPrecise + _velocity;
-				if (Position.Y > (_isRightPit ? _rightFireballY : _leftFireballY) && !_firedFireball)
-				{
-					CreateFireball(-1);
-					CreateFireball(1);
-					Level.SoundManager.PlaySound(Position, "SONICORCA/SOUND/FIREBALL");
-					_firedFireball = true;
-				}
-				if (_isRightPit)
-				{
-					if (Position.Y < _rightSpawnY)
-						break;
-					Position = new Vector2i(Position.X, _rightSpawnY);
-				}
-				else
-				{
-					if (Position.Y < _leftSpawnY)
-						break;
-					Position = new Vector2i(Position.X, _leftSpawnY);
-				}
-				_velocity = new Vector2(0.0, -3.5);
-				_state = SubmarineEggmanInstance.State.Raise;
-				_firedFireball = false;
-				ICharacter protagonist = Level.Player.Protagonist;
-				if (protagonist.Position.X < _startPosition.X - 512 /*0x0200*/)
-				{
-					Position = new Vector2i(_leftX, _leftSpawnY);
-					_isRightPit = false;
-				}
-				else
-				{
-					Position = new Vector2i(_rightX, _rightSpawnY);
-					_isRightPit = true;
-				}
-				_flipX = protagonist.Position.X >= Position.X;
+			case State.Lower:
+				UpdateLower();
 				break;
-			case SubmarineEggmanInstance.State.Defeated:
-				CleanHighlights();
-				--_stateTimer;
-				if (_stateTimer > 0)
-				{
-					if (_stateTimer % 16 /*0x10*/ == 0 && _brokenPartsCounter < 5)
-					{
-						int num = _brokenPartsIndexOrder[_brokenPartsCounter];
-						ReleaseFragmentMetal(Position + _brokenPartsPositions[num], 6.0, num);
-						switch (num)
-						{
-							case 12:
-								_brokenPartsA = null;
-								break;
-							case 13:
-								_brokenPartsB = null;
-								break;
-							case 14:
-								_brokenPartsC = null;
-								break;
-							case 15:
-								_brokenPartsD = null;
-								break;
-							case 16 /*0x10*/:
-								_brokenPartsE = null;
-								break;
-						}
-						++_brokenPartsCounter;
-					}
-					UpdateExplosions(128 /*0x80*/);
-					if (_stateTimer >= 30)
-						break;
-					UpdateSmoke();
-					break;
-				}
-				_animationBody.Index = 3;
-				_animationRobotnik.Index = 0;
-				UpdateSmoke();
-				if (_stateTimer > -60)
-					break;
-				Defeated = true;
-				Fleeing = true;
-				LockLifetime = false;
-				Position = Position + new Vector2i(0, 8);
+			case State.Defeated:
+				UpdateDefeated();
 				break;
 		}
 	}
 
+	/// <summary>
+	/// Sinks into the lava and throws two fireballs on the way down. At the bottom, moves to the pit
+	/// on the side of the protagonist and starts to rise again.
+	/// </summary>
+	private void UpdateLower()
+	{
+		PositionPrecise += _velocity;
+		if (Position.Y > (_isRightPit ? _rightFireballY : _leftFireballY) && !_firedFireball)
+		{
+			CreateFireball(-1);
+			CreateFireball(1);
+			Level.SoundManager.PlaySound(Position, SubmarineEggmanType.FireBallSoundResourceKey);
+			_firedFireball = true;
+		}
+		if (_isRightPit)
+		{
+			if (Position.Y < _rightSpawnY)
+				return;
+			Position = new Vector2i(Position.X, _rightSpawnY);
+		}
+		else
+		{
+			if (Position.Y < _leftSpawnY)
+				return;
+			Position = new Vector2i(Position.X, _leftSpawnY);
+		}
+		_velocity = new Vector2(0.0, -AltitudeSpeed);
+		_state = State.Raise;
+		_firedFireball = false;
+		ICharacter protagonist = Level.Player.Protagonist;
+		if (protagonist.Position.X < _startPosition.X - 512)
+		{
+			Position = new Vector2i(_leftX, _leftSpawnY);
+			_isRightPit = false;
+		}
+		else
+		{
+			Position = new Vector2i(_rightX, _rightSpawnY);
+			_isRightPit = true;
+		}
+		_flipX = protagonist.Position.X >= Position.X;
+	}
+
+	/// <summary>
+	/// Releases the broken parts one by one with explosions, then sinks into the lava.
+	/// </summary>
+	private void UpdateDefeated()
+	{
+		CleanHighlights();
+		--_stateTimer;
+		if (_stateTimer > 0)
+		{
+			if (_stateTimer % 16 == 0 && _brokenPartsCounter < BrokenPartCount)
+			{
+				int partIndex = _brokenPartsIndexOrder[_brokenPartsCounter];
+				ReleaseFragmentMetal(Position + _brokenPartsPositions[partIndex], 6.0, partIndex);
+				// Stop drawing the part on the boss.
+				switch (partIndex)
+				{
+					case AnimationBrokenPartsLavaA:
+						_brokenPartsA = null;
+						break;
+					case AnimationBrokenPartsLavaB:
+						_brokenPartsB = null;
+						break;
+					case AnimationBrokenPartsLavaC:
+						_brokenPartsC = null;
+						break;
+					case AnimationBrokenPartsLavaD:
+						_brokenPartsD = null;
+						break;
+					case AnimationBrokenPartsLavaE:
+						_brokenPartsE = null;
+						break;
+				}
+				++_brokenPartsCounter;
+			}
+			UpdateExplosions(ExplosionAreaSize);
+			if (_stateTimer >= 30)
+				return;
+			UpdateSmoke();
+			return;
+		}
+		_animationBody.Index = AnimationMobileBodyDefeated;
+		_animationRobotnik.Index = AnimationRobotnikNormal;
+		UpdateSmoke();
+		if (_stateTimer > -60)
+			return;
+		Defeated = true;
+		Fleeing = true;
+		LockLifetime = false;
+		Position += new Vector2i(0, AltitudeSpeedDefeated);
+	}
+
 	private void EmitSmoke(Vector2 offset, Vector2 velocity)
 	{
-		Matrix4 matrix4 = Matrix4.Identity * Matrix4.CreateTranslation((Vector2)Position);
+		Matrix4 matrix = Matrix4.Identity * Matrix4.CreateTranslation((Vector2)Position);
 		if (_flipX)
-			matrix4 *= Matrix4.CreateScale(-1.0, 1.0);
-		Vector2i position = (Vector2i)((matrix4 * Matrix4.CreateTranslation(offset)).RotateZ(0.0) * new Vector2(0.0, 100.0));
-		DustInstance dustInstance = Level.ObjectManager.AddObject(new ObjectPlacement("SONICORCA/OBJECTS/DUST", Level.Map.Layers.IndexOf(Layer), position)) as DustInstance;
-		dustInstance.SetDustAnimationIndex(1);
+			matrix *= Matrix4.CreateScale(-1.0, 1.0);
+		Vector2i position = (Vector2i)((matrix * Matrix4.CreateTranslation(offset)).RotateZ(0.0) * new Vector2(0.0, 100.0));
+		DustInstance dustInstance = Level.ObjectManager.AddObject(new ObjectPlacement(SubmarineEggmanType.DefaultBrokenSmokeResourceKey, Level.Map.Layers.IndexOf(Layer), position)) as DustInstance;
+		dustInstance.SetDustAnimationIndex(AnimationDustSmoke);
 		dustInstance.Velocity = velocity;
 	}
 
+	/// <summary>
+	/// Moves the boss up and down around the hover position.
+	/// </summary>
 	private void Hover()
 	{
 		PositionPrecise = _nonHoverPosition + new Vector2(0.0, Math.Sin(_floatOffsetAngle) / Math.PI * 16.0);
@@ -303,85 +357,79 @@ public class SubmarineEggmanInstance : BossObject
 
 	private void CreateFlameThrowerFlame()
 	{
-		SubmarineEggmanInstance.FlameThrower flameThrower = Level.ObjectManager.AddSubObject<SubmarineEggmanInstance.FlameThrower>(this);
+		FlameThrower flameThrower = Level.ObjectManager.AddSubObject<FlameThrower>(this);
 		flameThrower.FlipX = _flipX;
 		flameThrower.Position = Position + new Vector2i(_flipX ? 132 : -132, -121);
 	}
 
 	private void CreateFlameThrowerShot()
 	{
-		SubmarineEggmanInstance.FlameThrowerShot flameThrowerShot = Level.ObjectManager.AddSubObject<SubmarineEggmanInstance.FlameThrowerShot>(this);
+		FlameThrowerShot flameThrowerShot = Level.ObjectManager.AddSubObject<FlameThrowerShot>(this);
 		flameThrowerShot.FlipX = _flipX;
 		flameThrowerShot.Position = Position + new Vector2i(_flipX ? 448 : -448, -112);
-		flameThrowerShot.Velocity = new Vector2i(_flipX ? 16 /*0x10*/ : -16, 0);
+		flameThrowerShot.Velocity = new Vector2i(_flipX ? 16 : -16, 0);
 	}
 
+	/// <summary>
+	/// Throws a fireball to the left (-1) or to the right (1). The velocity depends on the pit, so that the
+	/// fireball lands on the ground next to the pit.
+	/// </summary>
 	private void CreateFireball(int direction)
 	{
-		SubmarineEggmanInstance.Fireball fireball = Level.ObjectManager.AddSubObject<SubmarineEggmanInstance.Fireball>(this);
+		Fireball fireball = Level.ObjectManager.AddSubObject<Fireball>(this);
 		fireball.IsMainFireball = true;
-		fireball.SpawnDirection = (SubmarineEggmanInstance.Fireball.FireSpawn)direction;
+		fireball.SpawnDirection = (Fireball.FireSpawn)direction;
 		fireball.Position = Position;
 		if (_isRightPit)
 		{
 			if (direction == 1)
-			{
 				fireball.Velocity = new Vector2(7.0, -25.0);
-			}
-			else
-			{
-				if (direction != -1)
-					return;
+			else if (direction == -1)
 				fireball.Velocity = new Vector2(-6.85, -25.0);
-			}
 		}
 		else if (direction == 1)
-		{
 			fireball.Velocity = new Vector2(6.7, -21.0);
-		}
-		else
-		{
-			if (direction != -1)
-				return;
+		else if (direction == -1)
 			fireball.Velocity = new Vector2(-7.0, -21.0);
-		}
 	}
 
 	protected override void Hit(ICharacter character)
 	{
 		base.Hit(character);
-		if (character.Velocity.Y < -15.125)
-			character.Velocity = new Vector2(character.Velocity.X, -15.125);
+		if (character.Velocity.Y < MaxHitBounceVelocityY)
+			character.Velocity = new Vector2(character.Velocity.X, MaxHitBounceVelocityY);
 		if (Health <= 0)
 			return;
-		_animationRobotnik.Index = 1;
+		_animationRobotnik.Index = AnimationRobotnikSmiling;
 	}
 
 	protected override void Defeat()
 	{
 		base.Defeat();
-		_state = SubmarineEggmanInstance.State.Defeated;
+		_state = State.Defeated;
 		_stateTimer = 179;
-		_animationBody.Index = 2;
-		_animationRobotnik.Index = 2;
+		_animationBody.Index = AnimationMobileBodyExploding;
+		_animationRobotnik.Index = AnimationRobotnikDefeated;
 		CollisionRectangles = new CollisionRectangle[0];
-		Level.Player.GainScore(1000);
-		Level.CreateScoreObject(1000, Position + new Vector2i(0, sbyte.MinValue));
+		Level.Player.GainScore(DefeatScore);
+		Level.CreateScoreObject(DefeatScore, Position + new Vector2i(0, -128));
 	}
 
 	private void UpdateSmoke()
 	{
 		if (Level.Random.Next(15) != 0)
 			return;
-		EmitSmoke((Vector2)new Vector2i(Level.Random.Next(sbyte.MinValue, 128 /*0x80*/), Level.Random.Next(-64, -32)), new Vector2(0.0, -4.0));
+		EmitSmoke((Vector2)new Vector2i(Level.Random.Next(-128, 128), Level.Random.Next(-64, -32)), new Vector2(0.0, -4.0));
 	}
 
-	private void ReleaseFragmentMetal(Vector2i position, double speed, int index, bool explode = true)
+	/// <summary>
+	/// Releases a broken part in a random direction.
+	/// </summary>
+	private void ReleaseFragmentMetal(Vector2i position, double speed, int index)
 	{
-		double num1 = Level.Random.NextRadians();
-		Vector2 velocity = new Vector2(speed * Math.Cos(num1), speed * Math.Sin(num1));
+		double angle = Level.Random.NextRadians();
+		Vector2 velocity = new Vector2(speed * Math.Cos(angle), speed * Math.Sin(angle));
 		ReleaseFragmentMetal(position, velocity, index);
-		int num2 = explode ? 1 : 0;
 	}
 
 	private void ReleaseFragmentMetal(Vector2i position, Vector2 velocity, int index)
@@ -421,7 +469,7 @@ public class SubmarineEggmanInstance : BossObject
 		IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
 		objectRenderer.FilterAmount *= 0.5;
 		objectRenderer.Render(_animationInside, _flipX);
-		objectRenderer.Render(_animationRobotnik, (Vector2)new Vector2i(_flipX ? 32 /*0x20*/ : -32, -42), _flipX);
+		objectRenderer.Render(_animationRobotnik, (Vector2)new Vector2i(_flipX ? 32 : -32, -42), _flipX);
 		if (IsInvincibleFlashing)
 			objectRenderer.AdditiveColour = BossObject.FlashAdditiveColour;
 		objectRenderer.Render(_animationBody, _flipX);
@@ -430,32 +478,21 @@ public class SubmarineEggmanInstance : BossObject
 		if (_currentHighlight != null)
 			objectRenderer.Render(_currentHighlight, (Vector2)new Vector2i(0, 0), _flipX);
 		objectRenderer.Render(_animationHighlightsLava, (Vector2)new Vector2i(0, 0), _flipX);
-		if (_state != SubmarineEggmanInstance.State.Defeated)
+		if (_state != State.Defeated)
 			return;
-		if (_brokenPartsA != null)
-		{
-			Vector2i brokenPartsPosition = _brokenPartsPositions[12];
-			objectRenderer.Render(_brokenPartsA, (Vector2)brokenPartsPosition, _flipX);
-		}
-		if (_brokenPartsC != null)
-		{
-			Vector2i brokenPartsPosition = _brokenPartsPositions[14];
-			objectRenderer.Render(_brokenPartsC, (Vector2)brokenPartsPosition, _flipX);
-		}
-		if (_brokenPartsD != null)
-		{
-			Vector2i brokenPartsPosition = _brokenPartsPositions[15];
-			objectRenderer.Render(_brokenPartsD, (Vector2)brokenPartsPosition, _flipX);
-		}
-		if (_brokenPartsB != null)
-		{
-			Vector2i brokenPartsPosition = _brokenPartsPositions[13];
-			objectRenderer.Render(_brokenPartsB, (Vector2)brokenPartsPosition, _flipX);
-		}
-		if (_brokenPartsE == null)
+		// Draw the broken parts that are still on the boss.
+		DrawBrokenPart(objectRenderer, _brokenPartsA, AnimationBrokenPartsLavaA);
+		DrawBrokenPart(objectRenderer, _brokenPartsC, AnimationBrokenPartsLavaC);
+		DrawBrokenPart(objectRenderer, _brokenPartsD, AnimationBrokenPartsLavaD);
+		DrawBrokenPart(objectRenderer, _brokenPartsB, AnimationBrokenPartsLavaB);
+		DrawBrokenPart(objectRenderer, _brokenPartsE, AnimationBrokenPartsLavaE);
+	}
+
+	private void DrawBrokenPart(IObjectRenderer objectRenderer, AnimationInstance brokenPart, int animationIndex)
+	{
+		if (brokenPart == null)
 			return;
-		Vector2i brokenPartsPosition1 = _brokenPartsPositions[16 /*0x10*/];
-		objectRenderer.Render(_brokenPartsE, (Vector2)brokenPartsPosition1, _flipX);
+		objectRenderer.Render(brokenPart, (Vector2)_brokenPartsPositions[animationIndex], _flipX);
 	}
 
 	private enum State
@@ -467,10 +504,19 @@ public class SubmarineEggmanInstance : BossObject
 		Defeated,
 	}
 
+	/// <summary>
+	/// The flame at the front of the flame thrower. It hurts a character that touches it while the flame is out.
+	/// </summary>
 	private class FlameThrower : ParticleObject
 	{
+		/// <summary>
+		/// The animation frame at which the flame comes out, and the frame at which it goes away.
+		/// </summary>
+		private const int FlameOutFrame = 35;
+		private const int FlameEndFrame = 50;
+
 		public FlameThrower()
-		  : base("/ANIGROUP", 5)
+			: base(SubmarineEggmanType.AnimationGroupResourceKey, AnimationFlameThrower)
 		{
 			FilterMultiplier = 0.0;
 		}
@@ -487,31 +533,26 @@ public class SubmarineEggmanInstance : BossObject
 		protected override void OnUpdate()
 		{
 			base.OnUpdate();
-			if (_animationInstance.CurrentFrameIndex == 35)
+			if (_animationInstance.CurrentFrameIndex == FlameOutFrame)
 			{
 				if (CollisionRectangles != null && CollisionRectangles.Length != 0)
 					return;
-				int x = (int)((FlipX ? -_animationInstance.CurrentFrame.Offset.X : _animationInstance.CurrentFrame.Offset.X) - _animationInstance.CurrentFrame.Source.Width / 2.0);
+				// The collision rectangle covers the middle half of the flame frame.
 				Animation.Frame currentFrame = _animationInstance.CurrentFrame;
-				double y1 = currentFrame.Offset.Y;
-				currentFrame = _animationInstance.CurrentFrame;
-				Rectanglei source = currentFrame.Source;
-				double num = source.Height / 4.0;
-				int y2 = (int)(y1 - num);
-				currentFrame = _animationInstance.CurrentFrame;
-				source = currentFrame.Source;
-				int width = source.Width;
-				currentFrame = _animationInstance.CurrentFrame;
-				source = currentFrame.Source;
-				int height = source.Height / 2;
-				CollisionRectangles = new CollisionRectangle[1]
+				int x = (int)((FlipX ? -currentFrame.Offset.X : currentFrame.Offset.X) - currentFrame.Source.Width / 2.0);
+				int y = (int)(currentFrame.Offset.Y - currentFrame.Source.Height / 4.0);
+				int width = currentFrame.Source.Width;
+				int height = currentFrame.Source.Height / 2;
+				CollisionRectangles = new CollisionRectangle[]
 				{
-		  new CollisionRectangle( this, 0, x, y2, width, height)
+					new CollisionRectangle(this, 0, x, y, width, height)
 				};
 			}
 			else
 			{
-				if (_animationInstance.CurrentFrameIndex != 50 || CollisionRectangles == null && CollisionRectangles.Length == 0)
+				// The second part of this condition has "&&" where "||" was probably intended.
+				// It throws when CollisionRectangles is null.
+				if (_animationInstance.CurrentFrameIndex != FlameEndFrame || CollisionRectangles == null && CollisionRectangles.Length == 0)
 					return;
 				CollisionRectangles = new CollisionRectangle[0];
 			}
@@ -519,7 +560,7 @@ public class SubmarineEggmanInstance : BossObject
 
 		protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 		{
-			if (_animationInstance.CurrentFrameIndex >= 35)
+			if (_animationInstance.CurrentFrameIndex >= FlameOutFrame)
 			{
 				if (!CanDraw())
 					return;
@@ -544,6 +585,9 @@ public class SubmarineEggmanInstance : BossObject
 		}
 	}
 
+	/// <summary>
+	/// The shot of the flame thrower. It moves in a straight line and hurts characters.
+	/// </summary>
 	private class FlameThrowerShot : Enemy
 	{
 		private AnimationInstance _animation;
@@ -554,14 +598,14 @@ public class SubmarineEggmanInstance : BossObject
 
 		protected override void OnStart()
 		{
-			_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"), 6);
-			CollisionRectangles = new CollisionRectangle[1]
+			_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath(SubmarineEggmanType.AnimationGroupResourceKey), AnimationFlameThrowerShot);
+			CollisionRectangles = new CollisionRectangle[]
 			{
-		new CollisionRectangle( this, 0, -16, -16, 32 /*0x20*/, 32 /*0x20*/)
+				new CollisionRectangle(this, 0, -16, -16, 32, 32)
 			};
 		}
 
-		protected override void OnUpdate() => Position = Position + Velocity;
+		protected override void OnUpdate() => Position += Velocity;
 
 		protected override void OnAnimate() => _animation.Animate();
 
@@ -573,41 +617,44 @@ public class SubmarineEggmanInstance : BossObject
 		}
 	}
 
+	/// <summary>
+	/// A fireball that the boss throws. When it lands, it turns into flames. The main fireball also starts
+	/// a row of fires on the ground.
+	/// </summary>
 	private class Fireball : Enemy
 	{
 		private const double Gravity = 0.875;
 		private AnimationInstance _currentAnimation;
 		private AnimationInstance _fireball;
 		private AnimationInstance _fireballTransition;
+
+		/// <summary>
+		/// The ticks after landing. The value starts at 10, and a fire starts at 15, 20, 25 and 29.
+		/// </summary>
 		private int _ticks = 10;
 		private int _fireInstances;
-		private SubmarineEggmanInstance.Fireball.FireSpawn _spawnDirection = SubmarineEggmanInstance.Fireball.FireSpawn.Left;
 
 		public Vector2 Velocity { get; set; }
 
 		public bool IsMainFireball { get; set; }
 
-		public SubmarineEggmanInstance.Fireball.FireSpawn SpawnDirection
-		{
-			get => _spawnDirection;
-			set => _spawnDirection = value;
-		}
+		public FireSpawn SpawnDirection { get; set; } = FireSpawn.Left;
 
 		protected override void OnStart()
 		{
-			_fireball = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"), 7);
-			_fireballTransition = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"), 17);
+			_fireball = new AnimationInstance(ResourceTree, Type.GetAbsolutePath(SubmarineEggmanType.AnimationGroupResourceKey), AnimationFireball);
+			_fireballTransition = new AnimationInstance(ResourceTree, Type.GetAbsolutePath(SubmarineEggmanType.AnimationGroupResourceKey), AnimationFireballTransition);
 			_currentAnimation = _fireball;
-			CollisionRectangles = new CollisionRectangle[1]
+			CollisionRectangles = new CollisionRectangle[]
 			{
-		new CollisionRectangle( this, 0, -32, -32, 64 /*0x40*/, 64 /*0x40*/)
+				new CollisionRectangle(this, 0, -32, -32, 64, 64)
 			};
 		}
 
 		protected override void OnUpdate()
 		{
-			PositionPrecise = PositionPrecise + Velocity;
-			Velocity += new Vector2(0.0, 0.875);
+			PositionPrecise += Velocity;
+			Velocity += new Vector2(0.0, Gravity);
 			if (!IsTouchingGround())
 				return;
 			Velocity = new Vector2(0.0, 0.0);
@@ -616,46 +663,40 @@ public class SubmarineEggmanInstance : BossObject
 			if (!IsMainFireball)
 				return;
 			++_ticks;
-			if (_ticks == 15)
+			if (_ticks == 15 || _ticks == 20 || _ticks == 25 || _ticks == 29)
 				CreateFire();
-			else if (_ticks == 20)
-				CreateFire();
-			else if (_ticks == 25)
-			{
-				CreateFire();
-			}
-			else
-			{
-				if (_ticks != 29)
-					return;
-				CreateFire();
-			}
 		}
 
+		/// <summary>
+		/// Starts a fire on the ground. Each fire is one fire width further in the spawn direction.
+		/// </summary>
 		private void CreateFire()
 		{
-			SubmarineEggmanInstance.Fire fire = Level.ObjectManager.AddSubObject<SubmarineEggmanInstance.Fire>(ParentObject);
+			Fire fire = Level.ObjectManager.AddSubObject<Fire>(ParentObject);
 			fire.Position = Position + new Vector2i(_fireInstances * fire.DesignBounds.Width * (int)SpawnDirection, 0);
 			fire.BubbleLeftCount = 4;
 			fire.BubbleRightCount = 4;
-			fire.Priority = 1024 /*0x0400*/;
+			fire.Priority = 1024;
 			fire.Layer = Level.Map.Layers[Level.Map.Layers.Count - 1];
-			Level.SoundManager.PlaySound(Position, Type.GetAbsolutePath("SONICORCA/SOUND/FIREBURN"));
+			Level.SoundManager.PlaySound(Position, Type.GetAbsolutePath(SubmarineEggmanType.FireBurnSoundResourceKey));
 			++_fireInstances;
 		}
 
+		/// <summary>
+		/// Moves the fireball up onto the ground. Returns true when the fireball touches the ground.
+		/// </summary>
 		private bool IsTouchingGround()
 		{
-			bool flag = false;
-			foreach (CollisionInfo collision in CollisionVector.GetCollisions(this, 32 /*0x20*/))
+			bool touching = false;
+			foreach (CollisionInfo collision in CollisionVector.GetCollisions(this, 32))
 			{
 				if (collision.Vector.Owner == null && !collision.Vector.IsWall)
 				{
 					PositionPrecise = new Vector2(PositionPrecise.X, PositionPrecise.Y + collision.Shift);
-					flag = true;
+					touching = true;
 				}
 			}
-			return flag;
+			return touching;
 		}
 
 		protected override void OnAnimate()
@@ -676,11 +717,12 @@ public class SubmarineEggmanInstance : BossObject
 				return;
 			if (_currentAnimation == _fireballTransition)
 			{
-				bool flipX = SpawnDirection == SubmarineEggmanInstance.Fireball.FireSpawn.Right;
+				bool flipX = SpawnDirection == FireSpawn.Right;
 				objectRenderer.Render(_currentAnimation, new Vector2(flipX ? 80.0 : -80.0, -8.0), flipX);
 			}
 			else
 			{
+				// Turn the fireball so that it points in the direction of travel.
 				double angle = Velocity.Angle + 6.0 * Math.PI / 5.0;
 				using (objectRenderer.BeginMatixState())
 				{
@@ -692,13 +734,21 @@ public class SubmarineEggmanInstance : BossObject
 
 		public enum FireSpawn
 		{
-			Left = -1, // 0xFFFFFFFF
+			Left = -1,
 			Right = 1,
 		}
 	}
 
+	/// <summary>
+	/// A fire on the ground. It spreads one time to the left and to the right, and each new fire spreads
+	/// one less time in the same direction.
+	/// </summary>
 	private class Fire : Enemy
 	{
+		private const int LifetimeTicks = 74;
+		private const int SpreadTick = 66;
+		private const int SpreadDistance = 64;
+
 		private AnimationInstance _currentAnimation;
 		private AnimationInstance _fireballIntro;
 		private AnimationInstance _fireballEnd;
@@ -710,26 +760,26 @@ public class SubmarineEggmanInstance : BossObject
 
 		protected override void OnStart()
 		{
-			_fireballIntro = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"), 18);
-			_fireballEnd = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"), 19);
+			_fireballIntro = new AnimationInstance(ResourceTree, Type.GetAbsolutePath(SubmarineEggmanType.AnimationGroupResourceKey), AnimationFireballIntro);
+			_fireballEnd = new AnimationInstance(ResourceTree, Type.GetAbsolutePath(SubmarineEggmanType.AnimationGroupResourceKey), AnimationFireballEnd);
 			_currentAnimation = _fireballIntro;
-			CollisionRectangles = new CollisionRectangle[1]
+			CollisionRectangles = new CollisionRectangle[]
 			{
-		new CollisionRectangle( this, 0, -32, -32, 64 /*0x40*/, 64 /*0x40*/)
+				new CollisionRectangle(this, 0, -32, -32, 64, 64)
 			};
-			_timer = 74;
+			_timer = LifetimeTicks;
 		}
 
 		protected override void OnUpdate()
 		{
 			--_timer;
-			if (_timer == 66)
+			if (_timer == SpreadTick)
 			{
 				if (BubbleLeftCount > 0)
-					BubbleFire(Position + new Vector2i(-64, 0), BubbleLeftCount--, 0);
+					BubbleFire(Position + new Vector2i(-SpreadDistance, 0), BubbleLeftCount--, 0);
 				if (BubbleRightCount <= 0)
 					return;
-				BubbleFire(Position + new Vector2i(64 /*0x40*/, 0), 0, BubbleRightCount--);
+				BubbleFire(Position + new Vector2i(SpreadDistance, 0), 0, BubbleRightCount--);
 			}
 			else
 			{
@@ -743,24 +793,27 @@ public class SubmarineEggmanInstance : BossObject
 		{
 			if (!IsGroundBelow(ref bubblePosition))
 				return;
-			SubmarineEggmanInstance.Fire fire = Level.ObjectManager.AddSubObject<SubmarineEggmanInstance.Fire>(ParentObject);
+			Fire fire = Level.ObjectManager.AddSubObject<Fire>(ParentObject);
 			fire.Position = bubblePosition;
 			fire.BubbleLeftCount = leftCount;
 			fire.BubbleRightCount = rightCount;
 		}
 
-		private bool IsGroundBelow(ref Vector2i postion)
+		/// <summary>
+		/// Moves the position by the collision shift. The collisions are for this fire, not for the new position.
+		/// </summary>
+		private bool IsGroundBelow(ref Vector2i position)
 		{
-			bool flag = false;
-			foreach (CollisionInfo collision in CollisionVector.GetCollisions(this, 32 /*0x20*/))
+			bool groundBelow = false;
+			foreach (CollisionInfo collision in CollisionVector.GetCollisions(this, 32))
 			{
 				if (collision.Vector.Owner == null && !collision.Vector.IsWall)
 				{
-					postion.Y += (int)collision.Shift;
-					flag = true;
+					position.Y += (int)collision.Shift;
+					groundBelow = true;
 				}
 			}
-			return flag;
+			return groundBelow;
 		}
 
 		protected override void OnAnimate()

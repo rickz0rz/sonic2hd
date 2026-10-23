@@ -19,32 +19,102 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.LEVELS.HTZ.AREA;
 
+/// <summary>
+/// The area for Hill Top Zone. It sets the act bounds and music, makes characters darker inside caves,
+/// and makes characters brighter near lava. In act 2 it runs the Submarine Eggman boss fight.
+/// </summary>
 public class HillTopZoneArea : Area
 {
 	private const string TileSetResourceKey = "//TILESET";
 	private const string MapResourceKey = "//MAP";
 	private const string BindingResourceKey = "//BINDING";
 	private const string BossObjectResourceKey = "SONICORCA/OBJECTS/SUBMARINEEGGMAN";
-	private static IReadOnlyList<string> AnimalResourceKeys = new string[2]
+	private static IReadOnlyList<string> AnimalResourceKeys = new string[]
 	{
-	"SONICORCA/OBJECTS/LOCKY",
-	"SONICORCA/OBJECTS/WOCKY"
+		"SONICORCA/OBJECTS/LOCKY",
+		"SONICORCA/OBJECTS/WOCKY"
 	};
 	private const string Act1MusicResourceKey = "SONICORCA/MUSIC/LEVELS/HTZ/COOPERATIVE/ACT1";
 	private const string Act2MusicResourceKey = "SONICORCA/MUSIC/LEVELS/HTZ/COOPERATIVE/ACT2";
 	private const string BossMusicResourceKey = "SONICORCA/MUSIC/BOSS/S2";
-	private const string DendaleonResourceKey = "SONICORCA/PARTICLE/DENDALEON";
-	public static IReadOnlyList<string> AreaDependencies = (new string[8]
+	private const string DandelionResourceKey = "SONICORCA/PARTICLE/DENDALEON";
+	private const string LavaObjectResourceKey = "SONICORCA/OBJECTS/LAVA";
+
+	// AnimalResourceKeys must stay above AreaDependencies, because static fields are set in the order of the source.
+	public static IReadOnlyList<string> AreaDependencies = new string[]
 	{
-	"//TILESET",
-	"//MAP",
-	"//BINDING",
-	"SONICORCA/OBJECTS/SUBMARINEEGGMAN",
-	"SONICORCA/MUSIC/LEVELS/HTZ/COOPERATIVE/ACT1",
-	"SONICORCA/MUSIC/LEVELS/HTZ/COOPERATIVE/ACT2",
-	"SONICORCA/MUSIC/BOSS/S2",
-	"SONICORCA/PARTICLE/DENDALEON"
-	}).Concat<string>(AnimalResourceKeys).ToArray<string>();
+		TileSetResourceKey,
+		MapResourceKey,
+		BindingResourceKey,
+		BossObjectResourceKey,
+		Act1MusicResourceKey,
+		Act2MusicResourceKey,
+		BossMusicResourceKey,
+		DandelionResourceKey
+	}.Concat(AnimalResourceKeys).ToArray();
+
+	/// <summary>
+	/// The distance between the bottom of the map and the bottom of the act bounds.
+	/// </summary>
+	private const int BoundsBottomMargin = 64;
+
+	/// <summary>
+	/// The distance that the boss arena bounds extend past the left and right boss markers.
+	/// </summary>
+	private const int BossArenaMargin = 68;
+
+	/// <summary>
+	/// The number of ticks between the boss arena lock and the boss spawn.
+	/// </summary>
+	private const int BossSpawnDelay = 90;
+
+	/// <summary>
+	/// The speed at which the bounds move after the boss flees.
+	/// </summary>
+	private const double BoundsOpenSpeed = 8.0;
+
+	/// <summary>
+	/// The protagonist position after the boss arena at which the bottom of the bounds starts to move up,
+	/// and the largest distance that it moves up.
+	/// </summary>
+	private const int BoundsRaiseStartX = 95700;
+	private const int BoundsRaiseDistance = 3000;
+
+	/// <summary>
+	/// The distance into an inside marker, after the marker shrinks by <see cref="LightingMarkerInset"/>,
+	/// at which a character becomes fully dark.
+	/// </summary>
+	private const int LightingFadeDistance = 64;
+	private const int LightingMarkerInset = 32;
+	private const float InsideBrightness = -0.41f;
+	private const double LavaBrightness = 0.4;
+	private const float LavaMaxBrightness = 0.4f;
+
+	/// <summary>
+	/// The height above the lava surface that the lava glow reaches.
+	/// </summary>
+	private const int LavaGlowHeight = 256;
+
+	/// <summary>
+	/// The map layer that the dandelion particles are on.
+	/// </summary>
+	private const int DandelionLayerIndex = 21;
+
+	/// <summary>
+	/// The number of ticks between two dandelion particles.
+	/// </summary>
+	private const int DandelionInterval = 8;
+
+	/// <summary>
+	/// The number of ticks that <see cref="InitialiseDandelions"/> runs the particle manager in advance.
+	/// </summary>
+	private const int DandelionWarmUpTicks = 300;
+
+	/// <summary>
+	/// The camera position after which the dandelion particles appear.
+	/// </summary>
+	private const double DandelionStartX = 32000.0;
+
 	private SonicOrcaGameContext _gameContext;
 	private Level _level;
 	private int _state;
@@ -55,23 +125,25 @@ public class HillTopZoneArea : Area
 	private LevelLayer _lavaLayerB;
 	private LevelMarker[] _insideAreaMarkers;
 	private LevelMarker[] _lavaCaveAreaMarkers;
+
+	// The value starts at -1, and no code sets it to 0. Thus the time of day logic in OnUpdate does not run.
 	private int _timeOfDayState = -1;
-	private ITexture _dendaleonTexture;
+	private ITexture _dandelionTexture;
 
 	public override IEnumerable<KeyValuePair<string, object>> StateVariables
 	{
 		get
 		{
-			return new KeyValuePair<string, object>[2]
+			return new KeyValuePair<string, object>[]
 			{
-		new KeyValuePair<string, object>("STATE",  _state),
-		new KeyValuePair<string, object>("BOSS DEFEATED",  _bossDefeated)
+				new KeyValuePair<string, object>("STATE", _state),
+				new KeyValuePair<string, object>("BOSS DEFEATED", _bossDefeated)
 			};
 		}
 	}
 
 	public HillTopZoneArea()
-	  : base(AreaDependencies)
+		: base(AreaDependencies)
 	{
 	}
 
@@ -86,9 +158,9 @@ public class HillTopZoneArea : Area
 		_level.AnimalResourceKeys = AnimalResourceKeys;
 		if (!settings.Seamless)
 		{
-			_level.TileSet = _gameContext.ResourceTree.GetLoadedResource<TileSet>(this, "//TILESET");
-			_level.LoadMap(_gameContext.ResourceTree.GetLoadedResource<LevelMap>(this, "//MAP"));
-			_level.LoadBinding(_gameContext.ResourceTree.GetLoadedResource<LevelBinding>(this, "//BINDING"));
+			_level.TileSet = _gameContext.ResourceTree.GetLoadedResource<TileSet>(this, TileSetResourceKey);
+			_level.LoadMap(_gameContext.ResourceTree.GetLoadedResource<LevelMap>(this, MapResourceKey));
+			_level.LoadBinding(_gameContext.ResourceTree.GetLoadedResource<LevelBinding>(this, BindingResourceKey));
 		}
 		if (settings.Act == 1)
 			PrepareAct1();
@@ -104,7 +176,7 @@ public class HillTopZoneArea : Area
 
 	private void PrepareAct1()
 	{
-		_level.LevelMusic = "SONICORCA/MUSIC/LEVELS/HTZ/COOPERATIVE/ACT1";
+		_level.LevelMusic = Act1MusicResourceKey;
 		_level.CurrentAct = 1;
 		_level.SetStartPosition("startpos_stk_1");
 		_level.Bounds = GetAct1Bounds();
@@ -113,7 +185,7 @@ public class HillTopZoneArea : Area
 
 	private void PrepareAct2()
 	{
-		_level.LevelMusic = "SONICORCA/MUSIC/LEVELS/HTZ/COOPERATIVE/ACT2";
+		_level.LevelMusic = Act2MusicResourceKey;
 		_level.CurrentAct = 2;
 		_level.SetStartPosition("startpos_stk_2");
 		_level.Bounds = GetAct2Bounds();
@@ -124,7 +196,7 @@ public class HillTopZoneArea : Area
 
 	private void SeamlessPrepareAct2()
 	{
-		_level.LevelMusic = "SONICORCA/MUSIC/LEVELS/HTZ/COOPERATIVE/ACT2";
+		_level.LevelMusic = Act2MusicResourceKey;
 		_level.CurrentAct = 2;
 		Rectanglei act2Bounds = GetAct2Bounds();
 		_level.RingsPerfectTarget = _level.ObjectManager.ObjectEntryTable.GetRingCountInRegion(act2Bounds);
@@ -150,25 +222,16 @@ public class HillTopZoneArea : Area
 		{
 			case 0:
 				if (position.X > 22272.0)
-				{
 					_timeOfDayState = 1;
-					break;
-				}
 				break;
 			case 1:
 				if (position.Y > 4480.0)
-				{
 					_timeOfDayState = 2;
-					break;
-				}
 				break;
 			case 2:
 				_level.NightMode = MathX.Clamp(_level.NightMode, (position.X - 19456.0) / 14784.0, 1.0);
 				if (_level.NightMode >= 1.0)
-				{
 					_timeOfDayState = 3;
-					break;
-				}
 				break;
 			case 3:
 				_level.NightMode = MathX.Clamp(_level.NightMode, (position.X - 0.0) / 98816.0, 1.0);
@@ -183,34 +246,36 @@ public class HillTopZoneArea : Area
 	private void SpawnBoss()
 	{
 		LevelMarker marker = _level.GetMarker("boss_position");
-		_bossObject = _level.ObjectManager.AddObject(new ObjectPlacement(this.GetAbsolutePath("SONICORCA/OBJECTS/SUBMARINEEGGMAN"), _level.Map.Layers.IndexOf(marker.Layer), marker.Position)) as BossObject;
+		_bossObject = _level.ObjectManager.AddObject(new ObjectPlacement(this.GetAbsolutePath(BossObjectResourceKey), _level.Map.Layers.IndexOf(marker.Layer), marker.Position)) as BossObject;
 	}
 
 	private Rectanglei GetAct1Bounds()
 	{
-		return Rectanglei.FromLTRB(0, 0, _level.GetMarker("bounds_1_r").Position.X, _level.Map.Bounds.Height - 64 /*0x40*/);
+		return Rectanglei.FromLTRB(0, 0, _level.GetMarker("bounds_1_r").Position.X, _level.Map.Bounds.Height - BoundsBottomMargin);
 	}
 
 	private Rectanglei GetAct2Bounds()
 	{
-		int x = _level.GetMarker("bounds_2_l").Position.X;
-		Rectanglei bounds = _level.Map.Bounds;
-		int width = bounds.Width;
-		bounds = _level.Map.Bounds;
-		int bottom = bounds.Height - 64 /*0x40*/;
-		return Rectanglei.FromLTRB(x, 0, width, bottom);
+		int left = _level.GetMarker("bounds_2_l").Position.X;
+		int right = _level.Map.Bounds.Width;
+		int bottom = _level.Map.Bounds.Height - BoundsBottomMargin;
+		return Rectanglei.FromLTRB(left, 0, right, bottom);
 	}
 
+	/// <summary>
+	/// Runs the boss fight in act 2. The states start at 6.
+	/// </summary>
 	private void Act2Events()
 	{
 		if (_state < 6)
 		{
-			Vector2i position = _level.GetMarker("boss_oneway").Position;
-			if (_level.Camera.Bounds.Left >= position.X)
+			// When the camera passes the one-way marker, the player cannot go back to the left.
+			Vector2i oneWayPosition = _level.GetMarker("boss_oneway").Position;
+			if (_level.Camera.Bounds.Left >= oneWayPosition.X)
 			{
 				_level.Bounds = (Rectanglei)((Rectangle)_level.Bounds with
 				{
-					Left = position.X,
+					Left = oneWayPosition.X,
 					Bottom = _level.Camera.Bounds.Bottom
 				});
 				_state = 6;
@@ -219,26 +284,29 @@ public class HillTopZoneArea : Area
 		switch (_state)
 		{
 			case 6:
-				int y = _level.GetMarker("boss_oneway").Position.Y;
-				int num1 = _level.GetMarker("boss_left").Position.X - 68;
-				int num2 = _level.GetMarker("boss_right").Position.X + 68;
-				if (_level.Camera.Bounds.Left >= num1)
 				{
-					_level.Bounds = (Rectanglei)((Rectangle)_level.Bounds with
+					// Move the bottom of the bounds up to the arena. When the camera reaches the arena, lock it.
+					int arenaBottom = _level.GetMarker("boss_oneway").Position.Y;
+					int arenaLeft = _level.GetMarker("boss_left").Position.X - BossArenaMargin;
+					int arenaRight = _level.GetMarker("boss_right").Position.X + BossArenaMargin;
+					if (_level.Camera.Bounds.Left >= arenaLeft)
 					{
-						Left = num1,
-						Right = num2,
-						Bottom = y
-					});
-					_level.SoundManager.CrossFadeMusic(this.GetAbsolutePath("SONICORCA/MUSIC/BOSS/S2"));
-					_stateTimer = 90;
-					++_state;
+						_level.Bounds = (Rectanglei)((Rectangle)_level.Bounds with
+						{
+							Left = arenaLeft,
+							Right = arenaRight,
+							Bottom = arenaBottom
+						});
+						_level.SoundManager.CrossFadeMusic(this.GetAbsolutePath(BossMusicResourceKey));
+						_stateTimer = BossSpawnDelay;
+						++_state;
+						break;
+					}
+					Rectangle bounds = (Rectangle)_level.Bounds;
+					bounds.Bottom = MathX.GoTowards(bounds.Bottom, arenaBottom, 2.0);
+					_level.Bounds = (Rectanglei)bounds;
 					break;
 				}
-				Rectangle bounds1 = (Rectangle)_level.Bounds;
-				bounds1.Bottom = MathX.GoTowards(bounds1.Bottom, y, 2.0);
-				_level.Bounds = (Rectanglei)bounds1;
-				break;
 			case 7:
 				--_stateTimer;
 				if (_stateTimer > 0)
@@ -247,28 +315,33 @@ public class HillTopZoneArea : Area
 				++_state;
 				break;
 			case 8:
+				// The boss fight. When the boss is defeated, play the level music again.
 				if (!_bossDefeated && _bossObject != null && _bossObject.Defeated)
 				{
 					_bossDefeated = true;
-					_level.SoundManager.PlayMusic(this.GetAbsolutePath("SONICORCA/MUSIC/LEVELS/HTZ/COOPERATIVE/ACT2"));
+					_level.SoundManager.PlayMusic(this.GetAbsolutePath(Act2MusicResourceKey));
 				}
 				if (_bossObject == null || !_bossObject.Fleeing)
 					break;
 				++_state;
 				break;
 			case 9:
-				Rectangle bounds2 = (Rectangle)_level.Bounds;
-				bounds2.Right = Math.Min(bounds2.Right + 8.0, GetAct2Bounds().Right);
-				bounds2.Left = GetAct2Bounds().Left;
-				bounds2.Left = Math.Max(bounds2.Left, _level.Camera.Bounds.Left);
-				if (_level.Player.Protagonist.Position.X >= 95700)
-					bounds2.Bottom = Math.Max(bounds2.Bottom - 8.0, GetAct2Bounds().Bottom - 3000);
-				_level.Bounds = (Rectanglei)bounds2;
-				break;
+				{
+					// Open the bounds to the right. After the arena, move the bottom of the bounds up.
+					Rectangle bounds = (Rectangle)_level.Bounds;
+					bounds.Right = Math.Min(bounds.Right + BoundsOpenSpeed, GetAct2Bounds().Right);
+					bounds.Left = GetAct2Bounds().Left;
+					bounds.Left = Math.Max(bounds.Left, _level.Camera.Bounds.Left);
+					if (_level.Player.Protagonist.Position.X >= BoundsRaiseStartX)
+						bounds.Bottom = Math.Max(bounds.Bottom - BoundsOpenSpeed, GetAct2Bounds().Bottom - BoundsRaiseDistance);
+					_level.Bounds = (Rectanglei)bounds;
+					break;
+				}
 		}
 	}
 
-	private void UpdateLayerVisibillity()
+	// Not called. It shows the lava cave layers only when the camera is in a lava cave area.
+	private void UpdateLayerVisibility()
 	{
 		Rectanglei bounds = (Rectanglei)_level.Camera.Bounds;
 		foreach (LevelMarker lavaCaveAreaMarker in _lavaCaveAreaMarkers)
@@ -288,166 +361,141 @@ public class HillTopZoneArea : Area
 		_lavaLayerB.Visible = value;
 	}
 
-	private void InitialiseDendaleons()
+	// Not called. It adds dandelion particles and runs the particle manager in advance,
+	// so that the particles are already on the screen.
+	private void InitialiseDandelions()
 	{
-		if (_dendaleonTexture == null)
-			_dendaleonTexture = _gameContext.ResourceTree.GetLoadedResource<ITexture>("SONICORCA/PARTICLE/DENDALEON");
-		if (!ShouldCreateDendaleons())
+		if (_dandelionTexture == null)
+			_dandelionTexture = _gameContext.ResourceTree.GetLoadedResource<ITexture>(DandelionResourceKey);
+		if (!ShouldCreateDandelions())
 			return;
-		int num = 300;
 		ParticleManager particleManager = _level.ParticleManager;
-		for (int index = 0; index < num; ++index)
+		for (int tick = 0; tick < DandelionWarmUpTicks; ++tick)
 		{
-			if (index % 8 == 0)
+			if (tick % DandelionInterval == 0)
 				particleManager.Add(CreateParticle());
 			particleManager.Update();
 		}
 	}
 
-	private void UpdateDendaleons()
+	// Not called. It adds a dandelion particle at a fixed interval.
+	private void UpdateDandelions()
 	{
-		if (!ShouldCreateDendaleons() || _level.Ticks % 8 != 0)
+		if (!ShouldCreateDandelions() || _level.Ticks % DandelionInterval != 0)
 			return;
 		_level.ParticleManager.Add(CreateParticle());
 	}
 
+	/// <summary>
+	/// Creates a dandelion particle in a band to the right of the camera. Smaller particles move slower.
+	/// </summary>
 	private Particle CreateParticle()
 	{
 		Random random = _level.Random;
-		Rectanglei bounds = (Rectanglei)_level.Camera.Bounds;
-		Rectanglei rectanglei = new Rectanglei(bounds.Right, bounds.Top + 4, 128 /*0x80*/, bounds.Height - 8);
-		int x = _level.Random.Next(rectanglei.Left, rectanglei.Right);
-		int y = _level.Random.Next(rectanglei.Top, rectanglei.Bottom);
-		double num1 = _level.Random.NextDouble(0.1, 0.7);
-		double num2 = MathX.Lerp(2.0, 18.0, (num1 - 0.1) / 0.6);
+		Rectanglei cameraBounds = (Rectanglei)_level.Camera.Bounds;
+		Rectanglei spawnArea = new Rectanglei(cameraBounds.Right, cameraBounds.Top + 4, 128, cameraBounds.Height - 8);
+		int x = _level.Random.Next(spawnArea.Left, spawnArea.Right);
+		int y = _level.Random.Next(spawnArea.Top, spawnArea.Bottom);
+		double size = _level.Random.NextDouble(0.1, 0.7);
+		double speed = MathX.Lerp(2.0, 18.0, (size - 0.1) / 0.6);
 		return new Particle()
 		{
 			Type = ParticleType.Custom,
 			Time = 1200,
-			Velocity = new Vector2(-num2, _level.Random.NextDouble(-2.0, 2.0)),
+			Velocity = new Vector2(-speed, _level.Random.NextDouble(-2.0, 2.0)),
 			Angle = random.NextDouble(2.0 * Math.PI),
 			AngularVelocity = random.NextDouble(0.05, 0.1),
-			CustomTexture = _dendaleonTexture,
+			CustomTexture = _dandelionTexture,
 			Position = new Vector2(x, y),
-			Layer = _level.Map.Layers[21],
-			Size = num1
+			Layer = _level.Map.Layers[DandelionLayerIndex],
+			Size = size
 		};
 	}
 
-	private bool ShouldCreateDendaleons() => _level.Camera.Bounds.Right > 32000.0;
+	private bool ShouldCreateDandelions() => _level.Camera.Bounds.Right > DandelionStartX;
 
+	/// <summary>
+	/// Makes each character darker when it is inside an area that has an "inside" marker.
+	/// The character becomes darker gradually near the edge of the area.
+	/// </summary>
 	private void UpdateInsideLighting()
 	{
 		foreach (ICharacter character in _level.ObjectManager.Characters)
 		{
-			float val2_1 = 0.0f;
+			float brightness = 0.0f;
 			foreach (LevelMarker insideAreaMarker in _insideAreaMarkers)
 			{
-				Rectanglei rectanglei = insideAreaMarker.Bounds;
-				rectanglei = rectanglei.Inflate(new Vector2i(-32, -32));
-				Vector2i position = character.Position;
-				int val1;
-				if (position.X < rectanglei.X + rectanglei.Width / 2)
+				Rectanglei insideBounds = insideAreaMarker.Bounds.Inflate(new Vector2i(-LightingMarkerInset, -LightingMarkerInset));
+				int edgeDistance = Math.Min(GetHorizontalEdgeDistance(insideBounds, character.Position), GetVerticalEdgeDistance(insideBounds, character.Position));
+				if (edgeDistance >= -LightingFadeDistance)
 				{
-					position = character.Position;
-					val1 = position.X - rectanglei.Left;
-				}
-				else
-				{
-					int right = rectanglei.Right;
-					position = character.Position;
-					int x = position.X;
-					val1 = right - x;
-				}
-				position = character.Position;
-				int num1;
-				if (position.Y < rectanglei.Y + rectanglei.Height / 2)
-				{
-					position = character.Position;
-					num1 = position.Y - rectanglei.Top;
-				}
-				else
-				{
-					int bottom = rectanglei.Bottom;
-					position = character.Position;
-					int y = position.Y;
-					num1 = bottom - y;
-				}
-				int val2_2 = num1;
-				int num2 = Math.Min(val1, val2_2);
-				if (num2 >= -64)
-				{
-					float num3 = (float)MathX.Clamp(0.0, (num2 + 64 /*0x40*/) / 64.0, 1.0);
-					if ((double)num3 == 1.0)
+					float darkness = (float)MathX.Clamp(0.0, (edgeDistance + LightingFadeDistance) / 64.0, 1.0);
+					if (darkness == 1.0)
 					{
-						val2_1 = -0.41f;
+						brightness = InsideBrightness;
 						break;
 					}
-					val2_1 = Math.Min(num3 * -0.41f, val2_1);
+					brightness = Math.Min(darkness * InsideBrightness, brightness);
 				}
 			}
-			character.Brightness = val2_1;
+			character.Brightness = brightness;
 		}
 	}
 
+	/// <summary>
+	/// Makes each character brighter when it is near the surface of a lava object.
+	/// This runs after <see cref="UpdateInsideLighting"/> and adds to its brightness.
+	/// </summary>
 	private void UpdateLavaGlow()
 	{
-		ObjectType objectType = _level.ObjectManager.RegisteredTypes.FirstOrDefault<ObjectType>(x => x.ResourceKey == "SONICORCA/OBJECTS/LAVA");
-		List<Rectanglei> rectangleiList = new List<Rectanglei>();
-		if (objectType != null)
+		ObjectType lavaType = _level.ObjectManager.RegisteredTypes.FirstOrDefault(x => x.ResourceKey == LavaObjectResourceKey);
+		List<Rectanglei> glowAreas = new List<Rectanglei>();
+		if (lavaType != null)
 		{
-			foreach (ActiveObject activeObject in (IEnumerable<ActiveObject>)_level.ObjectManager.ActiveObjects)
+			foreach (ActiveObject activeObject in _level.ObjectManager.ActiveObjects)
 			{
-				if (activeObject.Type == objectType && activeObject.CollisionVectors.Length >= 2)
+				if (activeObject.Type == lavaType && activeObject.CollisionVectors.Length >= 2)
 				{
-					CollisionVector collisionVector = activeObject.CollisionVectors[1];
-					Vector2i vector2i = collisionVector.AbsoluteA;
-					int x1 = vector2i.X;
-					vector2i = collisionVector.AbsoluteA;
-					int top = vector2i.Y - 256 /*0x0100*/;
-					vector2i = collisionVector.AbsoluteB;
-					int x2 = vector2i.X;
-					vector2i = collisionVector.AbsoluteB;
-					int y = vector2i.Y;
-					Rectanglei rectanglei = Rectanglei.FromLTRB(x1, top, x2, y).Inflate(new Vector2i(-32, 32 /*0x20*/));
-					rectangleiList.Add(rectanglei);
+					// The second collision vector is the lava surface. The glow area is above it.
+					CollisionVector surface = activeObject.CollisionVectors[1];
+					Rectanglei glowArea = Rectanglei.FromLTRB(surface.AbsoluteA.X, surface.AbsoluteA.Y - LavaGlowHeight, surface.AbsoluteB.X, surface.AbsoluteB.Y).Inflate(new Vector2i(-32, 32));
+					glowAreas.Add(glowArea);
 				}
 			}
 		}
 		foreach (ICharacter character in _level.ObjectManager.Characters)
 		{
-			float num1 = 0.0f;
-			foreach (Rectanglei rectanglei in rectangleiList)
+			float glow = 0.0f;
+			foreach (Rectanglei glowArea in glowAreas)
 			{
-				Vector2i position;
-				int num2;
-				if (character.Position.X < rectanglei.X + rectanglei.Width / 2)
-				{
-					position = character.Position;
-					num2 = position.X - rectanglei.Left;
-				}
-				else
-					num2 = rectanglei.Right - character.Position.X;
-				int num3 = num2;
-				position = character.Position;
-				int num4;
-				if (position.Y < rectanglei.Y + rectanglei.Height / 2)
-				{
-					position = character.Position;
-					num4 = position.Y - rectanglei.Top;
-				}
-				else
-				{
-					int bottom = rectanglei.Bottom;
-					position = character.Position;
-					int y = position.Y;
-					num4 = bottom - y;
-				}
-				int num5 = num4;
-				if (num3 >= -64 && num5 >= -64)
-					num1 = Math.Min((float)(MathX.Clamp(0.0, (num3 + 64 /*0x40*/) / 64.0, 1.0) * 0.4), (float)(MathX.Clamp(0.0, (num5 + 64 /*0x40*/) / (double)rectanglei.Height, 1.0) * 0.4));
+				int distanceX = GetHorizontalEdgeDistance(glowArea, character.Position);
+				int distanceY = GetVerticalEdgeDistance(glowArea, character.Position);
+				if (distanceX >= -LightingFadeDistance && distanceY >= -LightingFadeDistance)
+					glow = Math.Min((float)(MathX.Clamp(0.0, (distanceX + LightingFadeDistance) / 64.0, 1.0) * LavaBrightness), (float)(MathX.Clamp(0.0, (distanceY + LightingFadeDistance) / (double)glowArea.Height, 1.0) * LavaBrightness));
 			}
-			character.Brightness = Math.Min(character.Brightness + num1 * 2f, 0.4f);
+			character.Brightness = Math.Min(character.Brightness + glow * 2f, LavaMaxBrightness);
 		}
+	}
+
+	/// <summary>
+	/// Gets the distance from the position to the nearest left or right edge of the rectangle.
+	/// The value is positive when the position is inside the rectangle horizontally.
+	/// </summary>
+	private static int GetHorizontalEdgeDistance(Rectanglei rect, Vector2i position)
+	{
+		if (position.X < rect.X + rect.Width / 2)
+			return position.X - rect.Left;
+		return rect.Right - position.X;
+	}
+
+	/// <summary>
+	/// Gets the distance from the position to the nearest top or bottom edge of the rectangle.
+	/// The value is positive when the position is inside the rectangle vertically.
+	/// </summary>
+	private static int GetVerticalEdgeDistance(Rectanglei rect, Vector2i position)
+	{
+		if (position.Y < rect.Y + rect.Height / 2)
+			return position.Y - rect.Top;
+		return rect.Bottom - position.Y;
 	}
 }

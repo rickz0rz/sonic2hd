@@ -13,25 +13,31 @@ using SonicOrca.Resources;
 #nullable disable
 namespace SONICORCA.LEVELS.WFZ.AREA;
 
+/// <summary>
+/// The area for Wing Fortress Zone. It loads the tile set, the map and the binding, and sets the level music.
+/// The level bounds are the bounds of the map.
+/// </summary>
 public class WingFortressZoneArea : Area
 {
 	private const string TileSetResourceKey = "//TILESET";
 	private const string MapResourceKey = "//MAP";
 	private const string BindingResourceKey = "//BINDING";
 	private const string LevelMusicResourceKey = "SONICORCA/MUSIC/LEVELS/WFZ";
-	public static IReadOnlyList<string> AreaDependencies = (new string[4]
+
+	public static IReadOnlyList<string> AreaDependencies = new string[]
 	{
-	"//TILESET",
-	"//MAP",
-	"//BINDING",
-	"SONICORCA/MUSIC/LEVELS/WFZ"
-	}).ToArray<string>();
+		TileSetResourceKey,
+		MapResourceKey,
+		BindingResourceKey,
+		LevelMusicResourceKey
+	}.ToArray();
+
 	private SonicOrcaGameContext _gameContext;
 	private ResourceTree _resourceTree;
 	private Level _level;
 
 	public WingFortressZoneArea()
-	  : base(AreaDependencies)
+		: base(AreaDependencies)
 	{
 	}
 
@@ -44,12 +50,12 @@ public class WingFortressZoneArea : Area
 		_level.ShowAsZone = true;
 		_level.ShowAsAct = true;
 		_level.Scheme = LevelScheme.S2;
-		_level.LevelMusic = "SONICORCA/MUSIC/LEVELS/WFZ";
+		_level.LevelMusic = LevelMusicResourceKey;
 		if (!settings.Seamless)
 		{
-			_level.TileSet = _resourceTree.GetLoadedResource<TileSet>(this, "//TILESET");
-			_level.LoadMap(_resourceTree.GetLoadedResource<LevelMap>(this, "//MAP"));
-			_level.LoadBinding(_resourceTree.GetLoadedResource<LevelBinding>(this, "//BINDING"));
+			_level.TileSet = _resourceTree.GetLoadedResource<TileSet>(this, TileSetResourceKey);
+			_level.LoadMap(_resourceTree.GetLoadedResource<LevelMap>(this, MapResourceKey));
+			_level.LoadBinding(_resourceTree.GetLoadedResource<LevelBinding>(this, BindingResourceKey));
 		}
 		_level.Bounds = _level.Map.Bounds;
 	}

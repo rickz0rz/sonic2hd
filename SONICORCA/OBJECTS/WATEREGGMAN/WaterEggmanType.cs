@@ -10,6 +10,11 @@ using SonicOrca.Core.Objects.Metadata;
 #nullable disable
 namespace SONICORCA.OBJECTS.WATEREGGMAN;
 
+/// <summary>
+/// The object type for the Chemical Plant Zone boss. It declares the resources that the boss needs.
+/// See <see cref="WaterEggmanInstance"/> for the behavior.
+/// </summary>
+
 [SonicOrca.Core.Objects.Metadata.Name("Water Eggman")]
 [Description("Water Eggman from Chemical Plant Zone, Sonic 2")]
 [ObjectInstance(typeof(WaterEggmanInstance))]
