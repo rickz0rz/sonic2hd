@@ -28,8 +28,8 @@ internal class ListMenuViewPresenter : IMenuViewPresenter
 	private readonly ISettingUIResources _resources;
 	private readonly ImmutableArray<IMenuItem> _items;
 	private readonly IListMenuViewModel _viewModel;
-	// True while the gamepad is held down (or up) after it moved the highlight.
-	// The highlight moves again only after the player releases the gamepad.
+	// True while the gamepad is held down (or up). The highlight moves only on the first frame of a hold,
+	// so it moves again only after the player releases the gamepad.
 	private bool _downHeld;
 	private bool _upHeld;
 

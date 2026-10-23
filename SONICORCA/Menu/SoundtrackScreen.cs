@@ -148,7 +148,7 @@ internal class SoundtrackScreen : Screen
 				ListingUp();
 			if (controller.DirectionLeft.Y > 0.0)
 				ListingDown();
-			// This uses only the Y direction, so the delay is negative (no delay) when the stick is up or level.
+			// This uses only the Y direction: the delay is negative when the stick points up, and 0 when it is level.
 			if (controller.DirectionLeft.X != 0.0 || controller.DirectionLeft.Y != 0.0)
 				_cursorDelay = (int)(CursorMinDelay * (2.0 * controller.DirectionLeft.Y));
 		}
