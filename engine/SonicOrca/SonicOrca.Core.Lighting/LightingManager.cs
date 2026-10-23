@@ -77,9 +77,7 @@ internal class LightingManager : ILightingManager
 		{
 			result.Y += maxOffset.Y;
 		}
-		// This condition uses hasPositiveX, not hasPositiveY. This is possibly a bug in the original code.
-		// Do not change it, because a change can change the shadows on the screen.
-		if (hasNegativeY & hasPositiveX)
+		if (hasNegativeY & hasPositiveY)
 		{
 			result.Y /= 2;
 		}
