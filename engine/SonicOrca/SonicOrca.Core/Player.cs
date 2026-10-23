@@ -4,6 +4,9 @@ using SonicOrca.Geometry;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// The state of the human player: score, lives, rings, power-ups, starpost and characters.
+/// </summary>
 public class Player
 {
 	private const int RingsForLife = 100;
@@ -17,6 +20,13 @@ public class Player
 	private const int BigChainSize = 16;
 
 	private const int BigChainScore = 10000;
+
+	private const int StartLives = 3;
+
+	/// <summary>
+	/// The number of ticks that speed shoes and invincibility stay active (20 seconds at 60 ticks each second).
+	/// </summary>
+	private const int PowerupTicks = 1200;
 
 	private static readonly int[] ChainScores = new int[4] { 100, 200, 500, 1000 };
 
@@ -63,10 +73,10 @@ public class Player
 	public Player(Level level)
 	{
 		_level = level;
-		TargetRingCountForNextLife = 100;
-		TargetScoreForNextLife = 50000;
-		StarpostIndex = -1;
-		Lives = 3;
+		TargetRingCountForNextLife = RingsForLife;
+		TargetScoreForNextLife = ScoreForLife;
+		StarpostIndex = UndefinedStarpostIndex;
+		Lives = StartLives;
 	}
 
 	public void Update()
@@ -94,7 +104,7 @@ public class Player
 		Score += points;
 		if (Score >= TargetScoreForNextLife)
 		{
-			TargetScoreForNextLife += 50000;
+			TargetScoreForNextLife += ScoreForLife;
 			GainLives();
 		}
 	}
@@ -102,10 +112,10 @@ public class Player
 	public void GainRings(int count = 1)
 	{
 		TotalRings += count;
-		CurrentRings = Math.Min(CurrentRings + count, 999);
+		CurrentRings = Math.Min(CurrentRings + count, MaxRings);
 		if (CurrentRings >= TargetRingCountForNextLife)
 		{
-			TargetRingCountForNextLife += 100;
+			TargetRingCountForNextLife += RingsForLife;
 			GainLives();
 		}
 	}
@@ -114,30 +124,31 @@ public class Player
 	{
 		if (Lives >= 0)
 		{
-			Lives = Math.Min(Lives + count, 999);
+			Lives = Math.Min(Lives + count, MaxLives);
 		}
 		_level.SoundManager.PlayJingle(JingleType.Life);
 	}
 
 	public void LoseAllRings()
 	{
-		TargetRingCountForNextLife = 100;
+		TargetRingCountForNextLife = RingsForLife;
 		CurrentRings = 0;
 	}
 
 	public void ResetRings()
 	{
-		TargetRingCountForNextLife = 100;
+		TargetRingCountForNextLife = RingsForLife;
 		CurrentRings = 0;
 		TotalRings = 0;
 	}
 
 	public int AwardChainedScore()
 	{
-		int num = ((_scoreChainIndex >= 16) ? 10000 : ChainScores[Math.Min(_scoreChainIndex, ChainScores.Length - 1)]);
+		// Each object in a chain gives more points. From the 16th object, each object gives the big chain score.
+		int points = (_scoreChainIndex >= BigChainSize) ? BigChainScore : ChainScores[Math.Min(_scoreChainIndex, ChainScores.Length - 1)];
 		_scoreChainIndex++;
-		GainScore(num);
-		return num;
+		GainScore(points);
+		return points;
 	}
 
 	public void ResetScoreChain()
@@ -152,7 +163,7 @@ public class Player
 
 	public void GiveSpeedShoes()
 	{
-		SpeedShoesTicks = 1200;
+		SpeedShoesTicks = PowerupTicks;
 		Protagonist.HasSpeedShoes = true;
 		_level.SoundManager.PlayJingle(JingleType.SpeedShoes);
 	}
@@ -168,7 +179,7 @@ public class Player
 
 	public void GiveInvincibility()
 	{
-		InvincibillityTicks = 1200;
+		InvincibillityTicks = PowerupTicks;
 		Protagonist.IsInvincible = true;
 		_level.SoundManager.PlayJingle(JingleType.Invincibility);
 	}

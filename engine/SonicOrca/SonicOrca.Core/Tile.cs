@@ -5,8 +5,14 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// A 64 by 64 pixel tile from a tile set. A tile can have more than one frame, and it can fade between frames.
+/// </summary>
 public class Tile : ITile
 {
+	/// <summary>
+	/// One frame of a tile: the area of a texture to draw, its opacity and how long it shows.
+	/// </summary>
 	public struct Frame
 	{
 		public int TextureId { get; set; }
@@ -27,13 +33,13 @@ public class Tile : ITile
 
 	public const int Size = 64;
 
-	public const int IndexMask = 4095;
+	public const int IndexMask = 0xFFF;
 
-	public const int TileSetMask = 12288;
+	public const int TileSetMask = 0x3000;
 
-	public const int FlipXMask = 16384;
+	public const int FlipXMask = 0x4000;
 
-	public const int FlipYMask = 32768;
+	public const int FlipYMask = 0x8000;
 
 	private readonly TileSet _tileSet;
 
@@ -88,15 +94,16 @@ public class Tile : ITile
 			_frameTime = 0;
 			frame = _frames[_currentFrameIndex];
 			_opacity = frame.Opacity;
-			int num = _currentFrameIndex + 1;
-			if (num >= _frames.Length)
+			// Fade the opacity to the opacity of the next frame during the delay of this frame.
+			int nextFrameIndex = _currentFrameIndex + 1;
+			if (nextFrameIndex >= _frames.Length)
 			{
-				num = 0;
+				nextFrameIndex = 0;
 			}
-			Frame frame2 = _frames[num];
-			if (frame2.Opacity != _opacity && frame.Delay > 0)
+			Frame nextFrame = _frames[nextFrameIndex];
+			if (nextFrame.Opacity != _opacity && frame.Delay > 0)
 			{
-				_opacityChange = (frame2.Opacity - _opacity) / (frame.Delay + 1);
+				_opacityChange = (nextFrame.Opacity - _opacity) / (frame.Delay + 1);
 			}
 			else
 			{
@@ -112,8 +119,9 @@ public class Tile : ITile
 
 	public void Draw(Renderer renderer, int flags, int x, int y)
 	{
+		// This array access has no result. It stays because it throws when the tile has no frames.
 		_ = ref _frames[_currentFrameIndex];
-		Draw(renderer, flags, new Rectangle(0.0, 0.0, 64.0, 64.0), new Rectangle(x, y, 64.0, 64.0));
+		Draw(renderer, flags, new Rectanglei(0, 0, Size, Size), new Rectanglei(x, y, Size, Size));
 	}
 
 	public void Draw(Renderer renderer, int flags, Rectanglei source, Rectanglei destination)
@@ -132,28 +140,37 @@ public class Tile : ITile
 	public void Draw(I2dRenderer g, int flags, Rectanglei source, Rectanglei destination)
 	{
 		Frame frame = _frames[_currentFrameIndex];
-		source.X = (((flags & 0x4000) == 0) ? (frame.X + source.X) : (frame.X + 64 - source.Width - source.X));
-		source.Y = (((flags & 0x8000) == 0) ? (frame.Y + source.Y) : (frame.Y + 64 - source.Height - source.Y));
+		source = GetFrameSource(frame, flags, source);
 		ITexture texture = _tileSet.Textures[frame.TextureId];
-		g.BlendMode = ((_blend != TileBlendMode.Additive) ? BlendMode.Alpha : BlendMode.Additive);
+		g.BlendMode = (_blend != TileBlendMode.Additive) ? BlendMode.Alpha : BlendMode.Additive;
 		g.Colour = new Colour(_opacity, 1.0, 1.0, 1.0);
-		g.RenderTexture(texture, source, destination, (flags & 0x4000) != 0, (flags & 0x8000) != 0);
+		g.RenderTexture(texture, source, destination, (flags & FlipXMask) != 0, (flags & FlipYMask) != 0);
 	}
 
 	public void Draw(ITileRenderer tileRenderer, int flags, Rectanglei source, Rectanglei destination)
 	{
 		Frame frame = _frames[_currentFrameIndex];
-		source.X = (((flags & 0x4000) == 0) ? (frame.X + source.X) : (frame.X + 64 - source.Width - source.X));
-		source.Y = (((flags & 0x8000) == 0) ? (frame.Y + source.Y) : (frame.Y + 64 - source.Height - source.Y));
-		tileRenderer.AddTile(source, destination, frame.TextureId, (flags & 0x4000) != 0, (flags & 0x8000) != 0, _opacity, _blend);
+		source = GetFrameSource(frame, flags, source);
+		tileRenderer.AddTile(source, destination, frame.TextureId, (flags & FlipXMask) != 0, (flags & FlipYMask) != 0, _opacity, _blend);
+	}
+
+	/// <summary>
+	/// Moves a source rectangle that is relative to the tile into the texture area of the frame.
+	/// A flipped tile mirrors the source rectangle in the frame.
+	/// </summary>
+	private static Rectanglei GetFrameSource(Frame frame, int flags, Rectanglei source)
+	{
+		source.X = ((flags & FlipXMask) == 0) ? (frame.X + source.X) : (frame.X + Size - source.Width - source.X);
+		source.Y = ((flags & FlipYMask) == 0) ? (frame.Y + source.Y) : (frame.Y + Size - source.Height - source.Y);
+		return source;
 	}
 
 	public override string ToString()
 	{
 		if (_frames.Length != 1)
 		{
-			return string.Format("Id = {0} Frames = {1}", _frames.Length);
+			return string.Format("Id = {0} Frames = {1}", _id, _frames.Length);
 		}
-		return string.Format("Id = {0} TextureId = {1} X = {2} Y = {3}", _frames[0].TextureId, _frames[0].X, _frames[0].Y);
+		return string.Format("Id = {0} TextureId = {1} X = {2} Y = {3}", _id, _frames[0].TextureId, _frames[0].X, _frames[0].Y);
 	}
 }

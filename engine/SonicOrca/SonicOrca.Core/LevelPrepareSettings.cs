@@ -2,6 +2,9 @@ using SonicOrca.Geometry;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// Settings that the game uses to prepare and start a level.
+/// </summary>
 public class LevelPrepareSettings
 {
 	public bool TimeTrial { get; set; }

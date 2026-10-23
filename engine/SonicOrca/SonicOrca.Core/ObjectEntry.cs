@@ -9,6 +9,14 @@ using SonicOrca.Geometry;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// An object in the level map. The entry exists for all of the level, and it creates an active object
+/// when the object comes into a lifetime area.
+/// </summary>
+/// <remarks>
+/// The data in an object placement sets the fields and properties of the entry by name, also the private ones.
+/// Do not rename the private fields.
+/// </remarks>
 public class ObjectEntry
 {
 	private readonly Level _level;
@@ -82,8 +90,8 @@ public class ObjectEntry
 		get
 		{
 			Vector2 lifeRadius = _type.GetLifeRadius((IActiveObject)_state);
-			Vector2 vector = new Vector2(Position.X - lifeRadius.X, Position.Y - lifeRadius.Y);
-			return new Rectangle(vector.X, vector.Y, lifeRadius.X * 2.0, lifeRadius.Y * 2.0);
+			Vector2 topLeft = new Vector2(Position.X - lifeRadius.X, Position.Y - lifeRadius.Y);
+			return new Rectangle(topLeft.X, topLeft.Y, lifeRadius.X * 2.0, lifeRadius.Y * 2.0);
 		}
 	}
 
@@ -130,9 +138,6 @@ public class ObjectEntry
 		_state = Activator.CreateInstance(objectInstanceType) as ActiveObject;
 	}
 
-	private void RebindState()
-	{
-	}
 
 	public void Finish()
 	{
@@ -161,44 +166,42 @@ public class ObjectEntry
 		return (T)Active;
 	}
 
+	/// <summary>
+	/// Sets the fields and properties of the target object from the key and value pairs, by member name.
+	/// A value that is a list of pairs sets the members of the nested object, except for a reference to an active object.
+	/// </summary>
 	private object SetKeyValuePairReflection(IEnumerable<KeyValuePair<string, object>> behaviour, object targetObject)
 	{
-		BindingFlags bindingAttr = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-		foreach (KeyValuePair<string, object> kvp in behaviour)
+		foreach (KeyValuePair<string, object> pair in behaviour)
 		{
-			if (kvp.Value is IEnumerable<KeyValuePair<string, object>>)
+			MemberInfo memberInfo = FindMember(targetObject, pair.Key);
+			if (pair.Value is IEnumerable<KeyValuePair<string, object>> nestedPairs)
 			{
-				object obj = null;
-				MemberInfo memberInfo = (from m in targetObject.GetType().GetMembers(bindingAttr)
-										 select (m) into m
-										 where m.Name == kvp.Key
-										 select m).FirstOrDefault();
-				if (!(memberInfo != null))
-				{
-					throw new Exception();
-				}
-				obj = memberInfo.GetUnderlyingValue(targetObject);
+				object memberValue = memberInfo.GetUnderlyingValue(targetObject);
 				if (!memberInfo.GetUnderlyingType().IsSubclassOf(typeof(ActiveObject)) && !(memberInfo.GetUnderlyingType() == typeof(IActiveObject)))
 				{
-					obj = SetKeyValuePairReflection((IEnumerable<KeyValuePair<string, object>>)kvp.Value, obj);
-					memberInfo.SetUnderlyingValue(targetObject, obj);
+					memberValue = SetKeyValuePairReflection(nestedPairs, memberValue);
+					memberInfo.SetUnderlyingValue(targetObject, memberValue);
 				}
 			}
 			else
 			{
-				MemberInfo memberInfo2 = (from m in targetObject.GetType().GetMembers(bindingAttr)
-										  select (m) into m
-										  where m.Name == kvp.Key
-										  select m).FirstOrDefault();
-				if (!(memberInfo2 != null))
-				{
-					throw new Exception();
-				}
-				string value = Convert.ToString(kvp.Value, CultureInfo.InvariantCulture);
-				memberInfo2.SetUnderlyingValue(targetObject, LevelBindingResourceType.ParseBehaviourValue(value, memberInfo2.GetUnderlyingType()));
+				string value = Convert.ToString(pair.Value, CultureInfo.InvariantCulture);
+				memberInfo.SetUnderlyingValue(targetObject, LevelBindingResourceType.ParseBehaviourValue(value, memberInfo.GetUnderlyingType()));
 			}
 		}
 		return targetObject;
+	}
+
+	private static MemberInfo FindMember(object targetObject, string name)
+	{
+		BindingFlags bindingAttr = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+		MemberInfo memberInfo = targetObject.GetType().GetMembers(bindingAttr).FirstOrDefault(m => m.Name == name);
+		if (memberInfo == null)
+		{
+			throw new Exception();
+		}
+		return memberInfo;
 	}
 
 	public override string ToString()

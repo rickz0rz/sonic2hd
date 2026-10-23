@@ -11,6 +11,10 @@ using SonicOrca.Geometry;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// The data to create an object entry: the type key, unique ID, name, layer and position,
+/// and the behaviour and mapping values of the object, as key and value pairs.
+/// </summary>
 public class ObjectPlacement
 {
 	private string _key;
@@ -106,40 +110,13 @@ public class ObjectPlacement
 	}
 
 	public ObjectPlacement(string key, int layer, Vector2i position)
+		: this(key, layer, position, new { })
 	{
-		var anon = new
-		{
-			Key = key,
-			Uid = Guid.NewGuid(),
-			Name = "",
-			Layer = layer,
-			Position = new { position.X, position.Y }
-		};
-		var state = new { };
-		_key = key;
-		_uid = anon.Uid;
-		_name = "";
-		_layer = layer;
-		_position = position;
-		ParseProperties(anon, state);
 	}
 
 	public ObjectPlacement(string key, int layer, Vector2i position, object state)
+		: this(key, Guid.NewGuid(), "", layer, position, state)
 	{
-		var anon = new
-		{
-			Key = key,
-			Uid = Guid.NewGuid(),
-			Name = "",
-			Layer = layer,
-			Position = new { position.X, position.Y }
-		};
-		_key = key;
-		_uid = anon.Uid;
-		_name = "";
-		_layer = layer;
-		_position = position;
-		ParseProperties(anon, state);
 	}
 
 	public ObjectPlacement(string key, Guid uid, string name, int layer, Vector2i position, object state)
@@ -160,6 +137,11 @@ public class ObjectPlacement
 		ParseProperties(entry, state);
 	}
 
+	/// <summary>
+	/// Converts the entry values and the state object to key and value pairs.
+	/// An anonymous or dynamic state gives all its properties. Other states give only the state variables
+	/// that are different from the default value.
+	/// </summary>
 	private void ParseProperties(object entry, object state)
 	{
 		_entry = BehaviourToKeyPairs(entry).ToArray();
@@ -198,9 +180,9 @@ public class ObjectPlacement
 		{
 			sb.Append(item.Key);
 			sb.Append(" = ");
-			if (item.Value is IEnumerable<KeyValuePair<string, object>>)
+			if (item.Value is IEnumerable<KeyValuePair<string, object>> nestedPairs)
 			{
-				WriteBehaviourString(sb, behaviourObject);
+				WriteBehaviourString(sb, nestedPairs);
 			}
 			else
 			{
@@ -217,17 +199,18 @@ public class ObjectPlacement
 		object defaultState = Activator.CreateInstance(obj.GetType()) as ActiveObject;
 		Type defaultType = defaultState.GetType();
 		BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-		foreach (Tuple<MemberInfo, StateVariableAttribute> item2 in stateVariables)
+		foreach (Tuple<MemberInfo, StateVariableAttribute> stateVariable in stateVariables)
 		{
-			MemberInfo item = item2.Item1;
-			Type underlyingType = item.GetUnderlyingType();
-			string name = item.Name;
-			object value = ParseStateValue(item.GetUnderlyingValue(obj), underlyingType);
-			MemberInfo member = defaultType.GetMember(item.Name, bindingFlags).First();
-			member.GetUnderlyingType();
-			object underlyingValue = item.GetUnderlyingValue(obj);
-			object underlyingValue2 = member.GetUnderlyingValue(defaultState);
-			if (!StateValueEquals(underlyingValue, underlyingValue2, underlyingType))
+			MemberInfo member = stateVariable.Item1;
+			Type underlyingType = member.GetUnderlyingType();
+			string name = member.Name;
+			object value = ParseStateValue(member.GetUnderlyingValue(obj), underlyingType);
+			MemberInfo defaultMember = defaultType.GetMember(member.Name, bindingFlags).First();
+			// The result is not used, but the call throws when the member is not a field, property, method or event.
+			defaultMember.GetUnderlyingType();
+			object currentValue = member.GetUnderlyingValue(obj);
+			object defaultValue = defaultMember.GetUnderlyingValue(defaultState);
+			if (!StateValueEquals(currentValue, defaultValue, underlyingType))
 			{
 				yield return new KeyValuePair<string, object>(name, value);
 			}
@@ -246,21 +229,21 @@ public class ObjectPlacement
 		}
 		if (type == typeof(Vector2))
 		{
-			List<KeyValuePair<string, object>> list = new List<KeyValuePair<string, object>>();
-			KeyValuePair<string, object> item = new KeyValuePair<string, object>("X", ((Vector2)value).X);
-			KeyValuePair<string, object> item2 = new KeyValuePair<string, object>("Y", ((Vector2)value).Y);
-			list.Add(item);
-			list.Add(item2);
-			return list;
+			Vector2 vector = (Vector2)value;
+			return new List<KeyValuePair<string, object>>
+			{
+				new KeyValuePair<string, object>("X", vector.X),
+				new KeyValuePair<string, object>("Y", vector.Y)
+			};
 		}
 		if (type == typeof(Vector2i))
 		{
-			List<KeyValuePair<string, object>> list2 = new List<KeyValuePair<string, object>>();
-			KeyValuePair<string, object> item3 = new KeyValuePair<string, object>("X", ((Vector2i)value).X);
-			KeyValuePair<string, object> item4 = new KeyValuePair<string, object>("Y", ((Vector2i)value).Y);
-			list2.Add(item3);
-			list2.Add(item4);
-			return list2;
+			Vector2i vector = (Vector2i)value;
+			return new List<KeyValuePair<string, object>>
+			{
+				new KeyValuePair<string, object>("X", vector.X),
+				new KeyValuePair<string, object>("Y", vector.Y)
+			};
 		}
 		return value.ToString();
 	}
@@ -269,11 +252,7 @@ public class ObjectPlacement
 	{
 		if (value1 == null || value2 == null)
 		{
-			if (value1 == null)
-			{
-				return value2 == null;
-			}
-			return false;
+			return value1 == null && value2 == null;
 		}
 		if (type.IsSubclassOf(typeof(ActiveObject)) || type == typeof(ActiveObject))
 		{

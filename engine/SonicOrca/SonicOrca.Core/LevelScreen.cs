@@ -13,8 +13,16 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// The screen that loads and plays the acts of an area. It also sets up network play when the command line asks for it.
+/// </summary>
 public class LevelScreen : Screen
 {
+	/// <summary>
+	/// The time between two "ready to start" notifications from a network client.
+	/// </summary>
+	private const int NotificationIntervalMilliseconds = 3000;
+
 	private enum LevelScreenState
 	{
 		Initialise,
@@ -88,19 +96,19 @@ public class LevelScreen : Screen
 		_resourceSession = new ResourceSession(gameContext.ResourceTree);
 		_level = new Level(_gameContext);
 		_currentAct = int.Parse(_gameContext.Configuration.GetProperty("debug", "startact", "1"));
-		string property = _gameContext.Configuration.GetProperty("debug", "startpos");
-		if (property != null)
+		string startPosition = _gameContext.Configuration.GetProperty("debug", "startpos");
+		if (startPosition != null)
 		{
-			string[] array = property.Split(',');
-			OverrideStartPosition = new Vector2i(int.Parse(array[0]), int.Parse(array[1]));
+			string[] coordinates = startPosition.Split(',');
+			OverrideStartPosition = new Vector2i(int.Parse(coordinates[0]), int.Parse(coordinates[1]));
 		}
-		int num = int.Parse(_gameContext.Configuration.GetProperty("debug", "zone", "1"));
-		if (num == 2)
+		// Zone numbers that are not in this list keep the default area (Emerald Hill Zone).
+		int zone = int.Parse(_gameContext.Configuration.GetProperty("debug", "zone", "1"));
+		switch (zone)
 		{
-			_areaResourceKey = "SONICORCA/S2/LEVELS/CPZ/AREA";
-		}
-		switch (num)
-		{
+			case 2:
+				_areaResourceKey = "SONICORCA/S2/LEVELS/CPZ/AREA";
+				break;
 			case 3:
 				_areaResourceKey = "SONICORCA/S2/LEVELS/ARZ/AREA";
 				break;
@@ -121,9 +129,9 @@ public class LevelScreen : Screen
 
 	public override async Task LoadAsync(ScreenLoadingProgress progress, CancellationToken ct = default(CancellationToken))
 	{
-		_resourceSession.PushDependency("SONICORCA/FONTS/HUD");
+		_resourceSession.PushDependency(FontResourceKey);
 		await _resourceSession.LoadAsync(ct);
-		_font = _gameContext.ResourceTree.GetLoadedResource<Font>("SONICORCA/FONTS/HUD");
+		_font = _gameContext.ResourceTree.GetLoadedResource<Font>(FontResourceKey);
 	}
 
 	public override void Unload()
@@ -272,13 +280,13 @@ public class LevelScreen : Screen
 		else if (_preparingLevelTask.IsCompleted)
 		{
 			_preparingLevelTask = null;
-			_state = (_networkPlay ? LevelScreenState.NetworkWaitingForStart : LevelScreenState.ReadyToPlay);
+			_state = _networkPlay ? LevelScreenState.NetworkWaitingForStart : LevelScreenState.ReadyToPlay;
 		}
 	}
 
 	private void LoadingDraw(Renderer renderer)
 	{
-		_ = _area;
+		// The loading screen draws nothing. The call to GetFontRenderer stays, because a renderer can have side effects in it.
 		renderer.GetFontRenderer();
 	}
 
@@ -291,15 +299,8 @@ public class LevelScreen : Screen
 	{
 		if (_state == LevelScreenState.ReadyToPlay)
 		{
-			if (!_seamless)
-			{
-				_level.Start();
-			}
-			else
-			{
-				_seamless = false;
-				_level.Start();
-			}
+			_seamless = false;
+			_level.Start();
 			_state = LevelScreenState.Playing;
 		}
 		if (_state == LevelScreenState.Playing)
@@ -314,9 +315,10 @@ public class LevelScreen : Screen
 				case LevelState.StageCompleted:
 					if (_level.CurrentAct == 1)
 					{
+						// Go to act 2 with no fade. The new act loads while the old act stays on the screen.
 						_currentAct = 2;
 						_level.Time = 0;
-						_player.StarpostIndex = -1;
+						_player.StarpostIndex = Player.UndefinedStarpostIndex;
 						_seamless = true;
 						_state = LevelScreenState.Loading;
 					}
@@ -371,8 +373,8 @@ public class LevelScreen : Screen
 
 	private void EstablishNetworkDraw(Renderer renderer)
 	{
-		string text = (_hosting ? "WAITING FOR CLIENT TO CONNECT..." : "CONNECTING TO SERVER...");
-		renderer.GetFontRenderer().RenderStringWithShadow(text, new Rectangle(8.0, 8.0, 0.0, 0.0), FontAlignment.Left, _font, 0);
+		string message = _hosting ? "WAITING FOR CLIENT TO CONNECT..." : "CONNECTING TO SERVER...";
+		renderer.GetFontRenderer().RenderStringWithShadow(message, new Rectangle(8.0, 8.0, 0.0, 0.0), FontAlignment.Left, _font, 0);
 	}
 
 	private void NetworkWaitingUpdate()
@@ -380,7 +382,7 @@ public class LevelScreen : Screen
 		if (_hosting)
 		{
 			_server.Update();
-			if (_server.NetworkPlayers.All((NetworkPlayer x) => x.Ready))
+			if (_server.NetworkPlayers.All(x => x.Ready))
 			{
 				_server.SendPacketToAllClients(new NotifyPacket(PacketType.ReadyToStartLevel));
 				_state = LevelScreenState.ReadyToPlay;
@@ -392,7 +394,7 @@ public class LevelScreen : Screen
 		{
 			_state = LevelScreenState.ReadyToPlay;
 		}
-		else if (Environment.TickCount > _lastNotificationTickCount + 3000)
+		else if (Environment.TickCount > _lastNotificationTickCount + NotificationIntervalMilliseconds)
 		{
 			_client.SendPacket(new NotifyPacket(PacketType.ReadyToStartLevel));
 			_lastNotificationTickCount = Environment.TickCount;
@@ -409,18 +411,19 @@ public class LevelScreen : Screen
 		IReadOnlyList<string> commandLineArgs = Environment.GetCommandLineArgs();
 		if (commandLineArgs.Count > 1)
 		{
-			string text = commandLineArgs[0].ToLower();
-			if (text == "host")
+			// Note: item 0 is the program path, so this check does not find "host" or "join" in a normal start.
+			string mode = commandLineArgs[0].ToLower();
+			if (mode == "host")
 			{
-				_server = new NetworkGameServer(_level, 7237);
+				_server = new NetworkGameServer(_level, DefaultPort);
 				_networkPlay = true;
 				_hosting = true;
 				return true;
 			}
-			if (text == "join")
+			if (mode == "join")
 			{
 				_client = new NetworkGameClient(_level);
-				_joiningServer = _client.InitiateHandshake(commandLineArgs[2], 7237);
+				_joiningServer = _client.InitiateHandshake(commandLineArgs[2], DefaultPort);
 				_networkPlay = true;
 				return true;
 			}
@@ -434,6 +437,7 @@ public class LevelScreen : Screen
 		{
 			_server.Update();
 			int characterId = 1;
+			// Send the input of the host to the clients only when it changes.
 			if (!(_inputDirection == _gameContext.Current[0].DirectionLeft) || _inputAction != _gameContext.Current[0].Action1)
 			{
 				_inputDirection = _gameContext.Current[0].DirectionLeft;

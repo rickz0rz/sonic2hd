@@ -9,11 +9,35 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// Keeps, updates and draws the particles of a level.
+/// </summary>
 public class ParticleManager : IDisposable
 {
 	private const string HeatParticleTextureResourceKey = "SONICORCA/PARTICLE/HEAT";
 
 	private const string SmokeParticleTextureResourceKey = "SONICORCA/PARTICLE/SMOKE";
+
+	/// <summary>
+	/// The width and height of the framebuffer that holds a copy of the screen area behind a heat particle.
+	/// </summary>
+	private const int WorkCanvasSize = 128;
+
+	private const int ScreenWidth = 1920;
+
+	private const int ScreenHeight = 1080;
+
+	/// <summary>
+	/// A heat particle fades out during its last frames.
+	/// </summary>
+	private const int HeatFadeOutTime = 60;
+
+	/// <summary>
+	/// A smoke particle fades out during its last frames.
+	/// </summary>
+	private const int SmokeFadeOutTime = 120;
+
+	private const double SmokeOpacity = 0.2;
 
 	private readonly SonicOrcaGameContext _gameContext;
 
@@ -40,17 +64,17 @@ public class ParticleManager : IDisposable
 		_gameContext = level.GameContext;
 		_level = level;
 		_resourceSession = new ResourceSession(_gameContext.ResourceTree);
-		_workCanvas = _gameContext.Window.GraphicsContext.CreateFrameBuffer(128, 128);
+		_workCanvas = _gameContext.Window.GraphicsContext.CreateFrameBuffer(WorkCanvasSize, WorkCanvasSize);
 		_enabled = _gameContext.Configuration.GetPropertyBoolean("graphics", "particles", defaultValue: true);
 	}
 
 	public async Task LoadAsync(CancellationToken ct = default(CancellationToken))
 	{
 		ResourceTree resourceTree = _gameContext.ResourceTree;
-		_resourceSession.PushDependencies("SONICORCA/PARTICLE/HEAT", "SONICORCA/PARTICLE/SMOKE");
+		_resourceSession.PushDependencies(HeatParticleTextureResourceKey, SmokeParticleTextureResourceKey);
 		await _resourceSession.LoadAsync();
-		_heatParticleTexture = resourceTree.GetLoadedResource<ITexture>("SONICORCA/PARTICLE/HEAT");
-		_smokeParticleTexture = resourceTree.GetLoadedResource<ITexture>("SONICORCA/PARTICLE/SMOKE");
+		_heatParticleTexture = resourceTree.GetLoadedResource<ITexture>(HeatParticleTextureResourceKey);
+		_smokeParticleTexture = resourceTree.GetLoadedResource<ITexture>(SmokeParticleTextureResourceKey);
 	}
 
 	public void Dispose()
@@ -64,7 +88,7 @@ public class ParticleManager : IDisposable
 
 	public int GetNumParticlesOnLayer(LevelLayer layer)
 	{
-		return _particles.Count((Particle x) => x.Layer == layer);
+		return _particles.Count(x => x.Layer == layer);
 	}
 
 	public void Add(Particle p)
@@ -90,7 +114,7 @@ public class ParticleManager : IDisposable
 		{
 			particle.Update();
 		}
-		_particles.RemoveAll((Particle x) => x.Time <= 0);
+		_particles.RemoveAll(x => x.Time <= 0);
 	}
 
 	public void Draw(Renderer renderer, Viewport viewport, LevelLayer layer, IVideoSettings videoSettings)
@@ -100,10 +124,10 @@ public class ParticleManager : IDisposable
 			return;
 		}
 		IFramebuffer currentFramebuffer = renderer.Window.GraphicsContext.CurrentFramebuffer;
-		I2dRenderer i2dRenderer = renderer.Get2dRenderer();
+		I2dRenderer renderer2d = renderer.Get2dRenderer();
 		IHeatRenderer heatRenderer = renderer.GetHeatRenderer();
 		heatRenderer.DistortionTexture = _heatParticleTexture;
-		Matrix4 modelMatrix = i2dRenderer.ModelMatrix;
+		Matrix4 modelMatrix = renderer2d.ModelMatrix;
 		foreach (Particle particle in _particles)
 		{
 			if (particle.Layer != layer)
@@ -118,22 +142,25 @@ public class ParticleManager : IDisposable
 						{
 							break;
 						}
+						// Copy the screen area behind the particle to the work canvas.
+						// Then draw the copy back with a distortion.
 						renderer.DeativateRenderer();
 						Rectanglei destination = ((Rectanglei)new Rectangle(particle.Position.X - _heatParticleTexture.Width / 2, particle.Position.Y - _heatParticleTexture.Height / 2, _heatParticleTexture.Width, _heatParticleTexture.Height)).OffsetBy(viewport.Bounds.TopLeft * -1);
 						if (destination.IntersectsWith(new Rectanglei(0, 0, currentFramebuffer.Width, currentFramebuffer.Height)))
 						{
 							heatRenderer.DistortionAmount = 1.0 / _heatParticleTexture.Width * 8.0;
-							if (particle.Time < 60)
+							if (particle.Time < HeatFadeOutTime)
 							{
-								heatRenderer.DistortionAmount *= particle.Time / 60.0;
+								heatRenderer.DistortionAmount *= particle.Time / (double)HeatFadeOutTime;
 							}
 							_workCanvas.Activate();
-							i2dRenderer.BlendMode = BlendMode.Opaque;
-							i2dRenderer.Colour = Colours.White;
-							i2dRenderer.ClipRectangle = new Rectangle(0.0, 0.0, 1920.0, 1080.0);
-							i2dRenderer.ModelMatrix = Matrix4.Identity;
-							i2dRenderer.RenderTexture(currentFramebuffer.Textures[0], new Rectanglei(destination.X, 1080 - destination.Bottom, destination.Width, destination.Height), new Rectanglei(0, 0, destination.Width, destination.Height));
-							i2dRenderer.Deactivate();
+							renderer2d.BlendMode = BlendMode.Opaque;
+							renderer2d.Colour = Colours.White;
+							renderer2d.ClipRectangle = new Rectangle(0.0, 0.0, ScreenWidth, ScreenHeight);
+							renderer2d.ModelMatrix = Matrix4.Identity;
+							// The framebuffer texture is upside down, so the source Y counts from the bottom.
+							renderer2d.RenderTexture(currentFramebuffer.Textures[0], new Rectanglei(destination.X, ScreenHeight - destination.Bottom, destination.Width, destination.Height), new Rectanglei(0, 0, destination.Width, destination.Height));
+							renderer2d.Deactivate();
 							currentFramebuffer.Activate();
 							heatRenderer.Render(_workCanvas.Textures[0], new Rectanglei(0, 0, destination.Width, destination.Height), destination);
 						}
@@ -141,16 +168,16 @@ public class ParticleManager : IDisposable
 					}
 				case ParticleType.Smoke:
 					{
-						Vector2 vector2 = particle.Position - viewport.Bounds.TopLeft;
-						if (((Rectanglei)new Rectangle(vector2.X - _smokeParticleTexture.Width / 2, vector2.Y - _smokeParticleTexture.Height / 2, _smokeParticleTexture.Width, _smokeParticleTexture.Height)).IntersectsWith(new Rectanglei(0, 0, currentFramebuffer.Width, currentFramebuffer.Height)))
+						Vector2 screenPosition = particle.Position - viewport.Bounds.TopLeft;
+						if (((Rectanglei)new Rectangle(screenPosition.X - _smokeParticleTexture.Width / 2, screenPosition.Y - _smokeParticleTexture.Height / 2, _smokeParticleTexture.Width, _smokeParticleTexture.Height)).IntersectsWith(new Rectanglei(0, 0, currentFramebuffer.Width, currentFramebuffer.Height)))
 						{
-							double a = ((particle.Time < 120) ? (particle.Time / 120.0) : 1.0) * 0.2;
+							double opacity = ((particle.Time < SmokeFadeOutTime) ? (particle.Time / (double)SmokeFadeOutTime) : 1.0) * SmokeOpacity;
 							currentFramebuffer.Activate();
-							i2dRenderer.BlendMode = BlendMode.Alpha;
-							i2dRenderer.Colour = new Colour(a, 1.0, 1.0, 1.0);
-							i2dRenderer.ClipRectangle = new Rectangle(0.0, 0.0, 1920.0, 1080.0);
-							i2dRenderer.ModelMatrix = Matrix4.CreateTranslation(vector2.X, vector2.Y) * Matrix4.CreateRotationZ(particle.Angle);
-							i2dRenderer.RenderTexture(_smokeParticleTexture, default(Vector2), false, false);
+							renderer2d.BlendMode = BlendMode.Alpha;
+							renderer2d.Colour = new Colour(opacity, 1.0, 1.0, 1.0);
+							renderer2d.ClipRectangle = new Rectangle(0.0, 0.0, ScreenWidth, ScreenHeight);
+							renderer2d.ModelMatrix = Matrix4.CreateTranslation(screenPosition.X, screenPosition.Y) * Matrix4.CreateRotationZ(particle.Angle);
+							renderer2d.RenderTexture(_smokeParticleTexture, default(Vector2), false, false);
 						}
 						break;
 					}
@@ -159,15 +186,15 @@ public class ParticleManager : IDisposable
 						ITexture customTexture = particle.CustomTexture;
 						if (customTexture != null)
 						{
-							Vector2 vector = particle.Position - viewport.Bounds.TopLeft;
-							if (((Rectanglei)new Rectangle(vector.X - customTexture.Width / 2, vector.Y - customTexture.Height / 2, customTexture.Width, customTexture.Height)).IntersectsWith(new Rectanglei(0, 0, currentFramebuffer.Width, currentFramebuffer.Height)))
+							Vector2 screenPosition = particle.Position - viewport.Bounds.TopLeft;
+							if (((Rectanglei)new Rectangle(screenPosition.X - customTexture.Width / 2, screenPosition.Y - customTexture.Height / 2, customTexture.Width, customTexture.Height)).IntersectsWith(new Rectanglei(0, 0, currentFramebuffer.Width, currentFramebuffer.Height)))
 							{
 								currentFramebuffer.Activate();
-								i2dRenderer.BlendMode = BlendMode.Alpha;
-								i2dRenderer.Colour = new Colour(1.0, 1.0, 1.0, 1.0);
-								i2dRenderer.ClipRectangle = new Rectangle(0.0, 0.0, 1920.0, 1080.0);
-								i2dRenderer.ModelMatrix = Matrix4.CreateTranslation(vector.X, vector.Y) * Matrix4.CreateRotationZ(particle.Angle) * Matrix4.CreateScale(particle.Size, particle.Size);
-								i2dRenderer.RenderTexture(customTexture, default(Vector2), false, false);
+								renderer2d.BlendMode = BlendMode.Alpha;
+								renderer2d.Colour = new Colour(1.0, 1.0, 1.0, 1.0);
+								renderer2d.ClipRectangle = new Rectangle(0.0, 0.0, ScreenWidth, ScreenHeight);
+								renderer2d.ModelMatrix = Matrix4.CreateTranslation(screenPosition.X, screenPosition.Y) * Matrix4.CreateRotationZ(particle.Angle) * Matrix4.CreateScale(particle.Size, particle.Size);
+								renderer2d.RenderTexture(customTexture, default(Vector2), false, false);
 							}
 						}
 						break;
@@ -175,6 +202,6 @@ public class ParticleManager : IDisposable
 			}
 		}
 		renderer.DeativateRenderer();
-		i2dRenderer.ModelMatrix = modelMatrix;
+		renderer2d.ModelMatrix = modelMatrix;
 	}
 }

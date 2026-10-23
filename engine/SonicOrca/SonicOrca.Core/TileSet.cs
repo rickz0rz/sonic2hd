@@ -8,11 +8,14 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// A collection of tiles, indexed by tile ID, and the textures that the tiles use.
+/// </summary>
 public class TileSet : IReadOnlyDictionary<int, ITile>, IReadOnlyCollection<KeyValuePair<int, ITile>>, IEnumerable<KeyValuePair<int, ITile>>, IEnumerable, ILoadedResource, IDisposable
 {
 	public const int InitialTileCapacity = 4096;
 
-	private ITile[] _tiles = new ITile[4096];
+	private ITile[] _tiles = new ITile[InitialTileCapacity];
 
 	private readonly HashSet<int> _tileIds = new HashSet<int>();
 
@@ -38,13 +41,14 @@ public class TileSet : IReadOnlyDictionary<int, ITile>, IReadOnlyCollection<KeyV
 		{
 			if (_tiles.Length <= id)
 			{
-				int num = _tiles.Length;
+				// Double the capacity until the ID fits.
+				int newCapacity = _tiles.Length;
 				do
 				{
-					num *= 2;
+					newCapacity *= 2;
 				}
-				while (num <= id);
-				Array.Resize(ref _tiles, num);
+				while (newCapacity <= id);
+				Array.Resize(ref _tiles, newCapacity);
 			}
 			_tiles[id] = value;
 			_tileIds.Add(id);
@@ -53,7 +57,7 @@ public class TileSet : IReadOnlyDictionary<int, ITile>, IReadOnlyCollection<KeyV
 
 	public IEnumerable<int> Keys => _tileIds;
 
-	public IEnumerable<ITile> Values => _tileIds.Select((int i) => _tiles[i]);
+	public IEnumerable<ITile> Values => _tileIds.Select(i => _tiles[i]);
 
 	public int Count => _tileIds.Count;
 
@@ -77,7 +81,7 @@ public class TileSet : IReadOnlyDictionary<int, ITile>, IReadOnlyCollection<KeyV
 
 	public void DrawTile(Renderer renderer, int index, int x, int y)
 	{
-		DrawTile(renderer, index, new Rectanglei(x, y, 64, 64));
+		DrawTile(renderer, index, new Rectanglei(x, y, Tile.Size, Tile.Size));
 	}
 
 	public void DrawTile(Renderer renderer, int index, Rectanglei destination)
@@ -87,15 +91,16 @@ public class TileSet : IReadOnlyDictionary<int, ITile>, IReadOnlyCollection<KeyV
 
 	public void DrawTile(Renderer renderer, int index, Rectanglei source, Rectanglei destination)
 	{
-		if (TryGetValue(index, out var value))
+		// The index keeps its flag bits (flip and tile set), so it is also the flags argument.
+		if (TryGetValue(index, out ITile tile))
 		{
-			value.Draw(renderer, index, source, destination);
+			tile.Draw(renderer, index, source, destination);
 		}
 	}
 
 	public void OnLoaded()
 	{
-		Textures = _textureKeys.Select((string x) => _resourceTree.GetLoadedResource<ITexture>(x)).ToArray();
+		Textures = _textureKeys.Select(x => _resourceTree.GetLoadedResource<ITexture>(x)).ToArray();
 	}
 
 	public void Dispose()
@@ -109,13 +114,13 @@ public class TileSet : IReadOnlyDictionary<int, ITile>, IReadOnlyCollection<KeyV
 
 	public bool TryGetValue(int tile, out ITile value)
 	{
-		value = this[tile & 0xFFF];
+		value = this[tile & Tile.IndexMask];
 		return value != null;
 	}
 
 	public IEnumerator<KeyValuePair<int, ITile>> GetEnumerator()
 	{
-		return _tileIds.Select((int i) => new KeyValuePair<int, ITile>(i, _tiles[i])).GetEnumerator();
+		return _tileIds.Select(i => new KeyValuePair<int, ITile>(i, _tiles[i])).GetEnumerator();
 	}
 
 	IEnumerator IEnumerable.GetEnumerator()

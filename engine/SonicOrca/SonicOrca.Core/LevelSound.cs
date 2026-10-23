@@ -4,8 +4,17 @@ using SonicOrca.Geometry;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// A sound that plays at a position in the level.
+/// The pan and volume change with the position of the sound relative to the camera.
+/// </summary>
 public class LevelSound : IDisposable
 {
+	/// <summary>
+	/// Sounds nearer than this horizontal distance to the camera center play with no pan.
+	/// </summary>
+	private const double CenterPanDistance = 512.0;
+
 	private readonly Level _level;
 
 	private readonly SampleInstance _instance;
@@ -56,26 +65,28 @@ public class LevelSound : IDisposable
 	private void UpdatePanAndVolume()
 	{
 		Camera camera = _level.Camera;
-		double num = camera.Bounds.X + camera.Bounds.Width / 2.0;
-		double num2 = Position.X - num;
-		if (Math.Abs(num2) < 512.0)
+		double cameraCenterX = camera.Bounds.X + camera.Bounds.Width / 2.0;
+		double offsetFromCenterX = Position.X - cameraCenterX;
+		if (Math.Abs(offsetFromCenterX) < CenterPanDistance)
 		{
 			_instance.Pan = 0.0;
 		}
 		else
 		{
-			_instance.Pan = MathX.Clamp(-1.0, num2 / camera.Bounds.Width, 1.0);
+			_instance.Pan = MathX.Clamp(-1.0, offsetFromCenterX / camera.Bounds.Width, 1.0);
 		}
-		double num3 = 0.0;
+
+		// The volume decreases with the horizontal distance outside the camera bounds.
+		double distanceOutsideCamera = 0.0;
 		if (Position.X < camera.Bounds.X)
 		{
-			num3 = camera.Bounds.X - Position.X;
+			distanceOutsideCamera = camera.Bounds.X - Position.X;
 		}
 		else if (Position.X > camera.Bounds.Right)
 		{
-			num3 = Position.X - camera.Bounds.Right;
+			distanceOutsideCamera = Position.X - camera.Bounds.Right;
 		}
-		_instance.Volume = MathX.Clamp(0.0, 1.0 - num3 / DistanceAudible, 1.0);
+		_instance.Volume = MathX.Clamp(0.0, 1.0 - distanceOutsideCamera / DistanceAudible, 1.0);
 	}
 
 	public void Play()

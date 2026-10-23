@@ -2,6 +2,9 @@ using System;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// Flags that show what a level does in the current frame.
+/// </summary>
 [Flags]
 public enum LevelStateFlags
 {

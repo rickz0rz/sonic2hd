@@ -2,6 +2,9 @@ using System;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// A property of an object type that the level editor shows and edits.
+/// </summary>
 public class ObjectEditorProperty
 {
 	private readonly string _name;
@@ -33,6 +36,10 @@ public class ObjectEditorProperty
 		_description = description;
 	}
 
+	/// <summary>
+	/// Makes sure that the value is correct for this property. The method can change the value.
+	/// </summary>
+	/// <returns><c>true</c> if the value is correct, otherwise <c>false</c>.</returns>
 	public virtual bool Validate(ref object value)
 	{
 		return true;

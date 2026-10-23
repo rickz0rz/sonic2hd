@@ -5,6 +5,9 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// A tile that draws a list of other tiles from the same tile set, one on top of the other.
+/// </summary>
 public class TileSequence : ITile
 {
 	private readonly TileSet _tileSet;
@@ -30,12 +33,11 @@ public class TileSequence : ITile
 
 	public void Draw(Renderer renderer, int flags, int x, int y)
 	{
-		int[] tileIds = _tileIds;
-		foreach (int tile in tileIds)
+		foreach (int tileId in _tileIds)
 		{
-			if (_tileSet.TryGetValue(tile, out var value))
+			if (_tileSet.TryGetValue(tileId, out ITile tile))
 			{
-				value.Draw(renderer, flags, x, y);
+				tile.Draw(renderer, flags, x, y);
 			}
 		}
 	}
@@ -55,24 +57,22 @@ public class TileSequence : ITile
 
 	public void Draw(I2dRenderer g, int flags, Rectanglei source, Rectanglei destination)
 	{
-		int[] tileIds = _tileIds;
-		foreach (int tile in tileIds)
+		foreach (int tileId in _tileIds)
 		{
-			if (_tileSet.TryGetValue(tile, out var value))
+			if (_tileSet.TryGetValue(tileId, out ITile tile))
 			{
-				value.Draw(g, flags, source, destination);
+				tile.Draw(g, flags, source, destination);
 			}
 		}
 	}
 
 	public void Draw(ITileRenderer tileRenderer, int flags, Rectanglei source, Rectanglei destination)
 	{
-		int[] tileIds = _tileIds;
-		foreach (int tile in tileIds)
+		foreach (int tileId in _tileIds)
 		{
-			if (_tileSet.TryGetValue(tile, out var value))
+			if (_tileSet.TryGetValue(tileId, out ITile tile))
 			{
-				value.Draw(tileRenderer, flags, source, destination);
+				tile.Draw(tileRenderer, flags, source, destination);
 			}
 		}
 	}

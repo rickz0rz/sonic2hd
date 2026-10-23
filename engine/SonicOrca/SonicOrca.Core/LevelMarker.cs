@@ -2,6 +2,9 @@ using SonicOrca.Geometry;
 
 namespace SonicOrca.Core;
 
+/// <summary>
+/// A named point or area in a level, for example a start position or a camera bound.
+/// </summary>
 public class LevelMarker
 {
 	private string _tag = "";
@@ -16,7 +19,7 @@ public class LevelMarker
 		}
 		set
 		{
-			_tag = ((value == null) ? string.Empty : value);
+			_tag = value ?? string.Empty;
 		}
 	}
 
