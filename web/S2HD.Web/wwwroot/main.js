@@ -133,8 +133,8 @@ async function loadFolder(files) {
   let count = 0;
   for (const file of files) {
     const path = file.webkitRelativePath.replace(/\\/g, '/');
-    const dat = path.match(/(?:^|\/)data\/([^/]+\.dat)$/i);
-    if (dat) writeFile('/content/data/' + dat[1], new Uint8Array(await file.arrayBuffer()));
+    const dat = path.match(/(?:^|\/)(data|mods)\/([^/]+\.dat)$/i);
+    if (dat) writeFile(`/content/${dat[1].toLowerCase()}/${dat[2]}`, new Uint8Array(await file.arrayBuffer()));
     else if (/(?:^|\/)credits\.film$/i.test(path)) writeFile('/content/credits.film', new Uint8Array(await file.arrayBuffer()));
     else continue;
     count++;

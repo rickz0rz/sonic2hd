@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Lists, unpacks and packs the game's resource files (see Program.cs) -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <AssemblyName>s2hd-data</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../engine/SonicOrca.Resources/SonicOrca.Resources.csproj" />
+    <!-- Defines the resource types (file extensions and compression) -->
+    <ProjectReference Include="../../engine/SonicOrca/SonicOrca.csproj" />
+  </ItemGroup>
+
+</Project>

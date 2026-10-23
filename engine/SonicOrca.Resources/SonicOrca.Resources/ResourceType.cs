@@ -23,16 +23,29 @@ public abstract class ResourceType
 
 	public abstract string DefaultExtension { get; }
 
+	private static readonly HashSet<Type> RegisteredClasses = new HashSet<Type>();
+
+	/// <summary>
+	/// Registers the resource types of every assembly that is loaded at this time. Code that can run before the
+	/// assembly with the types is loaded (tools and tests) calls <see cref="RegisterTypesFrom"/> instead.
+	/// </summary>
 	static ResourceType()
 	{
 		RegisteredResourceTypeDictionary = new Dictionary<ResourceTypeIdentifier, ResourceType>();
-		Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
-		for (int i = 0; i < assemblies.Length; i++)
+		foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
 		{
-			Type[] types = assemblies[i].GetTypes();
-			foreach (Type type in types)
+			RegisterTypesFrom(assembly);
+		}
+	}
+
+	/// <summary>Creates one instance of each resource type in the assembly that is not registered yet.</summary>
+	public static void RegisterTypesFrom(Assembly assembly)
+	{
+		lock (RegisteredClasses)
+		{
+			foreach (Type type in assembly.GetTypes())
 			{
-				if (!(typeof(ResourceType) == type) && typeof(ResourceType).IsAssignableFrom(type))
+				if (!type.IsAbstract && typeof(ResourceType).IsAssignableFrom(type) && RegisteredClasses.Add(type))
 				{
 					Activator.CreateInstance(type);
 				}

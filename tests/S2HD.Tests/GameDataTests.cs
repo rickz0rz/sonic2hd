@@ -54,6 +54,33 @@ public sealed class GameDataTests
 		}
 	}
 
+	[Fact]
+	public void UnpackThenPack_KeepsEveryResource()
+	{
+		IDictionary<string, Resource> original = ScanGameData();
+		var tree = new ResourceTree();
+		foreach (var (key, resource) in original)
+		{
+			tree.SetOrAdd(key, resource);
+		}
+		string directory = Directory.CreateTempSubdirectory("s2hd-tests-").FullName;
+		try
+		{
+			string unpacked = Path.Combine(directory, "unpacked");
+			Assert.Equal(original.Count, ResourceDirectory.Export(tree, unpacked));
+			string packedPath = Path.Combine(directory, "packed.dat");
+			new ResourceFile(packedPath).Write(ResourceDirectory.Import(unpacked));
+			ResourceTree packed = new ResourceFile(packedPath).Scan();
+
+			Assert.Equal(original.Count, packed.GetResourceListing().Count);
+			Assert.Empty(ResourceComparison.GetChanges(packed, tree).GetResourceListing());
+		}
+		finally
+		{
+			Directory.Delete(directory, recursive: true);
+		}
+	}
+
 	private static IDictionary<string, Resource> ScanGameData()
 	{
 		string path = TestPaths.GameDataFile;

@@ -3,12 +3,14 @@ using System.IO.Compression;
 
 namespace SonicOrca.Resources;
 
+/// <summary>Where the bytes of a resource come from. <see cref="Compressed"/> sources hold gzip data.</summary>
 public abstract class ResourceSource
 {
 	private readonly bool _compressed;
 
 	public bool Compressed => _compressed;
 
+	/// <summary>The size of the stored bytes (compressed when <see cref="Compressed"/>).</summary>
 	public abstract long Size { get; }
 
 	protected ResourceSource(bool compressed = false)
@@ -16,57 +18,29 @@ public abstract class ResourceSource
 		_compressed = compressed;
 	}
 
+	/// <summary>Opens the stored bytes as they are.</summary>
 	public abstract Stream Read();
 
-	private byte[] GetData()
-	{
-		using MemoryStream memoryStream = new MemoryStream();
-		Read().CopyTo(memoryStream);
-		return memoryStream.ToArray();
-	}
-
+	/// <summary>Opens the bytes gzip-compressed, compressing them first when the source is not compressed.</summary>
 	public Stream ReadCompressed()
 	{
 		if (_compressed)
 		{
 			return Read();
 		}
-		using MemoryStream memoryStream = new MemoryStream();
-		using (GZipStream destination = new GZipStream(memoryStream, CompressionMode.Compress))
+		MemoryStream compressed = new MemoryStream();
+		using (Stream source = Read())
+		using (GZipStream gzip = new GZipStream(compressed, CompressionMode.Compress, leaveOpen: true))
 		{
-			Read().CopyTo(destination);
+			source.CopyTo(gzip);
 		}
-		return new MemoryStream(memoryStream.ToArray());
+		compressed.Position = 0;
+		return compressed;
 	}
 
-	private static byte[] Compress(byte[] uncompressedData)
-	{
-		using MemoryStream memoryStream = new MemoryStream();
-		using (MemoryStream memoryStream2 = new MemoryStream(uncompressedData))
-		{
-			using GZipStream destination = new GZipStream(memoryStream, CompressionMode.Compress);
-			memoryStream2.CopyTo(destination);
-		}
-		return memoryStream.ToArray();
-	}
-
-	private static byte[] Uncompress(byte[] compressedData)
-	{
-		using MemoryStream memoryStream = new MemoryStream();
-		using (MemoryStream stream = new MemoryStream(compressedData))
-		{
-			using GZipStream gZipStream = new GZipStream(stream, CompressionMode.Decompress);
-			gZipStream.CopyTo(memoryStream);
-		}
-		return memoryStream.ToArray();
-	}
-
+	/// <summary>Opens the bytes uncompressed.</summary>
 	public Stream ReadUncompressed()
 	{
-		if (_compressed)
-		{
-			return new GZipStream(Read(), CompressionMode.Decompress);
-		}
-		return Read();
+		return _compressed ? new GZipStream(Read(), CompressionMode.Decompress) : Read();
 	}
 }
