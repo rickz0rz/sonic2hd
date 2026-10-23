@@ -2,6 +2,9 @@ using System;
 
 namespace SonicOrca.Core.Objects.Base;
 
+/// <summary>
+/// Actions and events of a character during one tick. The character clears each flag when it handles it.
+/// </summary>
 [Flags]
 public enum CharacterEvent
 {

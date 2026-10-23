@@ -2,11 +2,14 @@ using System;
 
 namespace SonicOrca.Core.Objects.Base;
 
+/// <summary>
+/// The input that controls a character for one tick: the throttle, the vertical direction and the A, B and C buttons.
+/// </summary>
 public class CharacterInputState
 {
 	private int _verticalDirection;
 
-	private double _throttle { get; set; }
+	private double _throttle;
 
 	public double Throttle
 	{

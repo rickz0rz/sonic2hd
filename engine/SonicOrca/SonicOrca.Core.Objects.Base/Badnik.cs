@@ -4,6 +4,9 @@ using SonicOrca.Geometry;
 
 namespace SonicOrca.Core.Objects.Base;
 
+/// <summary>
+/// The base class for a badnik. A deadly character destroys it, and other characters get hurt.
+/// </summary>
 public class Badnik : ActiveObject
 {
 	public bool CanBeDestoryed { get; set; } = true;

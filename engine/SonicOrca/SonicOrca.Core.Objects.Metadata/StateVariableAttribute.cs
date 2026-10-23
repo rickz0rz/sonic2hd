@@ -6,6 +6,11 @@ using SonicOrca.Core.Extensions;
 
 namespace SonicOrca.Core.Objects.Metadata;
 
+/// <summary>
+/// Marks a property or field of an active object as a state variable.
+/// The editor shows state variables, and the engine copies them from one instance to another.
+/// Public members that the class declares are state variables also when they do not have this attribute.
+/// </summary>
 [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field)]
 public class StateVariableAttribute : Attribute
 {
@@ -73,41 +78,48 @@ public class StateVariableAttribute : Attribute
 
 	public static IEnumerable<Tuple<MemberInfo, StateVariableAttribute>> GetStateVariables(Type type)
 	{
+		// A new instance supplies the default value of each state variable.
 		object instance = Activator.CreateInstance(type);
+
+		// 1. Public members that the type declares, unless they have HideInEditor.
 		IEnumerable<MemberInfo> publicDeclaredMembers = type.GetUnderlyingMembers(BindingFlags.DeclaredOnly | BindingFlags.Instance | BindingFlags.Public);
-		foreach (MemberInfo item in publicDeclaredMembers)
+		foreach (MemberInfo member in publicDeclaredMembers)
 		{
-			if (item.GetCustomAttribute<HideInEditorAttribute>() == null)
+			if (member.GetCustomAttribute<HideInEditorAttribute>() == null)
 			{
 				StateVariableAttribute stateVariableAttribute = new StateVariableAttribute();
-				stateVariableAttribute.Type = item.GetUnderlyingType();
-				stateVariableAttribute.Name = item.Name;
-				stateVariableAttribute.DefaultValue = item.GetUnderlyingValue(instance);
-				yield return new Tuple<MemberInfo, StateVariableAttribute>(item, stateVariableAttribute);
+				stateVariableAttribute.Type = member.GetUnderlyingType();
+				stateVariableAttribute.Name = member.Name;
+				stateVariableAttribute.DefaultValue = member.GetUnderlyingValue(instance);
+				yield return new Tuple<MemberInfo, StateVariableAttribute>(member, stateVariableAttribute);
 			}
 		}
-		IEnumerable<MemberInfo> enumerable = type.GetUnderlyingMembers(BindingFlags.Instance | BindingFlags.Public).Except(publicDeclaredMembers);
-		foreach (MemberInfo item2 in enumerable)
+
+		// 2. Inherited public members that have the attribute.
+		IEnumerable<MemberInfo> publicInheritedMembers = type.GetUnderlyingMembers(BindingFlags.Instance | BindingFlags.Public).Except(publicDeclaredMembers);
+		foreach (MemberInfo member in publicInheritedMembers)
 		{
-			StateVariableAttribute customAttribute = item2.GetCustomAttribute<StateVariableAttribute>();
+			StateVariableAttribute customAttribute = member.GetCustomAttribute<StateVariableAttribute>();
 			if (customAttribute != null)
 			{
-				customAttribute.Type = item2.GetUnderlyingType();
-				customAttribute.Name = item2.Name;
-				customAttribute.DefaultValue = item2.GetUnderlyingValue(instance);
-				yield return new Tuple<MemberInfo, StateVariableAttribute>(item2, customAttribute);
+				customAttribute.Type = member.GetUnderlyingType();
+				customAttribute.Name = member.Name;
+				customAttribute.DefaultValue = member.GetUnderlyingValue(instance);
+				yield return new Tuple<MemberInfo, StateVariableAttribute>(member, customAttribute);
 			}
 		}
-		IEnumerable<MemberInfo> underlyingMembers = type.GetUnderlyingMembers(BindingFlags.Instance | BindingFlags.NonPublic);
-		foreach (MemberInfo item3 in underlyingMembers)
+
+		// 3. Non-public members that have the attribute.
+		IEnumerable<MemberInfo> nonPublicMembers = type.GetUnderlyingMembers(BindingFlags.Instance | BindingFlags.NonPublic);
+		foreach (MemberInfo member in nonPublicMembers)
 		{
-			StateVariableAttribute customAttribute2 = item3.GetCustomAttribute<StateVariableAttribute>();
-			if (customAttribute2 != null)
+			StateVariableAttribute customAttribute = member.GetCustomAttribute<StateVariableAttribute>();
+			if (customAttribute != null)
 			{
-				customAttribute2.Type = item3.GetUnderlyingType();
-				customAttribute2.Name = item3.Name;
-				customAttribute2.DefaultValue = item3.GetUnderlyingValue(instance);
-				yield return new Tuple<MemberInfo, StateVariableAttribute>(item3, customAttribute2);
+				customAttribute.Type = member.GetUnderlyingType();
+				customAttribute.Name = member.Name;
+				customAttribute.DefaultValue = member.GetUnderlyingValue(instance);
+				yield return new Tuple<MemberInfo, StateVariableAttribute>(member, customAttribute);
 			}
 		}
 	}
@@ -117,28 +129,14 @@ public class StateVariableAttribute : Attribute
 		BindingFlags bindingAttr = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 		foreach (Tuple<MemberInfo, StateVariableAttribute> stateVariable in GetStateVariables(instance.GetType()))
 		{
-			MemberInfo item = stateVariable.Item1;
-			MemberInfo memberInfo = state.GetType().GetMember(item.Name, bindingAttr).FirstOrDefault();
-			if (memberInfo != null)
+			MemberInfo instanceMember = stateVariable.Item1;
+			MemberInfo stateMember = state.GetType().GetMember(instanceMember.Name, bindingAttr).FirstOrDefault();
+			if (stateMember != null)
 			{
-				object underlyingValue = memberInfo.GetUnderlyingValue(state);
-				item.SetUnderlyingValue(instance, underlyingValue);
+				object value = stateMember.GetUnderlyingValue(state);
+				instanceMember.SetUnderlyingValue(instance, value);
 			}
 		}
-	}
-
-	private static bool EnumTryParse(Type enumType, string name, out object enumValue, bool ignoreCase = false)
-	{
-		enumValue = null;
-		try
-		{
-			enumValue = Enum.Parse(enumType, name, ignoreCase);
-			return true;
-		}
-		catch
-		{
-		}
-		return false;
 	}
 
 	public static ObjectEditorProperty[] GetEditorProperties(ObjectType objType)
@@ -149,13 +147,12 @@ public class StateVariableAttribute : Attribute
 			return new ObjectEditorProperty[0];
 		}
 		Type objectInstanceType = objectInstanceAttribute.ObjectInstanceType;
-		List<ObjectEditorProperty> list = new List<ObjectEditorProperty>();
+		List<ObjectEditorProperty> properties = new List<ObjectEditorProperty>();
 		foreach (Tuple<MemberInfo, StateVariableAttribute> stateVariable in GetStateVariables(objectInstanceType))
 		{
-			_ = stateVariable.Item1;
-			StateVariableAttribute item = stateVariable.Item2;
-			list.Add(new ObjectEditorProperty(item.Name, item.Name, item.Type, item.DefaultValue));
+			StateVariableAttribute attribute = stateVariable.Item2;
+			properties.Add(new ObjectEditorProperty(attribute.Name, attribute.Name, attribute.Type, attribute.DefaultValue));
 		}
-		return list.ToArray();
+		return properties.ToArray();
 	}
 }

@@ -2,6 +2,9 @@ using SonicOrca.Geometry;
 
 namespace SonicOrca.Core.Objects.Base;
 
+/// <summary>
+/// A snapshot of the position, state and input of a character for one tick. A sidekick follows these snapshots.
+/// </summary>
 public class CharacterHistoryItem
 {
 	private readonly Vector2 _positionPrecise;

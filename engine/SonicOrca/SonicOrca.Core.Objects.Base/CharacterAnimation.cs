@@ -1,5 +1,8 @@
 namespace SonicOrca.Core.Objects.Base;
 
+/// <summary>
+/// The index of each animation in a character animation group.
+/// </summary>
 public enum CharacterAnimation
 {
 	Wait,

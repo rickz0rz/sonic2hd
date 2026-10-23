@@ -2,6 +2,9 @@ using System;
 
 namespace SonicOrca.Core.Objects.Base;
 
+/// <summary>
+/// The state flags of a character.
+/// </summary>
 [Flags]
 public enum CharacterState
 {

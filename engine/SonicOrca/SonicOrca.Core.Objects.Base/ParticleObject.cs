@@ -4,6 +4,9 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.Core.Objects.Base;
 
+/// <summary>
+/// The base class for an effect that plays an animation a number of times and then removes itself.
+/// </summary>
 public class ParticleObject : ActiveObject
 {
 	private readonly string _animationGroupResourceKey;
@@ -56,11 +59,7 @@ public class ParticleObject : ActiveObject
 
 	protected bool CanDraw()
 	{
-		if (_animationCycles != 0 && _animationInstance.Cycles >= _animationCycles)
-		{
-			return false;
-		}
-		return true;
+		return _animationCycles == 0 || _animationInstance.Cycles < _animationCycles;
 	}
 
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
@@ -88,7 +87,7 @@ public class ParticleObject : ActiveObject
 			{
 				objectRenderer.FilterAmount *= FilterMultiplier;
 			}
-			objectRenderer.BlendMode = ((!AdditiveBlending) ? BlendMode.Alpha : BlendMode.Additive);
+			objectRenderer.BlendMode = AdditiveBlending ? BlendMode.Additive : BlendMode.Alpha;
 			objectRenderer.Render(_animationInstance);
 		}
 	}
