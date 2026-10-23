@@ -1,9 +1,3 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: S2HD.Menu.SettingUI
-// Assembly: S2HD, Version=2.0.1012.10521, Culture=neutral, PublicKeyToken=null
-// MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
-// Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
-
 using System;
 using System.Linq;
 using SonicOrca;
@@ -13,28 +7,32 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace S2HD.Menu;
 
+/// <summary>
+/// Draws one setting of a setting list menu: the name on the left, and the value (slider or spinner) on the right.
+/// </summary>
 internal class SettingUI
 {
+	/// <summary>The width of the filled part of the audio slider for each step from 0 to 10.</summary>
 	private readonly int[] SliderWidths = new int[11]
 	{
-	0,
-	45,
-	59,
-	73,
-	89,
-	105,
-	121,
-	139,
-	159,
-	181,
-	223
+		0,
+		45,
+		59,
+		73,
+		89,
+		105,
+		121,
+		139,
+		159,
+		181,
+		223
 	};
 	private const char ArrowLeftChar = '◀';
 	private const char ArrowRightChar = '▶';
 	private readonly ISetting _setting;
 	private readonly ISettingUIResources _resources;
-	private string _name;
-	private string[] _values;
+	private readonly string _name;
+	private readonly string[] _values;
 
 	public Rectanglei Bounds { get; set; }
 
@@ -45,9 +43,8 @@ internal class SettingUI
 		_setting = setting;
 		_resources = resources;
 		_name = setting.Name;
-		if (!(setting is ISpinnerSetting))
-			return;
-		_values = (setting as ISpinnerSetting).Values.ToArray<string>();
+		if (setting is ISpinnerSetting spinnerSetting)
+			_values = spinnerSetting.Values.ToArray();
 	}
 
 	public void Draw(Renderer renderer)
@@ -63,49 +60,44 @@ internal class SettingUI
 
 	private void DrawRight(Renderer renderer)
 	{
-		if (_setting is IAudioSliderSetting)
-		{
-			DrawRightAudioSlider(renderer, _setting as IAudioSliderSetting);
-		}
-		else
-		{
-			if (!(_setting is ISpinnerSetting))
-				return;
-			DrawRightSpinner(renderer, _setting as ISpinnerSetting);
-		}
+		if (_setting is IAudioSliderSetting audioSliderSetting)
+			DrawRightAudioSlider(renderer, audioSliderSetting);
+		else if (_setting is ISpinnerSetting spinnerSetting)
+			DrawRightSpinner(renderer, spinnerSetting);
 	}
 
 	private void DrawRightAudioSlider(Renderer renderer, IAudioSliderSetting setting)
 	{
 		ITexture sliderEmptyTexture = _resources.AudioSliderEmptyTexture;
-		ITexture texture = Highlighted ? _resources.AudioSliderGoldTexture : _resources.AudioSliderSilverTexture;
-		Rectanglei destination1 = new Rectanglei(0, 0, sliderEmptyTexture.Width, sliderEmptyTexture.Height)
+		ITexture sliderFillTexture = Highlighted ? _resources.AudioSliderGoldTexture : _resources.AudioSliderSilverTexture;
+		Rectanglei sliderBounds = new Rectanglei(0, 0, sliderEmptyTexture.Width, sliderEmptyTexture.Height)
 		{
 			X = Bounds.Right - sliderEmptyTexture.Width - 24
 		};
-		destination1.Y = Bounds.Centre.Y - destination1.Height / 2;
-		I2dRenderer obj = renderer.Get2dRenderer();
-		obj.RenderTexture(sliderEmptyTexture, (Rectangle)destination1);
+		sliderBounds.Y = Bounds.Centre.Y - sliderBounds.Height / 2;
+		I2dRenderer g = renderer.Get2dRenderer();
+		g.RenderTexture(sliderEmptyTexture, (Rectangle)sliderBounds);
 		int sliderWidth = SliderWidths[MathX.Clamp(0, (int)Math.Floor(setting.Value * SliderWidths.Length), SliderWidths.Length - 1)];
-		Rectanglei destination2 = destination1 with
+		Rectanglei fillBounds = sliderBounds with
 		{
 			Width = sliderWidth
 		};
-		obj.RenderTexture(texture, new Rectangle(0.0, 0.0, destination2.Width, destination2.Height), (Rectangle)destination2);
+		g.RenderTexture(sliderFillTexture, new Rectangle(0.0, 0.0, fillBounds.Width, fillBounds.Height), (Rectangle)fillBounds);
+		// Draw the right arrow at the right edge, and the left arrow just left of the slider.
 		IFontRenderer fontRenderer = renderer.GetFontRenderer();
 		Rectanglei bounds = Bounds;
-		fontRenderer.RenderStringWithShadow('▶'.ToString(), (Rectangle)bounds, FontAlignment.Right | FontAlignment.MiddleY, _resources.Font, FontColour, new int?(FontOverlay));
-		bounds.Right = destination1.X + 12;
-		fontRenderer.RenderStringWithShadow('◀'.ToString(), (Rectangle)bounds, FontAlignment.Right | FontAlignment.MiddleY, _resources.Font, FontColour, new int?(FontOverlay));
+		fontRenderer.RenderStringWithShadow(ArrowRightChar.ToString(), (Rectangle)bounds, FontAlignment.Right | FontAlignment.MiddleY, _resources.Font, FontColour, new int?(FontOverlay));
+		bounds.Right = sliderBounds.X + 12;
+		fontRenderer.RenderStringWithShadow(ArrowLeftChar.ToString(), (Rectangle)bounds, FontAlignment.Right | FontAlignment.MiddleY, _resources.Font, FontColour, new int?(FontOverlay));
 	}
 
 	private void DrawRightSpinner(Renderer renderer, ISpinnerSetting setting)
 	{
-		string text = $"◀ {_values[setting.SelectedIndex]} ▶";
+		string text = $"{ArrowLeftChar} {_values[setting.SelectedIndex]} {ArrowRightChar}";
 		renderer.GetFontRenderer().RenderStringWithShadow(text, (Rectangle)Bounds, FontAlignment.Right | FontAlignment.MiddleY, _resources.Font, FontColour, new int?(FontOverlay));
 	}
 
-	private Colour FontColour => !Highlighted ? Colour.FromOpacity(0.6) : Colours.White;
+	private Colour FontColour => Highlighted ? Colours.White : Colour.FromOpacity(0.6);
 
-	private int FontOverlay => !Highlighted ? 0 : 1;
+	private int FontOverlay => Highlighted ? 1 : 0;
 }

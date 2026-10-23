@@ -1,21 +1,18 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: S2HD.Menu.OnOffOptionSetting
-// Assembly: S2HD, Version=2.0.1012.10521, Culture=neutral, PublicKeyToken=null
-// MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
-// Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
-
 using System;
 using System.Collections.Generic;
 
 #nullable disable
 namespace S2HD.Menu;
 
+/// <summary>
+/// A spinner setting with the values OFF and ON.
+/// </summary>
 internal class OnOffOptionSetting : ISpinnerSetting, ISetting
 {
 	private static readonly string[] ValueStrings = new string[2]
 	{
-	"OFF",
-	"ON"
+		"OFF",
+		"ON"
 	};
 	private readonly Func<bool> _getter;
 	private readonly Action<bool> _setter;
@@ -26,7 +23,7 @@ internal class OnOffOptionSetting : ISpinnerSetting, ISetting
 
 	public int SelectedIndex
 	{
-		get => !Value ? 0 : 1;
+		get => Value ? 1 : 0;
 		set => Value = value != 0;
 	}
 

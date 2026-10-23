@@ -1,9 +1,3 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: S2HD.Menu.ListMenuViewPresenter
-// Assembly: S2HD, Version=2.0.1012.10521, Culture=neutral, PublicKeyToken=null
-// MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
-// Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
-
 using System;
 using System.Collections.Immutable;
 using SonicOrca;
@@ -15,15 +9,29 @@ using SonicOrca.Input;
 #nullable disable
 namespace S2HD.Menu;
 
+/// <summary>
+/// Shows a list menu as a column of text items, and moves the highlight with up and down.
+/// The player selects an item with Enter, Start or South, and goes back with Escape, Select or East.
+/// </summary>
 internal class ListMenuViewPresenter : IMenuViewPresenter
 {
+	// SDL scancodes of the keys that the menu uses.
+	private const int EnterScancode = 40;
+	private const int EscapeScancode = 41;
+	private const int DownScancode = 81;
+	private const int UpScancode = 82;
+	/// <summary>The height of one item, in pixels.</summary>
+	private const int ItemHeight = 64;
+
 	private readonly S2HDSonicOrcaGameContext _gameContext;
 	private readonly AudioContext _audioContext;
 	private readonly ISettingUIResources _resources;
 	private readonly ImmutableArray<IMenuItem> _items;
 	private readonly IListMenuViewModel _viewModel;
-	private bool _tapUp;
-	private bool _tapDown;
+	// True while the gamepad is held down (or up) after it moved the highlight.
+	// The highlight moves again only after the player releases the gamepad.
+	private bool _downHeld;
+	private bool _upHeld;
 
 	public int HighlightedIndex
 	{
@@ -57,120 +65,39 @@ internal class ListMenuViewPresenter : IMenuViewPresenter
 	{
 		InputContext input = _gameContext.Input;
 		InputState pressed = _gameContext.Input.Pressed;
-		GamePadInputState gamePadInputState;
-		Vector2i pov;
-		Vector2 leftAxis;
-		if (!input.Pressed.Keyboard[41])
+		GamePadInputState gamePad = pressed.GamePad[0];
+		Vector2i pov = gamePad.POV;
+		Vector2 leftAxis = gamePad.LeftAxis;
+		if (input.Pressed.Keyboard[EscapeScancode] || gamePad.Select || gamePad.East)
+			OnNavigateBack();
+		else if (input.Pressed.Keyboard[EnterScancode] || gamePad.Start || gamePad.South)
+			NavigateSelect();
+		else if (input.Pressed.Keyboard[UpScancode] || ((pov.Y == -1 || leftAxis.Y <= -0.5) && !_upHeld))
+			NavigateUp();
+		else if (input.Pressed.Keyboard[DownScancode] || ((pov.Y == 1 || leftAxis.Y >= 0.5) && !_downHeld))
+			NavigateDown();
+
+		if (pov.Y == 1 || leftAxis.Y >= 0.5)
+			_downHeld = true;
+		if (pov.Y == -1 || leftAxis.Y < -0.5)
+			_upHeld = true;
+		else if (pov.Y == 0 && Math.Abs(leftAxis.Y) < 0.01)
 		{
-			gamePadInputState = pressed.GamePad[0];
-			if (!gamePadInputState.Select)
-			{
-				gamePadInputState = pressed.GamePad[0];
-				if (!gamePadInputState.East)
-				{
-					if (!input.Pressed.Keyboard[40])
-					{
-						gamePadInputState = pressed.GamePad[0];
-						if (!gamePadInputState.Start)
-						{
-							gamePadInputState = pressed.GamePad[0];
-							if (!gamePadInputState.South)
-							{
-								if (!input.Pressed.Keyboard[82])
-								{
-									gamePadInputState = pressed.GamePad[0];
-									pov = gamePadInputState.POV;
-									if (pov.Y != -1)
-									{
-										gamePadInputState = pressed.GamePad[0];
-										leftAxis = gamePadInputState.LeftAxis;
-										if (leftAxis.Y > -0.5)
-											goto label_13;
-									}
-									if (!_tapDown)
-										goto label_12;
-								label_13:
-									if (!input.Pressed.Keyboard[81])
-									{
-										gamePadInputState = pressed.GamePad[0];
-										pov = gamePadInputState.POV;
-										if (pov.Y != 1)
-										{
-											gamePadInputState = pressed.GamePad[0];
-											leftAxis = gamePadInputState.LeftAxis;
-											if (leftAxis.Y < 0.5)
-												goto label_18;
-										}
-										if (_tapUp)
-											goto label_18;
-									}
-									NavigateDown();
-									goto label_18;
-								}
-							label_12:
-								NavigateUp();
-								goto label_18;
-							}
-						}
-					}
-					NavigateSelect();
-					goto label_18;
-				}
-			}
+			_downHeld = false;
+			_upHeld = false;
 		}
-		NavigateBack2();
-	label_18:
-		gamePadInputState = pressed.GamePad[0];
-		pov = gamePadInputState.POV;
-		if (pov.Y != 1)
-		{
-			gamePadInputState = pressed.GamePad[0];
-			leftAxis = gamePadInputState.LeftAxis;
-			if (leftAxis.Y < 0.5)
-				goto label_21;
-		}
-		_tapUp = true;
-	label_21:
-		gamePadInputState = pressed.GamePad[0];
-		pov = gamePadInputState.POV;
-		if (pov.Y != -1)
-		{
-			gamePadInputState = pressed.GamePad[0];
-			leftAxis = gamePadInputState.LeftAxis;
-			if (leftAxis.Y >= -0.5)
-			{
-				gamePadInputState = pressed.GamePad[0];
-				pov = gamePadInputState.POV;
-				if (pov.Y != 0)
-					return;
-				gamePadInputState = pressed.GamePad[0];
-				leftAxis = gamePadInputState.LeftAxis;
-				if (Math.Abs(leftAxis.Y) >= 0.01)
-					return;
-				_tapUp = false;
-				_tapDown = false;
-				return;
-			}
-		}
-		_tapDown = true;
 	}
 
-	private void NavigateBack2()
+	private void OnNavigateBack()
 	{
-		EventHandler navigateBack = NavigateBack;
-		if (navigateBack == null)
-			return;
-		navigateBack(this, EventArgs.Empty);
+		NavigateBack?.Invoke(this, EventArgs.Empty);
 	}
 
 	private void NavigateSelect()
 	{
 		IMenuItem menuItem = _items[HighlightedIndex];
 		NavigateNextEventArgs e = new NavigateNextEventArgs(menuItem.Next, menuItem.Tag);
-		EventHandler<NavigateNextEventArgs> navigateNext = NavigateNext;
-		if (navigateNext == null)
-			return;
-		navigateNext(this, e);
+		NavigateNext?.Invoke(this, e);
 	}
 
 	private void NavigateUp()
@@ -196,44 +123,26 @@ internal class ListMenuViewPresenter : IMenuViewPresenter
 		_audioContext.PlaySound(_resources.NavigateSample);
 	}
 
-	private void PlayConfirmSound()
-	{
-		if (_resources.NavigateSample == null)
-			return;
-		_audioContext.PlaySound(_resources.NavigateSample);
-	}
-
 	public void Draw(Renderer renderer)
 	{
-		I2dRenderer obj = renderer.Get2dRenderer();
+		I2dRenderer g = renderer.Get2dRenderer();
 		IFontRenderer fontRenderer = renderer.GetFontRenderer();
-		int num = Bounds.Centre.Y - _items.Length * 64 /*0x40*/ / 2;
-		Rectanglei bounds1 = Bounds;
-		int x1 = bounds1.X;
-		int y1 = num;
-		bounds1 = Bounds;
-		int width1 = bounds1.Width;
-		Rectanglei rectanglei1 = new Rectanglei(x1, y1, width1, 64 /*0x40*/);
-		Rectanglei rectanglei2;
-		Rectanglei bounds2 = Bounds;
-		int x2 = bounds2.X;
-		int y2 = num;
-		bounds2 = Bounds;
-		int width2 = bounds2.Width;
-		rectanglei2 = new Rectanglei(x2, y2, width2, 64 /*0x40*/);
+		// Centre the list vertically in the bounds.
+		int top = Bounds.Centre.Y - _items.Length * ItemHeight / 2;
+		Rectanglei itemBounds = new Rectanglei(Bounds.X, top, Bounds.Width, ItemHeight);
 		for (int index = 0; index < _items.Length; ++index)
 		{
 			IMenuItem menuItem = _items[index];
 			int overlay = 0;
 			if (index == HighlightedIndex)
 			{
-				obj.BlendMode = BlendMode.Additive;
-				obj.Colour = new Colour(0.3, 1.0, 1.0, 1.0);
-				obj.RenderTexture(_resources.SelectionBar, (Rectangle)rectanglei2);
+				g.BlendMode = BlendMode.Additive;
+				g.Colour = new Colour(0.3, 1.0, 1.0, 1.0);
+				g.RenderTexture(_resources.SelectionBar, (Rectangle)itemBounds);
 				overlay = 1;
 			}
-			fontRenderer.RenderStringWithShadow(menuItem.Text, (Rectangle)rectanglei2, FontAlignment.Centre, _resources.Font, overlay);
-			rectanglei2.Y += rectanglei2.Height;
+			fontRenderer.RenderStringWithShadow(menuItem.Text, (Rectangle)itemBounds, FontAlignment.Centre, _resources.Font, overlay);
+			itemBounds.Y += itemBounds.Height;
 		}
 	}
 }

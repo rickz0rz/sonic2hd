@@ -1,9 +1,3 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: S2HD.CreditsGameState
-// Assembly: S2HD, Version=2.0.1012.10521, Culture=neutral, PublicKeyToken=null
-// MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
-// Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
-
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -20,8 +14,25 @@ using SonicOrca.Resources;
 #nullable disable
 namespace S2HD;
 
+/// <summary>
+/// Plays the credits film with its music.
+/// The player can skip the credits with Enter or Start during the first 42 seconds.
+/// </summary>
 internal class CreditsGameState : IGameState, IDisposable
 {
+	/// <summary>SDL scancode of the Enter key.</summary>
+	private const int EnterScancode = 40;
+	/// <summary>The sample index where the credits music starts again when it loops.</summary>
+	private const int MusicLoopSampleIndex = 458980;
+	/// <summary>The film time, in seconds, after which the player can no longer skip the credits.</summary>
+	private const double SkipEndTime = 42.0;
+	private const double MusicStartTime = 2.0;
+	private const double MusicFadeOutStartTime = 45.0;
+	private const double MusicFadeOutDuration = 8.0;
+	private const double ShootingStarTime = 52.5;
+	/// <summary>The change in volume and fade opacity on each frame after the player skips. The fade takes 2 seconds.</summary>
+	private const double SkipFadeStep = 1.0 / 120.0;
+
 	private readonly SonicOrcaGameContext _gameContext;
 	private bool _loaded;
 	private Task _loadingTask;
@@ -76,31 +87,31 @@ internal class CreditsGameState : IGameState, IDisposable
 			_gameContext.ResourceTree.FullfillLoadedResourcesByAttribute(this);
 			_loaded = true;
 			_creditsFilmInstance = new FilmInstance(_creditsFilmGroup);
-			_musicInstance = new SampleInstance(_gameContext, _musicSample, new int?(458980));
+			_musicInstance = new SampleInstance(_gameContext, _musicSample, MusicLoopSampleIndex);
 			_fadeOpacity = 0.0;
 			bool playedStarSFX = false;
 			bool quit = false;
 			while (!_creditsFilmInstance.Finished)
 			{
 				double currentTime = _creditsFilmInstance.CurrentTime;
-				if (currentTime < 42.0)
+				if (currentTime < SkipEndTime)
 				{
 					InputState pressed = _gameContext.Input.Pressed;
-					if (pressed.Keyboard[40] || pressed.GamePad[0].Start)
+					if (pressed.Keyboard[EnterScancode] || pressed.GamePad[0].Start)
 						quit = true;
 				}
 				if (quit)
 				{
-					_musicInstance.Volume -= 1.0 / 120.0;
-					_fadeOpacity += 1.0 / 120.0;
+					_musicInstance.Volume -= SkipFadeStep;
+					_fadeOpacity += SkipFadeStep;
 					if (_fadeOpacity >= 1.0)
 						break;
 				}
-				if (!_musicInstance.Playing && currentTime >= 2.0)
+				if (!_musicInstance.Playing && currentTime >= MusicStartTime)
 					_musicInstance.Play();
-				if (currentTime >= 45.0)
-					_musicInstance.Volume = 1.0 - Math.Min((currentTime - 45.0) / 8.0, 1.0);
-				if (!playedStarSFX && currentTime >= 52.5)
+				if (currentTime >= MusicFadeOutStartTime)
+					_musicInstance.Volume = 1.0 - Math.Min((currentTime - MusicFadeOutStartTime) / MusicFadeOutDuration, 1.0);
+				if (!playedStarSFX && currentTime >= ShootingStarTime)
 				{
 					playedStarSFX = true;
 					_gameContext.Audio.PlaySound(_shootingStarSample);
@@ -119,10 +130,10 @@ internal class CreditsGameState : IGameState, IDisposable
 		_creditsFilmInstance.Draw(renderer);
 		if (_fadeOpacity >= 1.0)
 			return;
-		I2dRenderer obj = renderer.Get2dRenderer();
-		Colour colour = new Colour(_fadeOpacity, 0.0, 0.0, 0.0);
-		obj.BlendMode = BlendMode.Alpha;
-		obj.RenderQuad(colour, new Rectangle(0.0, 0.0, 1920.0, 1080.0));
+		I2dRenderer g = renderer.Get2dRenderer();
+		Colour fadeColour = new Colour(_fadeOpacity, 0.0, 0.0, 0.0);
+		g.BlendMode = BlendMode.Alpha;
+		g.RenderQuad(fadeColour, new Rectangle(0.0, 0.0, 1920.0, 1080.0));
 	}
 
 	private static class ResourceKeys

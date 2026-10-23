@@ -1,9 +1,3 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: S2HD.Program
-// Assembly: S2HD, Version=2.0.1012.10521, Culture=neutral, PublicKeyToken=null
-// MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
-// Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
-
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -19,6 +13,9 @@ using SonicOrca.SDL2;
 #nullable disable
 namespace S2HD;
 
+/// <summary>
+/// The entry point of the desktop game. It sets up the log and the configuration, and then runs the game.
+/// </summary>
 public static class Program
 {
 	public const string BuildConfigurationName = "RELEASE";
@@ -27,6 +24,7 @@ public static class Program
 	public static Version AppMinOpenGLVersion = new Version(3, 3);
 	private static string IniConfigurationPath = "sonicorca.cfg";
 
+	/// <summary>Brings a window to the front. Windows only.</summary>
 	[DllImport("user32.dll")]
 	private static extern int SetForegroundWindow(IntPtr hWnd);
 
@@ -46,7 +44,7 @@ public static class Program
 		}
 	}
 
-	private static string LogPath => Path.Combine(Program.UserDataDirectory, "sonicorca.log");
+	private static string LogPath => Path.Combine(UserDataDirectory, "sonicorca.log");
 
 	public static IReadOnlyList<string> CommandLineArguments { get; private set; }
 
@@ -54,46 +52,48 @@ public static class Program
 	private static void Main(string[] args)
 	{
 		Program.CommandLineArguments = args;
-		Program.EnsureUserDataDirectoryExists();
-		Program.WriteLogHeader();
-		Program.LoadConfiguration();
-		Program.RunOrFocusGame();
+		EnsureUserDataDirectoryExists();
+		WriteLogHeader();
+		LoadConfiguration();
+		RunOrFocusGame();
 	}
 
 	private static void EnsureUserDataDirectoryExists()
 	{
-		if (Directory.Exists(Program.UserDataDirectory))
+		if (Directory.Exists(UserDataDirectory))
 			return;
-		Directory.CreateDirectory(Program.UserDataDirectory);
+		Directory.CreateDirectory(UserDataDirectory);
 	}
 
 	private static void LoadConfiguration()
 	{
-		string path = Path.Combine(Program.UserDataDirectory, Program.IniConfigurationPath);
+		string path = Path.Combine(UserDataDirectory, IniConfigurationPath);
 		if (File.Exists(path))
 		{
-			Program.Configuration = new IniConfiguration(path);
+			Configuration = new IniConfiguration(path);
 		}
 		else
 		{
-			Program.Configuration = new IniConfiguration();
-			Program.Configuration.SetProperty("video", "fullscreen", "0");
-			Program.Configuration.SetProperty("audio", "volume", "1.0");
-			Program.Configuration.SetProperty("audio", "music_volume", "0.5");
-			Program.Configuration.SetProperty("audio", "sound_volume", "1.0");
-			Program.Configuration.Save(path);
+			Configuration = new IniConfiguration();
+			Configuration.SetProperty("video", "fullscreen", "0");
+			Configuration.SetProperty("audio", "volume", "1.0");
+			Configuration.SetProperty("audio", "music_volume", "0.5");
+			Configuration.SetProperty("audio", "sound_volume", "1.0");
+			Configuration.Save(path);
 		}
 	}
 
+	/// <summary>
+	/// Runs the game, or brings the window of the game to the front when another instance is already running.
+	/// </summary>
 	private static void RunOrFocusGame()
 	{
-		bool createdNew;
-		using (new Mutex(true, "SonicOrca", out createdNew))
+		using (new Mutex(true, "SonicOrca", out bool createdNew))
 		{
-			if (createdNew || Program.Configuration.GetPropertyBoolean("debug", "allow_multiple_instances"))
-				Program.RunGame();
+			if (createdNew || Configuration.GetPropertyBoolean("debug", "allow_multiple_instances"))
+				RunGame();
 			else
-				Program.FocusGame();
+				FocusGame();
 		}
 	}
 
@@ -101,7 +101,7 @@ public static class Program
 
 	private static void RunGame()
 	{
-		using (IPlatform platform = Program.GetPlatform())
+		using (IPlatform platform = GetPlatform())
 		{
 			try
 			{
@@ -109,30 +109,30 @@ public static class Program
 			}
 			catch (Exception ex)
 			{
-				Program.LogException(ex);
-				Program.ShowErrorMessageBox(ex.Message);
+				LogException(ex);
+				ShowErrorMessageBox(ex.Message);
 				return;
 			}
-			if (!Program.CheckOpenGL(platform))
+			if (!CheckOpenGL(platform))
 				return;
-			using (S2HDSonicOrcaGameContext sonicOrcaGameContext = new S2HDSonicOrcaGameContext(platform))
+			using (S2HDSonicOrcaGameContext gameContext = new S2HDSonicOrcaGameContext(platform))
 			{
 				try
 				{
 					Trace.WriteLine("Initialising game");
 					Trace.Indent();
-					sonicOrcaGameContext.Initialise();
+					gameContext.Initialise();
 					Trace.Unindent();
 					Trace.WriteLine("Running game");
 					Trace.Indent();
-					sonicOrcaGameContext.Run();
+					gameContext.Run();
 				}
 				catch (Exception ex)
 				{
 					if (Debugger.IsAttached)
 						throw;
-					Program.LogException(ex);
-					Program.ShowErrorMessageBox(ex.Message);
+					LogException(ex);
+					ShowErrorMessageBox(ex.Message);
 				}
 				finally
 				{
@@ -141,17 +141,17 @@ public static class Program
 			}
 		}
 		Trace.Unindent();
-		Trace.WriteLine(new string('-', 80 /*0x50*/));
+		Trace.WriteLine(new string('-', 80));
 		Trace.WriteLine(string.Empty);
 	}
 
 	private static void FocusGame()
 	{
 		Process current = Process.GetCurrentProcess();
-		Process process = Process.GetProcessesByName(current.ProcessName).Where<Process>(x => x.Id != current.Id).FirstOrDefault<Process>();
+		Process process = Process.GetProcessesByName(current.ProcessName).Where(x => x.Id != current.Id).FirstOrDefault();
 		if (process == null || !OperatingSystem.IsWindows())
 			return;
-		Program.SetForegroundWindow(process.MainWindowHandle);
+		SetForegroundWindow(process.MainWindowHandle);
 	}
 
 	private static bool CheckOpenGL(IPlatform platform)
@@ -159,10 +159,10 @@ public static class Program
 		Trace.WriteLine("Verifying OpenGL version");
 		Version openGlVersion = platform.GetOpenGLVersion();
 		Trace.WriteLine($"OpenGL {openGlVersion.Major}.{openGlVersion.Minor}");
-		if (!(openGlVersion < Program.AppMinOpenGLVersion))
+		if (!(openGlVersion < AppMinOpenGLVersion))
 			return true;
 		Trace.WriteLine("OpenGL version too low");
-		Program.ShowErrorMessageBox($"OpenGL {Program.AppMinOpenGLVersion.Major}.{Program.AppMinOpenGLVersion.Minor} or later is required.");
+		ShowErrorMessageBox($"OpenGL {AppMinOpenGLVersion.Major}.{AppMinOpenGLVersion.Minor} or later is required.");
 		return false;
 	}
 
@@ -174,43 +174,43 @@ public static class Program
 	private static void WriteLogHeader()
 	{
 		Trace.AutoFlush = true;
-		Trace.Listeners.Add(new TextWriterTraceListener(Program.LogPath));
+		Trace.Listeners.Add(new TextWriterTraceListener(LogPath));
 		Trace.Listeners.Add(new ConsoleTraceListener());
 		Trace.WriteLine(Environment.OSVersion);
-		Trace.WriteLine($"SonicOrca {Program.AppVersion} [{"RELEASE"} {Program.AppArchitecture}]");
+		Trace.WriteLine($"SonicOrca {AppVersion} [{BuildConfigurationName} {AppArchitecture}]");
 		Trace.WriteLine(DateTime.Now.ToString("dd MMMM yyyy @ hh:mm tt"));
-		Trace.WriteLine(new string('-', 80 /*0x50*/));
+		Trace.WriteLine(new string('-', 80));
 		Trace.Indent();
 	}
 
 	public static void LogException(Exception ex, bool logStackTrace = true)
 	{
-		string[] strArray1 = ex.Message.Split(Environment.NewLine.ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
-		if (strArray1.Length <= 1)
+		string[] messageLines = ex.Message.Split(Environment.NewLine.ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
+		if (messageLines.Length <= 1)
 		{
-			Trace.WriteLine("EXCEPTION: " + strArray1[0]);
+			Trace.WriteLine("EXCEPTION: " + messageLines[0]);
 		}
 		else
 		{
 			Trace.WriteLine("EXCEPTION:");
 			Trace.Indent();
-			foreach (string message in strArray1)
+			foreach (string message in messageLines)
 				Trace.WriteLine(message);
 			Trace.Unindent();
 		}
 		if (ex.InnerException != null)
 		{
 			Trace.Indent();
-			Program.LogException(ex.InnerException);
+			LogException(ex.InnerException);
 			Trace.Unindent();
 		}
 		if (!logStackTrace || string.IsNullOrEmpty(ex.StackTrace))
 			return;
-		string[] strArray2 = ex.StackTrace.Split(Environment.NewLine.ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
+		string[] stackTraceLines = ex.StackTrace.Split(Environment.NewLine.ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
 		Trace.WriteLine("STACK TRACE:");
 		Trace.Indent();
-		foreach (string str in strArray2)
-			Trace.WriteLine(str.Trim());
+		foreach (string line in stackTraceLines)
+			Trace.WriteLine(line.Trim());
 		Trace.Unindent();
 	}
 }

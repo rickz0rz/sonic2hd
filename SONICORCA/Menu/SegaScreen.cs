@@ -1,9 +1,3 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: SonicOrca.Menu.SegaScreen
-// Assembly: S2HD, Version=2.0.1012.10521, Culture=neutral, PublicKeyToken=null
-// MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
-// Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
-
 using System.Threading;
 using System.Threading.Tasks;
 using SonicOrca.Audio;
@@ -14,6 +8,11 @@ using SonicOrca.Resources;
 #nullable disable
 namespace SonicOrca.Menu;
 
+/// <summary>
+/// The SEGA logo screen. It fades in, plays the SEGA sound, waits, and fades out.
+/// The player can skip it with Start.
+/// No code in the game opens this screen.
+/// </summary>
 internal class SegaScreen : Screen
 {
 	private const string LogoResourceKey = "SONICORCA/MENU/SEGA/SCREENLOGO";
@@ -38,10 +37,10 @@ internal class SegaScreen : Screen
 	{
 		ResourceTree resourceTree = _context.ResourceTree;
 		_resourceSession = new ResourceSession(resourceTree);
-		_resourceSession.PushDependencies("SONICORCA/MENU/SEGA/SCREENLOGO", "SONICORCA/MENU/SEGA/SOUND");
+		_resourceSession.PushDependencies(LogoResourceKey, SoundResourceKey);
 		await _resourceSession.LoadAsync(ct);
-		_logoTexture = resourceTree.GetLoadedResource<ITexture>("SONICORCA/MENU/SEGA/SCREENLOGO");
-		_segaSample = resourceTree.GetLoadedResource<Sample>("SONICORCA/MENU/SEGA/SOUND");
+		_logoTexture = resourceTree.GetLoadedResource<ITexture>(LogoResourceKey);
+		_segaSample = resourceTree.GetLoadedResource<Sample>(SoundResourceKey);
 	}
 
 	public override void Unload()
@@ -57,26 +56,44 @@ internal class SegaScreen : Screen
 	{
 		int cancelWait = 0;
 		FiniteStateMachine finiteStateMachine = new FiniteStateMachine();
-		finiteStateMachine.Begin().Do(() => cancelWait = 120).While(() => cancelWait-- >= 0 && !_cancelled).Do(() =>
-		{
-			if (_cancelled)
-				finiteStateMachine.Finish();
-			else
-				_fadeTransition.BeginFadeIn();
-		}).While(() => !_fadeTransition.Finished, () =>
-		{
-			if (_cancelled)
+		finiteStateMachine.Begin()
+			// Wait 2 seconds on a white screen.
+			.Do(() => cancelWait = 120)
+			.While(() => cancelWait-- >= 0 && !_cancelled)
+			.Do(() =>
 			{
-				_fadeTransition.BeginFadeOut();
-				finiteStateMachine.Begin().Do(() => _fadeTransition.BeginFadeOut()).While(() => !_fadeTransition.Finished, () => _fadeTransition.Update()).Do(() => finiteStateMachine.Finish());
-			}
-			else
-				_fadeTransition.Update();
-		}).Do(() =>
-		{
-			_segaSampleInstance = new SampleInstance(_context, _segaSample);
-			_segaSampleInstance.Play();
-		}).While(() => _segaSampleInstance.Playing).Do(() => cancelWait = 60).While(() => cancelWait-- >= 0 && !_cancelled).Do(() => _fadeTransition.BeginFadeOut()).While(() => !_fadeTransition.Finished, () => _fadeTransition.Update());
+				if (_cancelled)
+					finiteStateMachine.Finish();
+				else
+					_fadeTransition.BeginFadeIn();
+			})
+			// Fade in the logo. When the player skips, start a new chain that fades out.
+			.While(() => !_fadeTransition.Finished, () =>
+			{
+				if (_cancelled)
+				{
+					_fadeTransition.BeginFadeOut();
+					finiteStateMachine.Begin()
+						.Do(() => _fadeTransition.BeginFadeOut())
+						.While(() => !_fadeTransition.Finished, () => _fadeTransition.Update())
+						.Do(() => finiteStateMachine.Finish());
+				}
+				else
+				{
+					_fadeTransition.Update();
+				}
+			})
+			// Play the SEGA sound, wait 1 second, and fade out.
+			.Do(() =>
+			{
+				_segaSampleInstance = new SampleInstance(_context, _segaSample);
+				_segaSampleInstance.Play();
+			})
+			.While(() => _segaSampleInstance.Playing)
+			.Do(() => cancelWait = 60)
+			.While(() => cancelWait-- >= 0 && !_cancelled)
+			.Do(() => _fadeTransition.BeginFadeOut())
+			.While(() => !_fadeTransition.Finished, () => _fadeTransition.Update());
 		return finiteStateMachine;
 	}
 
@@ -91,9 +108,9 @@ internal class SegaScreen : Screen
 
 	public override void Draw(Renderer renderer)
 	{
-		I2dRenderer obj = renderer.Get2dRenderer();
-		obj.RenderQuad(Colours.White, new Rectangle(0.0, 0.0, 1920.0, 1080.0));
-		obj.RenderTexture(_logoTexture, new Vector2(960.0, 540.0));
+		I2dRenderer g = renderer.Get2dRenderer();
+		g.RenderQuad(Colours.White, new Rectangle(0.0, 0.0, 1920.0, 1080.0));
+		g.RenderTexture(_logoTexture, new Vector2(960.0, 540.0));
 		_fadeTransition.Draw(renderer);
 	}
 }

@@ -1,9 +1,3 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: S2HD.Title.Background
-// Assembly: S2HD, Version=2.0.1012.10521, Culture=neutral, PublicKeyToken=null
-// MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
-// Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
-
 using System;
 using SonicOrca;
 using SonicOrca.Extensions;
@@ -14,6 +8,10 @@ using SonicOrca.Resources;
 #nullable disable
 namespace S2HD.Title;
 
+/// <summary>
+/// The background of the title screen: a scrolling sky, an island with water sparkles, and the Death Egg.
+/// It also draws the white flash when it appears, and the wipe transition when the title screen closes.
+/// </summary>
 internal class Background
 {
 	private const int BackgroundSkyStartX = 1260;
@@ -51,8 +49,8 @@ internal class Background
 	{
 		_ticks = 0;
 		_backgroundFlash = 0.0;
-		_backgroundSkyCentreX = 1260.0;
-		_backgroundIslandCentreX = 1088.0;
+		_backgroundSkyCentreX = BackgroundSkyStartX;
+		_backgroundIslandCentreX = BackgroundIslandStartX;
 		_waterSparkleAnimationInstance = null;
 		Visible = false;
 	}
@@ -65,13 +63,16 @@ internal class Background
 		{
 			Visible = true;
 			_backgroundFlash = 1.0;
-			_waterSparkleAnimationInstance = new AnimationInstance(_animationGroup, 10);
+			_waterSparkleAnimationInstance = new AnimationInstance(_animationGroup, TitleResources.WaterSparkleAnimationIndex);
 			_waterSparkleAnimationInstance.AdditiveBlending = true;
 		}
 		else
+		{
 			_backgroundFlash = Math.Max(0.0, _backgroundFlash - 1.0 / 32.0);
-		_backgroundSkyCentreX += -0.05;
-		_backgroundIslandCentreX += -0.1;
+		}
+		_backgroundSkyCentreX += BackgroundSkyVelocity;
+		_backgroundIslandCentreX += BackgroundIslandVelocity;
+		// Wrap the sky and the island around when they go off the left edge of the screen.
 		if (_backgroundSkyCentreX + _textureBackgroundSky.Width / 2 < 0.0)
 			_backgroundSkyCentreX = _textureBackgroundSky.Width / 2;
 		if (_backgroundIslandCentreX < -_textureBackgroundIsland.Width)
@@ -88,29 +89,31 @@ internal class Background
 
 	public void Draw(Renderer renderer)
 	{
-		I2dRenderer renderer1 = renderer.Get2dRenderer();
-		renderer1.BlendMode = BlendMode.Alpha;
+		I2dRenderer g = renderer.Get2dRenderer();
+		g.BlendMode = BlendMode.Alpha;
 		if (Visible)
 		{
-			renderer1.Colour = Colours.White;
-			int backgroundSkyCentreX = (int)_backgroundSkyCentreX;
+			g.Colour = Colours.White;
+			// Repeat the sky texture until it fills the width of the screen.
+			int skyCentreX = (int)_backgroundSkyCentreX;
 			do
 			{
-				renderer1.RenderTexture(_textureBackgroundSky, (Vector2)new Vector2i(backgroundSkyCentreX, 540));
-				backgroundSkyCentreX += _textureBackgroundSky.Width;
+				g.RenderTexture(_textureBackgroundSky, (Vector2)new Vector2i(skyCentreX, 540));
+				skyCentreX += _textureBackgroundSky.Width;
 			}
-			while (backgroundSkyCentreX - _textureBackgroundSky.Width / 2 < 1920);
-			renderer1.RenderTexture(_textureBackgroundDeathEgg, new Vector2(1750.0, 192.0));
-			renderer1.RenderTexture(_textureBackgroundIsland, new Vector2(_backgroundIslandCentreX, 540.0));
-			_waterSparkleAnimationInstance.Draw(renderer1, new Vector2(_backgroundIslandCentreX + 38.0, 892.0));
+			while (skyCentreX - _textureBackgroundSky.Width / 2 < 1920);
+			g.RenderTexture(_textureBackgroundDeathEgg, new Vector2(1750.0, 192.0));
+			g.RenderTexture(_textureBackgroundIsland, new Vector2(_backgroundIslandCentreX, 540.0));
+			_waterSparkleAnimationInstance.Draw(g, new Vector2(_backgroundIslandCentreX + 38.0, 892.0));
 		}
 		if (_backgroundFlash > 0.0)
-			renderer1.RenderQuad(new Colour(_backgroundFlash, 1.0, 1.0, 1.0), new Rectangle(0.0, 0.0, 1920.0, 1080.0));
+			g.RenderQuad(new Colour(_backgroundFlash, 1.0, 1.0, 1.0), new Rectangle(0.0, 0.0, 1920.0, 1080.0));
 		if (_wipeHeight <= 0)
 			return;
+		// The wipe closes from the top and from the bottom of the screen.
 		Rectanglei destination = new Rectanglei(0, _wipeHeight - _textureWipe.Height, 1920, _textureWipe.Height);
-		renderer1.RenderTexture(_textureWipe, (Rectangle)destination);
+		g.RenderTexture(_textureWipe, (Rectangle)destination);
 		destination = new Rectanglei(0, 1080 - _wipeHeight, 1920, _textureWipe.Height);
-		renderer1.RenderTexture(_textureWipe, (Rectangle)destination, flipy: true);
+		g.RenderTexture(_textureWipe, (Rectangle)destination, flipy: true);
 	}
 }

@@ -1,9 +1,3 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: S2HD.Menu.ButtonBarUI
-// Assembly: S2HD, Version=2.0.1012.10521, Culture=neutral, PublicKeyToken=null
-// MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
-// Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
-
 using System.Collections.Immutable;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
@@ -11,8 +5,16 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace S2HD.Menu;
 
+/// <summary>
+/// Draws a bar of gamepad button hints, for example "A APPLY", aligned to the right of its bounds.
+/// </summary>
 internal class ButtonBarUI
 {
+	/// <summary>The horizontal space between two items.</summary>
+	private const int ItemSpacing = 16;
+	/// <summary>The width of a button icon. The text starts after it.</summary>
+	private const int ButtonIconWidth = 64;
+
 	private readonly IControlResources _controlResources;
 	private Rectanglei _bounds;
 	private ImmutableArray<ButtonBarItem> _items;
@@ -44,26 +46,27 @@ internal class ButtonBarUI
 	private void CalculateItemPositions(I2dRenderer g)
 	{
 		int length = _items.Length;
-		int num1 = 0;
+		int x = 0;
 		_itemX = new int[length];
 		for (int index = 0; index < length; ++index)
 		{
-			_itemX[index] = num1;
+			_itemX[index] = x;
 			ButtonBarItem buttonBarItem = _items[index];
-			num1 = num1 + GetItemWidth(g, buttonBarItem) + 16 /*0x10*/;
+			x = x + GetItemWidth(g, buttonBarItem) + ItemSpacing;
 		}
-		int num2 = Bounds.Width - (num1 - 16 /*0x10*/);
+		// Move all the items to the right, so that the last item ends at the right edge.
+		int offsetX = Bounds.Width - (x - ItemSpacing);
 		for (int index = 0; index < length; ++index)
-			_itemX[index] += num2;
+			_itemX[index] += offsetX;
 	}
 
 	private int GetItemWidth(I2dRenderer g, ButtonBarItem item)
 	{
-		int num = 0;
+		int width = 0;
 		if (GetButtonTexture(item) != null)
-			num += 64 /*0x40*/;
+			width += ButtonIconWidth;
 		TextRenderInfo textRenderInfo = GetTextRenderInfo(new Rectanglei(), item.Text);
-		return num + (int)g.MeasureText(textRenderInfo).Width;
+		return width + (int)g.MeasureText(textRenderInfo).Width;
 	}
 
 	public void Draw(Renderer renderer)
@@ -92,14 +95,15 @@ internal class ButtonBarUI
 
 	private void DrawButton(I2dRenderer g, ButtonBarItem item, int x, int y)
 	{
-		x += 32 /*0x20*/;
+		// The icon is drawn at its centre, so move to the middle of the icon, then to its right edge.
+		x += ButtonIconWidth / 2;
 		ITexture buttonTexture = GetButtonTexture(item);
 		if (buttonTexture != null)
 		{
 			g.BlendMode = BlendMode.Alpha;
 			g.Colour = Colours.White;
 			g.RenderTexture(buttonTexture, (Vector2)new Vector2i(x, y));
-			x += 32 /*0x20*/;
+			x += ButtonIconWidth / 2;
 		}
 		if (string.IsNullOrEmpty(item.Text))
 			return;
@@ -126,7 +130,7 @@ internal class ButtonBarUI
 		{
 			Bounds = (Rectangle)bounds,
 			Colour = Colours.White,
-			Overlay = new int?(0),
+			Overlay = 0,
 			Alignment = FontAlignment.MiddleY,
 			Font = _controlResources.Font,
 			SizeMultiplier = 0.75f,

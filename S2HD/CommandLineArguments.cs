@@ -1,15 +1,14 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: S2HD.CommandLineArguments
-// Assembly: S2HD, Version=2.0.1012.10521, Culture=neutral, PublicKeyToken=null
-// MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
-// Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
-
 using System.Collections.Generic;
 using SonicOrca.Extensions;
 
 #nullable disable
 namespace S2HD;
 
+/// <summary>
+/// Parses the command line of the game.
+/// A "--name" argument is an option, and the arguments after it (until the next "-" argument) are its values.
+/// A "-abc" argument sets the single-character flags a, b and c.
+/// </summary>
 internal class CommandLineArguments
 {
 	private readonly HashSet<char> _flags = new HashSet<char>();
@@ -17,37 +16,37 @@ internal class CommandLineArguments
 	private readonly string _commandLine;
 
 	public CommandLineArguments(IEnumerable<string> args)
-	  : this(args.AsArray<string>())
+	  : this(args.AsArray())
 	{
 	}
 
 	public CommandLineArguments(string[] args)
 	{
-		List<string> stringList = new List<string>();
+		List<string> optionValues = new List<string>();
 		_commandLine = string.Join(" ", args);
 		for (int index = 0; index < args.Length; ++index)
 		{
-			string str1 = args[index];
-			if (str1.StartsWith("--"))
+			string argument = args[index];
+			if (argument.StartsWith("--"))
 			{
-				string key = str1.Substring(2);
-				stringList.Clear();
+				string key = argument.Substring(2);
+				optionValues.Clear();
 				for (++index; index < args.Length; ++index)
 				{
-					string str2 = args[index];
-					if (str2.StartsWith("-"))
+					string value = args[index];
+					if (value.StartsWith("-"))
 					{
 						--index;
 						break;
 					}
-					stringList.Add(str2);
+					optionValues.Add(value);
 				}
-				_options.Add(key, stringList.ToArray());
+				_options.Add(key, optionValues.ToArray());
 			}
-			else if (str1.StartsWith("-"))
+			else if (argument.StartsWith("-"))
 			{
-				foreach (char ch in str1.Substring(1))
-					_flags.Add(ch);
+				foreach (char flag in argument.Substring(1))
+					_flags.Add(flag);
 			}
 		}
 	}
@@ -58,8 +57,7 @@ internal class CommandLineArguments
 
 	public string[] GetOptionValues(string option)
 	{
-		string[] optionValues;
-		if (!_options.TryGetValue(option, out optionValues))
+		if (!_options.TryGetValue(option, out string[] optionValues))
 			optionValues = new string[0];
 		return optionValues;
 	}

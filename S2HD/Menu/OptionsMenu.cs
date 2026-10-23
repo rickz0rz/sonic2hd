@@ -1,9 +1,3 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: S2HD.Menu.OptionsMenu
-// Assembly: S2HD, Version=2.0.1012.10521, Culture=neutral, PublicKeyToken=null
-// MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
-// Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
-
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -19,6 +13,10 @@ using SonicOrca.Resources;
 #nullable disable
 namespace S2HD.Menu;
 
+/// <summary>
+/// The pause menu in a level. It blurs the level behind it, plays an animated composition for each page,
+/// and shows the menu page in a circle.
+/// </summary>
 internal class OptionsMenu : IDisposable
 {
 	[ResourcePath("SONICORCA/MENU/OPTIONS/CIRCLE")]
@@ -56,7 +54,7 @@ internal class OptionsMenu : IDisposable
 	private bool _showing;
 	private readonly MenuViewPresenterFactory _viewPresenterFactory;
 	private MenuViewPresenterHost _viewPresenterHost;
-	private List<CompositionInstance> _compositions = new List<CompositionInstance>();
+	private readonly List<CompositionInstance> _compositions = new List<CompositionInstance>();
 
 	public bool CanRestart { get; set; }
 
@@ -121,24 +119,18 @@ internal class OptionsMenu : IDisposable
 		_currentComposition.Animate();
 		if (!_currentComposition.Finished || _currentComposition == _menuPopOutComposition)
 			return;
+		// The menu page shows in a circle. The circle is centred on the screen, but it is lower for the
+		// audio and video pages.
 		_circleSize = _circleTexture.Width;
 		int circleSize = (int)_circleSize;
 		_circleBounds = new Rectanglei(0, 0, circleSize, circleSize);
+		_circleBounds.X = (1920 - circleSize) / 2;
 		if (_currentComposition == _subMenuVideoPopInComposition)
-		{
-			_circleBounds.X = (1920 - circleSize) / 2;
 			_circleBounds.Y = 337;
-		}
 		else if (_currentComposition == _subMenuAudioPopInComposition)
-		{
-			_circleBounds.X = (1920 - circleSize) / 2;
 			_circleBounds.Y = 400;
-		}
 		else
-		{
-			_circleBounds.X = (1920 - circleSize) / 2;
 			_circleBounds.Y = (1080 - circleSize) / 2;
-		}
 		_viewPresenterHost.Bounds = Rectanglei.FromLTRB(_circleBounds.Left, _circleBounds.Top + 60, _circleBounds.Right, _circleBounds.Bottom);
 		_viewPresenterHost.Update();
 		_viewPresenterHost.HandleInput();
@@ -150,36 +142,27 @@ internal class OptionsMenu : IDisposable
 			return;
 		switch ((int)e.Tag)
 		{
-			case 1:
-				EventHandler onQuit = OnQuit;
-				if (onQuit == null)
-					break;
-				onQuit(this, EventArgs.Empty);
+			case MenuTags.QUIT:
+				OnQuit?.Invoke(this, EventArgs.Empty);
 				break;
-			case 2:
-				EventHandler onRestart = OnRestart;
-				if (onRestart == null)
-					break;
-				onRestart(this, EventArgs.Empty);
+			case MenuTags.RESTART:
+				OnRestart?.Invoke(this, EventArgs.Empty);
 				break;
-			case 3:
-				EventHandler onResume = OnResume;
-				if (onResume == null)
-					break;
-				onResume(this, EventArgs.Empty);
+			case MenuTags.RESUME:
+				OnResume?.Invoke(this, EventArgs.Empty);
 				break;
-			case 4:
+			case MenuTags.APPLY:
 				_gameContext.Settings.Apply();
 				break;
-			case 5:
+			case MenuTags.OPTIONS_MENU:
 				ResetCompositions();
 				_currentComposition = _subMenuOptionsPopInComposition;
 				break;
-			case 6:
+			case MenuTags.AUDIO_MENU:
 				ResetCompositions();
 				_currentComposition = _subMenuAudioPopInComposition;
 				break;
-			case 7:
+			case MenuTags.VIDEO_MENU:
 				ResetCompositions();
 				_currentComposition = _subMenuVideoPopInComposition;
 				break;
@@ -214,6 +197,7 @@ internal class OptionsMenu : IDisposable
 		DrawViewPresenterHost(renderer);
 	}
 
+	/// <summary>Blurs the level that is in the current framebuffer, and makes it darker.</summary>
 	private void BlurGame(Renderer renderer, I2dRenderer g)
 	{
 		Rectanglei destination = new Rectanglei(0, 0, 1920, 1080);
@@ -235,8 +219,8 @@ internal class OptionsMenu : IDisposable
 		_currentComposition = _menuPopInComposition;
 		_showing = true;
 		_viewPresenterHost = new MenuViewPresenterHost(_viewPresenterFactory, new MenuViewFactory(_gameContext).GetInGameOptionsView(CanRestart), _settingUIResources);
-		_viewPresenterHost.NavigateNext += new EventHandler<NavigateNextEventArgs>(NavigateNextHandler);
-		_viewPresenterHost.NavigateBack += new EventHandler(NavigateBackHandler);
+		_viewPresenterHost.NavigateNext += NavigateNextHandler;
+		_viewPresenterHost.NavigateBack += NavigateBackHandler;
 	}
 
 	public void Hide()

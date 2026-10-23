@@ -1,9 +1,3 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: S2HD.Menu.MenuViewPresenterHost
-// Assembly: S2HD, Version=2.0.1012.10521, Culture=neutral, PublicKeyToken=null
-// MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
-// Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
-
 using System;
 using System.Collections.Generic;
 using SonicOrca;
@@ -13,6 +7,9 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace S2HD.Menu;
 
+/// <summary>
+/// Shows the current menu page and keeps a stack of the previous pages, so that the player can go back.
+/// </summary>
 internal class MenuViewPresenterHost
 {
 	private readonly Stack<IMenuViewModel> _viewModelStack = new Stack<IMenuViewModel>();
@@ -61,8 +58,8 @@ internal class MenuViewPresenterHost
 		_viewModel = viewModel;
 		_viewPresenter = _viewPresenterFactory.Create(_viewModel);
 		_viewPresenter.Bounds = _bounds;
-		_viewPresenter.NavigateBack += new EventHandler(NavigateBackHandler);
-		_viewPresenter.NavigateNext += (s, e) => NavigateNextHandler(s, e);
+		_viewPresenter.NavigateBack += NavigateBackHandler;
+		_viewPresenter.NavigateNext += NavigateNextHandler;
 		_viewPresenter.Update();
 	}
 
@@ -70,20 +67,16 @@ internal class MenuViewPresenterHost
 	{
 		if (_viewModelStack.Count == 0)
 		{
-			EventHandler navigateBack = NavigateBack;
-			if (navigateBack == null)
-				return;
-			navigateBack(this, EventArgs.Empty);
+			NavigateBack?.Invoke(this, EventArgs.Empty);
 		}
 		else
 		{
 			SetViewModel(_viewModelStack.Pop());
-			if (!(NavigateBack.Target.GetType() != typeof(OptionsGameState)))
+			// The options screen does not need to know about a step back to a previous page.
+			// The pause menu does, because it plays a different animation for each page.
+			if (NavigateBack.Target.GetType() == typeof(OptionsGameState))
 				return;
-			EventHandler navigateBack = NavigateBack;
-			if (navigateBack == null)
-				return;
-			navigateBack(sender, EventArgs.Empty);
+			NavigateBack?.Invoke(sender, EventArgs.Empty);
 		}
 	}
 
@@ -94,43 +87,27 @@ internal class MenuViewPresenterHost
 			_viewModelStack.Push(_viewModel);
 			SetViewModel(e.ViewModel);
 		}
-		if (e.Tag != null && e.Tag.Equals(0))
+		if (e.Tag != null && e.Tag.Equals(MenuTags.BACK))
+		{
 			NavigateBackHandler(s, e);
+		}
 		else if (e.ViewModel != null && e.Tag == null)
 		{
-			EventHandler<NavigateNextEventArgs> navigateNext = NavigateNext;
-			if (navigateNext == null)
-				return;
-			navigateNext(s, new NavigateNextEventArgs(e.ViewModel, e.ViewModel.Tag));
+			// An item without a tag that opens a page sends the tag of that page.
+			NavigateNext?.Invoke(s, new NavigateNextEventArgs(e.ViewModel, e.ViewModel.Tag));
 		}
 		else
 		{
-			EventHandler<NavigateNextEventArgs> navigateNext = NavigateNext;
-			if (navigateNext == null)
-				return;
-			navigateNext(s, e);
+			NavigateNext?.Invoke(s, e);
 		}
-	}
-
-	private void PlayNavigationSound()
-	{
-		if (_settingUIResources.NavigateSample == null)
-			return;
-		SonicOrcaGameContext.Singleton.Audio.PlaySound(_settingUIResources.NavigateSample);
 	}
 
 	private void PlayConfirmSound()
 	{
+		// This checks NavigateSample, but it plays ConfirmSample. The original code does the same.
 		if (_settingUIResources.NavigateSample == null)
 			return;
 		SonicOrcaGameContext.Singleton.Audio.PlaySound(_settingUIResources.ConfirmSample);
-	}
-
-	private void PlayBackSound()
-	{
-		if (_settingUIResources.NavigateSample == null)
-			return;
-		SonicOrcaGameContext.Singleton.Audio.PlaySound(_settingUIResources.CancelSample);
 	}
 
 	public void Draw(Renderer renderer) => _viewPresenter?.Draw(renderer);

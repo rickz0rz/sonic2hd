@@ -1,9 +1,3 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: S2HD.Menu.OptionsGameState
-// Assembly: S2HD, Version=2.0.1012.10521, Culture=neutral, PublicKeyToken=null
-// MVID: 18631A0F-16CF-4E18-8563-1EC5E54750D6
-// Assembly location: C:\Users\ricky\Downloads\S2HD_2.0.1012-rc2\S2HD_2.0.1012-rc2\S2HD.exe
-
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -19,15 +13,21 @@ using SonicOrca.Resources;
 #nullable disable
 namespace S2HD.Menu;
 
+/// <summary>
+/// The options screen that the title screen opens. It plays the options music and shows the audio and video
+/// settings, with a button bar at the bottom.
+/// </summary>
 internal class OptionsGameState : IGameState, IDisposable
 {
 	[ResourcePath("SONICORCA/MUSIC/OPTIONS")]
 	private SampleInfo _musicSampleInfo;
 	[ResourcePath("SONICORCA/MENU/OPTIONS/MENU3")]
 	private ITexture _backgroundTexture;
+	/// <summary>The duration of the fade in and of the fade out, in frames.</summary>
 	private const int FadeTime = 60;
+	/// <summary>The change in opacity on each frame of a fade.</summary>
+	private const float FadeStep = 1f / FadeTime;
 	private readonly S2HDSonicOrcaGameContext _gameContext;
-	private readonly IGraphicsContext _graphicsContext;
 	private readonly SettingUIResources _settingUIResources = new SettingUIResources();
 	private readonly MenuViewPresenterFactory _viewPresenterFactory;
 	private readonly MenuViewPresenterHost _viewPresenterHost;
@@ -42,11 +42,10 @@ internal class OptionsGameState : IGameState, IDisposable
 	public OptionsGameState(S2HDSonicOrcaGameContext gameContext)
 	{
 		_gameContext = gameContext;
-		_graphicsContext = _gameContext.Window.GraphicsContext;
 		_viewPresenterFactory = new MenuViewPresenterFactory(_gameContext, _settingUIResources);
 		_viewPresenterHost = new MenuViewPresenterHost(_viewPresenterFactory, new MenuViewFactory(_gameContext).GetOptionsView(), _settingUIResources);
-		_viewPresenterHost.NavigateNext += new EventHandler<NavigateNextEventArgs>(NavigateNextHandler);
-		_viewPresenterHost.NavigateBack += new EventHandler(NavigateBackHandler);
+		_viewPresenterHost.NavigateNext += NavigateNextHandler;
+		_viewPresenterHost.NavigateBack += NavigateBackHandler;
 		_buttonBarUI = new ButtonBarUI(_settingUIResources);
 	}
 
@@ -73,20 +72,18 @@ internal class OptionsGameState : IGameState, IDisposable
 		_bounds = new Rectanglei(0, 0, 1920, 1080);
 		_fadeOutOpacity = 0.0f;
 		_viewPresenterHost.Bounds = _bounds.Inflate(new Vector2i(-512, -386));
-		_buttonBarUI.Bounds = new Rectanglei(0, _bounds.Height - 100, _bounds.Width, 64 /*0x40*/);
-		_buttonBarUI.Items = ((IEnumerable<ButtonBarItem>)new ButtonBarItem[2]
-		{
-	  new ButtonBarItem()
-	  {
-		Button = GamePadButton.A,
-		Text = "APPLY"
-	  },
-	  new ButtonBarItem()
-	  {
-		Button = GamePadButton.B,
-		Text = "CANCEL"
-	  }
-		}).ToImmutableArray<ButtonBarItem>();
+		_buttonBarUI.Bounds = new Rectanglei(0, _bounds.Height - 100, _bounds.Width, 64);
+		_buttonBarUI.Items = ImmutableArray.Create(
+			new ButtonBarItem()
+			{
+				Button = GamePadButton.A,
+				Text = "APPLY"
+			},
+			new ButtonBarItem()
+			{
+				Button = GamePadButton.B,
+				Text = "CANCEL"
+			});
 		_initialised = true;
 	}
 
@@ -101,9 +98,10 @@ internal class OptionsGameState : IGameState, IDisposable
 			_musicSampleInstance = new SampleInstance(_gameContext.Audio, _musicSampleInfo);
 			_musicSampleInstance.Classification = SampleInstanceClassification.Music;
 			_musicSampleInstance.Play();
+			// Fade in.
 			while (_fadeOutOpacity < 1.0)
 			{
-				_fadeOutOpacity += 0.0166666675f;
+				_fadeOutOpacity += FadeStep;
 				_fadeOutOpacity = Math.Min(_fadeOutOpacity, 1f);
 				_viewPresenterHost.Update();
 				yield return UpdateResult.Next();
@@ -114,10 +112,11 @@ internal class OptionsGameState : IGameState, IDisposable
 				_viewPresenterHost.HandleInput();
 				yield return UpdateResult.Next();
 			}
+			// Fade out the screen and the music.
 			while (_fadeOutOpacity > 0.0)
 			{
-				_musicSampleInstance.Volume -= 0.01666666753590107;
-				_fadeOutOpacity -= 0.0166666675f;
+				_musicSampleInstance.Volume -= FadeStep;
+				_fadeOutOpacity -= FadeStep;
 				_fadeOutOpacity = Math.Min(_fadeOutOpacity, 1f);
 				_viewPresenterHost.Update();
 				yield return UpdateResult.Next();
@@ -128,9 +127,8 @@ internal class OptionsGameState : IGameState, IDisposable
 
 	private void NavigateNextHandler(object sender, NavigateNextEventArgs e)
 	{
-		if (!(e.Tag is int) || (int)e.Tag != 4)
-			return;
-		_gameContext.Settings.Apply();
+		if (e.Tag is int tag && tag == MenuTags.APPLY)
+			_gameContext.Settings.Apply();
 	}
 
 	private void NavigateBackHandler(object sender, EventArgs e) => _finished = true;
@@ -150,11 +148,11 @@ internal class OptionsGameState : IGameState, IDisposable
 
 	private void DrawBackground(Renderer renderer)
 	{
-		I2dRenderer obj = renderer.Get2dRenderer();
-		obj.BlendMode = BlendMode.Opaque;
-		obj.Colour = Colours.White;
-		obj.ModelMatrix = Matrix4.Identity;
-		obj.RenderTexture(_backgroundTexture, (Rectangle)_bounds, (Rectangle)_bounds);
+		I2dRenderer g = renderer.Get2dRenderer();
+		g.BlendMode = BlendMode.Opaque;
+		g.Colour = Colours.White;
+		g.ModelMatrix = Matrix4.Identity;
+		g.RenderTexture(_backgroundTexture, (Rectangle)_bounds, (Rectangle)_bounds);
 	}
 
 	private void DrawViewPresenterHost(Renderer renderer) => _viewPresenterHost.Draw(renderer);
