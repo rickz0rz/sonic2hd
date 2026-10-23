@@ -4,15 +4,13 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.SDL2;
 
+/// <summary>An OpenGL vertex array object: the layout of vertex attributes in the bound buffers.</summary>
 internal class GLVertexArray : IVertexArray, IDisposable
 {
-	private readonly GLGraphicsContext _context;
-
 	private readonly int _id;
 
-	public GLVertexArray(GLGraphicsContext context)
+	public GLVertexArray()
 	{
-		_context = context;
 		_id = GL.GenVertexArray();
 	}
 

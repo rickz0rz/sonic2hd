@@ -8,9 +8,14 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.SDL2;
 
+/// <summary>
+/// The OpenGL implementation of <see cref="IGraphicsContext"/>. GL objects must be created on the window's context
+/// thread: textures requested from other threads (resource loading) are created there through the window's dispatch
+/// queue.
+/// </summary>
 internal class GLGraphicsContext : IGraphicsContext
 {
-	private readonly IGLWindow _videoAdapter;
+	private readonly IGLWindow _window;
 
 	private BlendMode _blendMode;
 
@@ -86,24 +91,25 @@ internal class GLGraphicsContext : IGraphicsContext
 		}
 	}
 
+	// Point, Line and Fill have the same order as GL_POINT, GL_LINE and GL_FILL
 	public SonicOrca.Graphics.PolygonMode PolygonMode
 	{
 		get
 		{
-			GL.GetInteger(GetPName.PolygonMode, out var data);
-			return (SonicOrca.Graphics.PolygonMode)(data - 6912);
+			GL.GetInteger(GetPName.PolygonMode, out int mode);
+			return (SonicOrca.Graphics.PolygonMode)(mode - (int)OpenTK.Graphics.OpenGL.PolygonMode.Point);
 		}
 		set
 		{
-			GL.PolygonMode(TriangleFace.FrontAndBack, (OpenTK.Graphics.OpenGL.PolygonMode)(6912 + value));
+			GL.PolygonMode(TriangleFace.FrontAndBack, OpenTK.Graphics.OpenGL.PolygonMode.Point + (int)value);
 		}
 	}
 
 	public IFramebuffer CurrentFramebuffer { get; internal set; }
 
-	public GLGraphicsContext(IGLWindow videoAdapter)
+	public GLGraphicsContext(IGLWindow window)
 	{
-		_videoAdapter = videoAdapter;
+		_window = window;
 	}
 
 	public IShader CreateShader(SonicOrca.Graphics.ShaderType type, string sourceCode)
@@ -122,7 +128,7 @@ internal class GLGraphicsContext : IGraphicsContext
 	public IShaderProgram CreateShaderProgram(IEnumerable<IShader> shaders)
 	{
 		long start = FrameProfiler.Timestamp();
-		GLShaderProgram program = new GLShaderProgram(this, shaders.Select((IShader x) => (GLShader)x));
+		GLShaderProgram program = new GLShaderProgram(this, shaders.Cast<GLShader>());
 		FrameProfiler.Note("Link shader program", start);
 		return program;
 	}
@@ -149,35 +155,26 @@ internal class GLGraphicsContext : IGraphicsContext
 
 	public ITexture CreateTexture(int width, int height, int channels, byte[] pixels, bool toCompress = false)
 	{
-		if (Thread.CurrentThread == _videoAdapter.ContextThread)
+		if (Thread.CurrentThread == _window.ContextThread)
 		{
 			long start = FrameProfiler.Timestamp();
 			GLTexture created = new GLTexture(this, width, height, channels, pixels, toCompress);
 			FrameProfiler.Note($"Create {width}x{height} texture", start, 2.0);
 			return created;
 		}
+		// Called from a loader thread: create the texture on the context thread and wait for it
 		GLTexture texture = null;
-		AutoResetEvent autoResetEvent = new AutoResetEvent(initialState: false);
-		try
+		using AutoResetEvent textureCreated = new AutoResetEvent(initialState: false);
+		_window.Dispatch(() =>
 		{
-			_videoAdapter.Dispatch(() =>
-			{
-				long start = FrameProfiler.Timestamp();
-				texture = new GLTexture(this, width, height, channels, pixels, toCompress);
-				FrameProfiler.Note($"Create {width}x{height} texture (dispatched)", start, 2.0);
-				autoResetEvent.Set();
-			});
-			if (!autoResetEvent.WaitOne(5000))
-			{
-				throw new TimeoutException("OpenGL texture creation timed out.");
-			}
-		}
-		finally
+			long start = FrameProfiler.Timestamp();
+			texture = new GLTexture(this, width, height, channels, pixels, toCompress);
+			FrameProfiler.Note($"Create {width}x{height} texture (dispatched)", start, 2.0);
+			textureCreated.Set();
+		});
+		if (!textureCreated.WaitOne(5000))
 		{
-			if (autoResetEvent != null)
-			{
-				autoResetEvent.Dispose();
-			}
+			throw new TimeoutException("OpenGL texture creation timed out.");
 		}
 		return texture;
 	}
@@ -191,17 +188,17 @@ internal class GLGraphicsContext : IGraphicsContext
 	{
 		if (texture != null)
 		{
-			GL.ActiveTexture((TextureUnit)(33984 + index));
+			GL.ActiveTexture(TextureUnit.Texture0 + index);
 			GL.BindTexture(TextureTarget.Texture2D, ((GLTexture)texture).Id);
 		}
 	}
 
 	public void SetTextures(IEnumerable<ITexture> textures)
 	{
-		int num = 0;
+		int index = 0;
 		foreach (ITexture texture in textures)
 		{
-			SetTexture(num++, texture);
+			SetTexture(index++, texture);
 		}
 	}
 
@@ -215,9 +212,9 @@ internal class GLGraphicsContext : IGraphicsContext
 
 	public void RenderToBackBuffer()
 	{
-		CurrentFramebuffer = GLFramebuffer.FromBackBuffer(this, _videoAdapter.ClientSize.X, _videoAdapter.ClientSize.Y);
+		CurrentFramebuffer = GLFramebuffer.FromBackBuffer(this, _window.ClientSize.X, _window.ClientSize.Y);
 		GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
-		GL.Viewport(0, 0, _videoAdapter.ClientSize.X, _videoAdapter.ClientSize.Y);
+		GL.Viewport(0, 0, _window.ClientSize.X, _window.ClientSize.Y);
 	}
 
 	public void Update()
@@ -283,11 +280,11 @@ internal class GLGraphicsContext : IGraphicsContext
 
 	public IBuffer CreateBuffer()
 	{
-		return new GLBuffer(this);
+		return new GLBuffer();
 	}
 
 	public IVertexArray CreateVertexArray()
 	{
-		return new GLVertexArray(this);
+		return new GLVertexArray();
 	}
 }

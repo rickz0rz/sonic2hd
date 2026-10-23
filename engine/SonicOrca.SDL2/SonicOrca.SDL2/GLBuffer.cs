@@ -5,15 +5,13 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.SDL2;
 
+/// <summary>An OpenGL array buffer for vertex data.</summary>
 internal class GLBuffer : IBuffer, IDisposable
 {
-	private readonly GLGraphicsContext _context;
-
 	private readonly int _id;
 
-	public GLBuffer(GLGraphicsContext context)
+	public GLBuffer()
 	{
-		_context = context;
 		_id = GL.GenBuffer();
 	}
 
@@ -27,11 +25,12 @@ internal class GLBuffer : IBuffer, IDisposable
 		GL.BindBuffer(BufferTarget.ArrayBuffer, _id);
 	}
 
+	/// <summary>Uploads <paramref name="length"/> elements of <paramref name="data"/>, from <paramref name="offset"/>.</summary>
 	public void SetData<T>(T[] data, int offset, int length)
 	{
-		IntPtr data2 = Marshal.UnsafeAddrOfPinnedArrayElement((Array)data, offset);
-		IntPtr size = new IntPtr(Marshal.SizeOf(typeof(T)) * length);
+		IntPtr start = Marshal.UnsafeAddrOfPinnedArrayElement(data, offset);
+		IntPtr size = new IntPtr(Marshal.SizeOf<T>() * length);
 		Bind();
-		GL.BufferData(BufferTarget.ArrayBuffer, size, data2, BufferUsageHint.StreamDraw);
+		GL.BufferData(BufferTarget.ArrayBuffer, size, start, BufferUsageHint.StreamDraw);
 	}
 }

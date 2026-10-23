@@ -5,11 +5,12 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.SDL2;
 
+/// <summary>An OpenGL 2D texture. New textures use linear filtering and clamp to the edge.</summary>
 internal class GLTexture : ITexture, IDisposable, ILoadedResource
 {
 	private readonly GLGraphicsContext _context;
 
-	private int _glId;
+	private readonly int _id;
 
 	private TextureFiltering _filtering;
 
@@ -21,75 +22,63 @@ internal class GLTexture : ITexture, IDisposable, ILoadedResource
 
 	public int Height { get; private set; }
 
+	public int Id => _id;
+
 	public TextureFiltering Filtering
 	{
-		get
-		{
-			return _filtering;
-		}
+		get => _filtering;
 		set
 		{
-			if (value != _filtering)
+			if (value == _filtering)
 			{
-				TextureMinFilter param = TextureMinFilter.Linear;
-				TextureMagFilter param2 = TextureMagFilter.Linear;
-				if ((_filtering = value) == TextureFiltering.NearestNeighbour)
-				{
-					param = TextureMinFilter.Nearest;
-					param2 = TextureMagFilter.Nearest;
-				}
-				GL.BindTexture(TextureTarget.Texture2D, _glId);
-				GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)param);
-				GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)param2);
+				return;
 			}
+			_filtering = value;
+			bool nearest = value == TextureFiltering.NearestNeighbour;
+			GL.BindTexture(TextureTarget.Texture2D, _id);
+			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)(nearest ? TextureMinFilter.Nearest : TextureMinFilter.Linear));
+			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)(nearest ? TextureMagFilter.Nearest : TextureMagFilter.Linear));
 		}
 	}
 
 	public TextureWrapping Wrapping
 	{
-		get
-		{
-			return _wrapping;
-		}
+		get => _wrapping;
 		set
 		{
-			if (value != _wrapping)
+			if (value == _wrapping)
 			{
-				_wrapping = value;
-				TextureWrapMode param = value switch
-				{
-					TextureWrapping.Clamp => TextureWrapMode.ClampToEdge,
-					TextureWrapping.RepeatMirrored => TextureWrapMode.MirroredRepeat,
-					_ => TextureWrapMode.Repeat,
-				};
-				TextureWrapMode paramT = value == TextureWrapping.RepeatHorizontal ? TextureWrapMode.ClampToEdge : param;
-				GL.BindTexture(TextureTarget.Texture2D, _glId);
-				GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)param);
-				GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)paramT);
+				return;
 			}
+			_wrapping = value;
+			TextureWrapMode wrapS = value switch
+			{
+				TextureWrapping.Clamp => TextureWrapMode.ClampToEdge,
+				TextureWrapping.RepeatMirrored => TextureWrapMode.MirroredRepeat,
+				_ => TextureWrapMode.Repeat,
+			};
+			TextureWrapMode wrapT = value == TextureWrapping.RepeatHorizontal ? TextureWrapMode.ClampToEdge : wrapS;
+			GL.BindTexture(TextureTarget.Texture2D, _id);
+			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)wrapS);
+			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)wrapT);
 		}
 	}
 
-	public int Id => _glId;
-
-	public GLTexture(GLGraphicsContext context, int width, int height, int channels, byte[] argb, bool toCompress = false)
+	/// <param name="pixels">RGBA (or RGB when <paramref name="channels"/> is 3) rows, from the top.</param>
+	/// <param name="toCompress">Stores the texture as DXT1, which has no alpha channel.</param>
+	public GLTexture(GLGraphicsContext context, int width, int height, int channels, byte[] pixels, bool toCompress = false)
 	{
 		_context = context;
 		Width = width;
 		Height = height;
-		_glId = GL.GenTexture();
-		GL.BindTexture(TextureTarget.Texture2D, _glId);
-		if (toCompress)
-		{
-			GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.CompressedRgbaS3tcDxt1Ext, width, height, 0, (channels == 3) ? PixelFormat.Rgb : PixelFormat.Rgba, PixelType.UnsignedByte, argb);
-		}
-		else
-		{
-			GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, width, height, 0, (channels == 3) ? PixelFormat.Rgb : PixelFormat.Rgba, PixelType.UnsignedByte, argb);
-		}
+		_id = GL.GenTexture();
+		GL.BindTexture(TextureTarget.Texture2D, _id);
+		PixelInternalFormat internalFormat = toCompress ? PixelInternalFormat.CompressedRgbaS3tcDxt1Ext : PixelInternalFormat.Rgba;
+		PixelFormat format = channels == 3 ? PixelFormat.Rgb : PixelFormat.Rgba;
+		GL.TexImage2D(TextureTarget.Texture2D, 0, internalFormat, width, height, 0, format, PixelType.UnsignedByte, pixels);
 		_filtering = TextureFiltering.Linear;
-		GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, 9729);
-		GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, 9729);
+		GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
+		GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
 		_wrapping = TextureWrapping.Clamp;
 		// GL_CLAMP (10496) in the original is invalid in core profiles and WebGL, which silently left textures repeating
 		GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
@@ -99,7 +88,7 @@ internal class GLTexture : ITexture, IDisposable, ILoadedResource
 
 	public void Dispose()
 	{
-		GL.DeleteTexture(_glId);
+		GL.DeleteTexture(_id);
 		_context.Textures.Remove(this);
 	}
 
@@ -107,53 +96,34 @@ internal class GLTexture : ITexture, IDisposable, ILoadedResource
 	{
 	}
 
+	/// <summary>Reads the texture back as BGRA rows from the top (OpenGL returns RGBA rows from the bottom).</summary>
 	public byte[] GetArgbData()
 	{
-		byte[] array = new byte[Width * Height * 4];
-		GL.GetTexImage(TextureTarget.Texture2D, 0, PixelFormat.Rgba, PixelType.UnsignedByte, array);
-		int num = Width * 4;
-		for (int i = 0; i < Height / 2; i++)
+		int stride = Width * 4;
+		byte[] rgba = new byte[stride * Height];
+		GL.BindTexture(TextureTarget.Texture2D, _id);
+		GL.GetTexImage(TextureTarget.Texture2D, 0, PixelFormat.Rgba, PixelType.UnsignedByte, rgba);
+		byte[] bgra = new byte[rgba.Length];
+		for (int y = 0; y < Height; y++)
 		{
-			for (int j = 0; j < Width; j++)
+			int sourceRow = (Height - 1 - y) * stride;
+			int targetRow = y * stride;
+			for (int x = 0; x < stride; x += 4)
 			{
-				int num2 = i * num + j * 4;
-				int num3 = (Height - i - 1) * num + j * 4;
-				byte b = array[num2];
-				byte b2 = array[num2 + 1];
-				byte b3 = array[num2 + 2];
-				byte b4 = array[num2 + 3];
-				array[num2] = array[num3];
-				array[num2 + 1] = array[num3 + 1];
-				array[num2 + 2] = array[num3 + 2];
-				array[num2 + 3] = array[num3 + 3];
-				array[num3] = b;
-				array[num3 + 1] = b2;
-				array[num3 + 2] = b3;
-				array[num3 + 3] = b4;
+				bgra[targetRow + x] = rgba[sourceRow + x + 2];
+				bgra[targetRow + x + 1] = rgba[sourceRow + x + 1];
+				bgra[targetRow + x + 2] = rgba[sourceRow + x];
+				bgra[targetRow + x + 3] = rgba[sourceRow + x + 3];
 			}
 		}
-		for (int k = 0; k < array.Length; k += 4)
-		{
-			byte b5 = array[k];
-			byte b6 = array[k + 1];
-			byte b7 = array[k + 2];
-			byte b8 = array[k + 3];
-			array[k] = b7;
-			array[k + 1] = b6;
-			array[k + 2] = b5;
-			array[k + 3] = b8;
-		}
-		return array;
+		return bgra;
 	}
 
+	/// <summary>Replaces the texture with BGRA data, or BGR data when <paramref name="data"/> is too short for BGRA.</summary>
 	public void SetArgbData(int width, int height, byte[] data)
 	{
-		PixelFormat format = PixelFormat.Bgra;
-		if (data.Length < width * height * 4)
-		{
-			format = PixelFormat.Bgr;
-		}
-		GL.BindTexture(TextureTarget.Texture2D, _glId);
+		PixelFormat format = data.Length < width * height * 4 ? PixelFormat.Bgr : PixelFormat.Bgra;
+		GL.BindTexture(TextureTarget.Texture2D, _id);
 		GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, width, height, 0, format, PixelType.UnsignedByte, data);
 	}
 }

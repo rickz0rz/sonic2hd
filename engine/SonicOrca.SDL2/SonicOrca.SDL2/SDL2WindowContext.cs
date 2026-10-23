@@ -13,11 +13,15 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.SDL2;
 
+/// <summary>
+/// The game window: an SDL2 window with an OpenGL 3.3 core-profile context. It also runs actions that other threads
+/// queue with <see cref="Dispatch"/>, because GL objects must be created on the context thread.
+/// </summary>
 public class SDL2WindowContext : WindowContext, IGLWindow
 {
 	private static class User32
 	{
-		public const int WM_SETICON = 128;
+		public const uint WM_SETICON = 128;
 
 		public const int ICON_SMALL = 0;
 
@@ -60,7 +64,13 @@ public class SDL2WindowContext : WindowContext, IGLWindow
 
 	private bool _showingCursor = true;
 
-	private SDL.SDL_Event[] events = new SDL.SDL_Event[512];
+	private readonly SDL.SDL_Event[] _events = new SDL.SDL_Event[512];
+
+	private bool _vsync;
+
+	private bool _pacedByVSync;
+
+	private int _refreshRate;
 
 	public IntPtr WindowHandle => _windowHandle;
 
@@ -103,16 +113,12 @@ public class SDL2WindowContext : WindowContext, IGLWindow
 			if (_mode != value)
 			{
 				_mode = value;
-				uint flags = 0u;
-				switch (value)
+				uint flags = value switch
 				{
-					case VideoMode.Fullscreen:
-						flags = 1u;
-						break;
-					case VideoMode.WindowedBorderless:
-						flags = 4097u;
-						break;
-				}
+					VideoMode.Fullscreen => (uint)SDL.SDL_WindowFlags.SDL_WINDOW_FULLSCREEN,
+					VideoMode.WindowedBorderless => (uint)SDL.SDL_WindowFlags.SDL_WINDOW_FULLSCREEN_DESKTOP,
+					_ => 0u,
+				};
 				SDL.SDL_SetWindowFullscreen(_windowHandle, flags);
 				if (value == VideoMode.Windowed)
 				{
@@ -198,11 +204,23 @@ public class SDL2WindowContext : WindowContext, IGLWindow
 		}
 	}
 
+	public override bool VSync
+	{
+		get => _vsync;
+		set
+		{
+			_vsync = value;
+			ApplySwapInterval();
+		}
+	}
+
+	public override bool IsPacedByVSync => _pacedByVSync;
+
 	public SDL2WindowContext(SDL2Platform platform)
 	{
 		_platform = platform;
 		Trace.WriteLine("Initialising SDL2 video");
-		if (SDL.SDL_InitSubSystem(32u) != 0)
+		if (SDL.SDL_InitSubSystem(SDL.SDL_INIT_VIDEO) != 0)
 		{
 			throw SDL2Exception.FromError("Unable to initialise a video driver.");
 		}
@@ -212,21 +230,23 @@ public class SDL2WindowContext : WindowContext, IGLWindow
 		SDL.SDL_GL_SetAttribute(SDL.SDL_GLattr.SDL_GL_CONTEXT_PROFILE_MASK, (int)SDL.SDL_GLprofile.SDL_GL_CONTEXT_PROFILE_CORE);
 		SDL.SDL_GL_SetAttribute(SDL.SDL_GLattr.SDL_GL_CONTEXT_FLAGS, (int)SDL.SDL_GLcontext.SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
 		SDL.SDL_GL_SetAttribute(SDL.SDL_GLattr.SDL_GL_MULTISAMPLESAMPLES, 1);
-		SDL.SDL_GetDesktopDisplayMode(0, out var mode);
-		int num = 1920;
-		int num2 = 1080;
-		while (num > mode.w || num2 > mode.h)
+		// The largest 16:9 size up to 1920x1080 that fits on the desktop, in steps of a quarter of 1080p
+		SDL.SDL_GetDesktopDisplayMode(0, out SDL.SDL_DisplayMode mode);
+		int width = 1920;
+		int height = 1080;
+		while (width > mode.w || height > mode.h)
 		{
-			num -= 480;
-			num2 -= 270;
+			width -= 480;
+			height -= 270;
 		}
 		Trace.WriteLine("Creating window");
-		_windowHandle = SDL.SDL_CreateWindow(_windowTitle, 805240832, 805240832, num, num2, SDL.SDL_WindowFlags.SDL_WINDOW_OPENGL | SDL.SDL_WindowFlags.SDL_WINDOW_HIDDEN | SDL.SDL_WindowFlags.SDL_WINDOW_RESIZABLE);
+		_windowHandle = SDL.SDL_CreateWindow(_windowTitle, SDL.SDL_WINDOWPOS_CENTERED, SDL.SDL_WINDOWPOS_CENTERED, width, height,
+			SDL.SDL_WindowFlags.SDL_WINDOW_OPENGL | SDL.SDL_WindowFlags.SDL_WINDOW_HIDDEN | SDL.SDL_WindowFlags.SDL_WINDOW_RESIZABLE);
 		if (_windowHandle == IntPtr.Zero)
 		{
 			throw SDL2Exception.FromError("Unable to create window.");
 		}
-		_clientSize = new Vector2i(num, num2);
+		_clientSize = new Vector2i(width, height);
 		SetIconToAssemblyResource();
 		Trace.WriteLine("Creating OpenGL context");
 		_glContext = SDL.SDL_GL_CreateContext(_windowHandle);
@@ -249,10 +269,10 @@ public class SDL2WindowContext : WindowContext, IGLWindow
 		{
 			return;
 		}
-		IntPtr intPtr = User32.LoadIcon(User32.GetModuleHandle(null), new IntPtr(32512));
-		if (intPtr != IntPtr.Zero)
+		IntPtr icon = User32.LoadIcon(User32.GetModuleHandle(null), new IntPtr(DEFAULT_HICON_RESOURCE_ID));
+		if (icon != IntPtr.Zero)
 		{
-			User32.SendMessage(GetWindowHWND(_windowHandle), 128u, new IntPtr(0), intPtr);
+			User32.SendMessage(GetWindowHWND(_windowHandle), User32.WM_SETICON, new IntPtr(User32.ICON_SMALL), icon);
 		}
 	}
 
@@ -281,56 +301,55 @@ public class SDL2WindowContext : WindowContext, IGLWindow
 		Trace.WriteLine("Closing window");
 		SDL.SDL_DestroyWindow(_windowHandle);
 		Trace.WriteLine("Quitting SDL2 video");
-		SDL.SDL_QuitSubSystem(32u);
+		SDL.SDL_QuitSubSystem(SDL.SDL_INIT_VIDEO);
 	}
 
 	public override void Update()
 	{
-		uint num = SDL.SDL_GetTicks();
+		uint now = SDL.SDL_GetTicks();
+		// Peek only: SDL2InputContext reads the same events later in the update, then removes them
 		SDL.SDL_PumpEvents();
-		int num2 = SDL.SDL_PeepEvents(events, events.Length, SDL.SDL_eventaction.SDL_PEEKEVENT, SDL.SDL_EventType.SDL_FIRSTEVENT, SDL.SDL_EventType.SDL_LASTEVENT);
-		for (int i = 0; i < num2; i++)
+		int eventCount = SDL.SDL_PeepEvents(_events, _events.Length, SDL.SDL_eventaction.SDL_PEEKEVENT, SDL.SDL_EventType.SDL_FIRSTEVENT, SDL.SDL_EventType.SDL_LASTEVENT);
+		for (int i = 0; i < eventCount; i++)
 		{
-			SDL.SDL_Event sDL_Event = events[i];
-			if (sDL_Event.type == SDL.SDL_EventType.SDL_QUIT)
+			SDL.SDL_Event e = _events[i];
+			switch (e.type)
 			{
-				Finished = true;
-			}
-			switch (sDL_Event.type)
-			{
+				case SDL.SDL_EventType.SDL_QUIT:
+					Finished = true;
+					break;
 				case SDL.SDL_EventType.SDL_MOUSEMOTION:
 					if (HideCursorIfIdle)
 					{
-						_lastMouseMovementTickCount = num;
+						_lastMouseMovementTickCount = now;
 						ShowCursor = true;
 					}
 					break;
 				case SDL.SDL_EventType.SDL_KEYDOWN:
-					if ((sDL_Event.key.keysym.mod & SDL.SDL_Keymod.KMOD_ALT) != 0 && sDL_Event.key.keysym.sym == SDL.SDL_Keycode.SDLK_F4)
+					if ((e.key.keysym.mod & SDL.SDL_Keymod.KMOD_ALT) != 0 && e.key.keysym.sym == SDL.SDL_Keycode.SDLK_F4)
 					{
 						Finished = true;
 					}
 					break;
 				case SDL.SDL_EventType.SDL_WINDOWEVENT:
-					switch (sDL_Event.window.windowEvent)
+					switch (e.window.windowEvent)
 					{
 						case SDL.SDL_WindowEventID.SDL_WINDOWEVENT_CLOSE:
 							Finished = true;
 							break;
 						case SDL.SDL_WindowEventID.SDL_WINDOWEVENT_SIZE_CHANGED:
-							UpdateWindowSize(new Vector2i(sDL_Event.window.data1, sDL_Event.window.data2));
+							UpdateWindowSize(new Vector2i(e.window.data1, e.window.data2));
 							break;
 					}
 					break;
 			}
 		}
-		Action result;
-		while (_dispatchedActions.TryDequeue(out result))
+		while (_dispatchedActions.TryDequeue(out Action action))
 		{
-			result();
+			action();
 		}
 		_glGraphicsContext.Update();
-		if (HideCursorIfIdle && num - _lastMouseMovementTickCount > 3000)
+		if (HideCursorIfIdle && now - _lastMouseMovementTickCount > HideMouseIdleTimeMs)
 		{
 			ShowCursor = false;
 		}
@@ -357,24 +376,6 @@ public class SDL2WindowContext : WindowContext, IGLWindow
 		_previousFrameFence = GL.FenceSync(SyncCondition.SyncGpuCommandsComplete, WaitSyncFlags.None);
 		FrameProfiler.Mark(FrameProfiler.Segment.Swap);
 	}
-
-	public override bool VSync
-	{
-		get => _vsync;
-		set
-		{
-			_vsync = value;
-			ApplySwapInterval();
-		}
-	}
-
-	public override bool IsPacedByVSync => _pacedByVSync;
-
-	private bool _vsync;
-
-	private bool _pacedByVSync;
-
-	private int _refreshRate;
 
 	private void ApplySwapInterval()
 	{
@@ -416,6 +417,7 @@ public class SDL2WindowContext : WindowContext, IGLWindow
 	private void ShowWindowWithBlackBackground()
 	{
 		GL.ClearColor(0f, 0f, 0f, 1f);
+		GL.Clear(ClearBufferMask.ColorBufferBit);
 		SDL.SDL_GL_SwapWindow(_windowHandle);
 		SDL.SDL_ShowWindow(_windowHandle);
 	}
@@ -429,14 +431,15 @@ public class SDL2WindowContext : WindowContext, IGLWindow
 	{
 		if (_aspectRatio.X != 0 || _aspectRatio.Y != 0)
 		{
-			double num = _aspectRatio.X / (double)_aspectRatio.Y;
+			// Keep the aspect ratio, from the dimension that changed
+			double ratio = _aspectRatio.X / (double)_aspectRatio.Y;
 			if (_clientSize.X != size.X)
 			{
-				size.Y = (int)(size.X / num);
+				size.Y = (int)(size.X / ratio);
 			}
 			else if (_clientSize.Y != size.Y)
 			{
-				size.X = (int)(size.Y * num);
+				size.X = (int)(size.Y * ratio);
 			}
 		}
 		_clientSize = size;
