@@ -3,6 +3,9 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.Drawing.Renderers;
 
+/// <summary>
+/// Copies a texture or a framebuffer into a framebuffer.
+/// </summary>
 internal static class RenderingHelpers
 {
 	public static void RenderToFramebuffer(Renderer renderer, IFramebuffer source, IFramebuffer destination, BlendMode blend = BlendMode.Alpha)

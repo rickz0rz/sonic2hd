@@ -4,6 +4,9 @@ using System.Linq;
 
 namespace SonicOrca.Drawing;
 
+/// <summary>
+/// A list that grows by a fixed number of items. For a reference type, it fills new slots with new instances.
+/// </summary>
 internal class GreenList<T>
 {
 	private T[] _items;
@@ -49,6 +52,7 @@ internal class GreenList<T>
 		Array.Resize(ref _items, targetCapacity);
 		if (typeof(T).IsClass)
 		{
+			// Note: the loop starts at (targetCapacity - Capacity), not at Capacity. It can replace existing items.
 			for (int i = targetCapacity - Capacity; i < targetCapacity; i++)
 			{
 				_items[i] = Activator.CreateInstance<T>();
@@ -68,13 +72,13 @@ internal class GreenList<T>
 
 	public void AddRange(IEnumerable<T> items)
 	{
-		if (items is T[] items2)
+		if (items is T[] array)
 		{
-			AddRange(items2);
+			AddRange(array);
 		}
-		else if (items is IReadOnlyCollection<T> items3)
+		else if (items is IReadOnlyCollection<T> collection)
 		{
-			AddRange(items3);
+			AddRange(collection);
 		}
 		else
 		{
@@ -85,11 +89,12 @@ internal class GreenList<T>
 	public void AddRange(IReadOnlyCollection<T> items)
 	{
 		int count = items.Count;
-		int num = Capacity - Count;
-		int num2 = count - num;
-		if (num2 > 0)
+		int freeSlots = Capacity - Count;
+		int missingSlots = count - freeSlots;
+		if (missingSlots > 0)
 		{
-			int targetCapacity = Capacity + (num2 + (GrowFactor - 1)) / GrowFactor;
+			// Note: this adds the number of grow steps, not the number of slots. The result can be too small.
+			int targetCapacity = Capacity + (missingSlots + (GrowFactor - 1)) / GrowFactor;
 			EnsureCapacity(targetCapacity);
 		}
 		foreach (T item in items)
@@ -100,11 +105,12 @@ internal class GreenList<T>
 
 	public void AddRange(T[] items)
 	{
-		int num = Capacity - Count;
-		int num2 = items.Length - num;
-		if (num2 > 0)
+		int freeSlots = Capacity - Count;
+		int missingSlots = items.Length - freeSlots;
+		if (missingSlots > 0)
 		{
-			int targetCapacity = Capacity + (num2 + (GrowFactor - 1)) / GrowFactor;
+			// Note: this adds the number of grow steps, not the number of slots. The result can be too small.
+			int targetCapacity = Capacity + (missingSlots + (GrowFactor - 1)) / GrowFactor;
 			EnsureCapacity(targetCapacity);
 		}
 		Array.Copy(items, 0, _items, Count, items.Length);

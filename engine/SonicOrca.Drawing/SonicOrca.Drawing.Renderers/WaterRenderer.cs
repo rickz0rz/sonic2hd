@@ -9,6 +9,9 @@ using SonicOrca.Graphics.LowLevel;
 
 namespace SonicOrca.Drawing.Renderers;
 
+/// <summary>
+/// Draws the underwater effect below the water level.
+/// </summary>
 internal class WaterRenderer : IWaterRenderer, IRenderer, IDisposable
 {
 	[StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -21,7 +24,14 @@ internal class WaterRenderer : IWaterRenderer, IRenderer, IDisposable
 		public vec2 texcoords;
 	}
 
-	private static readonly Dictionary<Renderer, WaterRenderer> RendererDictionary = new Dictionary<Renderer, WaterRenderer>();
+	private const int ScreenWidth = 1920;
+
+	private const int ScreenHeight = 1080;
+
+	// The effect starts this number of pixels above the water level
+	private const float WaterSurfaceMargin = 80f;
+
+	private static readonly Dictionary<Renderer, WaterRenderer> RendererDictionary = new();
 
 	private readonly Renderer _renderer;
 
@@ -31,9 +41,9 @@ internal class WaterRenderer : IWaterRenderer, IRenderer, IDisposable
 
 	private readonly IVertexArray _vao;
 
-	private Vector2[] vertexPositions = new Vector2[4];
+	private Vector2[] _vertexPositions = new Vector2[4];
 
-	private Vector2[] vertexUVs = new Vector2[4];
+	private Vector2[] _vertexUVs = new Vector2[4];
 
 	private readonly Vertex[] _vertices = new Vertex[4];
 
@@ -75,7 +85,7 @@ internal class WaterRenderer : IWaterRenderer, IRenderer, IDisposable
 		_vbo = _graphicsContext.CreateBuffer();
 		_vao = _graphicsContext.CreateVertexArray();
 		_vao.DefineAttributes(_shaderProgram.Program, _vbo, typeof(Vertex));
-		_canvas = _graphicsContext.CreateFrameBuffer(1920, 1080);
+		_canvas = _graphicsContext.CreateFrameBuffer(ScreenWidth, ScreenHeight);
 	}
 
 	public void Dispose()
@@ -95,22 +105,15 @@ internal class WaterRenderer : IWaterRenderer, IRenderer, IDisposable
 		IFramebuffer currentFramebuffer = _graphicsContext.CurrentFramebuffer;
 		// Was Repeat followed by a raw GL call clamping T on whichever texture happened to be bound
 		WaterManager.waveTexture.Wrapping = TextureWrapping.RepeatHorizontal;
-		int num = (int)(WaterManager.viewportWaterLevel - 80f);
-		if (num < 0)
-		{
-			num = 0;
-		}
-		if (num > 1080)
-		{
-			num = 1080;
-		}
+		int effectTop = Math.Clamp((int)(WaterManager.viewportWaterLevel - WaterSurfaceMargin), 0, ScreenHeight);
+		// Draw the effect into the canvas, then copy the part below the effect top back to the current framebuffer
 		_canvas.Activate();
-		Render(currentFramebuffer.Textures[0], new Rectanglei(0, 0, 1920, 1080 - num), new Rectanglei(0, 0, 1920, 1080 - num));
+		Render(currentFramebuffer.Textures[0], new Rectanglei(0, 0, ScreenWidth, ScreenHeight - effectTop), new Rectanglei(0, 0, ScreenWidth, ScreenHeight - effectTop));
 		currentFramebuffer.Activate();
 		SimpleRenderer simpleRenderer = SimpleRenderer.FromRenderer(_renderer);
 		simpleRenderer.BlendMode = BlendMode.Alpha;
 		simpleRenderer.Colour = Colours.White;
-		simpleRenderer.RenderTexture(_canvas.Textures[0], new Rectanglei(0, num, 1920, 1080), new Rectanglei(0, num, 1920, 1080));
+		simpleRenderer.RenderTexture(_canvas.Textures[0], new Rectanglei(0, effectTop, ScreenWidth, ScreenHeight), new Rectanglei(0, effectTop, ScreenWidth, ScreenHeight));
 		simpleRenderer.BlendMode = BlendMode.Alpha;
 		simpleRenderer.Deactivate();
 	}
@@ -122,22 +125,22 @@ internal class WaterRenderer : IWaterRenderer, IRenderer, IDisposable
 
 	public void Render(ITexture texture, Rectanglei source, Rectanglei destination, bool flipX = false, bool flipY = false)
 	{
-		Renderer.GetVertices(destination, vertexPositions);
-		Renderer.GetTextureMappings(texture, source, vertexUVs, flipX, flipY);
+		Renderer.GetVertices(destination, _vertexPositions);
+		Renderer.GetTextureMappings(texture, source, _vertexUVs, flipX, flipY);
 		for (int i = 0; i < 4; i++)
 		{
-			_vertices[i].position = vertexPositions[i].ToVec2();
-			_vertices[i].texcoords = vertexUVs[i].ToVec2();
+			_vertices[i].position = _vertexPositions[i].ToVec2();
+			_vertices[i].texcoords = _vertexUVs[i].ToVec2();
 		}
 		_vbo.SetData(_vertices, 0, 4);
-		Matrix4 value = _renderer.Window.GraphicsContext.CurrentFramebuffer.CreateOrthographic();
+		Matrix4 projectionMatrix = _renderer.Window.GraphicsContext.CurrentFramebuffer.CreateOrthographic();
 		_renderer.ActivateRenderer(this);
 		_graphicsContext.BlendMode = BlendMode.Alpha;
 		_graphicsContext.SetTexture(0, texture);
 		_graphicsContext.SetTexture(1, WaterManager.waveTexture);
 		IShaderProgram program = _shaderProgram.Program;
 		program.Activate();
-		program.SetUniform("ProjectionMatrix", value);
+		program.SetUniform("ProjectionMatrix", projectionMatrix);
 		program.SetUniform("InputTexture", 0);
 		program.SetUniform("WaveTexture", 1);
 		program.SetUniform("InputHueTarget", HueTarget);
@@ -150,7 +153,7 @@ internal class WaterRenderer : IWaterRenderer, IRenderer, IDisposable
 		program.SetUniform("iGlobalTime", Time);
 		program.SetUniform("InputPositionX", WaterManager.offsetX);
 		program.SetUniform("InputPositionY", 0f - WaterManager.offsetY);
-		program.SetUniform("InputWaterLevel", WaterManager.viewportWaterLevel / 1080f);
+		program.SetUniform("InputWaterLevel", WaterManager.viewportWaterLevel / (float)ScreenHeight);
 		_graphicsContext.BlendMode = BlendMode.Opaque;
 		_vao.Render(SonicOrca.Graphics.PrimitiveType.Quads, 0, 4);
 	}

@@ -8,6 +8,9 @@ using SonicOrca.Graphics.LowLevel;
 
 namespace SonicOrca.Drawing.Renderers;
 
+/// <summary>
+/// Blurs a texture in two passes: first horizontally into an intermediate framebuffer, then vertically into the current framebuffer.
+/// </summary>
 public class GaussianBlurRenderer : IRenderer, IDisposable
 {
 	[StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -20,7 +23,10 @@ public class GaussianBlurRenderer : IRenderer, IDisposable
 		public vec2 texcoords;
 	}
 
-	private static readonly Dictionary<Renderer, GaussianBlurRenderer> RendererDictionary = new Dictionary<Renderer, GaussianBlurRenderer>();
+	// The number of weights the shader uses: the centre weight and four weights on each side
+	private const int WeightCount = 5;
+
+	private static readonly Dictionary<Renderer, GaussianBlurRenderer> RendererDictionary = new();
 
 	private readonly Renderer _renderer;
 
@@ -32,9 +38,9 @@ public class GaussianBlurRenderer : IRenderer, IDisposable
 
 	private readonly Vertex[] _vertices = new Vertex[4];
 
-	private Vector2[] vertexPositions = new Vector2[4];
+	private Vector2[] _vertexPositions = new Vector2[4];
 
-	private Vector2[] vertexUVs = new Vector2[4];
+	private Vector2[] _vertexUVs = new Vector2[4];
 
 	private ManagedShaderProgram _shaderProgram;
 
@@ -56,7 +62,7 @@ public class GaussianBlurRenderer : IRenderer, IDisposable
 			{
 				if (value == 0.0)
 				{
-					throw new ArgumentException("Softness can not be 0.", "value");
+					throw new ArgumentException("Softness can not be 0.", nameof(value));
 				}
 				_softness = value;
 				_gaussianWeights = CalculateWeights(value);
@@ -89,10 +95,7 @@ public class GaussianBlurRenderer : IRenderer, IDisposable
 
 	public void Dispose()
 	{
-		if (_intermediateTarget != null)
-		{
-			_intermediateTarget.Dispose();
-		}
+		_intermediateTarget?.Dispose();
 		_vbo.Dispose();
 		_vao.Dispose();
 		_shaderProgram.Dispose();
@@ -109,44 +112,33 @@ public class GaussianBlurRenderer : IRenderer, IDisposable
 
 	public void Render(ITexture texture, Rectanglei source, Rectanglei destination, bool flipX = false, bool flipY = false)
 	{
-		Renderer.GetVertices(destination, vertexPositions);
-		Renderer.GetTextureMappings(texture, source, vertexUVs, flipX, flipY);
+		Renderer.GetVertices(destination, _vertexPositions);
+		Renderer.GetTextureMappings(texture, source, _vertexUVs, flipX, flipY);
 		for (int i = 0; i < 4; i++)
 		{
 			_vertices[i] = new Vertex
 			{
-				position = new vec2
-				{
-					x = (float)vertexPositions[i].X,
-					y = (float)vertexPositions[i].Y
-				},
-				texcoords = new vec2
-				{
-					s = (float)vertexUVs[i].X,
-					t = (float)vertexUVs[i].Y
-				}
+				position = _vertexPositions[i].ToVec2(),
+				texcoords = _vertexUVs[i].ToVec2()
 			};
 		}
 		_vbo.SetData(_vertices, 0, 4);
-		Matrix4 value = _renderer.Window.GraphicsContext.CurrentFramebuffer.CreateOrthographic();
+		Matrix4 projectionMatrix = _renderer.Window.GraphicsContext.CurrentFramebuffer.CreateOrthographic();
 		_renderer.ActivateRenderer(this);
 		_graphicsContext.BlendMode = BlendMode.Alpha;
 		_graphicsContext.SetTexture(texture);
 		IShaderProgram program = _shaderProgram.Program;
 		program.Activate();
-		program.SetUniform("ProjectionMatrix", value);
+		program.SetUniform("ProjectionMatrix", projectionMatrix);
 		program.SetUniform("InputAxis", 0);
-		for (int j = 0; j < 5; j++)
+		for (int i = 0; i < WeightCount; i++)
 		{
-			program.SetUniform("InputWeight[" + j + "]", _gaussianWeights[j]);
+			program.SetUniform("InputWeight[" + i + "]", _gaussianWeights[i]);
 		}
 		IFramebuffer currentFramebuffer = _graphicsContext.CurrentFramebuffer;
 		if (_intermediateTarget == null || _intermediateTarget.Width < destination.Width || _intermediateTarget.Height < destination.Height)
 		{
-			if (_intermediateTarget != null)
-			{
-				_intermediateTarget.Dispose();
-			}
+			_intermediateTarget?.Dispose();
 			_intermediateTarget = _graphicsContext.CreateFrameBuffer(destination.Width, destination.Height);
 		}
 		_intermediateTarget.Activate();
@@ -159,33 +151,31 @@ public class GaussianBlurRenderer : IRenderer, IDisposable
 		_vao.Render(PrimitiveType.Quads, 0, 4);
 	}
 
+	/// <summary>
+	/// Calculates the blur weights and normalises them so that the full kernel (both sides) adds up to 1.
+	/// </summary>
 	private static double[] CalculateWeights(double sigma2)
 	{
-		double[] array = new double[5]
+		double[] weights = new double[WeightCount];
+		weights[0] = Gaussian(0.0, sigma2);
+		double total = weights[0];
+		for (int i = 1; i < weights.Length; i++)
 		{
-			Gaussian(0.0, sigma2),
-			0.0,
-			0.0,
-			0.0,
-			0.0
-		};
-		double num = array[0];
-		for (int i = 1; i < array.Length; i++)
-		{
-			array[i] = Gaussian(i, sigma2);
-			num += 2.0 * array[i];
+			weights[i] = Gaussian(i, sigma2);
+			// Each side weight is used on the two sides of the centre
+			total += 2.0 * weights[i];
 		}
-		for (int j = 0; j < array.Length; j++)
+		for (int i = 0; i < weights.Length; i++)
 		{
-			array[j] /= num;
+			weights[i] /= total;
 		}
-		return array;
+		return weights;
 	}
 
 	private static double Gaussian(double x, double sigma2)
 	{
-		double num = 1.0 / (Math.PI * 2.0 * sigma2);
-		double d = (0.0 - x * x) / (2.0 * sigma2);
-		return num * Math.Exp(d);
+		double scale = 1.0 / (Math.PI * 2.0 * sigma2);
+		double exponent = (0.0 - x * x) / (2.0 * sigma2);
+		return scale * Math.Exp(exponent);
 	}
 }

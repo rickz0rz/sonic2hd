@@ -6,6 +6,9 @@ using SonicOrca.Graphics.LowLevel;
 
 namespace SonicOrca.Drawing.Renderers;
 
+/// <summary>
+/// Draws a fade transition. It copies the current framebuffer through the transition shader and back again.
+/// </summary>
 internal class ClassicFadeTransitionRenderer : IFadeTransitionRenderer, IDisposable
 {
 	[StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -64,6 +67,7 @@ internal class ClassicFadeTransitionRenderer : IFadeTransitionRenderer, IDisposa
 			}
 			_pingPongBuffer = _graphicsContext.CreateFrameBuffer(currentFramebuffer.Width, currentFramebuffer.Height);
 		}
+		// The first pass applies the fade. The second pass copies the result back without a fade.
 		Render(currentFramebuffer, _pingPongBuffer);
 		Opacity = 0f;
 		Render(_pingPongBuffer, currentFramebuffer);
@@ -71,7 +75,6 @@ internal class ClassicFadeTransitionRenderer : IFadeTransitionRenderer, IDisposa
 
 	public void Render(IFramebuffer sourceFramebuffer, IFramebuffer destFramebuffer)
 	{
-		IGraphicsContext graphicsContext = _graphicsContext;
 		IShaderProgram program = _shaderProgram.Program;
 		destFramebuffer.Activate();
 		_vertices[0].position.x = 0f;
@@ -91,8 +94,8 @@ internal class ClassicFadeTransitionRenderer : IFadeTransitionRenderer, IDisposa
 		_vertices[3].texcoords.s = 1f;
 		_vertices[3].texcoords.t = 1f;
 		_vbo.SetData(_vertices);
-		graphicsContext.BlendMode = BlendMode.Opaque;
-		graphicsContext.SetTexture(sourceFramebuffer.Textures[0]);
+		_graphicsContext.BlendMode = BlendMode.Opaque;
+		_graphicsContext.SetTexture(sourceFramebuffer.Textures[0]);
 		program.Activate();
 		program.SetUniform("ProjectionMatrix", destFramebuffer.CreateOrthographic());
 		program.SetUniform("InputDelta", Opacity);

@@ -3,6 +3,9 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.Drawing;
 
+/// <summary>
+/// Gives the renderers of the drawing library for one window.
+/// </summary>
 public class TheRenderer : Renderer
 {
 	public TheRenderer(WindowContext windowContext)

@@ -15,8 +15,27 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Drawing.LevelRendering;
 
+/// <summary>
+/// Draws a level: its layers, objects, shadows, waterfall effects, particles and water.
+/// </summary>
 public class LevelRenderer : ILevelRenderer, IDisposable
 {
+	private const int ScreenWidth = 1920;
+
+	private const int ScreenHeight = 1080;
+
+	private const int TileSize = 64;
+
+	// RenderToClipboard does not copy an image that has more pixels than this (2048 x 2048)
+	private const int MaxCopyPixelCount = 4194304;
+
+	// Values of LayerViewOptions.Filter that the tile and object shaders use for lighting
+	private const int NightFilter = 1;
+
+	private const int InsideLightingFilter = 2;
+
+	private const int StencilMask = 255;
+
 	private readonly SonicOrcaGameContext _gameContext;
 
 	private readonly IGraphicsContext _graphicsContext;
@@ -45,7 +64,7 @@ public class LevelRenderer : ILevelRenderer, IDisposable
 
 	private Rectanglei _previousCanvasViewport;
 
-	private Rectanglei _screenBounds = new Rectanglei(0, 0, 1920, 1080);
+	private Rectanglei _screenBounds = new Rectanglei(0, 0, ScreenWidth, ScreenHeight);
 
 	private Viewport _canvasViewport;
 
@@ -53,7 +72,7 @@ public class LevelRenderer : ILevelRenderer, IDisposable
 
 	private ITexture _waterfallDistortionTexture;
 
-	private readonly List<Rectanglei> _waterfallRegions = new List<Rectanglei>(16);
+	private readonly List<Rectanglei> _waterfallRegions = new(16);
 
 	public string[] LastDebugLog { get; private set; }
 
@@ -71,13 +90,12 @@ public class LevelRenderer : ILevelRenderer, IDisposable
 		_resourceSession?.Dispose();
 	}
 
-	public async Task LoadAsync(CancellationToken ct = default(CancellationToken))
+	public async Task LoadAsync(CancellationToken ct = default)
 	{
 		_resourceSession = new ResourceSession(_gameContext.ResourceTree);
-		_resourceSession.PushDependency("SONICORCA/PARTICLE/WATERFALL");
+		_resourceSession.PushDependency(WaterfallDistortionTextureResourceKey);
 		await _resourceSession.LoadAsync();
-		ResourceTree resourceTree = _gameContext.ResourceTree;
-		_waterfallDistortionTexture = resourceTree.GetLoadedResource<ITexture>("SONICORCA/PARTICLE/WATERFALL");
+		_waterfallDistortionTexture = _gameContext.ResourceTree.GetLoadedResource<ITexture>(WaterfallDistortionTextureResourceKey);
 	}
 
 	public void Initialise()
@@ -163,24 +181,25 @@ public class LevelRenderer : ILevelRenderer, IDisposable
 
 	private void PrepareObjects()
 	{
-		List<ActiveObject> list = _level.ObjectManager.ActiveObjects.ToList();
-		list.Sort((ActiveObject a, ActiveObject b) => a.Priority - b.Priority);
-		for (int num = 0; num < _numLayers; num++)
+		List<ActiveObject> activeObjects = _level.ObjectManager.ActiveObjects.ToList();
+		activeObjects.Sort((a, b) => a.Priority - b.Priority);
+		for (int i = 0; i < _numLayers; i++)
 		{
-			_renderingLayers[num].Clear();
+			_renderingLayers[i].Clear();
 		}
-		foreach (ActiveObject item in list)
+		// Objects with a negative priority are drawn behind the tiles, and objects with a positive priority in front.
+		// Objects with priority 0 are not drawn here.
+		foreach (ActiveObject activeObject in activeObjects)
 		{
-			int index = item.Layer.Index;
-			RenderingLayer renderingLayer = _renderingLayers[index];
-			int priority = item.Priority;
+			RenderingLayer renderingLayer = _renderingLayers[activeObject.Layer.Index];
+			int priority = activeObject.Priority;
 			if (priority < 0)
 			{
-				renderingLayer.AddLowObject(item);
+				renderingLayer.AddLowObject(activeObject);
 			}
 			else if (priority > 0)
 			{
-				renderingLayer.AddHighObject(item);
+				renderingLayer.AddHighObject(activeObject);
 			}
 		}
 	}
@@ -196,17 +215,14 @@ public class LevelRenderer : ILevelRenderer, IDisposable
 		tileRenderer.Textures = _tileSet.Textures.ToArray();
 		tileRenderer.Filter = viewOptions.Filter;
 		tileRenderer.FilterAmount = viewOptions.FilterAmount;
-		Stopwatch.StartNew();
-		RenderingTiler tiler = _tiler;
-		RenderingLayer[] renderingLayers = _renderingLayers;
-		foreach (RenderingLayer renderingLayer in renderingLayers)
+		foreach (RenderingLayer renderingLayer in _renderingLayers)
 		{
 			if (renderingLayer.Layer.Visible)
 			{
 				BeginShadowStenciling(renderingLayer.HasShadows);
 				SetLighting(renderingLayer.Layer, viewOptions);
 				DrawBackObjects(renderer, viewport, viewOptions, renderingLayer);
-				tiler.RenderTiles(i2dRenderer, tileRenderer, renderingLayer.RenderTileIndex, renderingLayer.RenderTileCount);
+				_tiler.RenderTiles(i2dRenderer, tileRenderer, renderingLayer.RenderTileIndex, renderingLayer.RenderTileCount);
 				DrawFrontObjects(renderer, viewport, viewOptions, renderingLayer);
 				if (renderingLayer.HasShadows)
 				{
@@ -224,9 +240,9 @@ public class LevelRenderer : ILevelRenderer, IDisposable
 
 	private void DrawLandscapeCollision(Renderer renderer, LayerViewOptions layerViewOptions)
 	{
-		foreach (CollisionVector item in _level.CollisionTable.InternalTree.Query(_canvasViewport.Bounds))
+		foreach (CollisionVector collisionVector in _level.CollisionTable.InternalTree.Query(_canvasViewport.Bounds))
 		{
-			item.Draw(renderer, _canvasViewport);
+			collisionVector.Draw(renderer, _canvasViewport);
 		}
 	}
 
@@ -239,12 +255,12 @@ public class LevelRenderer : ILevelRenderer, IDisposable
 			case LevelLayerLightingType.Outside:
 				if (_level.NightMode != 0.0)
 				{
-					viewOptions.Filter = 1;
+					viewOptions.Filter = NightFilter;
 					viewOptions.FilterAmount = _level.NightMode;
 				}
 				break;
 			case LevelLayerLightingType.Inside:
-				viewOptions.Filter = 2;
+				viewOptions.Filter = InsideLightingFilter;
 				viewOptions.FilterAmount = 1.0 - layer.Lighting.Light;
 				break;
 		}
@@ -254,7 +270,7 @@ public class LevelRenderer : ILevelRenderer, IDisposable
 
 	private void InitialiseShadowRendering()
 	{
-		_graphicsContext.SetStencilWriteMask(255);
+		_graphicsContext.SetStencilWriteMask(StencilMask);
 		_graphicsContext.SetStencilOperation(StencilOperation.Keep, StencilOperation.Replace, StencilOperation.Replace);
 	}
 
@@ -264,7 +280,7 @@ public class LevelRenderer : ILevelRenderer, IDisposable
 		{
 			_graphicsContext.SetStencilTest(enabled: true);
 			_graphicsContext.ClearStencil();
-			_graphicsContext.SetStencilFunction(SonicOrca.Graphics.StencilFunction.Always, 1, 255);
+			_graphicsContext.SetStencilFunction(SonicOrca.Graphics.StencilFunction.Always, 1, StencilMask);
 			_graphicsContext.SetStencilOperation(StencilOperation.Keep, StencilOperation.Replace, StencilOperation.Replace);
 		}
 		else
@@ -275,20 +291,19 @@ public class LevelRenderer : ILevelRenderer, IDisposable
 
 	private void DrawShadows(Renderer renderer, I2dRenderer g, ITileRenderer tr, Viewport viewport, LayerViewOptions viewOptions, RenderingLayer rlayer)
 	{
-		_graphicsContext.SetStencilFunction(SonicOrca.Graphics.StencilFunction.Equal, 1, 255);
+		_graphicsContext.SetStencilFunction(SonicOrca.Graphics.StencilFunction.Equal, 1, StencilMask);
 		_graphicsContext.SetStencilOperation(StencilOperation.Keep, StencilOperation.Keep, StencilOperation.Zero);
 		viewOptions.Shadows = true;
 		ShadowRenderer.IsShadowing = true;
 		Matrix4 modelMatrix = tr.ModelMatrix;
-		RenderingTiler tiler = _tiler;
+		// Draw the casting layers again, moved by the shadow displacement, only where the stencil is 1
 		foreach (LevelLayerShadow shadow in rlayer.Layer.Shadows)
 		{
-			int num = rlayer.LayerIndex + shadow.LayerIndexOffset;
-			RenderingLayer renderingLayer = _renderingLayers[num];
+			RenderingLayer renderingLayer = _renderingLayers[rlayer.LayerIndex + shadow.LayerIndexOffset];
 			TileRenderer.ShadowColour = shadow.Colour;
 			DrawBackObjects(renderer, viewport, viewOptions, renderingLayer);
 			tr.ModelMatrix = Matrix4.CreateTranslation(shadow.Displacement);
-			tiler.RenderTiles(g, tr, renderingLayer.RenderTileIndex, renderingLayer.RenderTileCount);
+			_tiler.RenderTiles(g, tr, renderingLayer.RenderTileIndex, renderingLayer.RenderTileCount);
 			DrawFrontObjects(renderer, viewport, viewOptions, renderingLayer);
 		}
 		tr.ModelMatrix = modelMatrix;
@@ -322,11 +337,10 @@ public class LevelRenderer : ILevelRenderer, IDisposable
 
 	public void RenderToClipboard(Viewport viewport, LayerViewOptions layerViewOptions)
 	{
-		int num = viewport.Destination.Width * viewport.Destination.Height;
-		int num2 = 4194304;
-		if (num > num2)
+		int pixelCount = viewport.Destination.Width * viewport.Destination.Height;
+		if (pixelCount > MaxCopyPixelCount)
 		{
-			Trace.WriteLine($"Copying {num} pixels, Max copy image limit: {num2} pixels");
+			Trace.WriteLine($"Copying {pixelCount} pixels, Max copy image limit: {MaxCopyPixelCount} pixels");
 			return;
 		}
 		int width;
@@ -370,18 +384,21 @@ public class LevelRenderer : ILevelRenderer, IDisposable
 		}
 		IFramebuffer canvasFramebuffer = _canvasFramebuffer;
 		ITexture texture = canvasFramebuffer.Textures[0];
+		// Copy the canvas into the effect framebuffer, draw the distorted regions over it, then copy the result back
 		_effectFramebuffer.Activate();
 		_graphicsContext.ClearBuffer();
 		RenderingHelpers.RenderToFramebuffer(renderer, texture, _effectFramebuffer, BlendMode.Opaque);
 		_waterfallDistortionTexture.Wrapping = TextureWrapping.Repeat;
 		WaterfallRenderer waterfallRenderer = WaterfallRenderer.FromRenderer(renderer);
+		// The distortion texture scrolls once every 60 ticks
 		waterfallRenderer.DistortionOffset = new Vector2(0.0, _level.Ticks % 60 / -60.0);
 		waterfallRenderer.DistortionTexture = _waterfallDistortionTexture;
 		waterfallRenderer.DistortionAmount = 16.0;
 		waterfallRenderer.NonDistortionRadius = new Vector2i(4, 24);
 		foreach (Rectanglei waterfallRegion in _waterfallRegions)
 		{
-			Vector2i amount = new Vector2i(0, 1080 - waterfallRegion.Bottom - waterfallRegion.Top);
+			// The canvas texture is upside down, so mirror the region vertically to get its source
+			Vector2i amount = new Vector2i(0, ScreenHeight - waterfallRegion.Bottom - waterfallRegion.Top);
 			Rectanglei source = waterfallRegion.OffsetBy(amount);
 			waterfallRenderer.Render(texture, source, waterfallRegion, flipX: false, flipY: true);
 		}
@@ -399,12 +416,13 @@ public class LevelRenderer : ILevelRenderer, IDisposable
 		Vector2i amount = new Vector2i(-bounds.X, -bounds.Y);
 		foreach (Rectanglei waterfallEffect in layer.WaterfallEffects)
 		{
-			Rectanglei a = new Rectanglei(waterfallEffect.X * 64, waterfallEffect.Y * 64, waterfallEffect.Width * 64, waterfallEffect.Height * 64);
-			a = Rectanglei.Intersect(a, bounds);
-			if (a.Width > 0 && a.Height > 0)
+			// The waterfall effect bounds are in tiles
+			Rectanglei region = new Rectanglei(waterfallEffect.X * TileSize, waterfallEffect.Y * TileSize, waterfallEffect.Width * TileSize, waterfallEffect.Height * TileSize);
+			region = Rectanglei.Intersect(region, bounds);
+			if (region.Width > 0 && region.Height > 0)
 			{
-				a = a.OffsetBy(amount);
-				_waterfallRegions.Add(a);
+				region = region.OffsetBy(amount);
+				_waterfallRegions.Add(region);
 			}
 		}
 	}

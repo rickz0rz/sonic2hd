@@ -3,6 +3,9 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.Drawing;
 
+/// <summary>
+/// Creates renderers for a graphics context. Only the fade transition renderer is available. The other methods return null.
+/// </summary>
 public class DefaultRendererFactory : IRendererFactory
 {
 	private readonly IGraphicsContext _graphicsContext;

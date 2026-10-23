@@ -9,6 +9,9 @@ using SonicOrca.Graphics.LowLevel;
 
 namespace SonicOrca.Drawing.Renderers;
 
+/// <summary>
+/// Collects level tiles into one vertex batch and draws them in one call.
+/// </summary>
 public class TileRenderer : ITileRenderer, IRenderer, IDisposable
 {
 	[StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -27,7 +30,14 @@ public class TileRenderer : ITileRenderer, IRenderer, IDisposable
 		public float opacity;
 	}
 
-	private static readonly Dictionary<Renderer, TileRenderer> RendererDictionary = new Dictionary<Renderer, TileRenderer>();
+	private const double ScreenWidth = 1920.0;
+
+	private const double ScreenHeight = 1080.0;
+
+	// The number of tile textures that the tile shader can sample
+	private const int ShaderTextureCount = 4;
+
+	private static readonly Dictionary<Renderer, TileRenderer> RendererDictionary = new();
 
 	private readonly Renderer _renderer;
 
@@ -41,9 +51,9 @@ public class TileRenderer : ITileRenderer, IRenderer, IDisposable
 
 	public int numVertices;
 
-	private Vector2[] vertexPositions = new Vector2[4];
+	private Vector2[] _vertexPositions = new Vector2[4];
 
-	private Vector2[] vertexUVs = new Vector2[4];
+	private Vector2[] _vertexUVs = new Vector2[4];
 
 	private ManagedShaderProgram _shaderProgram;
 
@@ -87,9 +97,9 @@ public class TileRenderer : ITileRenderer, IRenderer, IDisposable
 		_vao.DefineAttributes(_shaderProgram.Program, _vbo, typeof(Vertex));
 		ModelMatrix = Matrix4.Identity;
 		Colour = Colours.White;
-		ClipRectangle = new Rectangle(0.0, 0.0, 1920.0, 1080.0);
+		ClipRectangle = new Rectangle(0.0, 0.0, ScreenWidth, ScreenHeight);
 		_shaderProgram.Program.Activate();
-		for (int i = 0; i < 4; i++)
+		for (int i = 0; i < ShaderTextureCount; i++)
 		{
 			_shaderProgram.Program.SetUniform("InputTexture[" + i + "]", i);
 		}
@@ -124,25 +134,26 @@ public class TileRenderer : ITileRenderer, IRenderer, IDisposable
 			throw new Exception("Not currently renderering");
 		}
 		ITexture texture = Textures[textureIndex];
-		Renderer.GetVertices(destination, vertexPositions);
-		Renderer.GetTextureMappings(texture, source, vertexUVs, flipX, flipY);
+		Renderer.GetVertices(destination, _vertexPositions);
+		Renderer.GetTextureMappings(texture, source, _vertexUVs, flipX, flipY);
 		for (int i = 0; i < 4; i++)
 		{
-			_vertices[numVertices].position.x = (float)vertexPositions[i].X;
-			_vertices[numVertices].position.y = (float)vertexPositions[i].Y;
-			_vertices[numVertices].texcoords.s = (float)vertexUVs[i].X;
-			_vertices[numVertices].texcoords.t = (float)vertexUVs[i].Y;
+			_vertices[numVertices].position.x = (float)_vertexPositions[i].X;
+			_vertices[numVertices].position.y = (float)_vertexPositions[i].Y;
+			_vertices[numVertices].texcoords.s = (float)_vertexUVs[i].X;
+			_vertices[numVertices].texcoords.t = (float)_vertexUVs[i].Y;
 			_vertices[numVertices].texindex = textureIndex;
 			_vertices[numVertices].opacity = opacity;
 			numVertices++;
 			if (numVertices >= _vertices.Length)
 			{
-				Vertex[] array = new Vertex[_vertices.Length * 2];
-				Array.Copy(_vertices, array, _vertices.Length);
-				_vertices = array;
+				Vertex[] expandedVertices = new Vertex[_vertices.Length * 2];
+				Array.Copy(_vertices, expandedVertices, _vertices.Length);
+				_vertices = expandedVertices;
 			}
 		}
 		NumTiles++;
+		// The whole batch uses the blend mode of the last tile
 		_tempLastBlendMode = blend;
 	}
 
@@ -155,25 +166,17 @@ public class TileRenderer : ITileRenderer, IRenderer, IDisposable
 		_vbo.SetData(_vertices, 0, numVertices);
 		_renderer.ActivateRenderer(this);
 		_graphicsContext.BlendMode = ((_tempLastBlendMode != TileBlendMode.Additive) ? BlendMode.Alpha : BlendMode.Additive);
-		ITexture[] textures = Textures;
-		for (int i = 0; i < textures.Length; i++)
+		foreach (ITexture texture in Textures)
 		{
-			textures[i].Filtering = TextureFiltering.NearestNeighbour;
+			texture.Filtering = TextureFiltering.NearestNeighbour;
 		}
 		_graphicsContext.SetTextures(Textures);
-		Matrix4 value = _renderer.Window.GraphicsContext.CurrentFramebuffer.CreateOrthographic();
+		Matrix4 projectionMatrix = _renderer.Window.GraphicsContext.CurrentFramebuffer.CreateOrthographic();
 		IShaderProgram program = _shaderProgram.Program;
 		program.Activate();
-		if (ShadowRenderer.IsShadowing)
-		{
-			program.SetUniform("AlphaGrayscale", 1f);
-		}
-		else
-		{
-			program.SetUniform("AlphaGrayscale", 0f);
-		}
+		program.SetUniform("AlphaGrayscale", ShadowRenderer.IsShadowing ? 1f : 0f);
 		program.SetUniform("ModelViewMatrix", ModelMatrix);
-		program.SetUniform("ProjectionMatrix", value);
+		program.SetUniform("ProjectionMatrix", projectionMatrix);
 		program.SetUniform("InputColour", Colour);
 		program.SetUniform("InputClipRectangle", new Vector4(ClipRectangle.X, ClipRectangle.Y, ClipRectangle.Right, ClipRectangle.Bottom));
 		program.SetUniform("ShadowColour", ShadowColour);
