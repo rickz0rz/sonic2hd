@@ -1,6 +1,5 @@
 using System;
 
-#nullable disable
 namespace S2HD.Menu;
 
 /// <summary>

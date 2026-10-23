@@ -9,7 +9,6 @@ using SonicOrca.Graphics;
 using SonicOrca.Menu;
 using SonicOrca.Resources;
 
-#nullable disable
 namespace S2HD;
 
 /// <summary>

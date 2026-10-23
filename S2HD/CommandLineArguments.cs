@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using SonicOrca.Extensions;
 
-#nullable disable
 namespace S2HD;
 
 /// <summary>

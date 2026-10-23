@@ -1,6 +1,5 @@
 using System.Collections.Immutable;
 
-#nullable disable
 namespace S2HD.Menu;
 
 /// <summary>

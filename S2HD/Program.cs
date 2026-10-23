@@ -10,7 +10,6 @@ using SDL2;
 using SonicOrca;
 using SonicOrca.SDL2;
 
-#nullable disable
 namespace S2HD;
 
 /// <summary>

@@ -1,7 +1,6 @@
 using System;
 using SonicOrca.Graphics;
 
-#nullable disable
 namespace S2HD;
 
 /// <summary>

@@ -1,4 +1,3 @@
-#nullable disable
 namespace SonicOrca.Core;
 
 /// <summary>

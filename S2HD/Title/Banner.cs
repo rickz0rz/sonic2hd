@@ -5,7 +5,6 @@ using SonicOrca.Geometry;
 using SonicOrca.Graphics;
 using SonicOrca.Resources;
 
-#nullable disable
 namespace S2HD.Title;
 
 /// <summary>

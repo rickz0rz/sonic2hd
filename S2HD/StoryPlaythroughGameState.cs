@@ -6,7 +6,6 @@ using S2HD.Menu;
 using SonicOrca;
 using SonicOrca.Core;
 
-#nullable disable
 namespace S2HD;
 
 /// <summary>

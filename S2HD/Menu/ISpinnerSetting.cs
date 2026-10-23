@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 
-#nullable disable
 namespace S2HD.Menu;
 
 /// <summary>
