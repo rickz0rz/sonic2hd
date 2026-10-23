@@ -138,7 +138,6 @@ public class ObjectEntry
 		_state = Activator.CreateInstance(objectInstanceType) as ActiveObject;
 	}
 
-
 	public void Finish()
 	{
 		if (Active != null)
