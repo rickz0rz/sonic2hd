@@ -4,9 +4,22 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.Core.Objects.Base;
 
+/// <summary>
+/// The base class for a boss. It has health, flashes after a hit and makes explosions when it is defeated.
+/// </summary>
 public class BossObject : Enemy
 {
 	public static readonly Colour FlashAdditiveColour = new Colour(64, 64, 64);
+
+	/// <summary>
+	/// The number of ticks that the boss cannot be hit after a hit.
+	/// </summary>
+	private const int HitInvincibilityTicks = 32;
+
+	/// <summary>
+	/// The number of ticks between two explosions.
+	/// </summary>
+	private const int ExplosionInterval = 8;
 
 	private int _explosionTimer;
 
@@ -78,7 +91,7 @@ public class BossObject : Enemy
 			character.GroundVelocity *= -1.0;
 		}
 		Health--;
-		InvincibilityTimer = 32;
+		InvincibilityTimer = HitInvincibilityTicks;
 		if (Health > 0)
 		{
 			Level.SoundManager.PlaySound(this, HitSoundResourceKey);
@@ -97,9 +110,9 @@ public class BossObject : Enemy
 	{
 		if (_explosionTimer-- <= 0)
 		{
-			_explosionTimer = 8;
-			Vector2i vector2i = new Vector2i(Level.Random.Next(-radius, radius), Level.Random.Next(-radius, radius));
-			ExplodeAt(Position + vector2i);
+			_explosionTimer = ExplosionInterval;
+			Vector2i offset = new Vector2i(Level.Random.Next(-radius, radius), Level.Random.Next(-radius, radius));
+			ExplodeAt(Position + offset);
 		}
 	}
 

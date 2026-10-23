@@ -2,6 +2,9 @@ using System;
 
 namespace SonicOrca.Core.Objects.Metadata;
 
+/// <summary>
+/// Sets the classification of an object type, for example ring, character or capsule.
+/// </summary>
 [AttributeUsage(AttributeTargets.Class)]
 public class ClassificationAttribute : Attribute
 {

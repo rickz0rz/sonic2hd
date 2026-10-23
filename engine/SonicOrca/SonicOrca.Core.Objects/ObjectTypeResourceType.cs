@@ -7,6 +7,10 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Core.Objects;
 
+/// <summary>
+/// Loads an object type from a C# script resource (".object.cs").
+/// The script must have one class that inherits <see cref="ObjectType"/> and one class that inherits <see cref="ActiveObject"/>.
+/// </summary>
 internal class ObjectTypeResourceType : ResourceType
 {
 	public override string Name => "object, cs";
@@ -18,22 +22,22 @@ internal class ObjectTypeResourceType : ResourceType
 	{
 	}
 
-	public override async Task<ILoadedResource> LoadAsync(ResourceLoadArgs e, CancellationToken ct = default(CancellationToken))
+	public override async Task<ILoadedResource> LoadAsync(ResourceLoadArgs e, CancellationToken ct = default)
 	{
-		Type[] source = ScriptImport.Compile(await new StreamReader(e.InputStream).ReadToEndAsync());
-		Type type = source.FirstOrDefault((Type x) => typeof(ObjectType).IsAssignableFrom(x));
-		Type type2 = source.FirstOrDefault((Type x) => typeof(ActiveObject).IsAssignableFrom(x));
-		if (type == null)
+		Type[] compiledTypes = ScriptImport.Compile(await new StreamReader(e.InputStream).ReadToEndAsync());
+		Type objectTypeClass = compiledTypes.FirstOrDefault(x => typeof(ObjectType).IsAssignableFrom(x));
+		Type activeObjectClass = compiledTypes.FirstOrDefault(x => typeof(ActiveObject).IsAssignableFrom(x));
+		if (objectTypeClass == null)
 		{
 			throw new ResourceException("No class inheriting ObjectType found.");
 		}
-		if (type2 == null)
+		if (activeObjectClass == null)
 		{
 			throw new ResourceException("No class inheriting ActiveObject found.");
 		}
-		ObjectType objectType = (ObjectType)Activator.CreateInstance(type);
+		ObjectType objectType = (ObjectType)Activator.CreateInstance(objectTypeClass);
 		objectType.Resource = e.Resource;
-		e.PushDependencies(objectType.Dependencies.Select((string x) => e.GetAbsolutePath(x)));
+		e.PushDependencies(objectType.Dependencies.Select(x => e.GetAbsolutePath(x)));
 		return objectType;
 	}
 }

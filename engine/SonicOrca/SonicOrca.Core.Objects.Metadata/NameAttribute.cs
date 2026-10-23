@@ -2,6 +2,9 @@ using System;
 
 namespace SonicOrca.Core.Objects.Metadata;
 
+/// <summary>
+/// Gives an object type a display name.
+/// </summary>
 [AttributeUsage(AttributeTargets.Class)]
 public class NameAttribute : Attribute
 {

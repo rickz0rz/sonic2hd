@@ -5,8 +5,16 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.Core.Objects;
 
+/// <summary>
+/// Shows a recorded character as a ghost. Each tick, a <see cref="PlayRecorder.Entry"/> sets its position, state and animation frame.
+/// </summary>
 internal class GhostCharacterInstance : ActiveObject
 {
+	/// <summary>
+	/// The draw priority of the ghost. A player character uses 1024.
+	/// </summary>
+	private const int GhostPriority = 1022;
+
 	private AnimationInstance _animation;
 
 	public double Angle { get; set; }
@@ -15,7 +23,7 @@ internal class GhostCharacterInstance : ActiveObject
 
 	protected override void OnStart()
 	{
-		Priority = 1022;
+		Priority = GhostPriority;
 	}
 
 	public void Initialise(string animationResourceKey)
@@ -56,9 +64,10 @@ internal class GhostCharacterInstance : ActiveObject
 				characterRenderer.ModelMatrix *= Matrix4.CreateRotationZ(Angle * Math.PI);
 			}
 			Animation.Frame currentFrame = _animation.CurrentFrame;
-			Vector2 vector = currentFrame.Offset;
-			Rectangle destination = new Rectangle(vector.X - currentFrame.Source.Width / 2, vector.Y - currentFrame.Source.Height / 2, currentFrame.Source.Width, currentFrame.Source.Height);
-			characterRenderer.RenderTextureGhost(_animation.AnimationGroup.Textures[1], _animation.AnimationGroup.Textures[0], currentFrame.Source, destination, !State.HasFlag(CharacterState.Left), State.HasFlag(CharacterState.Left) && _animation.Index == 16);
+			Vector2 offset = currentFrame.Offset;
+			Rectangle destination = new Rectangle(offset.X - currentFrame.Source.Width / 2, offset.Y - currentFrame.Source.Height / 2, currentFrame.Source.Width, currentFrame.Source.Height);
+			bool facingLeft = State.HasFlag(CharacterState.Left);
+			characterRenderer.RenderTextureGhost(_animation.AnimationGroup.Textures[1], _animation.AnimationGroup.Textures[0], currentFrame.Source, destination, !facingLeft, facingLeft && _animation.Index == (int)CharacterAnimation.Tumble);
 		}
 	}
 }

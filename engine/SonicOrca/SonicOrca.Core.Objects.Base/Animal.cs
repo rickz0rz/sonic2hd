@@ -7,8 +7,23 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.Core.Objects.Base;
 
+/// <summary>
+/// The base class for a freed animal. After an optional delay, the animal jumps out and then hops along the ground.
+/// </summary>
 public abstract class Animal : ActiveObject
 {
+	/// <summary>
+	/// The draw priority while the animal waits (for example inside a capsule).
+	/// </summary>
+	private const int WaitingPriority = -256;
+
+	private const int ActivePriority = 1280;
+
+	/// <summary>
+	/// The gravity before the first landing.
+	/// </summary>
+	private const double FallGravity = 0.875;
+
 	private readonly string _animationGroupResourceKey;
 
 	private AnimationInstance _animationInstance;
@@ -65,14 +80,14 @@ public abstract class Animal : ActiveObject
 	{
 		_animationInstance = new AnimationInstance(ResourceTree, Type.GetAbsolutePath(_animationGroupResourceKey));
 		JumpVelocity = new Vector2(Math.Abs(JumpVelocity.X) * Math.Sign(_direction), JumpVelocity.Y);
-		Priority = ((_delay > 0) ? (-256) : 1280);
+		Priority = (_delay > 0) ? WaitingPriority : ActivePriority;
 	}
 
 	protected override void OnUpdate()
 	{
 		if (_delay > 0)
 		{
-			Priority = -256;
+			Priority = WaitingPriority;
 			_delay--;
 			if (_delay == 0)
 			{
@@ -80,22 +95,23 @@ public abstract class Animal : ActiveObject
 			}
 			return;
 		}
-		Priority = 1280;
+		Priority = ActivePriority;
 		PositionPrecise += _velocity;
-		bool flag = false;
+		bool landed = false;
 		foreach (CollisionInfo collision in CollisionVector.GetCollisions(this, 32))
 		{
 			if (!collision.Vector.IsWall && collision.Vector.Mode != CollisionMode.Bottom)
 			{
+				// The animal goes through the vectors of a capsule.
 				ActiveObject owner = collision.Vector.Owner;
 				if (owner == null || owner.Type.Classification != ObjectClassification.Capsule)
 				{
 					PositionPrecise = new Vector2(PositionPrecise.X, PositionPrecise.Y + collision.Shift);
-					flag = true;
+					landed = true;
 				}
 			}
 		}
-		if (flag)
+		if (landed)
 		{
 			_jumping = true;
 			_velocity = JumpVelocity;
@@ -103,7 +119,7 @@ public abstract class Animal : ActiveObject
 		}
 		else
 		{
-			_velocity.Y += (_jumping ? JumpGravity : 0.875);
+			_velocity.Y += _jumping ? JumpGravity : FallGravity;
 		}
 	}
 

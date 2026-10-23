@@ -2,6 +2,9 @@ using System;
 
 namespace SonicOrca.Core.Objects.Metadata;
 
+/// <summary>
+/// Gives an object type a description that the editor shows.
+/// </summary>
 [AttributeUsage(AttributeTargets.Class)]
 public class DescriptionAttribute : Attribute
 {

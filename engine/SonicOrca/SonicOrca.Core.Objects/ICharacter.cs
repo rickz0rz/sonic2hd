@@ -6,6 +6,9 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.Core.Objects;
 
+/// <summary>
+/// A playable character, as other objects see it.
+/// </summary>
 public interface ICharacter : IActiveObject
 {
 	CharacterSpecialState SpecialState { get; set; }

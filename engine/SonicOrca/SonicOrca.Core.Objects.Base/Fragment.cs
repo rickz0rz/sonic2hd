@@ -3,6 +3,9 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.Core.Objects.Base;
 
+/// <summary>
+/// A piece of debris that falls with gravity and turns. It removes itself after a number of animation cycles.
+/// </summary>
 public class Fragment : ActiveObject
 {
 	private AnimationInstance _animationInstance;
@@ -96,14 +99,14 @@ public class Fragment : ActiveObject
 			{
 				objectRenderer.FilterAmount *= FilterMultiplier;
 			}
-			objectRenderer.BlendMode = ((!AdditiveBlending) ? BlendMode.Alpha : BlendMode.Additive);
+			objectRenderer.BlendMode = AdditiveBlending ? BlendMode.Additive : BlendMode.Alpha;
 			objectRenderer.ModelMatrix = objectRenderer.ModelMatrix.RotateZ(Angle);
 			Rectanglei source = _animationInstance.CurrentFrame.Source;
-			int num = (int)(source.Width * Scale);
-			int num2 = (int)(source.Height * Scale);
-			Rectanglei rectanglei = new Rectanglei(-num / 2, -num2 / 2, num, num2);
+			int width = (int)(source.Width * Scale);
+			int height = (int)(source.Height * Scale);
+			Rectanglei destination = new Rectanglei(-width / 2, -height / 2, width, height);
 			objectRenderer.Texture = _animationInstance.CurrentTexture;
-			objectRenderer.Render(source, rectanglei, FlipX, FlipY);
+			objectRenderer.Render(source, destination, FlipX, FlipY);
 		}
 	}
 }

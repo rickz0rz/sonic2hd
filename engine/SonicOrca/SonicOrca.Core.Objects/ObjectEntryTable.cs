@@ -5,6 +5,9 @@ using SonicOrca.Geometry;
 
 namespace SonicOrca.Core.Objects;
 
+/// <summary>
+/// Holds the object entries of a level. Each entry comes from an object placement in the level binding.
+/// </summary>
 public class ObjectEntryTable : ICollection<ObjectEntry>, IEnumerable<ObjectEntry>, IEnumerable
 {
 	private readonly List<ObjectEntry> _entries = new List<ObjectEntry>();
@@ -31,7 +34,7 @@ public class ObjectEntryTable : ICollection<ObjectEntry>, IEnumerable<ObjectEntr
 
 	public void RemoveFinishedEntries()
 	{
-		_entries.RemoveAll((ObjectEntry x) => x.FinishedForever);
+		_entries.RemoveAll(x => x.FinishedForever);
 	}
 
 	public void Add(ObjectPlacement item)
@@ -41,7 +44,7 @@ public class ObjectEntryTable : ICollection<ObjectEntry>, IEnumerable<ObjectEntr
 
 	public IEnumerable<ObjectEntry> GetAllInRegion(Rectanglei region)
 	{
-		return _entries.Where((ObjectEntry x) => !x.FinishedForever && region.IntersectsWith(x.LifetimeArea));
+		return _entries.Where(x => !x.FinishedForever && region.IntersectsWith(x.LifetimeArea));
 	}
 
 	public IEnumerable<ObjectEntry> GetAll()
@@ -51,17 +54,17 @@ public class ObjectEntryTable : ICollection<ObjectEntry>, IEnumerable<ObjectEntr
 
 	public int GetRingCount()
 	{
-		return _entries.Count((ObjectEntry x) => x.Type.Classification == ObjectClassification.Ring);
+		return _entries.Count(x => x.Type.Classification == ObjectClassification.Ring);
 	}
 
 	public int GetRingCountInRegion(Rectanglei region)
 	{
-		return GetAllInRegion(region).Count((ObjectEntry x) => x.Type.Classification == ObjectClassification.Ring);
+		return GetAllInRegion(region).Count(x => x.Type.Classification == ObjectClassification.Ring);
 	}
 
 	public override string ToString()
 	{
-		return $"{_entries.Count} entries, {_entries.Count((ObjectEntry x) => x.Active != null)} loaded.";
+		return $"{_entries.Count} entries, {_entries.Count(x => x.Active != null)} loaded.";
 	}
 
 	public void Add(ObjectEntry item)

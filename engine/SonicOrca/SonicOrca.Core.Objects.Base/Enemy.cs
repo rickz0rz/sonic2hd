@@ -3,6 +3,9 @@ using SonicOrca.Core.Collision;
 
 namespace SonicOrca.Core.Objects.Base;
 
+/// <summary>
+/// The base class for an object that hurts a character on contact.
+/// </summary>
 public class Enemy : ActiveObject
 {
 	protected override void OnCollision(CollisionEvent e)
