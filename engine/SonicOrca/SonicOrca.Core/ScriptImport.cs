@@ -13,8 +13,8 @@ internal static class ScriptImport
 		{
 			string useNamespace = ReadToWhitespace(sourceCode.Substring(5));
 			return (from x in AppDomain.CurrentDomain.GetAssemblies().SelectMany((Assembly x) => x.GetTypes())
-				where x.Namespace == useNamespace
-				select x).ToArray();
+					where x.Namespace == useNamespace
+					select x).ToArray();
 		}
 		// Runtime C# compilation (CodeDom) is not available on modern .NET. All shipped area and object
 		// resources use the "#use <namespace>" form, referencing types precompiled into the game assembly.

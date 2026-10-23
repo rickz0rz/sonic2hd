@@ -178,21 +178,21 @@ public class SonicOrcaConsole : IDisposable
 			string[] args = tokens.Skip(1).ToArray();
 			switch (tokens[0].ToLower())
 			{
-			case "barrier":
-				ProcessCommandBarrier(args);
-				break;
-			case "debug":
-				ProcessCommandDebug(args);
-				break;
-			case "spawn":
-				ProcessCommandSpawn(args);
-				break;
-			case "teleport":
-				ProcessCommandTeleport(args);
-				break;
-			case "restart":
-				ProcessCommandRestart(args);
-				break;
+				case "barrier":
+					ProcessCommandBarrier(args);
+					break;
+				case "debug":
+					ProcessCommandDebug(args);
+					break;
+				case "spawn":
+					ProcessCommandSpawn(args);
+					break;
+				case "teleport":
+					ProcessCommandTeleport(args);
+					break;
+				case "restart":
+					ProcessCommandRestart(args);
+					break;
 			}
 		}
 	}
@@ -207,24 +207,24 @@ public class SonicOrcaConsole : IDisposable
 		BarrierType barrierType = BarrierType.None;
 		switch (args[0].ToLower())
 		{
-		case "none":
-			barrierType = BarrierType.None;
-			break;
-		case "classic":
-			barrierType = BarrierType.Classic;
-			break;
-		case "bubble":
-			barrierType = BarrierType.Bubble;
-			break;
-		case "fire":
-			barrierType = BarrierType.Fire;
-			break;
-		case "lightning":
-			barrierType = BarrierType.Lightning;
-			break;
-		default:
-			WriteLine("usage: barrier <classic|bubble|fire|lightning>");
-			return;
+			case "none":
+				barrierType = BarrierType.None;
+				break;
+			case "classic":
+				barrierType = BarrierType.Classic;
+				break;
+			case "bubble":
+				barrierType = BarrierType.Bubble;
+				break;
+			case "fire":
+				barrierType = BarrierType.Fire;
+				break;
+			case "lightning":
+				barrierType = BarrierType.Lightning;
+				break;
+			default:
+				WriteLine("usage: barrier <classic|bubble|fire|lightning>");
+				return;
 		}
 		LevelGameState levelGameState = null;
 		if (levelGameState != null && levelGameState.Level != null)

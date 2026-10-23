@@ -249,20 +249,20 @@ internal class HalfPipeSpecialStageScreen : Screen
 			{
 				switch (segmentGeometry)
 				{
-				case SegmentGeometry.TurnLeft:
-					num -= MathX.ToRadians(3.2142857142857144);
-					break;
-				case SegmentGeometry.TurnRight:
-					num += MathX.ToRadians(3.2142857142857144);
-					break;
-				case SegmentGeometry.Rise:
-					num2 += MathX.ToRadians(6.428571428571429);
-					_ = Math.Cos(num2) / -2.0;
-					break;
-				case SegmentGeometry.Drop:
-					num2 -= MathX.ToRadians(6.428571428571429);
-					_ = Math.Cos(num2) / -2.0;
-					break;
+					case SegmentGeometry.TurnLeft:
+						num -= MathX.ToRadians(3.2142857142857144);
+						break;
+					case SegmentGeometry.TurnRight:
+						num += MathX.ToRadians(3.2142857142857144);
+						break;
+					case SegmentGeometry.Rise:
+						num2 += MathX.ToRadians(6.428571428571429);
+						_ = Math.Cos(num2) / -2.0;
+						break;
+					case SegmentGeometry.Drop:
+						num2 -= MathX.ToRadians(6.428571428571429);
+						_ = Math.Cos(num2) / -2.0;
+						break;
 				}
 				Vector3 vector2 = vector + new Vector3(Math.Sin(num), 0.0 - Math.Cos(num2), Math.Cos(num)) * 2.0;
 				double num3 = num2 - MathX.ToRadians(90.0);
@@ -361,7 +361,7 @@ internal class HalfPipeSpecialStageScreen : Screen
 			TrackNode trackNode = _trackNodes[i];
 			Matrix4 transform = Matrix4.Identity.RotateY(trackNode.Angle.X).Translate(trackNode.Position);
 			Vector3[] array2 = (from x in GetCrossSection()
-				select transform * x).ToArray();
+								select transform * x).ToArray();
 			if (array != null)
 			{
 				for (int num3 = 0; num3 < array2.Length - 1; num3++)

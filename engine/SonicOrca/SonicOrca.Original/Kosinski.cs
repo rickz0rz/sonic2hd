@@ -44,10 +44,10 @@ public static class Kosinski
 					num3 = binaryReader.ReadByte();
 					switch (num3)
 					{
-					case 1:
-						continue;
-					case 0:
-						return list.Count;
+						case 1:
+							continue;
+						case 0:
+							return list.Count;
 					}
 				}
 				else

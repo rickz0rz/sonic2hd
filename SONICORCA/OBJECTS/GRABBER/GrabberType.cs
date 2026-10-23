@@ -13,9 +13,9 @@ namespace SONICORCA.OBJECTS.GRABBER;
 [SonicOrca.Core.Objects.Metadata.Name("Grabber")]
 [Description("Grabber from Sonic 2")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Badnik)]
-[ObjectInstance(typeof (GrabberInstance))]
+[ObjectInstance(typeof(GrabberInstance))]
 public class GrabberType : ObjectType
 {
-  [Dependency]
-  public const string AnimationGroupResourceKey = "/ANIGROUP";
+	[Dependency]
+	public const string AnimationGroupResourceKey = "/ANIGROUP";
 }

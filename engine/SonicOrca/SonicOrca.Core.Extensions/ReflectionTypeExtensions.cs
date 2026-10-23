@@ -12,11 +12,11 @@ public static class ReflectionTypeExtensions
 	{
 		return member.MemberType switch
 		{
-			MemberTypes.Event => ((EventInfo)member).EventHandlerType, 
-			MemberTypes.Field => ((FieldInfo)member).FieldType, 
-			MemberTypes.Method => ((MethodInfo)member).ReturnType, 
-			MemberTypes.Property => ((PropertyInfo)member).PropertyType, 
-			_ => throw new ArgumentException("Input MemberInfo must be if type EventInfo, FieldInfo, MethodInfo, or PropertyInfo"), 
+			MemberTypes.Event => ((EventInfo)member).EventHandlerType,
+			MemberTypes.Field => ((FieldInfo)member).FieldType,
+			MemberTypes.Method => ((MethodInfo)member).ReturnType,
+			MemberTypes.Property => ((PropertyInfo)member).PropertyType,
+			_ => throw new ArgumentException("Input MemberInfo must be if type EventInfo, FieldInfo, MethodInfo, or PropertyInfo"),
 		};
 	}
 
@@ -46,9 +46,9 @@ public static class ReflectionTypeExtensions
 	{
 		return member.MemberType switch
 		{
-			MemberTypes.Field => ((FieldInfo)member).GetValue(instance), 
-			MemberTypes.Property => ((PropertyInfo)member).GetValue(instance), 
-			_ => throw new ArgumentException("Input MemberInfo must be type FieldInfo, or PropertyInfo"), 
+			MemberTypes.Field => ((FieldInfo)member).GetValue(instance),
+			MemberTypes.Property => ((PropertyInfo)member).GetValue(instance),
+			_ => throw new ArgumentException("Input MemberInfo must be type FieldInfo, or PropertyInfo"),
 		};
 	}
 
@@ -56,14 +56,14 @@ public static class ReflectionTypeExtensions
 	{
 		switch (member.MemberType)
 		{
-		case MemberTypes.Field:
-			((FieldInfo)member).SetValue(instance, value);
-			break;
-		case MemberTypes.Property:
-			((PropertyInfo)member).SetValue(instance, value);
-			break;
-		default:
-			throw new ArgumentException("Input MemberInfo must be type FieldInfo, or PropertyInfo");
+			case MemberTypes.Field:
+				((FieldInfo)member).SetValue(instance, value);
+				break;
+			case MemberTypes.Property:
+				((PropertyInfo)member).SetValue(instance, value);
+				break;
+			default:
+				throw new ArgumentException("Input MemberInfo must be type FieldInfo, or PropertyInfo");
 		}
 	}
 

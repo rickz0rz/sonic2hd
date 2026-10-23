@@ -48,26 +48,26 @@ internal class BitWriter
 	{
 		switch (_blockSize)
 		{
-		case 1:
-			_stream.WriteByte((byte)(_data & 0xFF));
-			break;
-		case 2:
-			_stream.WriteByte((byte)(_data & 0xFF));
-			_stream.WriteByte((byte)((_data >> 8) & 0xFF));
-			break;
-		case 3:
-			_stream.WriteByte((byte)(_data & 0xFF));
-			_stream.WriteByte((byte)((_data >> 8) & 0xFF));
-			_stream.WriteByte((byte)((_data >> 16) & 0xFF));
-			break;
-		case 4:
-			_stream.WriteByte((byte)(_data & 0xFF));
-			_stream.WriteByte((byte)((_data >> 8) & 0xFF));
-			_stream.WriteByte((byte)((_data >> 16) & 0xFF));
-			_stream.WriteByte((byte)((_data >> 24) & 0xFF));
-			break;
-		default:
-			throw new InvalidOperationException();
+			case 1:
+				_stream.WriteByte((byte)(_data & 0xFF));
+				break;
+			case 2:
+				_stream.WriteByte((byte)(_data & 0xFF));
+				_stream.WriteByte((byte)((_data >> 8) & 0xFF));
+				break;
+			case 3:
+				_stream.WriteByte((byte)(_data & 0xFF));
+				_stream.WriteByte((byte)((_data >> 8) & 0xFF));
+				_stream.WriteByte((byte)((_data >> 16) & 0xFF));
+				break;
+			case 4:
+				_stream.WriteByte((byte)(_data & 0xFF));
+				_stream.WriteByte((byte)((_data >> 8) & 0xFF));
+				_stream.WriteByte((byte)((_data >> 16) & 0xFF));
+				_stream.WriteByte((byte)((_data >> 24) & 0xFF));
+				break;
+			default:
+				throw new InvalidOperationException();
 		}
 		_bitIndex = 0;
 		_data = 0;

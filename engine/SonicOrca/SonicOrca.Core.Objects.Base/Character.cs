@@ -1001,33 +1001,33 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 				{
 					switch (Math.Abs((int)_balanceDirection))
 					{
-					case 1:
-						if ((IsFacingLeft && _balanceDirection > CharacterBalanceDirection.None) || (IsFacingRight && _balanceDirection < CharacterBalanceDirection.None))
-						{
-							Animation.Index = 5;
-						}
-						else
-						{
-							Animation.Index = 4;
-						}
-						break;
-					case 2:
-						Animation.Index = 3;
-						break;
-					default:
-						if (IsAirborne)
-						{
-							Animation.Index = 13;
-						}
-						else if (Animation.Index == 19)
-						{
-							Animation.Index = 26;
-						}
-						else if (Animation.Index != 26)
-						{
-							Animation.Index = 0;
-						}
-						break;
+						case 1:
+							if ((IsFacingLeft && _balanceDirection > CharacterBalanceDirection.None) || (IsFacingRight && _balanceDirection < CharacterBalanceDirection.None))
+							{
+								Animation.Index = 5;
+							}
+							else
+							{
+								Animation.Index = 4;
+							}
+							break;
+						case 2:
+							Animation.Index = 3;
+							break;
+						default:
+							if (IsAirborne)
+							{
+								Animation.Index = 13;
+							}
+							else if (Animation.Index == 19)
+							{
+								Animation.Index = 26;
+							}
+							else if (Animation.Index != 26)
+							{
+								Animation.Index = 0;
+							}
+							break;
 					}
 				}
 				else if (_inhalingBubble != 0)
@@ -1183,11 +1183,11 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	{
 		return type switch
 		{
-			BarrierType.Classic => "SONICORCA/OBJECTS/BARRIER/ANIGROUP", 
-			BarrierType.Bubble => "SONICORCA/OBJECTS/BARRIER/BUBBLE/ANIGROUP", 
-			BarrierType.Fire => "SONICORCA/OBJECTS/BARRIER/FIRE/ANIGROUP", 
-			BarrierType.Lightning => "SONICORCA/OBJECTS/BARRIER/LIGHTNING/ANIGROUP", 
-			_ => null, 
+			BarrierType.Classic => "SONICORCA/OBJECTS/BARRIER/ANIGROUP",
+			BarrierType.Bubble => "SONICORCA/OBJECTS/BARRIER/BUBBLE/ANIGROUP",
+			BarrierType.Fire => "SONICORCA/OBJECTS/BARRIER/FIRE/ANIGROUP",
+			BarrierType.Lightning => "SONICORCA/OBJECTS/BARRIER/LIGHTNING/ANIGROUP",
+			_ => null,
 		};
 	}
 
@@ -1408,50 +1408,50 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		}
 		switch (vector.Mode)
 		{
-		case CollisionMode.Top:
-			return Velocity.Y >= 0.0;
-		case CollisionMode.Bottom:
-			if (vector.FlipY != 0 && Velocity.Y < 0.0)
-			{
-				return true;
-			}
-			if (Velocity.Y < 0.0)
-			{
-				Velocity = new Vector2(Velocity.X, 0.0);
-				if (Mode != CollisionMode.Air)
+			case CollisionMode.Top:
+				return Velocity.Y >= 0.0;
+			case CollisionMode.Bottom:
+				if (vector.FlipY != 0 && Velocity.Y < 0.0)
 				{
-					GroundVelocity = 0.0;
+					return true;
 				}
-			}
-			return false;
-		case CollisionMode.Left:
-		case CollisionMode.Right:
-			if (vector.FlipX != 0 && Math.Abs(Velocity.X) >= 0.0)
-			{
-				return true;
-			}
-			if (Velocity.X * (double)vector.FlipY < 0.0)
-			{
-				if (vector != null)
+				if (Velocity.Y < 0.0)
+				{
+					Velocity = new Vector2(Velocity.X, 0.0);
+					if (Mode != CollisionMode.Air)
+					{
+						GroundVelocity = 0.0;
+					}
+				}
+				return false;
+			case CollisionMode.Left:
+			case CollisionMode.Right:
+				if (vector.FlipX != 0 && Math.Abs(Velocity.X) >= 0.0)
+				{
+					return true;
+				}
+				if (Velocity.X * (double)vector.FlipY < 0.0)
+				{
+					if (vector != null)
+					{
+						Velocity = new Vector2(0.0, Velocity.Y);
+					}
+					else
+					{
+						Velocity = new Vector2(0.0, Velocity.Y);
+					}
+					if (Mode != CollisionMode.Air)
+					{
+						GroundVelocity = 0.0;
+					}
+				}
+				else if (vector.FlipY == 0)
 				{
 					Velocity = new Vector2(0.0, Velocity.Y);
 				}
-				else
-				{
-					Velocity = new Vector2(0.0, Velocity.Y);
-				}
-				if (Mode != CollisionMode.Air)
-				{
-					GroundVelocity = 0.0;
-				}
-			}
-			else if (vector.FlipY == 0)
-			{
-				Velocity = new Vector2(0.0, Velocity.Y);
-			}
-			return false;
-		default:
-			return false;
+				return false;
+			default:
+				return false;
 		}
 	}
 
@@ -2360,11 +2360,11 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		Vector2 vector = obj.PositionPrecise - obj.LastPositionPrecise;
 		return mode switch
 		{
-			CollisionMode.Top => vector.Y < 0.0, 
-			CollisionMode.Left => vector.X < 0.0, 
-			CollisionMode.Bottom => vector.Y > 0.0, 
-			CollisionMode.Right => vector.X > 0.0, 
-			_ => false, 
+			CollisionMode.Top => vector.Y < 0.0,
+			CollisionMode.Left => vector.X < 0.0,
+			CollisionMode.Bottom => vector.Y > 0.0,
+			CollisionMode.Right => vector.X > 0.0,
+			_ => false,
 		};
 	}
 
@@ -2881,15 +2881,15 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		{
 			switch (Barrier)
 			{
-			case BarrierType.Bubble:
-				Velocity = new Vector2(0.0, 32.0);
-				break;
-			case BarrierType.Fire:
-				Velocity = new Vector2(32 * Facing, 0.0);
-				break;
-			case BarrierType.Lightning:
-				Velocity = new Vector2(Velocity.X, -22.0);
-				break;
+				case BarrierType.Bubble:
+					Velocity = new Vector2(0.0, 32.0);
+					break;
+				case BarrierType.Fire:
+					Velocity = new Vector2(32 * Facing, 0.0);
+					break;
+				case BarrierType.Lightning:
+					Velocity = new Vector2(Velocity.X, -22.0);
+					break;
 			}
 			CharacterEvents &= ~CharacterEvent.BarrierAttack;
 		}
@@ -2959,18 +2959,18 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		Vector2 offset = CameraProperties.Offset;
 		switch (LookDirection)
 		{
-		case CharacterLookDirection.Up:
-			LookDelay = Math.Max(0, LookDelay - 1);
-			offset.Y = ((LookDelay == 0) ? Math.Max(-344.0, offset.Y - 8.0) : MathX.ChangeSpeed(offset.Y, -8.0));
-			break;
-		case CharacterLookDirection.Normal:
-			LookDelay = 120;
-			offset.Y = MathX.ChangeSpeed(offset.Y, -8.0);
-			break;
-		case CharacterLookDirection.Ducking:
-			LookDelay = Math.Max(0, LookDelay - 1);
-			offset.Y = ((LookDelay == 0) ? Math.Min(352.0, offset.Y + 8.0) : MathX.ChangeSpeed(offset.Y, -8.0));
-			break;
+			case CharacterLookDirection.Up:
+				LookDelay = Math.Max(0, LookDelay - 1);
+				offset.Y = ((LookDelay == 0) ? Math.Max(-344.0, offset.Y - 8.0) : MathX.ChangeSpeed(offset.Y, -8.0));
+				break;
+			case CharacterLookDirection.Normal:
+				LookDelay = 120;
+				offset.Y = MathX.ChangeSpeed(offset.Y, -8.0);
+				break;
+			case CharacterLookDirection.Ducking:
+				LookDelay = Math.Max(0, LookDelay - 1);
+				offset.Y = ((LookDelay == 0) ? Math.Min(352.0, offset.Y + 8.0) : MathX.ChangeSpeed(offset.Y, -8.0));
+				break;
 		}
 		CameraProperties.Offset = offset;
 	}
@@ -3618,117 +3618,117 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		CharacterHistoryItem characterHistoryItem = protagonist.History[17];
 		switch (_autoSidekickState)
 		{
-		case AutoSidekickState.Spawning:
-			if (!protagonist.IsDebug && (_humanControlled || Level.Ticks % 64 == 0))
-			{
-				_autoSidekickState = AutoSidekickState.Flying;
-				StateFlags = (CharacterState)0;
-				CollisionRadius = NormalCollisionRadius;
-				Position = new Vector2i(protagonist.Position.X, protagonist.Position.Y - 1152);
-				Priority = 8192;
-				_sidekickOffscreenTicks = 300;
-			}
-			break;
-		case AutoSidekickState.Flying:
-		{
-			if (IsOnScreen())
-			{
-				_sidekickOffscreenTicks = 300;
-			}
-			else
-			{
-				_sidekickOffscreenTicks--;
-				if (_sidekickOffscreenTicks <= 0)
+			case AutoSidekickState.Spawning:
+				if (!protagonist.IsDebug && (_humanControlled || Level.Ticks % 64 == 0))
 				{
-					_autoSidekickState = AutoSidekickState.Spawning;
-					Position = default;
+					_autoSidekickState = AutoSidekickState.Flying;
+					StateFlags = (CharacterState)0;
+					CollisionRadius = NormalCollisionRadius;
+					Position = new Vector2i(protagonist.Position.X, protagonist.Position.Y - 1152);
+					Priority = 8192;
+					_sidekickOffscreenTicks = 300;
+				}
+				break;
+			case AutoSidekickState.Flying:
+				{
+					if (IsOnScreen())
+					{
+						_sidekickOffscreenTicks = 300;
+					}
+					else
+					{
+						_sidekickOffscreenTicks--;
+						if (_sidekickOffscreenTicks <= 0)
+						{
+							_autoSidekickState = AutoSidekickState.Spawning;
+							Position = default;
+							break;
+						}
+					}
+					_sidekickTargetPosition = characterHistoryItem.Position;
+					if (CanFly)
+					{
+						IsFlying = true;
+						IsSpinball = false;
+					}
+					else
+					{
+						IsSpinball = true;
+					}
+					IsAirborne = true;
+					IsHurt = false;
+					IsDying = false;
+					IsDead = false;
+					ShouldReactToLevel = false;
+					Mode = CollisionMode.Air;
+					Vector2i offset = default;
+					int num = _sidekickTargetPosition.X - Position.X;
+					if (num != 0)
+					{
+						offset.X = Math.Sign(num) * Math.Min(48, Math.Abs(num) / 4);
+						offset.X += (int)protagonist.Velocity.X + 4;
+						Facing = Math.Sign(offset.X);
+					}
+					int num2 = protagonist.NormalCollisionRadius.Y - NormalCollisionRadius.Y;
+					int num3 = _sidekickTargetPosition.Y - Position.Y + num2;
+					if (num3 != 0)
+					{
+						offset.Y = Math.Sign(num3) * Math.Min(Math.Abs(num3), CanFly ? 4 : 24);
+					}
+					CharacterState state = characterHistoryItem.State;
+					if ((state & (CharacterState.Dying | CharacterState.Dead)) == 0)
+					{
+						Move(offset);
+					}
+					if (Math.Abs(offset.X) <= 48 && offset.Y == 0 && (state & (CharacterState.Rolling | CharacterState.Airborne | CharacterState.Dying | CharacterState.Dead | CharacterState.Debug)) == 0)
+					{
+						Velocity = default;
+						GroundVelocity = 0.0;
+						Path = protagonist.Path;
+						Layer = protagonist.Layer;
+						Mode = CollisionMode.Air;
+						_autoSidekickState = AutoSidekickState.Normal;
+						goto case AutoSidekickState.Normal;
+					}
 					break;
 				}
-			}
-			_sidekickTargetPosition = characterHistoryItem.Position;
-			if (CanFly)
-			{
-				IsFlying = true;
-				IsSpinball = false;
-			}
-			else
-			{
-				IsSpinball = true;
-			}
-			IsAirborne = true;
-			IsHurt = false;
-			IsDying = false;
-			IsDead = false;
-			ShouldReactToLevel = false;
-			Mode = CollisionMode.Air;
-			Vector2i offset = default;
-			int num = _sidekickTargetPosition.X - Position.X;
-			if (num != 0)
-			{
-				offset.X = Math.Sign(num) * Math.Min(48, Math.Abs(num) / 4);
-				offset.X += (int)protagonist.Velocity.X + 4;
-				Facing = Math.Sign(offset.X);
-			}
-			int num2 = protagonist.NormalCollisionRadius.Y - NormalCollisionRadius.Y;
-			int num3 = _sidekickTargetPosition.Y - Position.Y + num2;
-			if (num3 != 0)
-			{
-				offset.Y = Math.Sign(num3) * Math.Min(Math.Abs(num3), CanFly ? 4 : 24);
-			}
-			CharacterState state = characterHistoryItem.State;
-			if ((state & (CharacterState.Dying | CharacterState.Dead)) == 0)
-			{
-				Move(offset);
-			}
-			if (Math.Abs(offset.X) <= 48 && offset.Y == 0 && (state & (CharacterState.Rolling | CharacterState.Airborne | CharacterState.Dying | CharacterState.Dead | CharacterState.Debug)) == 0)
-			{
-				Velocity = default;
-				GroundVelocity = 0.0;
-				Path = protagonist.Path;
-				Layer = protagonist.Layer;
-				Mode = CollisionMode.Air;
-				_autoSidekickState = AutoSidekickState.Normal;
-				goto case AutoSidekickState.Normal;
-			}
-			break;
-		}
-		case AutoSidekickState.Normal:
-			if (protagonist.IsDying || protagonist.IsDead)
-			{
-				UpdateNormal();
-				break;
-			}
-			ShouldReactToLevel = true;
-			Priority = 1020;
-			if (!IsUnableToCatchUp())
-			{
-				if (_humanControlled || IsObjectControlled || IsWinning || characterHistoryItem == null)
+			case AutoSidekickState.Normal:
+				if (protagonist.IsDying || protagonist.IsDead)
 				{
 					UpdateNormal();
 					break;
 				}
-				if (SlopeLockTicks > 0)
+				ShouldReactToLevel = true;
+				Priority = 1020;
+				if (!IsUnableToCatchUp())
 				{
-					_autoSidekickState = AutoSidekickState.Spindash;
-					goto case AutoSidekickState.Spindash;
-				}
-				ApplyAutoInput(GetAutoInputNormal(protagonist, characterHistoryItem));
-				UpdateNormal();
-				break;
-			}
-			break;
-		case AutoSidekickState.Spindash:
-			if (!IsUnableToCatchUp())
-			{
-				if (SlopeLockTicks > 0)
-				{
+					if (_humanControlled || IsObjectControlled || IsWinning || characterHistoryItem == null)
+					{
+						UpdateNormal();
+						break;
+					}
+					if (SlopeLockTicks > 0)
+					{
+						_autoSidekickState = AutoSidekickState.Spindash;
+						goto case AutoSidekickState.Spindash;
+					}
+					ApplyAutoInput(GetAutoInputNormal(protagonist, characterHistoryItem));
 					UpdateNormal();
 					break;
 				}
-				ApplyAutoInput(GetAutoInputSpindash(protagonist));
-				UpdateNormal();
-			}
-			break;
+				break;
+			case AutoSidekickState.Spindash:
+				if (!IsUnableToCatchUp())
+				{
+					if (SlopeLockTicks > 0)
+					{
+						UpdateNormal();
+						break;
+					}
+					ApplyAutoInput(GetAutoInputSpindash(protagonist));
+					UpdateNormal();
+				}
+				break;
 		}
 	}
 

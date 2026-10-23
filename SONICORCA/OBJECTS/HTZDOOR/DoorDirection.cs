@@ -9,6 +9,6 @@ namespace SONICORCA.OBJECTS.HTZDOOR;
 
 public enum DoorDirection
 {
-  Left = -1, // 0xFFFFFFFF
-  Right = 1,
+	Left = -1, // 0xFFFFFFFF
+	Right = 1,
 }

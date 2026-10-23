@@ -15,42 +15,42 @@ namespace SONICORCA.OBJECTS.HTZVINELIFT.PILLAR;
 
 public class HTZVineLiftPillarInstance : ActiveObject
 {
-  private const int TopAnimationIndex = 2;
-  private const int BottomAnimationIndex = 3;
-  private AnimationInstance _animation;
-  private bool _flipX;
-  private bool _bottom;
+	private const int TopAnimationIndex = 2;
+	private const int BottomAnimationIndex = 3;
+	private AnimationInstance _animation;
+	private bool _flipX;
+	private bool _bottom;
 
-  [StateVariable]
-  private bool FlipX
-  {
-    get => this._flipX;
-    set => this._flipX = value;
-  }
+	[StateVariable]
+	private bool FlipX
+	{
+		get => this._flipX;
+		set => this._flipX = value;
+	}
 
-  [StateVariable]
-  private bool Bottom
-  {
-    get => this._bottom;
-    set => this._bottom = value;
-  }
+	[StateVariable]
+	private bool Bottom
+	{
+		get => this._bottom;
+		set => this._bottom = value;
+	}
 
-  public HTZVineLiftPillarInstance()
-  {
-    this.DesignBounds = new Rectanglei(-64, -170, 128 /*0x80*/, 340);
-  }
+	public HTZVineLiftPillarInstance()
+	{
+		this.DesignBounds = new Rectanglei(-64, -170, 128 /*0x80*/, 340);
+	}
 
-  protected override void OnStart()
-  {
-    base.OnStart();
-    this._animation = new AnimationInstance(this.ResourceTree, this.Type.GetAbsolutePath("//ANIGROUP"), this._bottom ? 3 : 2);
-    this.Priority = -256;
-  }
+	protected override void OnStart()
+	{
+		base.OnStart();
+		this._animation = new AnimationInstance(this.ResourceTree, this.Type.GetAbsolutePath("//ANIGROUP"), this._bottom ? 3 : 2);
+		this.Priority = -256;
+	}
 
-  protected override void OnAnimate() => this._animation.Animate();
+	protected override void OnAnimate() => this._animation.Animate();
 
-  protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
-  {
-    renderer.GetObjectRenderer().Render(this._animation, this._flipX);
-  }
+	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
+	{
+		renderer.GetObjectRenderer().Render(this._animation, this._flipX);
+	}
 }

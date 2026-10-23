@@ -13,15 +13,15 @@ namespace S2HD.Menu;
 
 internal interface IMenuViewPresenter
 {
-  Rectanglei Bounds { get; set; }
+	Rectanglei Bounds { get; set; }
 
-  event EventHandler NavigateBack;
+	event EventHandler NavigateBack;
 
-  event EventHandler<NavigateNextEventArgs> NavigateNext;
+	event EventHandler<NavigateNextEventArgs> NavigateNext;
 
-  void Update();
+	void Update();
 
-  void HandleInput();
+	void HandleInput();
 
-  void Draw(Renderer renderer);
+	void Draw(Renderer renderer);
 }

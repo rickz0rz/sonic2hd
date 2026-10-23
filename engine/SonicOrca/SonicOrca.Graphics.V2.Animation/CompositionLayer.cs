@@ -67,26 +67,26 @@ public class CompositionLayer
 			_layerType = LayerKind.Image;
 			switch (layerSubType)
 			{
-			case 0u:
-				_layerSubType = LayerSubKind.None;
-				break;
-			case 1u:
-				_layerSubType = LayerSubKind.Mask;
-				break;
-			default:
-				throw new NotImplementedException();
+				case 0u:
+					_layerSubType = LayerSubKind.None;
+					break;
+				case 1u:
+					_layerSubType = LayerSubKind.Mask;
+					break;
+				default:
+					throw new NotImplementedException();
 			}
 			switch (layerBlendMode)
 			{
-			case 0u:
-				_layerBlendMode = BlendMode.Alpha;
-				break;
-			case 1u:
-				_layerBlendMode = BlendMode.Additive;
-				break;
-			case 2u:
-				_layerBlendMode = BlendMode.Opaque;
-				break;
+				case 0u:
+					_layerBlendMode = BlendMode.Alpha;
+					break;
+				case 1u:
+					_layerBlendMode = BlendMode.Additive;
+					break;
+				case 2u:
+					_layerBlendMode = BlendMode.Opaque;
+					break;
 			}
 			_name = name;
 			_fileExtension = fileExtension;

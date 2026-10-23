@@ -114,7 +114,7 @@ public abstract class ActiveObject : IActiveObject
 		Name = entry.Name;
 		Uid = entry.Uid;
 		_activeLayers = (from x in Enumerable.Range(0, Level.Map.Layers.Count)
-			select true).ToArray();
+						 select true).ToArray();
 		Priority = 256;
 		CameraProperties = new CameraProperties();
 		CameraProperties.Box = new Rectangle(-64.0, -192.0, 64.0, 256.0);

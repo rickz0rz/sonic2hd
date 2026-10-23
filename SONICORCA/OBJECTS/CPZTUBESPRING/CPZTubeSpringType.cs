@@ -13,11 +13,11 @@ namespace SONICORCA.OBJECTS.CPZTUBESPRING;
 [SonicOrca.Core.Objects.Metadata.Name("Tube spring")]
 [Description("Tube spring from Chemical Plant Zone, Sonic 2")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.General)]
-[ObjectInstance(typeof (CPZTubeSpringInstance))]
+[ObjectInstance(typeof(CPZTubeSpringInstance))]
 public class CPZTubeSpringType : ObjectType
 {
-  [Dependency]
-  public const string AnimationGroupResourceKey = "/ANIGROUP";
-  [Dependency]
-  public const string SoundResourceKey = "SONICORCA/SOUND/SPRING";
+	[Dependency]
+	public const string AnimationGroupResourceKey = "/ANIGROUP";
+	[Dependency]
+	public const string SoundResourceKey = "SONICORCA/SOUND/SPRING";
 }

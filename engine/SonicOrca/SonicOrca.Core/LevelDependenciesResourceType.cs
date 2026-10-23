@@ -32,7 +32,7 @@ public class LevelDependenciesResourceType : ResourceType
 		};
 		XmlNode xmlNode = xmlDocument.SelectSingleNode("Dependencies");
 		e.PushDependencies((from x in xmlNode.SelectNodes("Dependency").OfType<XmlNode>()
-			select x.SelectSingleNode("Key").InnerText).Distinct());
+							select x.SelectSingleNode("Key").InnerText).Distinct());
 		return result;
 	}
 }

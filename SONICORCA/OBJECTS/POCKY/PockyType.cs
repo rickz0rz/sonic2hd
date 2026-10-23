@@ -13,9 +13,9 @@ namespace SONICORCA.OBJECTS.POCKY;
 [SonicOrca.Core.Objects.Metadata.Name("Pocky")]
 [Description("Pocky from Sonic 1")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Animal)]
-[ObjectInstance(typeof (PockyInstance))]
+[ObjectInstance(typeof(PockyInstance))]
 public class PockyType : ObjectType
 {
-  [Dependency]
-  public const string AnimationGroupResourceKey = "/ANIGROUP";
+	[Dependency]
+	public const string AnimationGroupResourceKey = "/ANIGROUP";
 }

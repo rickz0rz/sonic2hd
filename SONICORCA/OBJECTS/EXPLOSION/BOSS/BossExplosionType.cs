@@ -13,11 +13,11 @@ namespace SONICORCA.OBJECTS.EXPLOSION.BOSS;
 [SonicOrca.Core.Objects.Metadata.Name("Boss explosion")]
 [Description("Boss explosion from Sonic 1")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Particle)]
-[ObjectInstance(typeof (BossExplosionInstance))]
+[ObjectInstance(typeof(BossExplosionInstance))]
 public class BossExplosionType : ObjectType
 {
-  [Dependency]
-  public const string AnimationGroupResourceKey = "/ANIGROUP";
-  [Dependency]
-  public const string SoundResourceKey = "SONICORCA/SOUND/BOSSEXPLOSION";
+	[Dependency]
+	public const string AnimationGroupResourceKey = "/ANIGROUP";
+	[Dependency]
+	public const string SoundResourceKey = "SONICORCA/SOUND/BOSSEXPLOSION";
 }

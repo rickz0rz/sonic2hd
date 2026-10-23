@@ -31,9 +31,9 @@ internal class AnimationGroupResourceType : ResourceType
 		});
 		XmlNode xmlNode = xmlDocument.SelectSingleNode("anigroup");
 		IEnumerable<string> enumerable = from x in xmlNode.SelectNodes("textures/texture").OfType<XmlNode>()
-			select e.GetAbsolutePath(x.InnerText);
+										 select e.GetAbsolutePath(x.InnerText);
 		IEnumerable<Animation> animations = from x in xmlNode.SelectNodes("animations/animation").OfType<XmlNode>()
-			select GetAnimationFromXmlNode(x);
+											select GetAnimationFromXmlNode(x);
 		e.PushDependencies(enumerable);
 		return new AnimationGroup(e.ResourceTree, enumerable, animations)
 		{
@@ -84,7 +84,7 @@ internal class AnimationGroupResourceType : ResourceType
 			loopFrameIndex = int.Parse(value);
 		}
 		return new Animation(from x in node.SelectNodes("frame").OfType<XmlNode>()
-			select GetFrameFromXmlNode(x, defaultTexture, defaultWidth, defaultHeight, defaultOffsetX, defaultOffsetY, defaultDelay), nextFrameIndex, loopFrameIndex);
+							 select GetFrameFromXmlNode(x, defaultTexture, defaultWidth, defaultHeight, defaultOffsetX, defaultOffsetY, defaultDelay), nextFrameIndex, loopFrameIndex);
 	}
 
 	private Animation.Frame GetFrameFromXmlNode(XmlNode node, int defaultTexture, int defaultWidth, int defaultHeight, int defaultOffsetX, int defaultOffsetY, int defaultDelay)

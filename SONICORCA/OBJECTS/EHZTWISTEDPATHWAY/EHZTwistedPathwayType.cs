@@ -13,7 +13,7 @@ namespace SONICORCA.OBJECTS.EHZTWISTEDPATHWAY;
 [SonicOrca.Core.Objects.Metadata.Name("Twisted pathway")]
 [Description("Twisted pathway from Emerald Hill Zone, Sonic 2")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Platform)]
-[ObjectInstance(typeof (EHZTwistedPathwayInstance))]
+[ObjectInstance(typeof(EHZTwistedPathwayInstance))]
 public class EHZTwistedPathwayType : ObjectType
 {
 }

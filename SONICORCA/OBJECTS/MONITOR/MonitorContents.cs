@@ -9,13 +9,13 @@ namespace SONICORCA.OBJECTS.MONITOR;
 
 public enum MonitorContents
 {
-  None,
-  Life,
-  Ring,
-  SpeedShoes,
-  Barrier,
-  Invincibility,
-  Robotnik,
-  SwapPlaces,
-  Random,
+	None,
+	Life,
+	Ring,
+	SpeedShoes,
+	Barrier,
+	Invincibility,
+	Robotnik,
+	SwapPlaces,
+	Random,
 }

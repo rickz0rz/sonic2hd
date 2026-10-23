@@ -112,9 +112,9 @@ public class CompositionInstance
 	{
 		Composition.Frame result = default;
 		CompositionLayer currentMask = (from m in _masks
-			select (m) into m
-			where m.Index == layer.Index - 1 && m.SubKind == CompositionLayer.LayerSubKind.Mask
-			select m).First();
+										select (m) into m
+										where m.Index == layer.Index - 1 && m.SubKind == CompositionLayer.LayerSubKind.Mask
+										select m).First();
 		CompositionLayerAnimatableTransform transform = currentMask.Transform;
 		result.TextureIndex = _compositionGroup.Assets.TakeWhile((CompositionAsset x) => x.ID != currentMask.TextureReference).Count();
 		result.Source = new Rectanglei(0, 0, _compositionGroup.Assets.ElementAt(result.TextureIndex).Width, _compositionGroup.Assets.ElementAt(result.TextureIndex).Height);
@@ -128,21 +128,21 @@ public class CompositionInstance
 	private List<CompositionLayer> GetActiveLayers()
 	{
 		IEnumerable<CompositionLayer> activeLayers = from l in _composition.Layers
-			select (l) into l
-			where (_ellapsedFrames >= l.StartFrame && l.Transform.Tweens.Count > 0 && l.Transform.Tweens.Any((CompositionLayerTween t) => t.HasKeyFrames && _ellapsedFrames >= t.StartFrame)) || (_ellapsedFrames >= l.StartFrame && l.Transform.Tweens.All((CompositionLayerTween t) => !t.HasKeyFrames))
-			select l;
+													 select (l) into l
+													 where (_ellapsedFrames >= l.StartFrame && l.Transform.Tweens.Count > 0 && l.Transform.Tweens.Any((CompositionLayerTween t) => t.HasKeyFrames && _ellapsedFrames >= t.StartFrame)) || (_ellapsedFrames >= l.StartFrame && l.Transform.Tweens.All((CompositionLayerTween t) => !t.HasKeyFrames))
+													 select l;
 		_masks.AddRange(from m in activeLayers
-			select (m) into m
-			where m.SubKind == CompositionLayer.LayerSubKind.Mask
-			select m);
+						select (m) into m
+						where m.SubKind == CompositionLayer.LayerSubKind.Mask
+						select m);
 		_maskedLayers.AddRange(from l in activeLayers
-			select (l) into l
-			where activeLayers.Any((CompositionLayer m) => m.SubKind == CompositionLayer.LayerSubKind.Mask && m.Index == l.Index - 1)
-			select l);
+							   select (l) into l
+							   where activeLayers.Any((CompositionLayer m) => m.SubKind == CompositionLayer.LayerSubKind.Mask && m.Index == l.Index - 1)
+							   select l);
 		IEnumerable<CompositionLayer> collection = from l in activeLayers
-			select (l) into l
-			where l.SubKind == CompositionLayer.LayerSubKind.None && !_composition.Layers.Any((CompositionLayer m) => m.SubKind == CompositionLayer.LayerSubKind.Mask && m.Index == l.Index - 1)
-			select l;
+												   select (l) into l
+												   where l.SubKind == CompositionLayer.LayerSubKind.None && !_composition.Layers.Any((CompositionLayer m) => m.SubKind == CompositionLayer.LayerSubKind.Mask && m.Index == l.Index - 1)
+												   select l;
 		_activeLayers.AddRange(collection);
 		_activeLayers.AddRange(_maskedLayers);
 		_activeLayers = _activeLayers.OrderByDescending((CompositionLayer l) => l.Index).ToList();

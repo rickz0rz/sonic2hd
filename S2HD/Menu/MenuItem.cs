@@ -9,18 +9,18 @@ namespace S2HD.Menu;
 
 internal class MenuItem : IMenuItem
 {
-  public string Text { get; }
+	public string Text { get; }
 
-  public IMenuViewModel Next { get; }
+	public IMenuViewModel Next { get; }
 
-  public object Tag { get; }
+	public object Tag { get; }
 
-  public MenuItem(string text, IMenuViewModel next = null, object tag = null)
-  {
-    this.Text = text;
-    this.Next = next;
-    this.Tag = tag;
-  }
+	public MenuItem(string text, IMenuViewModel next = null, object tag = null)
+	{
+		this.Text = text;
+		this.Next = next;
+		this.Tag = tag;
+	}
 
-  public override string ToString() => this.Text;
+	public override string ToString() => this.Text;
 }

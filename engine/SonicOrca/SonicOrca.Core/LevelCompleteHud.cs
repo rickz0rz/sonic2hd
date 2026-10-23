@@ -188,62 +188,62 @@ internal class LevelCompleteHud : IDisposable
 	{
 		switch (_state)
 		{
-		case State.PreDelay:
-			_ticks++;
-			if (_ticks >= 90)
-			{
-				_state = State.FlyIn;
-				_flyTicks = 0;
-				SetFlyInEasings();
-				_level.SoundManager.PlayJingleOnce(_jingleSample);
-			}
-			break;
-		case State.FlyIn:
-			_flyTicks++;
-			if (_flyTicks >= 340)
-			{
-				_state = State.Banking;
-				_bankPointsDelay = 0;
-			}
-			_ticks++;
-			break;
-		case State.Banking:
-			_bankPointsDelay--;
-			if (_bankPointsDelay <= 0)
-			{
-				if (BankPoints())
+			case State.PreDelay:
+				_ticks++;
+				if (_ticks >= 90)
 				{
-					_bankPointsDelay = 1;
+					_state = State.FlyIn;
+					_flyTicks = 0;
+					SetFlyInEasings();
+					_level.SoundManager.PlayJingleOnce(_jingleSample);
 				}
-				else
+				break;
+			case State.FlyIn:
+				_flyTicks++;
+				if (_flyTicks >= 340)
 				{
-					_state = State.PostBankWait;
-					_bankPointsDelay = 120;
-					_shineTicks = 0;
+					_state = State.Banking;
+					_bankPointsDelay = 0;
 				}
-			}
-			_ticks++;
-			break;
-		case State.PostBankWait:
-			_bankPointsDelay--;
-			_shineTicks++;
-			if (_bankPointsDelay <= 0)
-			{
-				_state = State.FlyOut;
-				_flyTicks = 0;
-				SetFlyOutEasings();
-			}
-			_ticks++;
-			break;
-		case State.FlyOut:
-			_flyTicks++;
-			if (_flyTicks >= 75)
-			{
-				_level.SoundManager.StopAll();
-				_state = State.Finished;
-			}
-			_ticks++;
-			break;
+				_ticks++;
+				break;
+			case State.Banking:
+				_bankPointsDelay--;
+				if (_bankPointsDelay <= 0)
+				{
+					if (BankPoints())
+					{
+						_bankPointsDelay = 1;
+					}
+					else
+					{
+						_state = State.PostBankWait;
+						_bankPointsDelay = 120;
+						_shineTicks = 0;
+					}
+				}
+				_ticks++;
+				break;
+			case State.PostBankWait:
+				_bankPointsDelay--;
+				_shineTicks++;
+				if (_bankPointsDelay <= 0)
+				{
+					_state = State.FlyOut;
+					_flyTicks = 0;
+					SetFlyOutEasings();
+				}
+				_ticks++;
+				break;
+			case State.FlyOut:
+				_flyTicks++;
+				if (_flyTicks >= 75)
+				{
+					_level.SoundManager.StopAll();
+					_state = State.Finished;
+				}
+				_ticks++;
+				break;
 		}
 	}
 
@@ -311,12 +311,12 @@ internal class LevelCompleteHud : IDisposable
 		string text = "SONIC";
 		switch (_level.Player.ProtagonistCharacterType)
 		{
-		case CharacterType.Tails:
-			text = "TAILS";
-			break;
-		case CharacterType.Knuckles:
-			text = "KNUCKLES";
-			break;
+			case CharacterType.Tails:
+				text = "TAILS";
+				break;
+			case CharacterType.Knuckles:
+				text = "KNUCKLES";
+				break;
 		}
 		IFontRenderer fontRenderer = renderer.GetFontRenderer();
 		fontRenderer.RenderStringWithShadow(text + " GOT", new Rectangle(valueAt, 270.0, 1920.0, 0.0), FontAlignment.MiddleX, _captionFont, 0);
@@ -361,12 +361,12 @@ internal class LevelCompleteHud : IDisposable
 		ITexture texture = _triangleTextureSonic;
 		switch (_level.Player.ProtagonistCharacterType)
 		{
-		case CharacterType.Tails:
-			texture = _triangleTextureTails;
-			break;
-		case CharacterType.Knuckles:
-			texture = _triangleTextureKnuckles;
-			break;
+			case CharacterType.Tails:
+				texture = _triangleTextureTails;
+				break;
+			case CharacterType.Knuckles:
+				texture = _triangleTextureKnuckles;
+				break;
 		}
 		renderer.Get2dRenderer().RenderTexture(texture, new Vector2(rectangle.Right - 8.0, rectangle.Bottom - 7.0));
 		renderer.GetFontRenderer().RenderStringWithShadow(text, boundary, textAlignment, _statisticsFont, 1);

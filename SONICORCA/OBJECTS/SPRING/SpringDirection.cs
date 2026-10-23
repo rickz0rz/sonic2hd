@@ -9,12 +9,12 @@ namespace SONICORCA.OBJECTS.SPRING;
 
 public enum SpringDirection
 {
-  Up,
-  UpRight,
-  Right,
-  DownRight,
-  Down,
-  DownLeft,
-  Left,
-  UpLeft,
+	Up,
+	UpRight,
+	Right,
+	DownRight,
+	Down,
+	DownLeft,
+	Left,
+	UpLeft,
 }

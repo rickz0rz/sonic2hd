@@ -13,15 +13,15 @@ namespace SONICORCA.OBJECTS.EXPLOSION.BADNIK;
 
 public class BadnikExplosionInstance : ParticleObject
 {
-  public BadnikExplosionInstance()
-    : base("/ANIGROUP")
-  {
-  }
+	public BadnikExplosionInstance()
+	  : base("/ANIGROUP")
+	{
+	}
 
-  protected override void OnStart()
-  {
-    base.OnStart();
-    this.Level.SoundManager.PlaySound((IActiveObject) this, this.Type.GetAbsolutePath("SONICORCA/SOUND/BADNIKEXPLOSION"));
-    this.FilterMultiplier = 0.5;
-  }
+	protected override void OnStart()
+	{
+		base.OnStart();
+		this.Level.SoundManager.PlaySound((IActiveObject)this, this.Type.GetAbsolutePath("SONICORCA/SOUND/BADNIKEXPLOSION"));
+		this.FilterMultiplier = 0.5;
+	}
 }

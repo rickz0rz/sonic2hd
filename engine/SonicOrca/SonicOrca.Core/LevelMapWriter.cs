@@ -205,7 +205,7 @@ public class LevelMapWriter
 			{
 				xmlWriter.WriteStartElement("row");
 				IEnumerable<int> source = from x in Enumerable.Range(0, layer.Columns)
-					select layer.Tiles[x, y];
+										  select layer.Tiles[x, y];
 				xmlWriter.WriteString(string.Join(",", source.Select((int tileIndex) => (((tileIndex & 0x4000) != 0) ? "h" : string.Empty) + (((tileIndex & 0x8000) != 0) ? "v" : string.Empty) + (tileIndex & 0xFFF))));
 				xmlWriter.WriteEndElement();
 			}

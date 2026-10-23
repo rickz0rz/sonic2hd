@@ -12,27 +12,27 @@ namespace S2HD;
 
 internal class EffectEventManager
 {
-  private List<Updater> _runningEvents = new List<Updater>();
+	private List<Updater> _runningEvents = new List<Updater>();
 
-  public void Clear() => this._runningEvents.Clear();
+	public void Clear() => this._runningEvents.Clear();
 
-  public void BeginEvent(IEnumerable<UpdateResult> eventMethod)
-  {
-    Updater updater = new Updater(eventMethod);
-    if (!updater.Update())
-      return;
-    this._runningEvents.Add(updater);
-  }
+	public void BeginEvent(IEnumerable<UpdateResult> eventMethod)
+	{
+		Updater updater = new Updater(eventMethod);
+		if (!updater.Update())
+			return;
+		this._runningEvents.Add(updater);
+	}
 
-  public void Update()
-  {
-    int index = 0;
-    while (index < this._runningEvents.Count)
-    {
-      if (this._runningEvents[index].Update())
-        ++index;
-      else
-        this._runningEvents.RemoveAt(index);
-    }
-  }
+	public void Update()
+	{
+		int index = 0;
+		while (index < this._runningEvents.Count)
+		{
+			if (this._runningEvents[index].Update())
+				++index;
+			else
+				this._runningEvents.RemoveAt(index);
+		}
+	}
 }

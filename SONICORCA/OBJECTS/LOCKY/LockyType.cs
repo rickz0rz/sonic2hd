@@ -13,9 +13,9 @@ namespace SONICORCA.OBJECTS.LOCKY;
 [SonicOrca.Core.Objects.Metadata.Name("Locky")]
 [Description("Locky from Sonic 1")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Animal)]
-[ObjectInstance(typeof (LockyInstance))]
+[ObjectInstance(typeof(LockyInstance))]
 public class LockyType : ObjectType
 {
-  [Dependency]
-  public const string AnimationGroupResourceKey = "/ANIGROUP";
+	[Dependency]
+	public const string AnimationGroupResourceKey = "/ANIGROUP";
 }

@@ -83,13 +83,13 @@ internal abstract class Packet
 	{
 		return packetType switch
 		{
-			PacketType.Ping => (Packet)new PingPacket(data), 
-			PacketType.Pong => new PongPacket(data), 
-			PacketType.ChatMessage => new ChatMessagePacket(data), 
-			PacketType.PlayInput => new PlayInputPacket(data), 
-			PacketType.CharacterSynchronisation => new CharacterSynchronisationPacket(data), 
-			PacketType.LevelSynchronisation => new LevelSynchronisationPacket(data), 
-			_ => new NotifyPacket(packetType), 
+			PacketType.Ping => (Packet)new PingPacket(data),
+			PacketType.Pong => new PongPacket(data),
+			PacketType.ChatMessage => new ChatMessagePacket(data),
+			PacketType.PlayInput => new PlayInputPacket(data),
+			PacketType.CharacterSynchronisation => new CharacterSynchronisationPacket(data),
+			PacketType.LevelSynchronisation => new LevelSynchronisationPacket(data),
+			_ => new NotifyPacket(packetType),
 		};
 	}
 

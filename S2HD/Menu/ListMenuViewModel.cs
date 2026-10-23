@@ -12,25 +12,25 @@ namespace S2HD.Menu;
 
 internal class ListMenuViewModel : IListMenuViewModel, IMenuViewModel
 {
-  public ImmutableArray<IMenuItem> Items { get; }
+	public ImmutableArray<IMenuItem> Items { get; }
 
-  public object Tag { get; }
+	public object Tag { get; }
 
-  public int HighlightedIndex { get; set; }
+	public int HighlightedIndex { get; set; }
 
-  public ListMenuViewModel(IEnumerable<IMenuItem> items, object tag = null)
-    : this(items.ToImmutableArray<IMenuItem>(), tag)
-  {
-  }
+	public ListMenuViewModel(IEnumerable<IMenuItem> items, object tag = null)
+	  : this(items.ToImmutableArray<IMenuItem>(), tag)
+	{
+	}
 
-  public ListMenuViewModel(ImmutableArray<IMenuItem> items, object tag = null)
-  {
-    this.Items = items;
-    this.Tag = tag;
-  }
+	public ListMenuViewModel(ImmutableArray<IMenuItem> items, object tag = null)
+	{
+		this.Items = items;
+		this.Tag = tag;
+	}
 
-  public override string ToString()
-  {
-    return string.Join<IMenuItem>(", ", (IEnumerable<IMenuItem>) this.Items);
-  }
+	public override string ToString()
+	{
+		return string.Join<IMenuItem>(", ", (IEnumerable<IMenuItem>)this.Items);
+	}
 }

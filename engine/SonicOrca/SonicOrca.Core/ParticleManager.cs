@@ -112,66 +112,66 @@ public class ParticleManager : IDisposable
 			}
 			switch (particle.Type)
 			{
-			case ParticleType.Heat:
-			{
-				if (!videoSettings.EnableHeatEffects)
-				{
-					break;
-				}
-				renderer.DeativateRenderer();
-				Rectanglei destination = ((Rectanglei)new Rectangle(particle.Position.X - (double)(_heatParticleTexture.Width / 2), particle.Position.Y - (double)(_heatParticleTexture.Height / 2), _heatParticleTexture.Width, _heatParticleTexture.Height)).OffsetBy(viewport.Bounds.TopLeft * -1);
-				if (destination.IntersectsWith(new Rectanglei(0, 0, currentFramebuffer.Width, currentFramebuffer.Height)))
-				{
-					heatRenderer.DistortionAmount = 1.0 / (double)_heatParticleTexture.Width * 8.0;
-					if (particle.Time < 60)
+				case ParticleType.Heat:
 					{
-						heatRenderer.DistortionAmount *= (double)particle.Time / 60.0;
+						if (!videoSettings.EnableHeatEffects)
+						{
+							break;
+						}
+						renderer.DeativateRenderer();
+						Rectanglei destination = ((Rectanglei)new Rectangle(particle.Position.X - (double)(_heatParticleTexture.Width / 2), particle.Position.Y - (double)(_heatParticleTexture.Height / 2), _heatParticleTexture.Width, _heatParticleTexture.Height)).OffsetBy(viewport.Bounds.TopLeft * -1);
+						if (destination.IntersectsWith(new Rectanglei(0, 0, currentFramebuffer.Width, currentFramebuffer.Height)))
+						{
+							heatRenderer.DistortionAmount = 1.0 / (double)_heatParticleTexture.Width * 8.0;
+							if (particle.Time < 60)
+							{
+								heatRenderer.DistortionAmount *= (double)particle.Time / 60.0;
+							}
+							_workCanvas.Activate();
+							i2dRenderer.BlendMode = BlendMode.Opaque;
+							i2dRenderer.Colour = Colours.White;
+							i2dRenderer.ClipRectangle = new Rectangle(0.0, 0.0, 1920.0, 1080.0);
+							i2dRenderer.ModelMatrix = Matrix4.Identity;
+							i2dRenderer.RenderTexture(currentFramebuffer.Textures[0], new Rectanglei(destination.X, 1080 - destination.Bottom, destination.Width, destination.Height), new Rectanglei(0, 0, destination.Width, destination.Height));
+							i2dRenderer.Deactivate();
+							currentFramebuffer.Activate();
+							heatRenderer.Render(_workCanvas.Textures[0], new Rectanglei(0, 0, destination.Width, destination.Height), destination);
+						}
+						break;
 					}
-					_workCanvas.Activate();
-					i2dRenderer.BlendMode = BlendMode.Opaque;
-					i2dRenderer.Colour = Colours.White;
-					i2dRenderer.ClipRectangle = new Rectangle(0.0, 0.0, 1920.0, 1080.0);
-					i2dRenderer.ModelMatrix = Matrix4.Identity;
-					i2dRenderer.RenderTexture(currentFramebuffer.Textures[0], new Rectanglei(destination.X, 1080 - destination.Bottom, destination.Width, destination.Height), new Rectanglei(0, 0, destination.Width, destination.Height));
-					i2dRenderer.Deactivate();
-					currentFramebuffer.Activate();
-					heatRenderer.Render(_workCanvas.Textures[0], new Rectanglei(0, 0, destination.Width, destination.Height), destination);
-				}
-				break;
-			}
-			case ParticleType.Smoke:
-			{
-				Vector2 vector2 = particle.Position - viewport.Bounds.TopLeft;
-				if (((Rectanglei)new Rectangle(vector2.X - (double)(_smokeParticleTexture.Width / 2), vector2.Y - (double)(_smokeParticleTexture.Height / 2), _smokeParticleTexture.Width, _smokeParticleTexture.Height)).IntersectsWith(new Rectanglei(0, 0, currentFramebuffer.Width, currentFramebuffer.Height)))
-				{
-					double a = ((particle.Time < 120) ? ((double)particle.Time / 120.0) : 1.0) * 0.2;
-					currentFramebuffer.Activate();
-					i2dRenderer.BlendMode = BlendMode.Alpha;
-					i2dRenderer.Colour = new Colour(a, 1.0, 1.0, 1.0);
-					i2dRenderer.ClipRectangle = new Rectangle(0.0, 0.0, 1920.0, 1080.0);
-					i2dRenderer.ModelMatrix = Matrix4.CreateTranslation(vector2.X, vector2.Y) * Matrix4.CreateRotationZ(particle.Angle);
-					i2dRenderer.RenderTexture(_smokeParticleTexture, default(Vector2), false, false);
-				}
-				break;
-			}
-			case ParticleType.Custom:
-			{
-				ITexture customTexture = particle.CustomTexture;
-				if (customTexture != null)
-				{
-					Vector2 vector = particle.Position - viewport.Bounds.TopLeft;
-					if (((Rectanglei)new Rectangle(vector.X - (double)(customTexture.Width / 2), vector.Y - (double)(customTexture.Height / 2), customTexture.Width, customTexture.Height)).IntersectsWith(new Rectanglei(0, 0, currentFramebuffer.Width, currentFramebuffer.Height)))
+				case ParticleType.Smoke:
 					{
-						currentFramebuffer.Activate();
-						i2dRenderer.BlendMode = BlendMode.Alpha;
-						i2dRenderer.Colour = new Colour(1.0, 1.0, 1.0, 1.0);
-						i2dRenderer.ClipRectangle = new Rectangle(0.0, 0.0, 1920.0, 1080.0);
-						i2dRenderer.ModelMatrix = Matrix4.CreateTranslation(vector.X, vector.Y) * Matrix4.CreateRotationZ(particle.Angle) * Matrix4.CreateScale(particle.Size, particle.Size);
-						i2dRenderer.RenderTexture(customTexture, default(Vector2), false, false);
+						Vector2 vector2 = particle.Position - viewport.Bounds.TopLeft;
+						if (((Rectanglei)new Rectangle(vector2.X - (double)(_smokeParticleTexture.Width / 2), vector2.Y - (double)(_smokeParticleTexture.Height / 2), _smokeParticleTexture.Width, _smokeParticleTexture.Height)).IntersectsWith(new Rectanglei(0, 0, currentFramebuffer.Width, currentFramebuffer.Height)))
+						{
+							double a = ((particle.Time < 120) ? ((double)particle.Time / 120.0) : 1.0) * 0.2;
+							currentFramebuffer.Activate();
+							i2dRenderer.BlendMode = BlendMode.Alpha;
+							i2dRenderer.Colour = new Colour(a, 1.0, 1.0, 1.0);
+							i2dRenderer.ClipRectangle = new Rectangle(0.0, 0.0, 1920.0, 1080.0);
+							i2dRenderer.ModelMatrix = Matrix4.CreateTranslation(vector2.X, vector2.Y) * Matrix4.CreateRotationZ(particle.Angle);
+							i2dRenderer.RenderTexture(_smokeParticleTexture, default(Vector2), false, false);
+						}
+						break;
 					}
-				}
-				break;
-			}
+				case ParticleType.Custom:
+					{
+						ITexture customTexture = particle.CustomTexture;
+						if (customTexture != null)
+						{
+							Vector2 vector = particle.Position - viewport.Bounds.TopLeft;
+							if (((Rectanglei)new Rectangle(vector.X - (double)(customTexture.Width / 2), vector.Y - (double)(customTexture.Height / 2), customTexture.Width, customTexture.Height)).IntersectsWith(new Rectanglei(0, 0, currentFramebuffer.Width, currentFramebuffer.Height)))
+							{
+								currentFramebuffer.Activate();
+								i2dRenderer.BlendMode = BlendMode.Alpha;
+								i2dRenderer.Colour = new Colour(1.0, 1.0, 1.0, 1.0);
+								i2dRenderer.ClipRectangle = new Rectangle(0.0, 0.0, 1920.0, 1080.0);
+								i2dRenderer.ModelMatrix = Matrix4.CreateTranslation(vector.X, vector.Y) * Matrix4.CreateRotationZ(particle.Angle) * Matrix4.CreateScale(particle.Size, particle.Size);
+								i2dRenderer.RenderTexture(customTexture, default(Vector2), false, false);
+							}
+						}
+						break;
+					}
 			}
 		}
 		renderer.DeativateRenderer();

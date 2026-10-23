@@ -58,9 +58,9 @@ internal class GLTexture : ITexture, IDisposable, ILoadedResource
 				_wrapping = value;
 				TextureWrapMode param = value switch
 				{
-					TextureWrapping.Clamp => TextureWrapMode.ClampToEdge, 
-					TextureWrapping.RepeatMirrored => TextureWrapMode.MirroredRepeat, 
-					_ => TextureWrapMode.Repeat, 
+					TextureWrapping.Clamp => TextureWrapMode.ClampToEdge,
+					TextureWrapping.RepeatMirrored => TextureWrapMode.MirroredRepeat,
+					_ => TextureWrapMode.Repeat,
 				};
 				TextureWrapMode paramT = value == TextureWrapping.RepeatHorizontal ? TextureWrapMode.ClampToEdge : param;
 				GL.BindTexture(TextureTarget.Texture2D, _glId);

@@ -13,9 +13,9 @@ namespace SONICORCA.OBJECTS.COCONUTS;
 [SonicOrca.Core.Objects.Metadata.Name("Coconuts")]
 [Description("Coconuts from Sonic 2")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Badnik)]
-[ObjectInstance(typeof (CoconutsInstance))]
+[ObjectInstance(typeof(CoconutsInstance))]
 public class CoconutsType : ObjectType
 {
-  [Dependency]
-  public const string AnimationGroupResourceKey = "/ANIGROUP";
+	[Dependency]
+	public const string AnimationGroupResourceKey = "/ANIGROUP";
 }

@@ -12,9 +12,9 @@ namespace SONICORCA.OBJECTS.BUBBLE;
 
 [SonicOrca.Core.Objects.Metadata.Name("Bubble")]
 [Description("Bubble from Sonic 1")]
-[ObjectInstance(typeof (BubbleInstance))]
+[ObjectInstance(typeof(BubbleInstance))]
 public class BubbleType : ObjectType
 {
-  [Dependency]
-  public const string AnimationGroupResourceKey = "/ANIGROUP";
+	[Dependency]
+	public const string AnimationGroupResourceKey = "/ANIGROUP";
 }

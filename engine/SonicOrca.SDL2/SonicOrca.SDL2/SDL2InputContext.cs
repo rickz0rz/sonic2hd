@@ -104,20 +104,20 @@ public class SDL2InputContext : InputContext, IDisposable
 			_event = events[i];
 			switch (_event.type)
 			{
-			case SDL.SDL_EventType.SDL_MOUSEWHEEL:
-				num = _event.wheel.y;
-				break;
-			case SDL.SDL_EventType.SDL_TEXTINPUT:
-			{
-				IntPtr ptr = (IntPtr)_event.text.text;
-				byte[] array = new byte[32];
-				int j;
-				for (j = 0; j < 32 && (array[j] = Marshal.ReadByte(ptr, j)) != 0; j++)
-				{
-				}
-				TextInput = Encoding.UTF8.GetString(array, 0, j);
-				break;
-			}
+				case SDL.SDL_EventType.SDL_MOUSEWHEEL:
+					num = _event.wheel.y;
+					break;
+				case SDL.SDL_EventType.SDL_TEXTINPUT:
+					{
+						IntPtr ptr = (IntPtr)_event.text.text;
+						byte[] array = new byte[32];
+						int j;
+						for (j = 0; j < 32 && (array[j] = Marshal.ReadByte(ptr, j)) != 0; j++)
+						{
+						}
+						TextInput = Encoding.UTF8.GetString(array, 0, j);
+						break;
+					}
 			}
 		}
 		while (SDL.SDL_PollEvent(out _event) != 0)

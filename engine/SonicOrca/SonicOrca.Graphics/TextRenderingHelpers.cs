@@ -34,24 +34,24 @@ public static class TextRenderingHelpers
 		Rectangle result = font.MeasureString(text, textRenderInfo.Bounds, textRenderInfo.Alignment);
 		switch (textRenderInfo.Alignment & FontAlignment.HorizontalMask)
 		{
-		case FontAlignment.MiddleX:
-			result.X += result.Width * (double)textRenderInfo.SizeMultiplier / 2.0;
-			break;
-		case FontAlignment.Right:
-			result.X += result.Width * (double)textRenderInfo.SizeMultiplier;
-			break;
+			case FontAlignment.MiddleX:
+				result.X += result.Width * (double)textRenderInfo.SizeMultiplier / 2.0;
+				break;
+			case FontAlignment.Right:
+				result.X += result.Width * (double)textRenderInfo.SizeMultiplier;
+				break;
 		}
 		switch (textRenderInfo.Alignment & FontAlignment.VerticalMask)
 		{
-		case FontAlignment.MiddleY:
-		{
-			double num = (float)font.Height * textRenderInfo.SizeMultiplier;
-			result.Y += (result.Height - num) / 2.0;
-			break;
-		}
-		case FontAlignment.Bottom:
-			result.X += result.Height * (double)textRenderInfo.SizeMultiplier;
-			break;
+			case FontAlignment.MiddleY:
+				{
+					double num = (float)font.Height * textRenderInfo.SizeMultiplier;
+					result.Y += (result.Height - num) / 2.0;
+					break;
+				}
+			case FontAlignment.Bottom:
+				result.X += result.Height * (double)textRenderInfo.SizeMultiplier;
+				break;
 		}
 		Vector2 destination = new Vector2(result.X, result.Y);
 		string text2 = text;
@@ -102,21 +102,21 @@ public static class TextRenderingHelpers
 		Rectangle result = font.MeasureString(text, textRenderInfo.Bounds, textRenderInfo.Alignment);
 		switch (textRenderInfo.Alignment & FontAlignment.HorizontalMask)
 		{
-		case FontAlignment.MiddleX:
-			result.X += result.Width * (double)textRenderInfo.SizeMultiplier / 2.0;
-			break;
-		case FontAlignment.Right:
-			result.X += result.Width * (double)textRenderInfo.SizeMultiplier;
-			break;
+			case FontAlignment.MiddleX:
+				result.X += result.Width * (double)textRenderInfo.SizeMultiplier / 2.0;
+				break;
+			case FontAlignment.Right:
+				result.X += result.Width * (double)textRenderInfo.SizeMultiplier;
+				break;
 		}
 		switch (textRenderInfo.Alignment & FontAlignment.VerticalMask)
 		{
-		case FontAlignment.MiddleY:
-			result.Y += result.Height * (double)textRenderInfo.SizeMultiplier / 2.0;
-			break;
-		case FontAlignment.Right:
-			result.X += result.Height * (double)textRenderInfo.SizeMultiplier;
-			break;
+			case FontAlignment.MiddleY:
+				result.Y += result.Height * (double)textRenderInfo.SizeMultiplier / 2.0;
+				break;
+			case FontAlignment.Right:
+				result.X += result.Height * (double)textRenderInfo.SizeMultiplier;
+				break;
 		}
 		Vector2 vector = new Vector2(result.X, result.Y);
 		string text2 = text;

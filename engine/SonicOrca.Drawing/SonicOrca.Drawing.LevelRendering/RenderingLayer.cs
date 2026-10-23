@@ -70,9 +70,9 @@ internal class RenderingLayer
 	public void UpdateClippingMarkers()
 	{
 		_clippingMarkers = (from m in _level.Map.Markers
-			where string.Equals(m.Tag, "clipping", StringComparison.OrdinalIgnoreCase)
-			where m.Layer == Layer
-			select m).ToArray();
+							where string.Equals(m.Tag, "clipping", StringComparison.OrdinalIgnoreCase)
+							where m.Layer == Layer
+							select m).ToArray();
 	}
 
 	public bool IsAreaClipped(Viewport viewport, Rectanglei area)

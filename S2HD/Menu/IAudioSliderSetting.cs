@@ -9,5 +9,5 @@ namespace S2HD.Menu;
 
 internal interface IAudioSliderSetting : ISetting
 {
-  double Value { get; set; }
+	double Value { get; set; }
 }

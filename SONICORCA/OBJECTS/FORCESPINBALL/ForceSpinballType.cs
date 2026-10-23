@@ -13,7 +13,7 @@ namespace SONICORCA.OBJECTS.FORCESPINBALL;
 [SonicOrca.Core.Objects.Metadata.Name("Force spinball")]
 [Description("Forces characters to stay in a spinball.")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.General)]
-[ObjectInstance(typeof (ForceSpinballInstance))]
+[ObjectInstance(typeof(ForceSpinballInstance))]
 public class ForceSpinballType : ObjectType
 {
 }

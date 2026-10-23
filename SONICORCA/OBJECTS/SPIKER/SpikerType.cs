@@ -14,14 +14,14 @@ namespace SONICORCA.OBJECTS.SPIKER;
 [SonicOrca.Core.Objects.Metadata.Name("Spiker")]
 [Description("Spiker from Sonic 2")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Badnik)]
-[ObjectInstance(typeof (SpikerInstance))]
+[ObjectInstance(typeof(SpikerInstance))]
 public class SpikerType : ObjectType
 {
-  [Dependency]
-  public const string AnimationGroupResourceKey = "/ANIGROUP";
+	[Dependency]
+	public const string AnimationGroupResourceKey = "/ANIGROUP";
 
-  public new Vector2 GetLifeRadius(ActiveObject state)
-  {
-    return (Vector2) new Vector2i(1024 /*0x0400*/, 0);
-  }
+	public new Vector2 GetLifeRadius(ActiveObject state)
+	{
+		return (Vector2)new Vector2i(1024 /*0x0400*/, 0);
+	}
 }

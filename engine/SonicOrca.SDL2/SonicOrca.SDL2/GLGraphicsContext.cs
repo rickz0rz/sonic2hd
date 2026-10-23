@@ -70,17 +70,17 @@ internal class GLGraphicsContext : IGraphicsContext
 				_blendMode = value;
 				switch (value)
 				{
-				default:
-					GL.Disable(EnableCap.Blend);
-					break;
-				case BlendMode.Alpha:
-					GL.Enable(EnableCap.Blend);
-					GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
-					break;
-				case BlendMode.Additive:
-					GL.Enable(EnableCap.Blend);
-					GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.One);
-					break;
+					default:
+						GL.Disable(EnableCap.Blend);
+						break;
+					case BlendMode.Alpha:
+						GL.Enable(EnableCap.Blend);
+						GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+						break;
+					case BlendMode.Additive:
+						GL.Enable(EnableCap.Blend);
+						GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.One);
+						break;
 				}
 			}
 		}

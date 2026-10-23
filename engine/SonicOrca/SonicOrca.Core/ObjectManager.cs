@@ -119,8 +119,8 @@ public class ObjectManager
 				}
 				return (activeObject.Priority <= 0 || priority) ? true : false;
 			})
-			orderby x.Priority
-			select x)
+									  orderby x.Priority
+									  select x)
 		{
 			item.Draw(renderer, viewport, viewOptions);
 		}
@@ -178,9 +178,9 @@ public class ObjectManager
 	private void MapInstancesOf(ActiveObject activeObject)
 	{
 		ObjectEntry entry = (from e in _objectEntryTable
-			select (e) into e
-			where e.Uid == activeObject.Uid
-			select e).FirstOrDefault();
+							 select (e) into e
+							 where e.Uid == activeObject.Uid
+							 select e).FirstOrDefault();
 		IEnumerable<ActiveObject> source = _activeObjects.Concat(_newActiveObjects);
 		if (entry == null)
 		{
@@ -189,9 +189,9 @@ public class ObjectManager
 		foreach (ObjectMapping mapping in entry.Mappings)
 		{
 			ActiveObject activeObject2 = (from e in source
-				select (e) into e
-				where e.Uid == mapping.Target
-				select e).FirstOrDefault();
+										  select (e) into e
+										  where e.Uid == mapping.Target
+										  select e).FirstOrDefault();
 			if (activeObject2 != null)
 			{
 				BindingFlags bindingAttr = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
@@ -203,9 +203,9 @@ public class ObjectManager
 			}
 		}
 		foreach (ActiveObject item in from ao in source
-			select (ao) into ao
-			where ao.Entry.Mappings.FirstOrDefault((ObjectMapping m) => m.Target == entry.Uid) != null
-			select ao)
+									  select (ao) into ao
+									  where ao.Entry.Mappings.FirstOrDefault((ObjectMapping m) => m.Target == entry.Uid) != null
+									  select ao)
 		{
 			foreach (ObjectMapping mapping2 in item.Entry.Mappings)
 			{
@@ -225,9 +225,9 @@ public class ObjectManager
 	private void UnMapInstancesOf(ActiveObject activeObject)
 	{
 		ObjectEntry entry = (from e in _objectEntryTable
-			select (e) into e
-			where e.Uid == activeObject.Uid
-			select e).FirstOrDefault();
+							 select (e) into e
+							 where e.Uid == activeObject.Uid
+							 select e).FirstOrDefault();
 		if (entry == null)
 		{
 			return;
@@ -245,9 +245,9 @@ public class ObjectManager
 			}
 		}
 		foreach (ActiveObject item in from ao in _activeObjects
-			select (ao) into ao
-			where ao.Entry.Mappings.FirstOrDefault((ObjectMapping m) => m.Target == entry.Uid) != null
-			select ao)
+									  select (ao) into ao
+									  where ao.Entry.Mappings.FirstOrDefault((ObjectMapping m) => m.Target == entry.Uid) != null
+									  select ao)
 		{
 			foreach (ObjectMapping mapping2 in item.Entry.Mappings)
 			{
@@ -436,10 +436,10 @@ public class ObjectManager
 	public ICharacter GetClosestCharacterTo(Vector2 position)
 	{
 		IEnumerable<ICharacter> enumerable = from x in _activeObjects
-			where x.Type.Classification == ObjectClassification.Character
-			select (ICharacter)x into x
-			where !x.IsDead && !x.IsDebug && !x.IsDying
-			select x;
+											 where x.Type.Classification == ObjectClassification.Character
+											 select (ICharacter)x into x
+											 where !x.IsDead && !x.IsDebug && !x.IsDying
+											 select x;
 		ICharacter character = null;
 		double num = double.NaN;
 		foreach (ICharacter item in enumerable)

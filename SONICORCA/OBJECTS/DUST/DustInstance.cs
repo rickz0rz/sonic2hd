@@ -12,18 +12,18 @@ namespace SONICORCA.OBJECTS.DUST;
 
 public class DustInstance : ParticleObject
 {
-  public Vector2 Velocity { get; set; }
+	public Vector2 Velocity { get; set; }
 
-  public DustInstance()
-    : base("/ANIGROUP")
-  {
-  }
+	public DustInstance()
+	  : base("/ANIGROUP")
+	{
+	}
 
-  public void SetDustAnimationIndex(int index) => this._animationInstance.Index = index;
+	public void SetDustAnimationIndex(int index) => this._animationInstance.Index = index;
 
-  protected override void OnUpdate()
-  {
-    this.MovePrecise(this.Velocity);
-    base.OnUpdate();
-  }
+	protected override void OnUpdate()
+	{
+		this.MovePrecise(this.Velocity);
+		base.OnUpdate();
+	}
 }

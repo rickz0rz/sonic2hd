@@ -90,12 +90,12 @@ internal class NetworkPlayer
 	{
 		switch (packet.Type)
 		{
-		case PacketType.ReadyToStartLevel:
-			Ready = true;
-			break;
-		case PacketType.PlayInput:
-			ProcessPlayInput((PlayInputPacket)packet);
-			break;
+			case PacketType.ReadyToStartLevel:
+				Ready = true;
+				break;
+			case PacketType.PlayInput:
+				ProcessPlayInput((PlayInputPacket)packet);
+				break;
 		}
 	}
 

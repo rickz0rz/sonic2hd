@@ -11,13 +11,13 @@ namespace S2HD.Menu;
 
 internal class NavigateNextEventArgs : EventArgs
 {
-  public IMenuViewModel ViewModel { get; }
+	public IMenuViewModel ViewModel { get; }
 
-  public object Tag { get; }
+	public object Tag { get; }
 
-  public NavigateNextEventArgs(IMenuViewModel viewModel, object tag)
-  {
-    this.ViewModel = viewModel;
-    this.Tag = tag;
-  }
+	public NavigateNextEventArgs(IMenuViewModel viewModel, object tag)
+	{
+		this.ViewModel = viewModel;
+		this.Tag = tag;
+	}
 }

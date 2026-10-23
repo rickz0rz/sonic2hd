@@ -49,10 +49,10 @@ public abstract class InputContext
 	{
 		return eventType switch
 		{
-			InputStateEventType.Current => CurrentState, 
-			InputStateEventType.Pressed => Pressed, 
-			InputStateEventType.Released => Released, 
-			_ => throw new ArgumentException("Invalid event type", "eventType"), 
+			InputStateEventType.Current => CurrentState,
+			InputStateEventType.Pressed => Pressed,
+			InputStateEventType.Released => Released,
+			_ => throw new ArgumentException("Invalid event type", "eventType"),
 		};
 	}
 

@@ -14,18 +14,18 @@ namespace SONICORCA.OBJECTS.SIGNPOST;
 [SonicOrca.Core.Objects.Metadata.Name("Signpost")]
 [Description("Signpost from Sonic 1")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.General)]
-[ObjectInstance(typeof (SignpostInstance))]
+[ObjectInstance(typeof(SignpostInstance))]
 public class SignpostType : ObjectType
 {
-  [Dependency]
-  public const string AnimationGroupResourceKey = "/ANIGROUP";
-  [Dependency]
-  public const string SparkleObjectResourceKey = "SONICORCA/OBJECTS/RING/SPARKLE";
-  [Dependency]
-  public const string SoundResourceKey = "SONICORCA/SOUND/SIGNPOST";
+	[Dependency]
+	public const string AnimationGroupResourceKey = "/ANIGROUP";
+	[Dependency]
+	public const string SparkleObjectResourceKey = "SONICORCA/OBJECTS/RING/SPARKLE";
+	[Dependency]
+	public const string SoundResourceKey = "SONICORCA/SOUND/SIGNPOST";
 
-  public new Vector2 GetLifeRadius(ActiveObject state)
-  {
-    return (Vector2) new Vector2i(0, this.Level.Bounds.Height);
-  }
+	public new Vector2 GetLifeRadius(ActiveObject state)
+	{
+		return (Vector2)new Vector2i(0, this.Level.Bounds.Height);
+	}
 }

@@ -13,9 +13,9 @@ namespace SONICORCA.OBJECTS.DUST;
 [SonicOrca.Core.Objects.Metadata.Name("Dust")]
 [Description("Dust from Sonic 1")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Particle)]
-[ObjectInstance(typeof (DustInstance))]
+[ObjectInstance(typeof(DustInstance))]
 public class DustType : ObjectType
 {
-  [Dependency]
-  public const string AnimationGroupResourceKey = "/ANIGROUP";
+	[Dependency]
+	public const string AnimationGroupResourceKey = "/ANIGROUP";
 }

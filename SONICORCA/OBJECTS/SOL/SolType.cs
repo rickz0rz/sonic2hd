@@ -13,9 +13,9 @@ namespace SONICORCA.OBJECTS.SOL;
 [SonicOrca.Core.Objects.Metadata.Name("Sol")]
 [Description("Sol from Sonic 2")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Badnik)]
-[ObjectInstance(typeof (SolInstance))]
+[ObjectInstance(typeof(SolInstance))]
 public class SolType : ObjectType
 {
-  [Dependency]
-  public const string AnimationGroupResourceKey = "/ANIGROUP";
+	[Dependency]
+	public const string AnimationGroupResourceKey = "/ANIGROUP";
 }

@@ -170,9 +170,9 @@ public class ObjectEntry
 			{
 				object obj = null;
 				MemberInfo memberInfo = (from m in targetObject.GetType().GetMembers(bindingAttr)
-					select (m) into m
-					where m.Name == kvp.Key
-					select m).FirstOrDefault();
+										 select (m) into m
+										 where m.Name == kvp.Key
+										 select m).FirstOrDefault();
 				if (!(memberInfo != null))
 				{
 					throw new Exception();
@@ -187,9 +187,9 @@ public class ObjectEntry
 			else
 			{
 				MemberInfo memberInfo2 = (from m in targetObject.GetType().GetMembers(bindingAttr)
-					select (m) into m
-					where m.Name == kvp.Key
-					select m).FirstOrDefault();
+										  select (m) into m
+										  where m.Name == kvp.Key
+										  select m).FirstOrDefault();
 				if (!(memberInfo2 != null))
 				{
 					throw new Exception();

@@ -13,11 +13,11 @@ namespace SONICORCA.OBJECTS.MONITOR;
 [SonicOrca.Core.Objects.Metadata.Name("Monitor")]
 [Description("Monitor from Sonic 2")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.General)]
-[ObjectInstance(typeof (MonitorInstance))]
+[ObjectInstance(typeof(MonitorInstance))]
 public class MonitorType : ObjectType
 {
-  [Dependency]
-  public const string AnimationGroupResourceKey = "/ANIGROUP";
-  [Dependency]
-  public const string ExplosionResourceKey = "SONICORCA/OBJECTS/EXPLOSION/BADNIK";
+	[Dependency]
+	public const string AnimationGroupResourceKey = "/ANIGROUP";
+	[Dependency]
+	public const string ExplosionResourceKey = "SONICORCA/OBJECTS/EXPLOSION/BADNIK";
 }

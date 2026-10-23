@@ -13,9 +13,9 @@ namespace SONICORCA.OBJECTS.REXON;
 [SonicOrca.Core.Objects.Metadata.Name("Rexon")]
 [Description("Rexon from Sonic 2")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Badnik)]
-[ObjectInstance(typeof (RexonInstance))]
+[ObjectInstance(typeof(RexonInstance))]
 public class RexonType : ObjectType
 {
-  [Dependency]
-  public const string AnimationGroupResourceKey = "/ANIGROUP";
+	[Dependency]
+	public const string AnimationGroupResourceKey = "/ANIGROUP";
 }

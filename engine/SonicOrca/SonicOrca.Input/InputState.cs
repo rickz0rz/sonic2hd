@@ -35,12 +35,12 @@ public class InputState
 	public static InputState GetPressed(InputState previousState, InputState nextState)
 	{
 		return new InputState(MouseState.GetPressed(previousState.Mouse, nextState.Mouse), KeyboardState.GetPressed(previousState.Keyboard, nextState.Keyboard), (from x in Enumerable.Range(0, 4)
-			select GamePadInputState.GetPressed(previousState.GamePad[x], nextState.GamePad[x])).ToArray());
+																																								  select GamePadInputState.GetPressed(previousState.GamePad[x], nextState.GamePad[x])).ToArray());
 	}
 
 	public static InputState GetReleased(InputState previousState, InputState nextState)
 	{
 		return new InputState(MouseState.GetReleased(previousState.Mouse, nextState.Mouse), KeyboardState.GetReleased(previousState.Keyboard, nextState.Keyboard), (from x in Enumerable.Range(0, 4)
-			select GamePadInputState.GetReleased(previousState.GamePad[x], nextState.GamePad[x])).ToArray());
+																																									select GamePadInputState.GetReleased(previousState.GamePad[x], nextState.GamePad[x])).ToArray());
 	}
 }

@@ -72,7 +72,7 @@ public class CommonResources : IDisposable
 		await resourceSession.LoadAsync(ct);
 		XmlNode resourcesNode = _gameContext.ResourceTree.GetLoadedResource<XmlLoadedResource>("SONICORCA/LEVELS/COMMONRESOURCES").XmlDocument.SelectSingleNode("resources");
 		foreach (IGrouping<string, CommonResourceEntry> item in from x in ParseEntriesFromXmlNode(resourcesNode)
-			group x by x.Scheme)
+																group x by x.Scheme)
 		{
 			_entries[item.Key] = item.ToArray();
 		}

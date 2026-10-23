@@ -9,7 +9,7 @@ namespace S2HD.Menu;
 
 public struct ButtonBarItem
 {
-  public GamePadButton Button { get; set; }
+	public GamePadButton Button { get; set; }
 
-  public string Text { get; set; }
+	public string Text { get; set; }
 }

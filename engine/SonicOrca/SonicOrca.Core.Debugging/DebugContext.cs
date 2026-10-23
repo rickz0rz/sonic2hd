@@ -56,8 +56,8 @@ public class DebugContext : IDisposable
 		_gameContext = level.GameContext;
 		_level = level;
 		_pages.AddRange(from x in DebugOptionDefinitions.CreateOptionsInOrder(this)
-			group x by x.Page into x
-			select new DebugPage(this, x.Key, x));
+						group x by x.Page into x
+						select new DebugPage(this, x.Key, x));
 		if (_pages.Count > 0)
 		{
 			SelectPage(_pages.First());

@@ -12,27 +12,27 @@ namespace S2HD.Menu;
 
 internal class StandardOptionSetting : ISpinnerSetting, ISetting
 {
-  private readonly string[] _valueStrings;
-  private readonly Func<int> _getter;
-  private readonly Action<int> _setter;
+	private readonly string[] _valueStrings;
+	private readonly Func<int> _getter;
+	private readonly Action<int> _setter;
 
-  public string Name { get; }
+	public string Name { get; }
 
-  public IReadOnlyList<string> Values => (IReadOnlyList<string>) this._valueStrings;
+	public IReadOnlyList<string> Values => (IReadOnlyList<string>)this._valueStrings;
 
-  public int SelectedIndex
-  {
-    get => this._getter();
-    set => this._setter(value);
-  }
+	public int SelectedIndex
+	{
+		get => this._getter();
+		set => this._setter(value);
+	}
 
-  public StandardOptionSetting(string name, string[] values, Func<int> getter, Action<int> setter)
-  {
-    this.Name = name;
-    this._valueStrings = values;
-    this._getter = getter;
-    this._setter = setter;
-  }
+	public StandardOptionSetting(string name, string[] values, Func<int> getter, Action<int> setter)
+	{
+		this.Name = name;
+		this._valueStrings = values;
+		this._getter = getter;
+		this._setter = setter;
+	}
 
-  public override string ToString() => $"{this.Name}: {this.Values[this.SelectedIndex]}";
+	public override string ToString() => $"{this.Name}: {this.Values[this.SelectedIndex]}";
 }

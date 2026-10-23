@@ -13,9 +13,9 @@ namespace SONICORCA.OBJECTS.HTZDOOR;
 [SonicOrca.Core.Objects.Metadata.Name("One-way door")]
 [Description("One-way door from from Hill Top Zone, Sonic 2")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Obstacle)]
-[ObjectInstance(typeof (HTZDoorInstance))]
+[ObjectInstance(typeof(HTZDoorInstance))]
 public class HTZDoorType : ObjectType
 {
-  [Dependency]
-  public const string AnimationGroupResourceKey = "/ANIGROUP";
+	[Dependency]
+	public const string AnimationGroupResourceKey = "/ANIGROUP";
 }

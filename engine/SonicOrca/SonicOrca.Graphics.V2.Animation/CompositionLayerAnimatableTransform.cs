@@ -85,35 +85,35 @@ public class CompositionLayerAnimatableTransform
 	private CompositionLayerTween GetCurrentTween(CompositionLayerTween.Type tweenType)
 	{
 		return (from t in _tweens
-			select (t) into t
-			where t.TweenType == tweenType && _ellapsedFrames >= t.StartFrame && _ellapsedFrames <= t.EndFrame
-			select t).LastOrDefault();
+				select (t) into t
+				where t.TweenType == tweenType && _ellapsedFrames >= t.StartFrame && _ellapsedFrames <= t.EndFrame
+				select t).LastOrDefault();
 	}
 
 	public CompositionLayerTween GetFirstTween()
 	{
 		return (from t in _tweens
-			select (t) into t
-			orderby t.StartFrame
-			select t).First();
+				select (t) into t
+				orderby t.StartFrame
+				select t).First();
 	}
 
 	private CompositionLayerTween GetFirstTween(CompositionLayerTween.Type tweenType)
 	{
 		return (from t in _tweens
-			select (t) into t
-			where t.TweenType == tweenType && _ellapsedFrames <= t.StartFrame
-			orderby t.StartFrame
-			select t).FirstOrDefault();
+				select (t) into t
+				where t.TweenType == tweenType && _ellapsedFrames <= t.StartFrame
+				orderby t.StartFrame
+				select t).FirstOrDefault();
 	}
 
 	private CompositionLayerTween GetLastTween(CompositionLayerTween.Type tweenType)
 	{
 		return (from t in _tweens
-			select (t) into t
-			where t.TweenType == tweenType
-			orderby t.EndFrame
-			select t).Last();
+				select (t) into t
+				where t.TweenType == tweenType
+				orderby t.EndFrame
+				select t).Last();
 	}
 
 	public void ResetFrame()

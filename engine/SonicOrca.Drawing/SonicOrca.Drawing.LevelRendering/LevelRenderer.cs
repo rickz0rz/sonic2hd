@@ -237,17 +237,17 @@ public class LevelRenderer : ILevelRenderer, IDisposable
 		viewOptions.FilterAmount = 0.0;
 		switch (layer.Lighting.Type)
 		{
-		case LevelLayerLightingType.Outside:
-			if (_level.NightMode != 0.0)
-			{
-				viewOptions.Filter = 1;
-				viewOptions.FilterAmount = _level.NightMode;
-			}
-			break;
-		case LevelLayerLightingType.Inside:
-			viewOptions.Filter = 2;
-			viewOptions.FilterAmount = 1.0 - layer.Lighting.Light;
-			break;
+			case LevelLayerLightingType.Outside:
+				if (_level.NightMode != 0.0)
+				{
+					viewOptions.Filter = 1;
+					viewOptions.FilterAmount = _level.NightMode;
+				}
+				break;
+			case LevelLayerLightingType.Inside:
+				viewOptions.Filter = 2;
+				viewOptions.FilterAmount = 1.0 - layer.Lighting.Light;
+				break;
 		}
 	}
 

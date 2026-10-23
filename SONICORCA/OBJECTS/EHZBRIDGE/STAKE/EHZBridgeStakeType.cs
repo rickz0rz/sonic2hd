@@ -13,9 +13,9 @@ namespace SONICORCA.OBJECTS.EHZBRIDGE.STAKE;
 [SonicOrca.Core.Objects.Metadata.Name("Bridge stake")]
 [Description("Bridge stake from Emerald Hill Zone, Sonic 2")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Scenery)]
-[ObjectInstance(typeof (EHZBridgeStakeInstance))]
+[ObjectInstance(typeof(EHZBridgeStakeInstance))]
 public class EHZBridgeStakeType : ObjectType
 {
-  [Dependency]
-  public const string AnimationGroupResourceKey = "//ANIGROUP";
+	[Dependency]
+	public const string AnimationGroupResourceKey = "//ANIGROUP";
 }

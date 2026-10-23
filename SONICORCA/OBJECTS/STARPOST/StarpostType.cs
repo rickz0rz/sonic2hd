@@ -13,11 +13,11 @@ namespace SONICORCA.OBJECTS.STARPOST;
 [SonicOrca.Core.Objects.Metadata.Name("Starpost")]
 [Description("Starpost from Sonic 2")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.General)]
-[ObjectInstance(typeof (StarpostInstance))]
+[ObjectInstance(typeof(StarpostInstance))]
 public class StarpostType : ObjectType
 {
-  [Dependency]
-  public const string AnimationGroupResourceKey = "/ANIGROUP";
-  [Dependency]
-  public const string SoundResourceKey = "SONICORCA/SOUND/STARPOST";
+	[Dependency]
+	public const string AnimationGroupResourceKey = "/ANIGROUP";
+	[Dependency]
+	public const string SoundResourceKey = "SONICORCA/SOUND/STARPOST";
 }

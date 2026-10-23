@@ -13,11 +13,11 @@ namespace SONICORCA.OBJECTS.CPZTUBECAP;
 [SonicOrca.Core.Objects.Metadata.Name("Tube cap")]
 [Description("Tube cap from Chemical Plant Zone, Sonic 2")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Obstacle)]
-[ObjectInstance(typeof (CPZTubeCapInstance))]
+[ObjectInstance(typeof(CPZTubeCapInstance))]
 public class CPZTubeCapType : ObjectType
 {
-  [Dependency]
-  public const string AnimationGroupResourceKey = "/ANIGROUP";
-  [Dependency]
-  public const string SoundResourceKey = "SONICORCA/SOUND/BREAKABLE";
+	[Dependency]
+	public const string AnimationGroupResourceKey = "/ANIGROUP";
+	[Dependency]
+	public const string SoundResourceKey = "SONICORCA/SOUND/BREAKABLE";
 }

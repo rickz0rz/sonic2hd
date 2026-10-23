@@ -12,9 +12,9 @@ namespace SONICORCA.OBJECTS.LOCKY;
 
 public class LockyInstance : Animal
 {
-  public LockyInstance()
-    : base("/ANIGROUP")
-  {
-    this.JumpVelocity = new Vector2(-10.0, -12.0);
-  }
+	public LockyInstance()
+	  : base("/ANIGROUP")
+	{
+		this.JumpVelocity = new Vector2(-10.0, -12.0);
+	}
 }

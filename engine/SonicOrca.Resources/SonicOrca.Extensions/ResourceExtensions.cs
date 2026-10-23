@@ -18,39 +18,39 @@ public static class ResourceExtensions
 		{
 			switch (memberInfo.MemberType)
 			{
-			case MemberTypes.Field:
-			{
-				ResourcePathAttribute customAttribute = memberInfo.GetCustomAttribute<ResourcePathAttribute>();
-				if (customAttribute != null)
-				{
-					FieldInfo fieldInfo = (FieldInfo)memberInfo;
-					string path2 = customAttribute.Path;
-					ILoadedResource loadedResource2 = tree.GetLoadedResource(path2);
-					if (!fieldInfo.FieldType.IsAssignableFrom(loadedResource2.GetType()))
+				case MemberTypes.Field:
 					{
-						throw new ResourceException(path2 + " doesn't have the correct resource type.");
+						ResourcePathAttribute customAttribute = memberInfo.GetCustomAttribute<ResourcePathAttribute>();
+						if (customAttribute != null)
+						{
+							FieldInfo fieldInfo = (FieldInfo)memberInfo;
+							string path2 = customAttribute.Path;
+							ILoadedResource loadedResource2 = tree.GetLoadedResource(path2);
+							if (!fieldInfo.FieldType.IsAssignableFrom(loadedResource2.GetType()))
+							{
+								throw new ResourceException(path2 + " doesn't have the correct resource type.");
+							}
+							fieldInfo.SetValue(instance, loadedResource2);
+						}
+						break;
 					}
-					fieldInfo.SetValue(instance, loadedResource2);
-				}
-				break;
-			}
-			case MemberTypes.Property:
-			{
-				ResourcePathAttribute customAttribute = memberInfo.GetCustomAttribute<ResourcePathAttribute>();
-				if (customAttribute != null)
-				{
-					PropertyInfo propertyInfo = (PropertyInfo)memberInfo;
-					string path = customAttribute.Path;
-					ILoadedResource loadedResource = tree.GetLoadedResource(path);
-					Type type = loadedResource.GetType();
-					if (!propertyInfo.PropertyType.IsAssignableFrom(type))
+				case MemberTypes.Property:
 					{
-						throw new ResourceException(path + " doesn't have the correct resource type.");
+						ResourcePathAttribute customAttribute = memberInfo.GetCustomAttribute<ResourcePathAttribute>();
+						if (customAttribute != null)
+						{
+							PropertyInfo propertyInfo = (PropertyInfo)memberInfo;
+							string path = customAttribute.Path;
+							ILoadedResource loadedResource = tree.GetLoadedResource(path);
+							Type type = loadedResource.GetType();
+							if (!propertyInfo.PropertyType.IsAssignableFrom(type))
+							{
+								throw new ResourceException(path + " doesn't have the correct resource type.");
+							}
+							propertyInfo.SetValue(instance, loadedResource);
+						}
+						break;
 					}
-					propertyInfo.SetValue(instance, loadedResource);
-				}
-				break;
-			}
 			}
 		}
 	}

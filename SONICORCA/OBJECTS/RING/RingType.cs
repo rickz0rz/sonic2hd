@@ -15,28 +15,28 @@ namespace SONICORCA.OBJECTS.RING;
 [SonicOrca.Core.Objects.Metadata.Name("Ring")]
 [Description("Ring from Sonic 1")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Ring)]
-[ObjectInstance(typeof (RingInstance))]
+[ObjectInstance(typeof(RingInstance))]
 public class RingType : ObjectType
 {
-  [Dependency]
-  public const string AnimationGroupResourceKey = "/ANIGROUP";
-  [Dependency]
-  public const string SparkleObjectResourceKey = "/SPARKLE";
-  [Dependency]
-  public const string CollectSoundResourceKey = "SONICORCA/SOUND/RING";
-  [Dependency]
-  public const string GlowParticleResourceKey = "SONICORCA/PARTICLE/GLOW";
-  [Dependency]
-  public const string PerfectSoundResourceKey = "SONICORCA/SOUND/PERFECT";
+	[Dependency]
+	public const string AnimationGroupResourceKey = "/ANIGROUP";
+	[Dependency]
+	public const string SparkleObjectResourceKey = "/SPARKLE";
+	[Dependency]
+	public const string CollectSoundResourceKey = "SONICORCA/SOUND/RING";
+	[Dependency]
+	public const string GlowParticleResourceKey = "SONICORCA/PARTICLE/GLOW";
+	[Dependency]
+	public const string PerfectSoundResourceKey = "SONICORCA/SOUND/PERFECT";
 
-  public AnimationInstance AnimationInstance { get; private set; }
+	public AnimationInstance AnimationInstance { get; private set; }
 
-  public int LastAnimationTick { get; set; }
+	public int LastAnimationTick { get; set; }
 
-  protected override void OnStart()
-  {
-    this.AnimationInstance = new AnimationInstance(this.Level.GameContext.ResourceTree, this.GetAbsolutePath("/ANIGROUP"));
-  }
+	protected override void OnStart()
+	{
+		this.AnimationInstance = new AnimationInstance(this.Level.GameContext.ResourceTree, this.GetAbsolutePath("/ANIGROUP"));
+	}
 
-  protected override void OnAnimate() => this.AnimationInstance.Animate();
+	protected override void OnAnimate() => this.AnimationInstance.Animate();
 }
