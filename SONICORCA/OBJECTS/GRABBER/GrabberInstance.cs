@@ -181,17 +181,15 @@ public class GrabberInstance : Badnik
 				_lastEscapeSidekickInput = Level.Player.Sidekick.Input.HorizontalDirection;
 				++_grabEscapeSidekickCounter;
 			}
-			// The original code compares the last input, not the counter, so the sidekick cannot escape this way.
-			if (_lastEscapeSidekickInput >= EscapeInputChanges)
+			if (_grabEscapeSidekickCounter >= EscapeInputChanges)
 				ReleaseCharacter();
 		}
 		if (_grabbedCharacter == null)
 		{
-			// The original code resets _lastEscapeSidekickInput two times and never resets _grabEscapeSidekickCounter.
 			_lastEscapeSidekickInput = 0;
 			_lastEscapeProtagonistInput = 0;
 			_grabEscapeProtagonistCounter = 0;
-			_lastEscapeSidekickInput = 0;
+			_grabEscapeSidekickCounter = 0;
 			_status = StatusType.Raising;
 			_regrabTicksCounter = 0;
 			_playerEscaped = true;
