@@ -6,130 +6,133 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.SDL2;
 
+/// <summary>A linked OpenGL shader program. Uniforms that the program does not use are ignored.</summary>
 internal class GLShaderProgram : IShaderProgram, IDisposable
 {
 	private readonly GLGraphicsContext _context;
 
-	private readonly int _glId;
+	private readonly int _id;
 
 	private readonly Dictionary<string, int> _uniformLocations = new Dictionary<string, int>();
 
 	public GLShaderProgram(GLGraphicsContext context, IEnumerable<GLShader> shaders)
 	{
 		_context = context;
-		_glId = CreateShaderProgram(shaders);
+		_id = CreateShaderProgram(shaders);
 	}
 
 	public virtual void Dispose()
 	{
-		GL.DeleteProgram(_glId);
+		GL.DeleteProgram(_id);
 		_context.ShaderPrograms.Remove(this);
 	}
 
 	private int CreateShaderProgram(IEnumerable<GLShader> shaders)
 	{
-		int num = GL.CreateProgram();
+		int programId = GL.CreateProgram();
 		try
 		{
 			foreach (GLShader shader in shaders)
 			{
-				GL.AttachShader(num, shader.Id);
+				GL.AttachShader(programId, shader.Id);
 			}
-			GL.LinkProgram(num);
-			GL.GetProgram(num, GetProgramParameterName.LinkStatus, out var @params);
-			if (@params != 1)
+			GL.LinkProgram(programId);
+			GL.GetProgram(programId, GetProgramParameterName.LinkStatus, out int linked);
+			if (linked != 1)
 			{
-				throw new Exception(GL.GetProgramInfoLog(num));
+				throw new Exception(GL.GetProgramInfoLog(programId));
 			}
 			_context.ShaderPrograms.Add(this);
-			return num;
+			return programId;
 		}
 		catch
 		{
-			GL.DeleteProgram(num);
+			GL.DeleteProgram(programId);
 			throw;
 		}
 	}
 
 	public void Activate()
 	{
-		GL.UseProgram(_glId);
+		GL.UseProgram(_id);
 	}
 
 	public int GetAttributeLocation(string name)
 	{
-		return GL.GetAttribLocation(_glId, name);
+		return GL.GetAttribLocation(_id, name);
 	}
 
 	public int GetUniformLocation(string name)
 	{
-		if (!_uniformLocations.TryGetValue(name, out var value))
+		if (!_uniformLocations.TryGetValue(name, out int location))
 		{
-			return _uniformLocations[name] = GL.GetUniformLocation(_glId, name);
+			location = GL.GetUniformLocation(_id, name);
+			_uniformLocations[name] = location;
 		}
-		return value;
+		return location;
 	}
 
 	public void SetUniform(string name, int value)
 	{
-		int uniformLocation = GetUniformLocation(name);
-		if (uniformLocation >= 0)
+		int location = GetUniformLocation(name);
+		if (location >= 0)
 		{
-			GL.Uniform1(uniformLocation, value);
+			GL.Uniform1(location, value);
 		}
 	}
 
 	public void SetUniform(string name, float value)
 	{
-		int uniformLocation = GetUniformLocation(name);
-		if (uniformLocation >= 0)
+		int location = GetUniformLocation(name);
+		if (location >= 0)
 		{
-			GL.Uniform1(uniformLocation, value);
+			GL.Uniform1(location, value);
 		}
 	}
 
 	public void SetUniform(string name, double value)
 	{
-		int uniformLocation = GetUniformLocation(name);
-		if (uniformLocation >= 0)
+		int location = GetUniformLocation(name);
+		if (location >= 0)
 		{
-			GL.Uniform1(uniformLocation, (float)value);
+			GL.Uniform1(location, (float)value);
 		}
 	}
 
 	public void SetUniform(string name, Vector2 value)
 	{
-		int uniformLocation = GetUniformLocation(name);
-		if (uniformLocation >= 0)
+		int location = GetUniformLocation(name);
+		if (location >= 0)
 		{
-			GL.Uniform2(uniformLocation, (float)value.X, (float)value.Y);
+			GL.Uniform2(location, (float)value.X, (float)value.Y);
 		}
 	}
 
 	public void SetUniform(string name, Vector3 value)
 	{
-		int uniformLocation = GetUniformLocation(name);
-		if (uniformLocation >= 0)
+		int location = GetUniformLocation(name);
+		if (location >= 0)
 		{
-			GL.Uniform3(uniformLocation, (float)value.X, (float)value.Y, (float)value.Z);
+			GL.Uniform3(location, (float)value.X, (float)value.Y, (float)value.Z);
 		}
 	}
 
 	public void SetUniform(string name, Vector4 value)
 	{
-		int uniformLocation = GetUniformLocation(name);
-		if (uniformLocation >= 0)
+		int location = GetUniformLocation(name);
+		if (location >= 0)
 		{
-			GL.Uniform4(uniformLocation, (float)value.X, (float)value.Y, (float)value.Z, (float)value.W);
+			GL.Uniform4(location, (float)value.X, (float)value.Y, (float)value.Z, (float)value.W);
 		}
 	}
 
 	public void SetUniform(string name, Matrix4 value)
 	{
-		int uniformLocation = GetUniformLocation(name);
-		if (uniformLocation >= 0)
+		int location = GetUniformLocation(name);
+		if (location >= 0)
 		{
-			GL.UniformMatrix4(uniformLocation, 1, transpose: false, new float[16]
+			// OpenGL takes the matrix in column-major order
+			GL.UniformMatrix4(location, 1, transpose: false, new float[16]
 			{
 				(float)value.M11,
 				(float)value.M21,
@@ -153,10 +156,10 @@ internal class GLShaderProgram : IShaderProgram, IDisposable
 
 	public void SetUniform(string name, Colour value)
 	{
-		int uniformLocation = GetUniformLocation(name);
-		if (uniformLocation >= 0)
+		int location = GetUniformLocation(name);
+		if (location >= 0)
 		{
-			GL.Uniform4(uniformLocation, value.Red / 255f, value.Green / 255f, value.Blue / 255f, value.Alpha / 255f);
+			GL.Uniform4(location, value.Red / 255f, value.Green / 255f, value.Blue / 255f, value.Alpha / 255f);
 		}
 	}
 }

@@ -2,55 +2,50 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using OpenTK.Graphics.OpenGL;
-using SonicOrca.Graphics;
 
 namespace SonicOrca.SDL2;
 
-internal class GLShader : IShader, IDisposable
+/// <summary>A compiled OpenGL shader. Throws <see cref="SDL2Exception"/> with the compiler log when it does not compile.</summary>
+internal class GLShader : SonicOrca.Graphics.IShader, IDisposable
 {
-	private static readonly IReadOnlyList<OpenTK.Graphics.OpenGL.ShaderType> ShaderTypeConversionTable = new OpenTK.Graphics.OpenGL.ShaderType[6]
+	/// <summary>OpenGL shader types, indexed by <see cref="SonicOrca.Graphics.ShaderType"/>.</summary>
+	private static readonly IReadOnlyList<ShaderType> GLShaderTypes = new[]
 	{
-		OpenTK.Graphics.OpenGL.ShaderType.FragmentShader,
-		OpenTK.Graphics.OpenGL.ShaderType.VertexShader,
-		OpenTK.Graphics.OpenGL.ShaderType.GeometryShader,
-		OpenTK.Graphics.OpenGL.ShaderType.GeometryShader,
-		OpenTK.Graphics.OpenGL.ShaderType.TessEvaluationShader,
-		OpenTK.Graphics.OpenGL.ShaderType.TessControlShader
+		ShaderType.FragmentShader,
+		ShaderType.VertexShader,
+		ShaderType.GeometryShader, // GeometryExt
+		ShaderType.GeometryShader,
+		ShaderType.TessEvaluationShader,
+		ShaderType.TessControlShader
 	};
 
-	private readonly OpenTK.Graphics.OpenGL.ShaderType _type;
+	private readonly int _id;
 
-	private readonly string _sourceCode;
-
-	private int _glId;
-
-	public int Id => _glId;
+	public int Id => _id;
 
 	public GLShader(SonicOrca.Graphics.ShaderType type, string sourceCode)
 	{
-		_type = ShaderTypeConversionTable[(int)type];
-		_sourceCode = sourceCode;
-		_glId = GL.CreateShader(_type);
+		_id = GL.CreateShader(GLShaderTypes[(int)type]);
 		try
 		{
-			GL.ShaderSource(_glId, _sourceCode);
-			GL.CompileShader(_glId);
-			GL.GetShader(_glId, ShaderParameter.CompileStatus, out var @params);
-			if (@params != 1)
+			GL.ShaderSource(_id, sourceCode);
+			GL.CompileShader(_id);
+			GL.GetShader(_id, ShaderParameter.CompileStatus, out int compiled);
+			if (compiled != 1)
 			{
-				string shaderInfoLog = GL.GetShaderInfoLog(_glId);
-				throw new SDL2Exception($"Error compiling shader.\n\n{shaderInfoLog}", new InvalidDataException(shaderInfoLog));
+				string log = GL.GetShaderInfoLog(_id);
+				throw new SDL2Exception($"Error compiling shader.\n\n{log}", new InvalidDataException(log));
 			}
 		}
 		catch
 		{
-			GL.DeleteShader(_glId);
+			GL.DeleteShader(_id);
 			throw;
 		}
 	}
 
 	public void Dispose()
 	{
-		GL.DeleteShader(_glId);
+		GL.DeleteShader(_id);
 	}
 }

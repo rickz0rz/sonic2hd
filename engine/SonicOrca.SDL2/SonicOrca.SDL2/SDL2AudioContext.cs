@@ -8,9 +8,12 @@ using SonicOrca.Audio;
 
 namespace SonicOrca.SDL2;
 
+/// <summary>
+/// Audio output through SDL2: 44.1 kHz, stereo, signed 16-bit. SDL calls <see cref="ReadDataCallback"/> on its audio
+/// thread, which mixes the registered sample providers.
+/// </summary>
 public class SDL2AudioContext : AudioContext, IDisposable
 {
-	private readonly SDL2Platform _platform;
 
 	private readonly Lockable<List<ISampleProvider>> _registeredSampleProviders = new Lockable<List<ISampleProvider>>(new List<ISampleProvider>());
 
@@ -20,16 +23,15 @@ public class SDL2AudioContext : AudioContext, IDisposable
 
 	public SDL2AudioContext(SDL2Platform platform)
 	{
-		_platform = platform;
 		Trace.WriteLine("Initialising SDL2 audio");
-		if (SDL.SDL_InitSubSystem(16u) != 0)
+		if (SDL.SDL_InitSubSystem(SDL.SDL_INIT_AUDIO) != 0)
 		{
 			throw SDL2Exception.FromError("Unable to initialise an audio driver.");
 		}
 		SDL.SDL_AudioSpec desired = new SDL.SDL_AudioSpec
 		{
 			channels = 2,
-			format = 32784,
+			format = SDL.AUDIO_S16LSB,
 			freq = 44100,
 			samples = 2048,
 			callback = ReadDataCallback
@@ -45,8 +47,8 @@ public class SDL2AudioContext : AudioContext, IDisposable
 	public void Dispose()
 	{
 		SDL.SDL_CloseAudioDevice(_outputDevice);
-		Trace.WriteLine("Quitting SDL2 video");
-		SDL.SDL_QuitSubSystem(16u);
+		Trace.WriteLine("Quitting SDL2 audio");
+		SDL.SDL_QuitSubSystem(SDL.SDL_INIT_AUDIO);
 	}
 
 	public override void RegisterSampleProvider(ISampleProvider sampleProvider)
@@ -67,16 +69,16 @@ public class SDL2AudioContext : AudioContext, IDisposable
 
 	private void ReadDataCallback(IntPtr userdata, IntPtr stream, int length)
 	{
-		byte[] array = new byte[length];
+		byte[] buffer = new byte[length];
 		if (Mixer != null)
 		{
-			ISampleProvider[] channels;
+			ISampleProvider[] providers;
 			lock (_registeredSampleProviders.Sync)
 			{
-				channels = _registeredSampleProviders.Instance.ToArray();
+				providers = _registeredSampleProviders.Instance.ToArray();
 			}
-			Mixer.Mix(array, 0, length, channels);
+			Mixer.Mix(buffer, 0, length, providers);
 		}
-		Marshal.Copy(array, 0, stream, length);
+		Marshal.Copy(buffer, 0, stream, length);
 	}
 }

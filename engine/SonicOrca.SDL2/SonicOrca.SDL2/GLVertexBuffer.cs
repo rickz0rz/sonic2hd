@@ -6,23 +6,27 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.SDL2;
 
+/// <summary>
+/// A vertex array with one float buffer per attribute. Values are collected between <see cref="Begin"/> and
+/// <see cref="End"/>, then uploaded together.
+/// </summary>
 internal class GLVertexBuffer : VertexBuffer
 {
 	private readonly GLGraphicsContext _context;
 
-	private readonly int _numBuffers;
-
+	/// <summary>The number of floats per vertex, for each attribute.</summary>
 	private readonly int[] _vectorCounts;
 
-	private readonly int _glId;
+	private readonly int _vertexArrayId;
 
-	private readonly int[] _glBufferIds;
+	private readonly int[] _bufferIds;
 
 	private readonly List<float>[] _data;
 
-	private int _numPoints;
+	private int _vertexCount;
 
-	private bool _noRender;
+	/// <summary>Set by <see cref="End"/> when no values were collected. Data set with SetBufferData still renders.</summary>
+	private bool _empty;
 
 	public override IReadOnlyList<int> VectorCounts => _vectorCounts;
 
@@ -30,58 +34,53 @@ internal class GLVertexBuffer : VertexBuffer
 	{
 		_context = context;
 		_vectorCounts = vectorCounts.ToArray();
-		_numBuffers = _vectorCounts.Length;
-		GL.GenVertexArrays(1, out _glId);
-		GL.BindVertexArray(_glId);
-		_glBufferIds = new int[_numBuffers];
-		_data = new List<float>[_numBuffers];
-		GL.GenBuffers(_numBuffers, _glBufferIds);
-		for (int i = 0; i < _numBuffers; i++)
-		{
-			GL.EnableVertexAttribArray(i);
-			GL.BindBuffer(BufferTarget.ArrayBuffer, _glBufferIds[i]);
-			GL.VertexAttribPointer(i, _vectorCounts[i], VertexAttribPointerType.Float, normalized: false, 0, 0);
-			_data[i] = new List<float>();
-		}
+		(_vertexArrayId, _bufferIds, _data) = CreateBuffers(_vectorCounts);
 		_context.VertexBuffers.Add(this);
 	}
 
+	/// <summary>Creates the buffers at the attribute locations that the shader program gives for each name.</summary>
 	public GLVertexBuffer(GLGraphicsContext context, IShaderProgram shaderProgram, IEnumerable<string> names, IEnumerable<int> vectorCounts)
 	{
 		_context = context;
 		_vectorCounts = SetAttributeLocations(shaderProgram, names, vectorCounts).ToArray();
-		_numBuffers = _vectorCounts.Length;
-		GL.GenVertexArrays(1, out _glId);
-		GL.BindVertexArray(_glId);
-		_glBufferIds = new int[_numBuffers];
-		_data = new List<float>[_numBuffers];
-		GL.GenBuffers(_numBuffers, _glBufferIds);
-		for (int i = 0; i < _numBuffers; i++)
+		(_vertexArrayId, _bufferIds, _data) = CreateBuffers(_vectorCounts);
+		_context.VertexBuffers.Add(this);
+	}
+
+	private static (int VertexArrayId, int[] BufferIds, List<float>[] Data) CreateBuffers(int[] vectorCounts)
+	{
+		GL.GenVertexArrays(1, out int vertexArrayId);
+		GL.BindVertexArray(vertexArrayId);
+		int[] bufferIds = new int[vectorCounts.Length];
+		List<float>[] data = new List<float>[vectorCounts.Length];
+		GL.GenBuffers(bufferIds.Length, bufferIds);
+		for (int i = 0; i < bufferIds.Length; i++)
 		{
 			GL.EnableVertexAttribArray(i);
-			GL.BindBuffer(BufferTarget.ArrayBuffer, _glBufferIds[i]);
-			GL.VertexAttribPointer(i, _vectorCounts[i], VertexAttribPointerType.Float, normalized: false, 0, 0);
-			_data[i] = new List<float>();
+			GL.BindBuffer(BufferTarget.ArrayBuffer, bufferIds[i]);
+			GL.VertexAttribPointer(i, vectorCounts[i], VertexAttribPointerType.Float, normalized: false, 0, 0);
+			data[i] = new List<float>();
 		}
-		_context.VertexBuffers.Add(this);
+		return (vertexArrayId, bufferIds, data);
 	}
 
 	public override void Dispose()
 	{
-		GL.DeleteVertexArrays(1, new int[1] { _glId });
-		GL.DeleteBuffers(_numBuffers, _glBufferIds);
+		GL.DeleteVertexArrays(1, new[] { _vertexArrayId });
+		GL.DeleteBuffers(_bufferIds.Length, _bufferIds);
 		_context.VertexBuffers.Remove(this);
 	}
 
 	public override void SetBufferData(int index, IEnumerable<double> data)
 	{
-		SetBufferData(index, data.Select((double x) => (float)x));
+		SetBufferData(index, data.Select(x => (float)x));
 	}
 
 	public void SetBufferData(int index, IEnumerable<float> data)
 	{
-		GL.BindBuffer(BufferTarget.ArrayBuffer, _glBufferIds[index]);
-		GL.BufferData(BufferTarget.ArrayBuffer, (IntPtr)(data.Count() * 4), data.Select((float x) => x).ToArray(), BufferUsageHint.StreamDraw);
+		float[] values = data.ToArray();
+		GL.BindBuffer(BufferTarget.ArrayBuffer, _bufferIds[index]);
+		GL.BufferData(BufferTarget.ArrayBuffer, (IntPtr)(values.Length * sizeof(float)), values, BufferUsageHint.StreamDraw);
 	}
 
 	public override void AddValue(int index, double value)
@@ -91,53 +90,37 @@ internal class GLVertexBuffer : VertexBuffer
 
 	public override void Begin()
 	{
-		for (int i = 0; i < _numBuffers; i++)
+		foreach (List<float> values in _data)
 		{
-			_data[i].Clear();
+			values.Clear();
 		}
 	}
 
+	/// <summary>Uploads the collected values. The first attribute gives the vertex count.</summary>
 	public override void End()
 	{
-		_numPoints = 0;
-		for (int i = 0; i < _numBuffers; i++)
+		_vertexCount = _data.Length > 0 ? _data[0].Count / _vectorCounts[0] : 0;
+		_empty = _vertexCount == 0;
+		if (_empty)
 		{
-			int numPoints = _data[i].Count / _vectorCounts[i];
-			if (i == 0)
-			{
-				_numPoints = numPoints;
-			}
-			else
-			{
-				_ = _numPoints;
-			}
-		}
-		if (_numPoints == 0)
-		{
-			_noRender = true;
 			return;
 		}
-		for (int j = 0; j < _numBuffers; j++)
+		for (int i = 0; i < _data.Length; i++)
 		{
-			SetBufferData(j, _data[j]);
+			SetBufferData(i, _data[i]);
 		}
-		_noRender = false;
 	}
 
 	public override void Render(SonicOrca.Graphics.PrimitiveType type)
 	{
-		if (!_noRender)
-		{
-			GL.BindVertexArray(_glId);
-			GLPrimitives.Draw(type, 0, _numPoints);
-		}
+		Render(type, 0, _vertexCount);
 	}
 
 	public override void Render(SonicOrca.Graphics.PrimitiveType type, int index, int count)
 	{
-		if (!_noRender)
+		if (!_empty)
 		{
-			GL.BindVertexArray(_glId);
+			GL.BindVertexArray(_vertexArrayId);
 			GLPrimitives.Draw(type, index, count);
 		}
 	}

@@ -6,6 +6,9 @@ using SonicOrca.Graphics;
 
 namespace SonicOrca.SDL2;
 
+/// <summary>
+/// An OpenGL framebuffer with one or more colour textures and a depth/stencil buffer, or the window's back buffer.
+/// </summary>
 internal class GLFramebuffer : IFramebuffer, IDisposable
 {
 	private readonly GLGraphicsContext _context;
@@ -14,11 +17,13 @@ internal class GLFramebuffer : IFramebuffer, IDisposable
 
 	private readonly int _height;
 
+	/// <summary>The OpenGL framebuffer name. 0 is the window's back buffer.</summary>
 	private readonly uint _name;
 
+	/// <summary>The colour textures. Null for the back buffer.</summary>
 	private readonly GLTexture[] _textures;
 
-	private readonly int _depthBufferName;
+	private readonly int _depthStencilBufferName;
 
 	public int Width => _width;
 
@@ -39,24 +44,24 @@ internal class GLFramebuffer : IFramebuffer, IDisposable
 		_name = name;
 	}
 
-	public GLFramebuffer(GLGraphicsContext context, int width, int height, int numTextures = 1)
+	public GLFramebuffer(GLGraphicsContext context, int width, int height, int textureCount = 1)
 	{
 		_context = context;
 		_width = width;
 		_height = height;
 		GL.GenFramebuffers(1, out _name);
 		GL.BindFramebuffer(FramebufferTarget.Framebuffer, _name);
-		_textures = new GLTexture[numTextures];
-		for (int i = 0; i < numTextures; i++)
+		_textures = new GLTexture[textureCount];
+		for (int i = 0; i < textureCount; i++)
 		{
-			GL.FramebufferTexture(FramebufferTarget.Framebuffer, (FramebufferAttachment)(36064 + i), (_textures[i] = (GLTexture)context.CreateTexture(width, height)).Id, 0);
+			_textures[i] = (GLTexture)context.CreateTexture(width, height);
+			GL.FramebufferTexture(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0 + i, _textures[i].Id, 0);
 		}
-		GL.DrawBuffers(numTextures, (from num in Enumerable.Range(0, numTextures)
-									 select (DrawBuffersEnum)(36064 + num)).ToArray());
-		_depthBufferName = GL.GenRenderbuffer();
-		GL.BindRenderbuffer(RenderbufferTarget.Renderbuffer, _depthBufferName);
+		GL.DrawBuffers(textureCount, Enumerable.Range(0, textureCount).Select(i => DrawBuffersEnum.ColorAttachment0 + i).ToArray());
+		_depthStencilBufferName = GL.GenRenderbuffer();
+		GL.BindRenderbuffer(RenderbufferTarget.Renderbuffer, _depthStencilBufferName);
 		GL.RenderbufferStorage(RenderbufferTarget.Renderbuffer, RenderbufferStorage.Depth24Stencil8, width, height);
-		GL.FramebufferRenderbuffer(FramebufferTarget.Framebuffer, FramebufferAttachment.DepthStencilAttachment, RenderbufferTarget.Renderbuffer, _depthBufferName);
+		GL.FramebufferRenderbuffer(FramebufferTarget.Framebuffer, FramebufferAttachment.DepthStencilAttachment, RenderbufferTarget.Renderbuffer, _depthStencilBufferName);
 		if (GL.CheckFramebufferStatus(FramebufferTarget.Framebuffer) != FramebufferErrorCode.FramebufferComplete)
 		{
 			throw new SDL2Exception("Unable to create framebuffer.");
@@ -66,16 +71,15 @@ internal class GLFramebuffer : IFramebuffer, IDisposable
 
 	public void Dispose()
 	{
-		GLTexture[] textures = _textures;
-		for (int i = 0; i < textures.Length; i++)
+		if (_textures != null)
 		{
-			textures[i].Dispose();
+			foreach (GLTexture texture in _textures)
+			{
+				texture.Dispose();
+			}
 		}
 		GL.DeleteFramebuffer(_name);
-		if (_context != null)
-		{
-			_context.Framebuffers.Remove(this);
-		}
+		_context?.Framebuffers.Remove(this);
 	}
 
 	public void Activate()

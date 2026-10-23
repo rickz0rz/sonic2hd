@@ -2,43 +2,46 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text;
 using SDL2;
 using SonicOrca.Geometry;
 using SonicOrca.Input;
 
 namespace SonicOrca.SDL2;
 
+/// <summary>Keyboard, mouse, text input and up to four game controllers (with rumble), read from SDL2.</summary>
 public class SDL2InputContext : InputContext, IDisposable
 {
-	private readonly SDL2Platform _platform;
+	private const int MaxGamePads = 4;
 
-	private readonly IntPtr _windowHandle;
+	// Stick and trigger dead zone: values below MinTolerance read as 0, values above MaxTolerance as full
+	private const double AxisMinTolerance = 0.2;
+
+	private const double AxisMaxTolerance = 0.75;
+
+	private const int VibrationDurationMs = 4000;
 
 	private readonly List<IntPtr> _gameControllers = new List<IntPtr>();
 
+	/// <summary>The rumble device of each game controller, or IntPtr.Zero when it has none.</summary>
 	private readonly List<IntPtr> _haptic = new List<IntPtr>();
 
-	private SDL.SDL_Event[] events = new SDL.SDL_Event[512];
+	private readonly SDL.SDL_Event[] _events = new SDL.SDL_Event[512];
 
 	public SDL2InputContext(SDL2Platform platform)
 	{
-		_platform = platform;
-		_windowHandle = ((SDL2WindowContext)_platform.Window).WindowHandle;
 		Trace.WriteLine("Initialising SDL2 joystick");
-		if (SDL.SDL_InitSubSystem(512u) != 0)
+		if (SDL.SDL_InitSubSystem(SDL.SDL_INIT_JOYSTICK) != 0)
 		{
 			throw SDL2Exception.FromError("Unable to initialise SDL2 joystick subsystem.");
 		}
 		Trace.WriteLine("Initialising SDL2 game controller");
-		if (SDL.SDL_InitSubSystem(8192u) != 0)
+		if (SDL.SDL_InitSubSystem(SDL.SDL_INIT_GAMECONTROLLER) != 0)
 		{
 			throw SDL2Exception.FromError("Unable to initialise SDL2 game controller subsystem.");
 		}
 		Trace.WriteLine("Initialising SDL2 haptic");
-		if (SDL.SDL_InitSubSystem(4096u) != 0)
+		if (SDL.SDL_InitSubSystem(SDL.SDL_INIT_HAPTIC) != 0)
 		{
 			throw SDL2Exception.FromError("Unable to initialise SDL2 haptic subsystem.");
 		}
@@ -48,11 +51,11 @@ public class SDL2InputContext : InputContext, IDisposable
 	public void Dispose()
 	{
 		Trace.WriteLine("Quitting SDL2 haptic");
-		SDL.SDL_QuitSubSystem(4096u);
+		SDL.SDL_QuitSubSystem(SDL.SDL_INIT_HAPTIC);
 		Trace.WriteLine("Quitting SDL2 game controller");
-		SDL.SDL_QuitSubSystem(8192u);
+		SDL.SDL_QuitSubSystem(SDL.SDL_INIT_GAMECONTROLLER);
 		Trace.WriteLine("Quitting SDL2 joystick");
-		SDL.SDL_QuitSubSystem(512u);
+		SDL.SDL_QuitSubSystem(SDL.SDL_INIT_JOYSTICK);
 	}
 
 	private void FindGameControllers()
@@ -64,134 +67,125 @@ public class SDL2InputContext : InputContext, IDisposable
 			{
 				continue;
 			}
-			IntPtr intPtr = SDL.SDL_GameControllerOpen(i);
-			if (intPtr != IntPtr.Zero)
+			IntPtr controller = SDL.SDL_GameControllerOpen(i);
+			if (controller == IntPtr.Zero)
 			{
-				IntPtr zero = IntPtr.Zero;
-				IntPtr joystick = SDL.SDL_GameControllerGetJoystick(intPtr);
-				_gameControllers.Add(intPtr);
-				zero = SDL.SDL_HapticOpenFromJoystick(joystick);
-				if (zero != IntPtr.Zero && SDL.SDL_HapticRumbleInit(zero) != 0)
-				{
-					zero = IntPtr.Zero;
-				}
-				_haptic.Add(zero);
+				continue;
 			}
+			_gameControllers.Add(controller);
+			IntPtr haptic = SDL.SDL_HapticOpenFromJoystick(SDL.SDL_GameControllerGetJoystick(controller));
+			if (haptic != IntPtr.Zero && SDL.SDL_HapticRumbleInit(haptic) != 0)
+			{
+				haptic = IntPtr.Zero;
+			}
+			_haptic.Add(haptic);
 		}
 	}
 
 	private void VibrateController(int index, double left, double right, int duration)
 	{
-		if (_haptic.Count > index)
+		// SDL2 rumble has one strength, so use the mean of the two motors
+		if (index < _haptic.Count && _haptic[index] != IntPtr.Zero)
 		{
-			IntPtr intPtr = _haptic[index];
-			if (!(intPtr == IntPtr.Zero))
-			{
-				SDL.SDL_HapticRumblePlay(intPtr, (float)((left + right) / 2.0), (uint)duration);
-			}
+			SDL.SDL_HapticRumblePlay(_haptic[index], (float)((left + right) / 2.0), (uint)duration);
 		}
 	}
 
 	public unsafe override void UpdateCurrentState()
 	{
-		int num = 0;
+		int wheel = 0;
 		TextInput = null;
 		SDL.SDL_StartTextInput();
-		int num2 = SDL.SDL_PeepEvents(events, events.Length, SDL.SDL_eventaction.SDL_PEEKEVENT, SDL.SDL_EventType.SDL_FIRSTEVENT, SDL.SDL_EventType.SDL_LASTEVENT);
-		SDL.SDL_Event _event;
-		for (int i = 0; i < num2; i++)
+		// SDL2WindowContext.Update pumped and peeked the events of this frame. Read them, then remove them all.
+		int eventCount = SDL.SDL_PeepEvents(_events, _events.Length, SDL.SDL_eventaction.SDL_PEEKEVENT, SDL.SDL_EventType.SDL_FIRSTEVENT, SDL.SDL_EventType.SDL_LASTEVENT);
+		for (int i = 0; i < eventCount; i++)
 		{
-			_event = events[i];
-			switch (_event.type)
+			SDL.SDL_Event e = _events[i];
+			switch (e.type)
 			{
 				case SDL.SDL_EventType.SDL_MOUSEWHEEL:
-					num = _event.wheel.y;
+					wheel = e.wheel.y;
 					break;
 				case SDL.SDL_EventType.SDL_TEXTINPUT:
-					{
-						IntPtr ptr = (IntPtr)_event.text.text;
-						byte[] array = new byte[32];
-						int j;
-						for (j = 0; j < 32 && (array[j] = Marshal.ReadByte(ptr, j)) != 0; j++)
-						{
-						}
-						TextInput = Encoding.UTF8.GetString(array, 0, j);
-						break;
-					}
+					// A null-terminated UTF-8 string in a 32-byte buffer
+					TextInput = Marshal.PtrToStringUTF8((IntPtr)e.text.text);
+					break;
 			}
 		}
-		while (SDL.SDL_PollEvent(out _event) != 0)
+		while (SDL.SDL_PollEvent(out _) != 0)
 		{
 		}
-		IntPtr ptr2 = SDL.SDL_GetKeyboardState(out var numkeys);
-		bool[] array2 = new bool[numkeys];
-		for (int k = 0; k < numkeys; k++)
+
+		IntPtr keyStates = SDL.SDL_GetKeyboardState(out int keyCount);
+		bool[] keys = new bool[keyCount];
+		for (int i = 0; i < keyCount; i++)
 		{
-			array2[k] = Marshal.ReadByte(ptr2, k) != 0;
+			keys[i] = Marshal.ReadByte(keyStates, i) != 0;
 		}
-		uint num3 = SDL.SDL_GetMouseState(out var x, out var y);
-		SDL.SDL_GetWindowSize(_windowHandle, out var _, out var _);
+		uint buttons = SDL.SDL_GetMouseState(out int x, out int y);
 		MouseState mouseState = new MouseState
 		{
 			X = x,
 			Y = y,
-			Left = ((num3 & SDL.SDL_BUTTON_LMASK) != 0),
-			Middle = ((num3 & SDL.SDL_BUTTON_MMASK) != 0),
-			Right = ((num3 & SDL.SDL_BUTTON_RMASK) != 0),
-			Wheel = num
+			Left = (buttons & SDL.SDL_BUTTON_LMASK) != 0,
+			Middle = (buttons & SDL.SDL_BUTTON_MMASK) != 0,
+			Right = (buttons & SDL.SDL_BUTTON_RMASK) != 0,
+			Wheel = wheel
 		};
-		KeyboardState keyboardState = new KeyboardState(array2);
-		GamePadInputState[] array3 = Enumerable.Range(0, 4).Select((Func<int, GamePadInputState>)((int num6) => default)).ToArray();
-		for (int num4 = 0; num4 < _gameControllers.Count; num4++)
+
+		GamePadInputState[] gamePads = new GamePadInputState[MaxGamePads];
+		for (int i = 0; i < Math.Min(_gameControllers.Count, MaxGamePads); i++)
 		{
-			IntPtr intPtr = _gameControllers[num4];
-			SDL.SDL_GameControllerGetJoystick(intPtr);
-			GamePadInputState gamePadInputState = array3[num4];
-			double minTolerance = 0.2;
-			double maxTolerance = 0.75;
-			gamePadInputState.South = IsGameControllerButtonDown(intPtr, SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_A);
-			gamePadInputState.East = IsGameControllerButtonDown(intPtr, SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_B);
-			gamePadInputState.West = IsGameControllerButtonDown(intPtr, SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_X);
-			gamePadInputState.North = IsGameControllerButtonDown(intPtr, SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_Y);
-			gamePadInputState.Start = IsGameControllerButtonDown(intPtr, SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_START);
-			gamePadInputState.Select = IsGameControllerButtonDown(intPtr, SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_BACK);
-			gamePadInputState.LeftBumper = IsGameControllerButtonDown(intPtr, SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
-			gamePadInputState.RightBumper = IsGameControllerButtonDown(intPtr, SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_RIGHTSHOULDER);
-			gamePadInputState.LeftAxisButton = IsGameControllerButtonDown(intPtr, SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_LEFTSTICK);
-			gamePadInputState.RightAxisButton = IsGameControllerButtonDown(intPtr, SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_RIGHTSTICK);
-			Vector2i pOV = default;
-			if (IsGameControllerButtonDown(intPtr, SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_DPAD_LEFT))
-			{
-				pOV.X = -1;
-			}
-			if (IsGameControllerButtonDown(intPtr, SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_DPAD_RIGHT))
-			{
-				pOV.X = 1;
-			}
-			if (IsGameControllerButtonDown(intPtr, SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_DPAD_UP))
-			{
-				pOV.Y = -1;
-			}
-			if (IsGameControllerButtonDown(intPtr, SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_DPAD_DOWN))
-			{
-				pOV.Y = 1;
-			}
-			gamePadInputState.POV = pOV;
-			gamePadInputState.LeftAxis = GetGameControllerAxis(intPtr, SDL.SDL_GameControllerAxis.SDL_CONTROLLER_AXIS_LEFTX, SDL.SDL_GameControllerAxis.SDL_CONTROLLER_AXIS_LEFTY, minTolerance, maxTolerance);
-			gamePadInputState.RightAxis = GetGameControllerAxis(intPtr, SDL.SDL_GameControllerAxis.SDL_CONTROLLER_AXIS_RIGHTX, SDL.SDL_GameControllerAxis.SDL_CONTROLLER_AXIS_RIGHTY, minTolerance, maxTolerance);
-			gamePadInputState.LeftTrigger = GetGameControllerAxis(intPtr, SDL.SDL_GameControllerAxis.SDL_CONTROLLER_AXIS_TRIGGERLEFT, minTolerance, maxTolerance);
-			gamePadInputState.RightTrigger = GetGameControllerAxis(intPtr, SDL.SDL_GameControllerAxis.SDL_CONTROLLER_AXIS_TRIGGERRIGHT, minTolerance, maxTolerance);
-			array3[num4] = gamePadInputState;
+			gamePads[i] = ReadGamePad(_gameControllers[i]);
 		}
-		CurrentState = new InputState(mouseState, keyboardState, array3);
-		GamePadOutputState[] gamePad = OutputState.GamePad;
-		if (IsVibrationEnabled && OutputState.GamePad != null)
+		CurrentState = new InputState(mouseState, new KeyboardState(keys), gamePads);
+
+		GamePadOutputState[] outputs = OutputState.GamePad;
+		if (IsVibrationEnabled && outputs != null)
 		{
-			for (int num5 = 0; num5 < gamePad.Length; num5++)
+			for (int i = 0; i < outputs.Length; i++)
 			{
-				VibrateController(num5, gamePad[num5].LeftVibration, gamePad[num5].RightVibration, 4000);
+				VibrateController(i, outputs[i].LeftVibration, outputs[i].RightVibration, VibrationDurationMs);
 			}
 		}
+	}
+
+	private GamePadInputState ReadGamePad(IntPtr controller)
+	{
+		GamePadInputState state = default;
+		state.South = IsGameControllerButtonDown(controller, SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_A);
+		state.East = IsGameControllerButtonDown(controller, SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_B);
+		state.West = IsGameControllerButtonDown(controller, SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_X);
+		state.North = IsGameControllerButtonDown(controller, SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_Y);
+		state.Start = IsGameControllerButtonDown(controller, SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_START);
+		state.Select = IsGameControllerButtonDown(controller, SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_BACK);
+		state.LeftBumper = IsGameControllerButtonDown(controller, SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
+		state.RightBumper = IsGameControllerButtonDown(controller, SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_RIGHTSHOULDER);
+		state.LeftAxisButton = IsGameControllerButtonDown(controller, SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_LEFTSTICK);
+		state.RightAxisButton = IsGameControllerButtonDown(controller, SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_RIGHTSTICK);
+		Vector2i dpad = default;
+		if (IsGameControllerButtonDown(controller, SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_DPAD_LEFT))
+		{
+			dpad.X = -1;
+		}
+		if (IsGameControllerButtonDown(controller, SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_DPAD_RIGHT))
+		{
+			dpad.X = 1;
+		}
+		if (IsGameControllerButtonDown(controller, SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_DPAD_UP))
+		{
+			dpad.Y = -1;
+		}
+		if (IsGameControllerButtonDown(controller, SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_DPAD_DOWN))
+		{
+			dpad.Y = 1;
+		}
+		state.POV = dpad;
+		state.LeftAxis = GetGameControllerAxis(controller, SDL.SDL_GameControllerAxis.SDL_CONTROLLER_AXIS_LEFTX, SDL.SDL_GameControllerAxis.SDL_CONTROLLER_AXIS_LEFTY);
+		state.RightAxis = GetGameControllerAxis(controller, SDL.SDL_GameControllerAxis.SDL_CONTROLLER_AXIS_RIGHTX, SDL.SDL_GameControllerAxis.SDL_CONTROLLER_AXIS_RIGHTY);
+		state.LeftTrigger = GetGameControllerAxis(controller, SDL.SDL_GameControllerAxis.SDL_CONTROLLER_AXIS_TRIGGERLEFT);
+		state.RightTrigger = GetGameControllerAxis(controller, SDL.SDL_GameControllerAxis.SDL_CONTROLLER_AXIS_TRIGGERRIGHT);
+		return state;
 	}
 
 	private bool IsGameControllerButtonDown(IntPtr controller, SDL.SDL_GameControllerButton button)
@@ -199,24 +193,25 @@ public class SDL2InputContext : InputContext, IDisposable
 		return SDL.SDL_GameControllerGetButton(controller, button) != 0;
 	}
 
-	private Vector2 GetGameControllerAxis(IntPtr controller, SDL.SDL_GameControllerAxis x, SDL.SDL_GameControllerAxis y, double minTolerance, double maxTolerance)
+	private Vector2 GetGameControllerAxis(IntPtr controller, SDL.SDL_GameControllerAxis x, SDL.SDL_GameControllerAxis y)
 	{
-		return new Vector2(GetGameControllerAxis(controller, x, minTolerance, maxTolerance), GetGameControllerAxis(controller, y, minTolerance, maxTolerance));
+		return new Vector2(GetGameControllerAxis(controller, x), GetGameControllerAxis(controller, y));
 	}
 
-	private double GetGameControllerAxis(IntPtr controller, SDL.SDL_GameControllerAxis axis, double minTolerance, double maxTolerance)
+	/// <summary>The axis position from -1 to 1, with the dead zone removed and the range in between rescaled.</summary>
+	private double GetGameControllerAxis(IntPtr controller, SDL.SDL_GameControllerAxis axis)
 	{
 		double value = SDL.SDL_GameControllerGetAxis(controller, axis) / 32767.0;
-		double num = Math.Abs(value);
-		if (num < minTolerance)
+		double magnitude = Math.Abs(value);
+		if (magnitude < AxisMinTolerance)
 		{
 			return 0.0;
 		}
-		if (num > maxTolerance)
+		if (magnitude > AxisMaxTolerance)
 		{
-			return 1.0 * Math.Sign(value);
+			return Math.Sign(value);
 		}
-		return (num - minTolerance) / (maxTolerance - minTolerance) * Math.Sign(value);
+		return (magnitude - AxisMinTolerance) / (AxisMaxTolerance - AxisMinTolerance) * Math.Sign(value);
 	}
 
 	public override char GetKeyCode(int scancode)

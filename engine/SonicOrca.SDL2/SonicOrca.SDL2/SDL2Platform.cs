@@ -9,6 +9,7 @@ using SonicOrca.Input;
 
 namespace SonicOrca.SDL2;
 
+/// <summary>The desktop platform: window, input and audio through SDL2. Use <see cref="Instance"/>.</summary>
 public class SDL2Platform : IPlatform, IDisposable
 {
 	private static readonly SDL2Platform _singleton = new SDL2Platform();
@@ -76,25 +77,16 @@ public class SDL2Platform : IPlatform, IDisposable
 		_initialised = false;
 		Trace.WriteLine("Disposing SDL2 platform");
 		Trace.Indent();
-		if (_audio != null)
-		{
-			_audio.Dispose();
-		}
-		if (_input != null)
-		{
-			_input.Dispose();
-		}
-		if (_window != null)
-		{
-			_window.Dispose();
-		}
+		_audio?.Dispose();
+		_input?.Dispose();
+		_window?.Dispose();
 		Trace.Unindent();
 	}
 
 	public Version GetVersion()
 	{
-		SDL.SDL_VERSION(out var x);
-		return new Version(x.major, x.minor, x.patch);
+		SDL.SDL_VERSION(out SDL.SDL_version version);
+		return new Version(version.major, version.minor, version.patch);
 	}
 
 	public Version GetOpenGLVersion()
@@ -103,8 +95,8 @@ public class SDL2Platform : IPlatform, IDisposable
 		{
 			throw new InvalidOperationException("Platform not initialised.");
 		}
-		GL.GetInteger(GetPName.MajorVersion, out var data);
-		GL.GetInteger(GetPName.MinorVersion, out var data2);
-		return new Version(data, data2);
+		GL.GetInteger(GetPName.MajorVersion, out int major);
+		GL.GetInteger(GetPName.MinorVersion, out int minor);
+		return new Version(major, minor);
 	}
 }
