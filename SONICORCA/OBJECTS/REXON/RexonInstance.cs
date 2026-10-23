@@ -19,6 +19,11 @@ using SonicOrca.Resources;
 #nullable disable
 namespace SONICORCA.OBJECTS.REXON;
 
+/// <summary>
+/// Rexon, a badnik that swims in lava. When a character comes near, it lifts a neck of five segments with a head on
+/// top. The head fires projectiles at the character. When the head is destroyed, the neck segments fall away.
+/// The body itself is a solid platform.
+/// </summary>
 public class RexonInstance : ActiveObject
 {
 	private const int AnimationBody = 0;
@@ -28,6 +33,15 @@ public class RexonInstance : ActiveObject
 	private const int AnimationMouthFire = 4;
 	private const int AnimationHeadFire = 5;
 	private const int AnimationProjectile = 6;
+
+	/// <summary>The number of neck segments. The last segment is the head.</summary>
+	private const int SegmentCount = 5;
+	private const int HeadIndex = SegmentCount - 1;
+
+	private const int TurnTicks = 128;
+	private const int DetectDistanceX = 640;
+	private const double SwimSpeed = 0.5;
+
 	private AnimationGroup _animationGroup;
 	private AnimationInstance _animationBody;
 	private AnimationInstance _animationNeck;
@@ -37,24 +51,24 @@ public class RexonInstance : ActiveObject
 	private bool _headLifted;
 	private bool _facingRight;
 	private int _turnTicksRemaining;
-	private readonly RexonInstance.Neck[] _necks = new RexonInstance.Neck[5];
+	private readonly Neck[] _necks = new Neck[SegmentCount];
 	private bool _headIsAlive;
 
-	private RexonInstance.HeadBack Head => (RexonInstance.HeadBack)_necks[4];
+	private HeadBack Head => (HeadBack)_necks[HeadIndex];
 
-	public RexonInstance() => DesignBounds = new Rectanglei(-64, -32, 128 /*0x80*/, 64 /*0x40*/);
+	public RexonInstance() => DesignBounds = new Rectanglei(-64, -32, 128, 64);
 
 	protected override void OnStart()
 	{
 		base.OnStart();
-		_animationGroup = ResourceTree.GetLoadedResource<AnimationGroup>(Type, "/ANIGROUP");
+		_animationGroup = ResourceTree.GetLoadedResource<AnimationGroup>(Type, RexonType.AnimationGroupResourceKey);
 		_animationBody = new AnimationInstance(_animationGroup);
-		_animationNeck = new AnimationInstance(_animationGroup, 1);
-		_animationMouth = new AnimationInstance(_animationGroup, 2);
-		_animationHead = new AnimationInstance(_animationGroup, 3);
-		CollisionVectors = CollisionVector.FromRectangle(this, new Rectanglei(-64, -32, 128 /*0x80*/, 64 /*0x40*/));
-		_velocity = new Vector2(-0.5, 0.0);
-		_turnTicksRemaining = 128 /*0x80*/;
+		_animationNeck = new AnimationInstance(_animationGroup, AnimationNeck);
+		_animationMouth = new AnimationInstance(_animationGroup, AnimationMouth);
+		_animationHead = new AnimationInstance(_animationGroup, AnimationHead);
+		CollisionVectors = CollisionVector.FromRectangle(this, new Rectanglei(-64, -32, 128, 64));
+		_velocity = new Vector2(-SwimSpeed, 0.0);
+		_turnTicksRemaining = TurnTicks;
 	}
 
 	protected override void OnUpdate()
@@ -66,12 +80,13 @@ public class RexonInstance : ActiveObject
 		_headIsAlive = !Head.Finished;
 	}
 
+	/// <summary>Swims left and right until a character comes near, then lifts the neck and head.</summary>
 	private void WaitForCharacter()
 	{
-		ICharacter closestCharacterTo = Level.ObjectManager.GetClosestCharacterTo((Vector2)Position);
-		if (closestCharacterTo != null && Math.Abs(Position.X - closestCharacterTo.Position.X) < 640)
+		ICharacter closestCharacter = Level.ObjectManager.GetClosestCharacterTo((Vector2)Position);
+		if (closestCharacter != null && Math.Abs(Position.X - closestCharacter.Position.X) < DetectDistanceX)
 		{
-			_facingRight = closestCharacterTo.Position.X > Position.X;
+			_facingRight = closestCharacter.Position.X > Position.X;
 			_velocity = new Vector2();
 			CreateNeckAndHead();
 		}
@@ -81,28 +96,29 @@ public class RexonInstance : ActiveObject
 			{
 				_velocity.X *= -1.0;
 				_facingRight = !_facingRight;
-				_turnTicksRemaining = 128 /*0x80*/;
+				_turnTicksRemaining = TurnTicks;
 			}
 			PositionPrecise = PositionPrecise + _velocity;
 		}
 	}
 
+	/// <summary>Creates the head first, then the neck segments down to the body, and links each one to the next.</summary>
 	private void CreateNeckAndHead()
 	{
 		_headIsAlive = true;
 		_headLifted = true;
-		RexonInstance.Neck neck1 = null;
-		for (int index = 4; index >= 0; --index)
+		Neck upperNeck = null;
+		for (int index = HeadIndex; index >= 0; --index)
 		{
-			RexonInstance.Neck neck2 = index == 4 ? Level.ObjectManager.AddSubObject<RexonInstance.HeadBack>(this) : Level.ObjectManager.AddSubObject<RexonInstance.Neck>(this);
-			_necks[index] = neck2;
-			neck2.Prepare(index);
-			if (neck1 != null)
+			Neck neck = index == HeadIndex ? Level.ObjectManager.AddSubObject<HeadBack>(this) : Level.ObjectManager.AddSubObject<Neck>(this);
+			_necks[index] = neck;
+			neck.Prepare(index);
+			if (upperNeck != null)
 			{
-				neck2.NextNeck = neck1;
-				neck1.PreviousNeck = neck2;
+				neck.NextNeck = upperNeck;
+				upperNeck.PreviousNeck = neck;
 			}
-			neck1 = neck2;
+			upperNeck = neck;
 		}
 	}
 
@@ -110,10 +126,11 @@ public class RexonInstance : ActiveObject
 	{
 		if (_headIsAlive)
 		{
-			if (Head.NextProjectileTicksRemaining < _animationGroup[4].Duration - 4)
-				_animationMouth.Index = 4;
-			if (Head.NextProjectileTicksRemaining < _animationGroup[5].Duration - 4)
-				_animationHead.Index = 5;
+			// Open the mouth a short time before the head fires.
+			if (Head.NextProjectileTicksRemaining < _animationGroup[AnimationMouthFire].Duration - 4)
+				_animationMouth.Index = AnimationMouthFire;
+			if (Head.NextProjectileTicksRemaining < _animationGroup[AnimationHeadFire].Duration - 4)
+				_animationHead.Index = AnimationHeadFire;
 		}
 		_animationBody.Animate();
 		_animationNeck.Animate();
@@ -126,60 +143,74 @@ public class RexonInstance : ActiveObject
 		renderer.GetObjectRenderer().Render(_animationBody, _facingRight);
 	}
 
+	/// <summary>
+	/// One segment of the Rexon neck. Each segment rises out of the body in turn, then swings on an arc above
+	/// the segment below it. Segment 0 is next to the body.
+	/// </summary>
 	private class Neck : Badnik
 	{
-		private static readonly IReadOnlyList<int> NeckRaiseTicks = new int[6]
+		/// <summary>The oscillation cycle length in ticks.</summary>
+		private const int OscillationPeriod = 128;
+		private const double DropGravity = 0.875;
+
+		private static readonly IReadOnlyList<int> NeckRaiseTicks = new int[]
 		{
-	  30,
-	  24,
-	  18,
-	  12,
-	  6,
-	  0
+			30,
+			24,
+			18,
+			12,
+			6,
+			0
 		};
-		private static readonly IReadOnlyList<int> UnknownA = new int[5]
+
+		/// <summary>The start phase of each segment in the oscillation cycle, in units of 4 ticks.</summary>
+		private static readonly IReadOnlyList<int> OscillationStartPhases = new int[]
 		{
-	  0,
-	  36,
-	  32 /*0x20*/,
-	  28,
-	  26
+			0,
+			36,
+			32,
+			28,
+			26
 		};
-		private static readonly IReadOnlyList<double> DeathXVelocities = new double[5]
+
+		private static readonly IReadOnlyList<double> DeathXVelocities = new double[]
 		{
-	  2.0,
-	  -4.0,
-	  4.0,
-	  -2.0,
-	  2.0
+			2.0,
+			-4.0,
+			4.0,
+			-2.0,
+			2.0
 		};
+
 		private int _index;
 		private Vector2 _velocity;
 		private int _oscillation;
 
 		public RexonInstance Rexon => (RexonInstance)ParentObject;
 
-		public RexonInstance.Neck PreviousNeck { get; set; }
+		/// <summary>The segment below this one, nearer to the body.</summary>
+		public Neck PreviousNeck { get; set; }
 
-		public RexonInstance.Neck NextNeck { get; set; }
+		/// <summary>The segment above this one, nearer to the head.</summary>
+		public Neck NextNeck { get; set; }
 
-		protected RexonInstance.Neck.NeckState State { get; set; }
+		protected NeckState State { get; set; }
 
 		protected int StateTicksRemaining { get; set; }
 
 		public virtual void Prepare(int index)
 		{
 			_index = index;
-			StateTicksRemaining = RexonInstance.Neck.NeckRaiseTicks[_index];
-			_oscillation += _index * 16 /*0x10*/;
-			Vector2i vector2i = new Vector2i(-80, 64 /*0x40*/);
+			StateTicksRemaining = NeckRaiseTicks[_index];
+			_oscillation += _index * 16;
+			Vector2i offset = new Vector2i(-80, 64);
 			if (Rexon._facingRight)
-				vector2i.X *= -1;
-			Position = Position + vector2i;
+				offset.X *= -1;
+			Position = Position + offset;
 			Priority = ParentObject.Priority + 1 + _index;
-			CollisionRectangles = new CollisionRectangle[1]
+			CollisionRectangles = new CollisionRectangle[]
 			{
-		new CollisionRectangle( this, 0, -16, -16, 32 /*0x20*/, 32 /*0x20*/)
+				new CollisionRectangle(this, 0, -16, -16, 32, 32)
 			};
 			CanBeDestoryed = false;
 		}
@@ -189,25 +220,25 @@ public class RexonInstance : ActiveObject
 			base.OnUpdate();
 			switch (State)
 			{
-				case RexonInstance.Neck.NeckState.PreRise:
+				case NeckState.PreRise:
 					CheckHeadIsAlive();
 					if (StateTicksRemaining-- >= 0)
 						break;
 					StartRaise();
 					break;
-				case RexonInstance.Neck.NeckState.Rise:
+				case NeckState.Rise:
 					CheckHeadIsAlive();
 					_velocity.X += 0.25;
 					if (StateTicksRemaining-- < 0)
 						StartNormalState();
 					PositionPrecise = PositionPrecise + _velocity;
 					break;
-				case RexonInstance.Neck.NeckState.Oscillate:
+				case NeckState.Oscillate:
 					CheckHeadIsAlive();
 					Oscillate();
 					break;
-				case RexonInstance.Neck.NeckState.Drop:
-					_velocity.Y += 0.875;
+				case NeckState.Drop:
+					_velocity.Y += DropGravity;
 					PositionPrecise = PositionPrecise + _velocity;
 					break;
 			}
@@ -215,48 +246,52 @@ public class RexonInstance : ActiveObject
 
 		private void StartRaise()
 		{
-			State = RexonInstance.Neck.NeckState.Rise;
+			State = NeckState.Rise;
 			_velocity = new Vector2(-0.45, -8.0);
-			StateTicksRemaining = RexonInstance.Neck.NeckRaiseTicks[4 - _index];
+			StateTicksRemaining = NeckRaiseTicks[HeadIndex - _index];
 		}
 
 		private void StartNormalState()
 		{
-			State = RexonInstance.Neck.NeckState.Oscillate;
+			State = NeckState.Oscillate;
 			_velocity = new Vector2();
-			StateTicksRemaining = 32 /*0x20*/;
-			_oscillation = RexonInstance.Neck.UnknownA[_index] * 4;
+			StateTicksRemaining = 32;
+			_oscillation = OscillationStartPhases[_index] * 4;
 		}
 
+		/// <summary>Starts to drop this segment when the head is destroyed.</summary>
 		private void CheckHeadIsAlive()
 		{
 			if (Rexon._headIsAlive)
 				return;
-			State = RexonInstance.Neck.NeckState.Drop;
-			_velocity.X = RexonInstance.Neck.DeathXVelocities[_index];
+			State = NeckState.Drop;
+			_velocity.X = DeathXVelocities[_index];
 		}
 
+		/// <summary>Moves this segment on an arc above the segment below it.</summary>
 		private void Oscillate()
 		{
-			_oscillation = (_oscillation + 1) % 128 /*0x80*/;
-			double num = _oscillation / 128.0 * (2.0 * Math.PI);
-			int x = (int)(Math.Cos(num) * 24.0);
-			int y = (int)(-Math.Abs(Math.Sin(num)) * 8.0) - 52;
-			if (this is RexonInstance.HeadBack)
-				y += 16 /*0x10*/;
+			_oscillation = (_oscillation + 1) % OscillationPeriod;
+			double angle = _oscillation / 128.0 * (2.0 * Math.PI);
+			int x = (int)(Math.Cos(angle) * 24.0);
+			int y = (int)(-Math.Abs(Math.Sin(angle)) * 8.0) - 52;
+			if (this is HeadBack)
+				y += 16;
 			if (PreviousNeck != null)
 				Position = PreviousNeck.Position + new Vector2i(x, y);
-			if (_index != 4)
+			if (_index != HeadIndex)
 				return;
 			Position = Position + new Vector2i(Rexon._facingRight ? 18 : -18, 0);
 		}
 
 		protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 		{
+			// The neck animation has one frame for each step of the oscillation. Show the frame that points to the
+			// next segment.
 			IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
 			Animation animation = Rexon._animationNeck.Animation;
-			int count = animation.Frames.Count;
-			Animation.Frame frame = animation.Frames[MathX.Clamp(0, (NextNeck._oscillation + (Rexon._facingRight ? 44 : 108)) % 128 /*0x80*/, count - 1)];
+			int frameCount = animation.Frames.Count;
+			Animation.Frame frame = animation.Frames[MathX.Clamp(0, (NextNeck._oscillation + (Rexon._facingRight ? 44 : 108)) % OscillationPeriod, frameCount - 1)];
 			Rectanglei source = frame.Source;
 			objectRenderer.Texture = Rexon._animationNeck.AnimationGroup.Textures[frame.TextureIndex];
 			objectRenderer.Render((Rectangle)source, (Vector2)new Vector2i(), Rexon._facingRight);
@@ -271,29 +306,33 @@ public class RexonInstance : ActiveObject
 		}
 	}
 
-	private class HeadBack : RexonInstance.Neck
+	/// <summary>
+	/// The top segment of the neck: the back of the head, with the mouth. Characters can destroy it, and it fires
+	/// projectiles.
+	/// </summary>
+	private class HeadBack : Neck
 	{
-		private RexonInstance.HeadFront _headFront;
+		private HeadFront _headFront;
 
 		public int NextProjectileTicksRemaining
 		{
 			get
 			{
-				return State != RexonInstance.Neck.NeckState.Oscillate ? sbyte.MaxValue : StateTicksRemaining;
+				return State != NeckState.Oscillate ? sbyte.MaxValue : StateTicksRemaining;
 			}
 		}
 
 		public override void Prepare(int index)
 		{
 			base.Prepare(index);
-			_headFront = Level.ObjectManager.AddSubObject<RexonInstance.HeadFront>(this);
+			_headFront = Level.ObjectManager.AddSubObject<HeadFront>(this);
 			CanBeDestoryed = true;
 		}
 
 		protected override void OnUpdate()
 		{
 			base.OnUpdate();
-			if (State == RexonInstance.Neck.NeckState.Oscillate)
+			if (State == NeckState.Oscillate)
 			{
 				if (StateTicksRemaining-- < 0)
 					FireProjectile();
@@ -306,8 +345,8 @@ public class RexonInstance : ActiveObject
 		private void FireProjectile()
 		{
 			StateTicksRemaining = sbyte.MaxValue;
-			RexonInstance.Projectile projectile = Level.ObjectManager.AddSubObject<RexonInstance.Projectile>(ParentObject);
-			projectile.Position = Position + new Vector2i(Rexon._facingRight ? 16 /*0x10*/ : -16, 4);
+			Projectile projectile = Level.ObjectManager.AddSubObject<Projectile>(ParentObject);
+			projectile.Position = Position + new Vector2i(Rexon._facingRight ? 16 : -16, 4);
 			projectile.Velocity = new Vector2(4 * (Rexon._facingRight ? 1 : -1), 2.0);
 		}
 
@@ -317,14 +356,15 @@ public class RexonInstance : ActiveObject
 		}
 	}
 
+	/// <summary>The front of the Rexon head. It draws above the other objects and follows the head back.</summary>
 	private class HeadFront : ActiveObject
 	{
-		public RexonInstance.Neck Parent => ParentObject as RexonInstance.Neck;
+		public Neck Parent => ParentObject as Neck;
 
 		protected override void OnStart()
 		{
 			LockLifetime = true;
-			Priority = 512 /*0x0200*/;
+			Priority = 512;
 		}
 
 		protected override void OnUpdate()
@@ -336,11 +376,12 @@ public class RexonInstance : ActiveObject
 
 		protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 		{
-			RexonInstance parentObject = ParentObject.ParentObject as RexonInstance;
-			renderer.GetObjectRenderer().Render(parentObject._animationHead, parentObject._facingRight);
+			RexonInstance rexon = ParentObject.ParentObject as RexonInstance;
+			renderer.GetObjectRenderer().Render(rexon._animationHead, rexon._facingRight);
 		}
 	}
 
+	/// <summary>A projectile that the Rexon head fires. It moves in a straight line and hurts characters.</summary>
 	private class Projectile : Enemy
 	{
 		private AnimationInstance _animation;
@@ -350,12 +391,12 @@ public class RexonInstance : ActiveObject
 		protected override void OnStart()
 		{
 			base.OnStart();
-			_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"), 6);
-			CollisionRectangles = new CollisionRectangle[1]
+			_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath(RexonType.AnimationGroupResourceKey), AnimationProjectile);
+			CollisionRectangles = new CollisionRectangle[]
 			{
-		new CollisionRectangle( this, 0, -25, -25, 50, 50)
+				new CollisionRectangle(this, 0, -25, -25, 50, 50)
 			};
-			Priority += 32 /*0x20*/;
+			Priority += 32;
 		}
 
 		protected override void OnUpdate()

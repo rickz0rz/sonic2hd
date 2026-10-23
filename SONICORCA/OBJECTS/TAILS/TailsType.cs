@@ -10,6 +10,7 @@ using SonicOrca.Core.Objects.Metadata;
 #nullable disable
 namespace SONICORCA.OBJECTS.TAILS;
 
+/// <summary>The object type for Tails, a playable character that can fly.</summary>
 [SonicOrca.Core.Objects.Metadata.Name("Tails")]
 [Description("Tails from Sonic 2")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Character)]

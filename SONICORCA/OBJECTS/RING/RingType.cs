@@ -12,6 +12,9 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.RING;
 
+/// <summary>
+/// The object type for a ring. It owns one animation that all placed rings share, so that they spin together.
+/// </summary>
 [SonicOrca.Core.Objects.Metadata.Name("Ring")]
 [Description("Ring from Sonic 1")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.Ring)]
@@ -35,7 +38,7 @@ public class RingType : ObjectType
 
 	protected override void OnStart()
 	{
-		AnimationInstance = new AnimationInstance(Level.GameContext.ResourceTree, this.GetAbsolutePath("/ANIGROUP"));
+		AnimationInstance = new AnimationInstance(Level.GameContext.ResourceTree, this.GetAbsolutePath(AnimationGroupResourceKey));
 	}
 
 	protected override void OnAnimate() => AnimationInstance.Animate();

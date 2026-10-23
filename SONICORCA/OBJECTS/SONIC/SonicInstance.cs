@@ -13,13 +13,23 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.SONIC;
 
+/// <summary>
+/// Sonic, a playable character. The Character base class has the movement. This class sets the sprites, draws the
+/// body with the character shader, and plays the peel-out sounds in the winning pose.
+/// </summary>
 public class SonicInstance : Character
 {
+	/// <summary>The Character animation index of the tumble (somersault) animation.</summary>
+	private const int AnimationTumble = 16;
+
+	/// <summary>The winning tick on which the peel-out release sound plays.</summary>
+	private const int PeeloutReleaseTick = 70;
+
 	private int _winningTicks;
 
 	protected override void OnStart()
 	{
-		AnimationGroupResourceKey = Type.GetAbsolutePath("/ANIGROUP");
+		AnimationGroupResourceKey = Type.GetAbsolutePath(SonicType.AnimationGroupResourceKey);
 		base.OnStart();
 	}
 
@@ -29,9 +39,9 @@ public class SonicInstance : Character
 		if (IsWinning)
 		{
 			if (_winningTicks == 0)
-				Level.SoundManager.PlaySound(this, "SONICORCA/SOUND/PEELOUT/CHARGE");
-			else if (_winningTicks == 70)
-				Level.SoundManager.PlaySound(this, "SONICORCA/SOUND/PEELOUT/RELEASE");
+				Level.SoundManager.PlaySound(this, SonicType.PeeloutChargeSoundResourceKey);
+			else if (_winningTicks == PeeloutReleaseTick)
+				Level.SoundManager.PlaySound(this, SonicType.PeeloutReleaseSoundResourceKey);
 			++_winningTicks;
 		}
 		else
@@ -40,34 +50,30 @@ public class SonicInstance : Character
 
 	protected override void DrawBody(Renderer renderer, LayerViewOptions viewOptions)
 	{
-		I2dRenderer obj = renderer.Get2dRenderer();
+		I2dRenderer renderer2d = renderer.Get2dRenderer();
 		ICharacterRenderer characterRenderer = renderer.GetCharacterRenderer();
-		characterRenderer.ModelMatrix = obj.ModelMatrix;
-		double propertyDouble1 = Level.GameContext.Configuration.GetPropertyDouble("debug", "sonic_hue_shift");
-		double propertyDouble2 = Level.GameContext.Configuration.GetPropertyDouble("debug", "sonic_sat_shift");
-		double propertyDouble3 = Level.GameContext.Configuration.GetPropertyDouble("debug", "sonic_lum_shift");
+		characterRenderer.ModelMatrix = renderer2d.ModelMatrix;
+		double hueShift = Level.GameContext.Configuration.GetPropertyDouble("debug", "sonic_hue_shift");
+		double saturationShift = Level.GameContext.Configuration.GetPropertyDouble("debug", "sonic_sat_shift");
+		double luminanceShift = Level.GameContext.Configuration.GetPropertyDouble("debug", "sonic_lum_shift");
 		if (DrawBodyRotated)
 			characterRenderer.ModelMatrix *= Matrix4.CreateRotationZ(ShowAngle);
 		SonicOrca.Graphics.Animation.Frame currentFrame = Animation.CurrentFrame;
 		Vector2 offset = (Vector2)currentFrame.Offset;
-		Vector2 vector2_1 = new Vector2();
-		vector2_1 = !IsSpinball ? new Vector2(offset.X, offset.Y - 16.0) : new Vector2(offset.X, offset.Y - 4.0);
-		Vector2 vector2_2 = vector2_1;
-		Rectangle destination;
-		double x = vector2_2.X - currentFrame.Source.Width / 2;
-		double y1 = vector2_2.Y;
-		Rectanglei source = currentFrame.Source;
-		double num = source.Height / 2;
-		double y2 = y1 - num;
-		source = currentFrame.Source;
-		double width = source.Width;
-		source = currentFrame.Source;
-		double height = source.Height;
-		destination = new Rectangle(x, y2, width, height);
+
+		// Move the sprite up, so that it lines up with the collision box. A spinball needs less offset.
+		Vector2 origin = !IsSpinball ? new Vector2(offset.X, offset.Y - 16.0) : new Vector2(offset.X, offset.Y - 4.0);
+		Rectangle destination = new Rectangle(
+			origin.X - currentFrame.Source.Width / 2,
+			origin.Y - currentFrame.Source.Height / 2,
+			currentFrame.Source.Width,
+			currentFrame.Source.Height);
 		characterRenderer.Filter = viewOptions.Filter;
 		characterRenderer.FilterAmount = viewOptions.FilterAmount;
 		characterRenderer.Brightness = viewOptions.Shadows ? 0.0f : Brightness;
-		characterRenderer.RenderTexture(Animation.AnimationGroup.Textures[1], Animation.AnimationGroup.Textures[0], propertyDouble1, propertyDouble2, propertyDouble3, (Rectangle)currentFrame.Source, destination, IsFacingRight, IsFacingLeft && Animation.Index == 16 /*0x10*/);
+
+		// Texture 1 is the skin texture and texture 0 is the body texture.
+		characterRenderer.RenderTexture(Animation.AnimationGroup.Textures[1], Animation.AnimationGroup.Textures[0], hueShift, saturationShift, luminanceShift, (Rectangle)currentFrame.Source, destination, IsFacingRight, IsFacingLeft && Animation.Index == AnimationTumble);
 	}
 
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)

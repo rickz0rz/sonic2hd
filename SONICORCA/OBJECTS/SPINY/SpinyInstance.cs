@@ -18,16 +18,29 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.SPINY;
 
+/// <summary>
+/// Spiny, a badnik that crawls back and forth on a floor or a wall. When a character comes near, it stops and fires a
+/// plasma sphere. On a floor, it fires up toward the nearest character. On a wall, it fires to the left.
+/// </summary>
 public class SpinyInstance : Badnik
 {
 	private const int AnimationMovingLeft = 0;
 	private const int AnimationMovingRight = 1;
 	private const int AnimationShooting = 2;
 	private const int AnimationPlasma = 3;
+	private const int MoveTicks = 128;
+	private const int FiringTicks = 40;
+
+	/// <summary>The tick of the firing state on which the plasma sphere is fired.</summary>
+	private const int FireTick = 20;
+
+	/// <summary>The number of ticks after firing before the Spiny can fire again.</summary>
+	private const int FireCooldownTicks = 64;
+
 	private bool _wall;
 	private AnimationInstance _animation;
 	private Vector2 _velocity;
-	private SpinyInstance.StatusType _status;
+	private StatusType _status;
 	private int _moveTimeLeft;
 	private int _holdFireTimeLeft;
 
@@ -43,13 +56,13 @@ public class SpinyInstance : Badnik
 	protected override void OnStart()
 	{
 		base.OnStart();
-		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"));
+		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath(SpinyType.AnimationGroupResourceKey));
 		_velocity = _wall ? new Vector2(0.0, -1.0) : new Vector2(-1.0, 0.0);
-		_status = SpinyInstance.StatusType.Moving;
-		_moveTimeLeft = 128 /*0x80*/;
-		CollisionRectangles = new CollisionRectangle[1]
+		_status = StatusType.Moving;
+		_moveTimeLeft = MoveTicks;
+		CollisionRectangles = new CollisionRectangle[]
 		{
-	  new CollisionRectangle( this, 0, -16, -16, 32 /*0x20*/, 32 /*0x20*/)
+			new CollisionRectangle(this, 0, -16, -16, 32, 32)
 		};
 	}
 
@@ -58,10 +71,10 @@ public class SpinyInstance : Badnik
 		base.OnUpdate();
 		switch (_status)
 		{
-			case SpinyInstance.StatusType.Moving:
+			case StatusType.Moving:
 				UpdateMove();
 				break;
-			case SpinyInstance.StatusType.Firing:
+			case StatusType.Firing:
 				UpdateFiring();
 				break;
 		}
@@ -73,20 +86,20 @@ public class SpinyInstance : Badnik
 			--_holdFireTimeLeft;
 		else if (DetectPlayer())
 		{
-			_holdFireTimeLeft = 40;
-			_status = SpinyInstance.StatusType.Firing;
-			_animation.Index = 2;
+			_holdFireTimeLeft = FiringTicks;
+			_status = StatusType.Firing;
+			_animation.Index = AnimationShooting;
 			return;
 		}
 		--_moveTimeLeft;
 		if (_moveTimeLeft <= 0)
 		{
-			_moveTimeLeft = 128 /*0x80*/;
+			_moveTimeLeft = MoveTicks;
 			_velocity.X *= -1.0;
 			_velocity.Y *= -1.0;
 		}
 		PositionPrecise = PositionPrecise + _velocity;
-		_animation.Index = _wall ? (_velocity.Y >= 0.0 ? 0 : 1) : (_velocity.X < 0.0 ? 0 : 1);
+		_animation.Index = _wall ? (_velocity.Y >= 0.0 ? AnimationMovingLeft : AnimationMovingRight) : (_velocity.X < 0.0 ? AnimationMovingLeft : AnimationMovingRight);
 	}
 
 	private void UpdateFiring()
@@ -94,12 +107,12 @@ public class SpinyInstance : Badnik
 		--_holdFireTimeLeft;
 		if (_holdFireTimeLeft < 0)
 		{
-			_status = SpinyInstance.StatusType.Moving;
-			_holdFireTimeLeft = 64 /*0x40*/;
+			_status = StatusType.Moving;
+			_holdFireTimeLeft = FireCooldownTicks;
 		}
 		else
 		{
-			if (_holdFireTimeLeft != 20)
+			if (_holdFireTimeLeft != FireTick)
 				return;
 			FireProjectile();
 		}
@@ -111,8 +124,8 @@ public class SpinyInstance : Badnik
 		{
 			if (character.ShouldReactToLevel)
 			{
-				double num = character.Position.Y - Position.Y;
-				if (num >= -540.0 && num <= 280.0 && Math.Abs(character.Position.X - Position.X) < 384.0)
+				double distanceY = character.Position.Y - Position.Y;
+				if (distanceY >= -540.0 && distanceY <= 280.0 && Math.Abs(character.Position.X - Position.X) < 384.0)
 					return true;
 			}
 		}
@@ -123,29 +136,26 @@ public class SpinyInstance : Badnik
 	{
 		if (_wall)
 		{
-			Level.ObjectManager.AddSubObject<SpinyInstance.PlasmaSphere>(this).Velocity = new Vector2(-12.0, 0.0);
+			Level.ObjectManager.AddSubObject<PlasmaSphere>(this).Velocity = new Vector2(-12.0, 0.0);
 		}
 		else
 		{
-			int num1 = -1;
-			double num2 = double.MaxValue;
+			// Fire toward the nearest character on the X axis. Fire to the left when there is no character.
+			int direction = -1;
+			double nearestDistance = double.MaxValue;
 			foreach (IActiveObject character in Level.ObjectManager.Characters)
 			{
-				Vector2i position = character.Position;
-				int x1 = position.X;
-				position = Position;
-				int x2 = position.X;
-				double num3 = x1 - x2;
-				double num4 = Math.Abs(num3);
-				if (num4 < num2)
+				double deltaX = character.Position.X - Position.X;
+				double distance = Math.Abs(deltaX);
+				if (distance < nearestDistance)
 				{
-					num2 = num4;
-					num1 = Math.Sign(num3);
+					nearestDistance = distance;
+					direction = Math.Sign(deltaX);
 				}
 			}
-			if (num1 == 0)
-				num1 = -1;
-			Level.ObjectManager.AddSubObject<SpinyInstance.PlasmaSphere>(this).Velocity = new Vector2(4 * Math.Sign(num1), -12.0);
+			if (direction == 0)
+				direction = -1;
+			Level.ObjectManager.AddSubObject<PlasmaSphere>(this).Velocity = new Vector2(4 * Math.Sign(direction), -12.0);
 		}
 	}
 
@@ -172,8 +182,14 @@ public class SpinyInstance : Badnik
 		Firing,
 	}
 
+	/// <summary>A plasma sphere that a Spiny fires. Gravity pulls it down.</summary>
 	private class PlasmaSphere : Enemy
 	{
+		private const double Gravity = 0.5;
+
+		/// <summary>The sphere is not drawn in its first ticks, so that it comes out from inside the Spiny.</summary>
+		private const int HiddenTicks = 3;
+
 		private AnimationInstance _animation;
 		private int _ticks;
 
@@ -184,17 +200,17 @@ public class SpinyInstance : Badnik
 		protected override void OnStart()
 		{
 			base.OnStart();
-			_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"), 3);
-			CollisionRectangles = new CollisionRectangle[1]
+			_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath(SpinyType.AnimationGroupResourceKey), AnimationPlasma);
+			CollisionRectangles = new CollisionRectangle[]
 			{
-		new CollisionRectangle( this, 0, -8, -8, 16 /*0x10*/, 16 /*0x10*/)
+				new CollisionRectangle(this, 0, -8, -8, 16, 16)
 			};
 		}
 
 		protected override void OnUpdate()
 		{
 			base.OnUpdate();
-			Velocity += new Vector2(0.0, 0.5);
+			Velocity += new Vector2(0.0, Gravity);
 			PositionPrecise = PositionPrecise + Velocity;
 			++_ticks;
 		}
@@ -203,7 +219,7 @@ public class SpinyInstance : Badnik
 
 		protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 		{
-			if (_ticks < 3)
+			if (_ticks < HiddenTicks)
 				return;
 			renderer.GetObjectRenderer().Render(_animation);
 		}

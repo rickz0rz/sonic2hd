@@ -17,10 +17,19 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.SPIKER;
 
+/// <summary>
+/// Spiker, a drill badnik with a spike on its back. It moves left and right with rests between. When a character
+/// comes near, the spike fires up (or down, when the Spiker is upside down).
+/// </summary>
 public class SpikerInstance : Badnik
 {
 	private const int AnimationHead = 2;
 	private const int AnimationBodyTurn = 3;
+	private const int Speed = 2;
+	private const int MoveTicks = 64;
+	private const int RestTicks = 16;
+	private const int DetectDistanceX = 128;
+	private const int DetectDistanceY = 384;
 	private AnimationInstance _animation;
 	private bool _flipX;
 	private bool _flipY;
@@ -29,7 +38,7 @@ public class SpikerInstance : Badnik
 	private bool _resting;
 	private bool _spikeFired;
 	private int _stateTimer;
-	private SpikerInstance.Spike _spike;
+	private Spike _spike;
 
 	[StateVariable]
 	private bool UpsideDown
@@ -43,15 +52,15 @@ public class SpikerInstance : Badnik
 	protected override void OnStart()
 	{
 		base.OnStart();
-		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"), 2);
+		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath(SpikerType.AnimationGroupResourceKey), AnimationHead);
 		_resting = false;
-		_velocityX = 2;
-		_stateTimer = 64 /*0x40*/;
-		CollisionRectangles = new CollisionRectangle[1]
+		_velocityX = Speed;
+		_stateTimer = MoveTicks;
+		CollisionRectangles = new CollisionRectangle[]
 		{
-	  new CollisionRectangle( this, 0, -32, _flipY ?  sbyte.MinValue : 48 /*0x30*/, 64 /*0x40*/, 64 /*0x40*/)
+			new CollisionRectangle(this, 0, -32, _flipY ? -128 : 48, 64, 64)
 		};
-		_spike = Level.ObjectManager.AddSubObject<SpikerInstance.Spike>(this);
+		_spike = Level.ObjectManager.AddSubObject<Spike>(this);
 		_spike.Position = Position;
 		_spike.FlipY = _flipY;
 		_spike.LockLifetime = true;
@@ -59,11 +68,10 @@ public class SpikerInstance : Badnik
 
 	protected override void Rebound(ICharacter character)
 	{
+		// The decompiled code had two branches here (character below or above the Spiker), and both did the same.
 		Vector2 velocity = character.Velocity;
 		if (velocity.Y < 0.0)
 			velocity.Y += 4.0;
-		else if (character.Position.Y >= Position.Y)
-			velocity.Y *= -1.0;
 		else
 			velocity.Y *= -1.0;
 		character.Velocity = velocity;
@@ -83,7 +91,7 @@ public class SpikerInstance : Badnik
 			if (_stateTimer-- <= 0)
 			{
 				_resting = false;
-				_stateTimer = 64 /*0x40*/;
+				_stateTimer = MoveTicks;
 				_velocityX *= -1;
 			}
 		}
@@ -92,14 +100,13 @@ public class SpikerInstance : Badnik
 			Position = Position + new Vector2i(_velocityX, 0);
 			if (!_spikeFired)
 			{
-				SpikerInstance.Spike spike = _spike;
-				spike.Position = spike.Position + new Vector2i(_velocityX, 0);
+				_spike.Position = _spike.Position + new Vector2i(_velocityX, 0);
 				_spike._velocityX = _velocityX;
 			}
 			if (_stateTimer-- <= 0)
 			{
 				_resting = true;
-				_stateTimer = 16 /*0x10*/;
+				_stateTimer = RestTicks;
 			}
 		}
 		if (!CheckForCharacter())
@@ -112,8 +119,8 @@ public class SpikerInstance : Badnik
 
 	private bool CheckForCharacter()
 	{
-		ICharacter closestCharacterTo = Level.ObjectManager.GetClosestCharacterTo((Vector2)Position);
-		return closestCharacterTo != null && Math.Abs(Position.X - closestCharacterTo.Position.X) < 128 /*0x80*/ && Math.Abs(Position.Y - closestCharacterTo.Position.Y) < 384;
+		ICharacter closestCharacter = Level.ObjectManager.GetClosestCharacterTo((Vector2)Position);
+		return closestCharacter != null && Math.Abs(Position.X - closestCharacter.Position.X) < DetectDistanceX && Math.Abs(Position.Y - closestCharacter.Position.Y) < DetectDistanceY;
 	}
 
 	protected override void OnStop()
@@ -128,27 +135,27 @@ public class SpikerInstance : Badnik
 	{
 		if (!_resting)
 			_animation.Animate();
-		int num1 = _flipX ? 1 : 0;
-		bool flag = _velocityX > 0;
-		int num2 = flag ? 1 : 0;
-		if (num1 == num2)
+		bool movingRight = _velocityX > 0;
+		if (_flipX == movingRight)
 			return;
-		if (_animation.Index == 2 && !_turning)
+
+		// The direction changed: play the turn animation, then flip the body when it ends.
+		if (_animation.Index == AnimationHead && !_turning)
 		{
-			_animation.Index = 3;
+			_animation.Index = AnimationBodyTurn;
 			_animation.Cycles = 0;
 			_animation.ResetFrame();
 			_turning = true;
 		}
 		else
 		{
-			if (_animation.Index != 3 || _animation.Cycles < 1)
+			if (_animation.Index != AnimationBodyTurn || _animation.Cycles < 1)
 				return;
 			_turning = false;
-			_animation.Index = 2;
+			_animation.Index = AnimationHead;
 			_animation.Cycles = 0;
 			_animation.ResetFrame();
-			_flipX = flag;
+			_flipX = movingRight;
 		}
 	}
 
@@ -158,13 +165,13 @@ public class SpikerInstance : Badnik
 		using (objectRenderer.BeginMatixState())
 		{
 			objectRenderer.ModelMatrix *= Matrix4.CreateScale(_flipX ? -1.0 : 1.0, _flipY ? -1.0 : 1.0);
-			if (_animation.Index == 3)
+			if (_animation.Index == AnimationBodyTurn)
 			{
 				objectRenderer.Render(_animation, new Vector2(0.0, 8.0), true);
 			}
 			else
 			{
-				if (_animation.Index != 2)
+				if (_animation.Index != AnimationHead)
 					return;
 				if (_animation.CurrentFrameIndex == 0)
 					objectRenderer.Render(_animation, new Vector2(0.0, 0.0));
@@ -174,6 +181,10 @@ public class SpikerInstance : Badnik
 		}
 	}
 
+	/// <summary>
+	/// The spike on the back of a Spiker. It moves with the Spiker, turns with it, and flies straight up (or down)
+	/// when it is fired.
+	/// </summary>
 	private class Spike : Enemy
 	{
 		public const int AnimationSpikeLeft = 0;
@@ -182,6 +193,7 @@ public class SpikerInstance : Badnik
 		private const int AnimationSpikeSpinningRight = 6;
 		public const int AnimationSpikeTurnToRight = 5;
 		public const int AnimationSpikeTurnToLeft = 7;
+		private const int FireSpeed = 8;
 		public AnimationInstance _animation;
 		private bool _fired;
 		private bool _turning;
@@ -194,11 +206,11 @@ public class SpikerInstance : Badnik
 		protected override void OnStart()
 		{
 			base.OnStart();
-			CollisionRectangles = new CollisionRectangle[1]
+			CollisionRectangles = new CollisionRectangle[]
 			{
-		new CollisionRectangle( this, 0, -32, -72, 64 /*0x40*/, 144 /*0x90*/)
+				new CollisionRectangle(this, 0, -32, -72, 64, 144)
 			};
-			_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"));
+			_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath(SpikerType.AnimationGroupResourceKey));
 		}
 
 		protected override void OnUpdate()
@@ -206,12 +218,12 @@ public class SpikerInstance : Badnik
 			base.OnUpdate();
 			if (!_fired)
 				return;
-			Position = Position + new Vector2i(0, -8 * (FlipY ? -1 : 1));
+			Position = Position + new Vector2i(0, -FireSpeed * (FlipY ? -1 : 1));
 		}
 
 		public void Fire()
 		{
-			_animation.Index = FlipX ? 6 : 1;
+			_animation.Index = FlipX ? AnimationSpikeSpinningRight : AnimationSpikeSpinningLeft;
 			_fired = true;
 		}
 
@@ -227,25 +239,25 @@ public class SpikerInstance : Badnik
 		{
 			base.OnAnimate();
 			_animation.Animate();
-			int num1 = FlipX ? 1 : 0;
-			bool flag = _velocityX > 0;
-			int num2 = flag ? 1 : 0;
-			if (num1 == num2)
+			bool movingRight = _velocityX > 0;
+			if (FlipX == movingRight)
 				return;
-			if ((_animation.Index == 4 || _animation.Index == 0) && !_turning)
+
+			// The direction changed: play the turn animation, then flip the spike when it ends.
+			if ((_animation.Index == AnimationSpikeRight || _animation.Index == AnimationSpikeLeft) && !_turning)
 			{
-				_animation.Index = !flag ? 7 : 5;
+				_animation.Index = !movingRight ? AnimationSpikeTurnToLeft : AnimationSpikeTurnToRight;
 				_animation.Cycles = 0;
 				_animation.ResetFrame();
 				_turning = true;
 			}
 			else
 			{
-				if (_animation.Index != 7 && _animation.Index != 5 || _animation.Cycles < 1)
+				if (_animation.Index != AnimationSpikeTurnToLeft && _animation.Index != AnimationSpikeTurnToRight || _animation.Cycles < 1)
 					return;
 				_turning = false;
-				FlipX = flag;
-				_animation.Index = !FlipX ? 0 : 4;
+				FlipX = movingRight;
+				_animation.Index = !FlipX ? AnimationSpikeLeft : AnimationSpikeRight;
 				_animation.Cycles = 0;
 				_animation.ResetFrame();
 			}
@@ -254,16 +266,16 @@ public class SpikerInstance : Badnik
 		protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 		{
 			IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
-			if (_animation.Index == 7 || _animation.Index == 5)
+			if (_animation.Index == AnimationSpikeTurnToLeft || _animation.Index == AnimationSpikeTurnToRight)
 			{
-				int x = _animation.Index == 7 ? -2 : 2;
+				int x = _animation.Index == AnimationSpikeTurnToLeft ? -2 : 2;
 				objectRenderer.Render(_animation, (Vector2)new Vector2i(x, 0), flipY: FlipY);
 			}
 			else
 			{
 				int x = 0;
-				if (_animation.Index == 0 || _animation.Index == 4)
-					x = _animation.Index == 0 ? 1 : -2;
+				if (_animation.Index == AnimationSpikeLeft || _animation.Index == AnimationSpikeRight)
+					x = _animation.Index == AnimationSpikeLeft ? 1 : -2;
 				objectRenderer.Render(_animation, new Vector2(x, 0.0), flipY: FlipY);
 			}
 		}

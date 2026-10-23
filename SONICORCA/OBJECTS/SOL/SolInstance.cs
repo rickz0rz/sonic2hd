@@ -17,10 +17,17 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.SOL;
 
+/// <summary>
+/// Sol, a badnik that moves slowly to the left with four fireballs that turn around it. When the protagonist comes
+/// near, it fires each fireball to the left when that fireball gets to the bottom of the circle.
+/// </summary>
 public class SolInstance : Badnik
 {
 	private const int AnimationSol = 0;
 	private const int AnimationFireball = 2;
+	private const int FireballCount = 4;
+	private const int DetectDistanceX = 640;
+	private const int DetectDistanceY = 320;
 	private AnimationInstance _animation;
 	private bool _waitingForCharacter;
 
@@ -29,19 +36,21 @@ public class SolInstance : Badnik
 	protected override void OnStart()
 	{
 		base.OnStart();
-		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"));
-		CollisionRectangles = new CollisionRectangle[1]
+		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath(SolType.AnimationGroupResourceKey));
+		CollisionRectangles = new CollisionRectangle[]
 		{
-	  new CollisionRectangle( this, 0, -36, -36, 72, 72)
+			new CollisionRectangle(this, 0, -36, -36, 72, 72)
 		};
 		_waitingForCharacter = true;
-		int num = 0;
-		for (int index = 0; index < 4; ++index)
+
+		// Space the fireballs evenly on the circle.
+		int angle = 0;
+		for (int index = 0; index < FireballCount; ++index)
 		{
-			SolInstance.Fireball fireball = Level.ObjectManager.AddSubObject<SolInstance.Fireball>(this);
-			fireball.Angle = num;
+			Fireball fireball = Level.ObjectManager.AddSubObject<Fireball>(this);
+			fireball.Angle = angle;
 			fireball.UpdateOrbitPosition();
-			num += 64 /*0x40*/;
+			angle += Fireball.FullCircle / FireballCount;
 		}
 	}
 
@@ -66,10 +75,10 @@ public class SolInstance : Badnik
 	{
 		if (character.IsDebug)
 			return false;
-		Vector2i vector2i = character.Position - Position;
-		vector2i.X = Math.Abs(vector2i.X);
-		vector2i.Y = Math.Abs(vector2i.Y);
-		return vector2i.X < 640 && vector2i.Y < 320;
+		Vector2i distance = character.Position - Position;
+		distance.X = Math.Abs(distance.X);
+		distance.Y = Math.Abs(distance.Y);
+		return distance.X < DetectDistanceX && distance.Y < DetectDistanceY;
 	}
 
 	protected override void OnAnimate() => _animation.Animate();
@@ -79,8 +88,16 @@ public class SolInstance : Badnik
 		renderer.GetObjectRenderer().Render(_animation);
 	}
 
+	/// <summary>A fireball that turns around a Sol until the Sol fires it to the left.</summary>
 	private class Fireball : Enemy
 	{
+		/// <summary>The number of angle units in a full circle.</summary>
+		public const int FullCircle = 256;
+
+		/// <summary>The angle at the bottom of the circle, where the fireball is fired.</summary>
+		private const int FireAngle = 64;
+
+		private const double FireSpeed = 8.0;
 		private AnimationInstance _animation;
 		private bool _fired;
 
@@ -91,10 +108,10 @@ public class SolInstance : Badnik
 		protected override void OnStart()
 		{
 			base.OnStart();
-			_animation = new AnimationInstance(Sol._animation.AnimationGroup, 2);
-			CollisionRectangles = new CollisionRectangle[1]
+			_animation = new AnimationInstance(Sol._animation.AnimationGroup, AnimationFireball);
+			CollisionRectangles = new CollisionRectangle[]
 			{
-		new CollisionRectangle( this, 0, -8, -8, 16 /*0x10*/, 16 /*0x10*/)
+				new CollisionRectangle(this, 0, -8, -8, 16, 16)
 			};
 			LockLifetime = true;
 		}
@@ -106,9 +123,9 @@ public class SolInstance : Badnik
 			{
 				if (Sol.Finished)
 					Finish();
-				else if (Sol._waitingForCharacter || Angle != 64 /*0x40*/)
+				else if (Sol._waitingForCharacter || Angle != FireAngle)
 				{
-					Angle = MathX.Wrap(Angle + 1, 256 /*0x0100*/);
+					Angle = MathX.Wrap(Angle + 1, FullCircle);
 					UpdateOrbitPosition();
 				}
 				else
@@ -118,7 +135,7 @@ public class SolInstance : Badnik
 				}
 			}
 			else
-				PositionPrecise = PositionPrecise + new Vector2(-8.0, 0.0);
+				PositionPrecise = PositionPrecise + new Vector2(-FireSpeed, 0.0);
 		}
 
 		protected override void OnUpdateEditor()
@@ -129,8 +146,8 @@ public class SolInstance : Badnik
 
 		public void UpdateOrbitPosition()
 		{
-			double num = Angle * (Math.PI / 128.0);
-			PositionPrecise = Sol.PositionPrecise + new Vector2(64.0 * Math.Cos(num), 64.0 * Math.Sin(num));
+			double radians = Angle * (Math.PI / 128.0);
+			PositionPrecise = Sol.PositionPrecise + new Vector2(64.0 * Math.Cos(radians), 64.0 * Math.Sin(radians));
 		}
 
 		protected override void OnAnimate() => _animation.Animate();

@@ -16,6 +16,10 @@ using SonicOrca.Resources;
 #nullable disable
 namespace SONICORCA.OBJECTS.MONITOR;
 
+/// <summary>
+/// An item monitor. A spinning character breaks it and gets the item that shows on its screen.
+/// A hit from below knocks the monitor up, and it falls back to the ground.
+/// </summary>
 public class MonitorInstance : ActiveObject
 {
 	private const int AnimationShell = 0;
@@ -34,7 +38,7 @@ public class MonitorInstance : ActiveObject
 	private const int AnimationScreenContentsSwapPlaces = 13;
 	private const int AnimationScreenContentsRandom = 14;
 	private const int AnimationContentsLifeSonic = 15;
-	private const int AnimationContentsLifeTails = 16 /*0x10*/;
+	private const int AnimationContentsLifeTails = 16;
 	private const int AnimationContentsRobotnik = 17;
 	private const int AnimationContentsRing = 18;
 	private const int AnimationContentsSpeedShoesSonic = 19;
@@ -43,6 +47,15 @@ public class MonitorInstance : ActiveObject
 	private const int AnimationContentsInvincibility = 22;
 	private const int AnimationContentsSwapPlaces = 23;
 	private const int AnimationContentsRandom = 24;
+
+	/// <summary>The collision vector ID of the bottom side. A character that hits it knocks the monitor up.</summary>
+	private const int BottomCollisionId = 1;
+
+	private const int RingsInMonitor = 10;
+	private const double Gravity = 0.875;
+	private const double KnockUpVelocity = -6.0;
+	private const double ContentsGravity = 0.375;
+
 	private MonitorContents _contents;
 	private bool _broken;
 	private AnimationInstance _shellAnimation;
@@ -57,32 +70,34 @@ public class MonitorInstance : ActiveObject
 	private bool _raisingContents;
 	private ICharacter _breaker;
 
+	// The character is the protagonist character type as an integer: 1 is Sonic and 2 is Tails.
 	private static int GetScreenContentsAnimationIndex(MonitorContents contents, int character)
 	{
 		switch (contents)
 		{
 			case MonitorContents.Life:
-				return 5 + character - 1;
+				return AnimationScreenContentsLifeSonic + character - 1;
 			case MonitorContents.Ring:
-				return 8;
+				return AnimationScreenContentsRing;
 			case MonitorContents.SpeedShoes:
-				return 9 + character - 1;
+				return AnimationScreenContentsSpeedShoesSonic + character - 1;
 			case MonitorContents.Barrier:
-				return 11;
+				return AnimationScreenContentsBarrier;
 			case MonitorContents.Invincibility:
-				return 12;
+				return AnimationScreenContentsInvincibility;
 			case MonitorContents.Robotnik:
-				return 7;
+				return AnimationScreenContentsRobotnik;
 			case MonitorContents.SwapPlaces:
-				return 13;
+				return AnimationScreenContentsSwapPlaces;
 			default:
-				return 14;
+				return AnimationScreenContentsRandom;
 		}
 	}
 
+	// The AnimationContents* animations are not used: the raised contents use the screen animation.
 	private static int GetContentsAnimationIndex(MonitorContents contents, int character)
 	{
-		return MonitorInstance.GetScreenContentsAnimationIndex(contents, character);
+		return GetScreenContentsAnimationIndex(contents, character);
 	}
 
 	[StateVariable]
@@ -104,21 +119,21 @@ public class MonitorInstance : ActiveObject
 	protected override void OnStart()
 	{
 		_stationary = true;
-		AnimationGroup loadedResource = ResourceTree.GetLoadedResource<AnimationGroup>(Type, "/ANIGROUP");
-		_shellAnimation = new AnimationInstance(loadedResource);
-		_shellOverlayAnimation = new AnimationInstance(loadedResource);
-		_screenAnimation = new AnimationInstance(loadedResource);
-		_screenOverlayAnimation = new AnimationInstance(loadedResource);
-		_shellAnimation.Index = _broken ? 2 : 0;
-		_shellOverlayAnimation.Index = _broken ? 3 : 1;
-		_screenAnimation.Index = MonitorInstance.GetScreenContentsAnimationIndex(_contents, (int)Level.Player.ProtagonistCharacterType);
-		_screenOverlayAnimation.Index = 4;
+		AnimationGroup animationGroup = ResourceTree.GetLoadedResource<AnimationGroup>(Type, MonitorType.AnimationGroupResourceKey);
+		_shellAnimation = new AnimationInstance(animationGroup);
+		_shellOverlayAnimation = new AnimationInstance(animationGroup);
+		_screenAnimation = new AnimationInstance(animationGroup);
+		_screenOverlayAnimation = new AnimationInstance(animationGroup);
+		_shellAnimation.Index = _broken ? AnimationBrokenShell : AnimationShell;
+		_shellOverlayAnimation.Index = _broken ? AnimationBrokenShellOverlay : AnimationShellOverlay;
+		_screenAnimation.Index = GetScreenContentsAnimationIndex(_contents, (int)Level.Player.ProtagonistCharacterType);
+		_screenOverlayAnimation.Index = AnimationScreenOverlay;
 		if (_broken)
 			return;
-		_contentsAnimation = new AnimationInstance(loadedResource);
-		_contentsAnimation.Index = MonitorInstance.GetContentsAnimationIndex(_contents, (int)Level.Player.ProtagonistCharacterType);
-		CollisionVectors = CollisionVector.FromRectangle(this, (Rectanglei)new Rectangle(-60.0, -60.0, 120.0, 120.0));
-		CollisionVectors[3].Id = 1;
+		_contentsAnimation = new AnimationInstance(animationGroup);
+		_contentsAnimation.Index = GetContentsAnimationIndex(_contents, (int)Level.Player.ProtagonistCharacterType);
+		CollisionVectors = CollisionVector.FromRectangle(this, new Rectanglei(-60, -60, 120, 120));
+		CollisionVectors[3].Id = BottomCollisionId;
 	}
 
 	protected override void OnUpdate()
@@ -126,33 +141,32 @@ public class MonitorInstance : ActiveObject
 		if (!_stationary)
 		{
 			PositionPrecise = PositionPrecise + _velocity;
-			bool flag = false;
+			bool landed = false;
 			foreach (CollisionInfo collision in CollisionVector.GetCollisions(this, 60))
 			{
+				// Land only on the terrain floor, not on walls or other objects.
 				if (collision.Vector.Owner == null && !collision.Vector.IsWall)
 				{
-					Vector2 positionPrecise = PositionPrecise;
-					double x = positionPrecise.X;
-					positionPrecise = PositionPrecise;
-					double y = positionPrecise.Y + collision.Shift;
-					PositionPrecise = new Vector2(x, y);
-					flag = true;
+					PositionPrecise = new Vector2(PositionPrecise.X, PositionPrecise.Y + collision.Shift);
+					landed = true;
 				}
 			}
-			if (flag)
+			if (landed)
 			{
 				Entry.Position = Position;
 				_stationary = true;
 			}
 			else
-				_velocity += new Vector2(0.0, 0.875);
+				_velocity += new Vector2(0.0, Gravity);
 		}
 		if (!_raisingContents)
 			return;
 		_contentsPosition += _contentsVelocity;
-		_contentsVelocity.Y += 0.375;
+		_contentsVelocity.Y += ContentsGravity;
 		if (_contentsVelocity.Y < 0.0)
 			return;
+
+		// The contents reached the top of their path: give the item to the character.
 		_raisingContents = false;
 		InvokeContents();
 	}
@@ -161,19 +175,19 @@ public class MonitorInstance : ActiveObject
 	{
 		if (e.ActiveObject.Type.Classification != ObjectClassification.Character)
 			return;
-		ICharacter activeObject = (ICharacter)e.ActiveObject;
-		if (e.Id == 1)
+		ICharacter character = (ICharacter)e.ActiveObject;
+		if (e.Id == BottomCollisionId)
 		{
 			_stationary = false;
-			_velocity.Y = -6.0;
-			activeObject.Velocity = new Vector2(activeObject.Velocity.X, activeObject.Velocity.Y * -1.0);
+			_velocity.Y = KnockUpVelocity;
+			character.Velocity = new Vector2(character.Velocity.X, character.Velocity.Y * -1.0);
 			e.MaintainVelocity = true;
 		}
 		else
 		{
-			if (!CanCharacterBreak(activeObject))
+			if (!CanCharacterBreak(character))
 				return;
-			Break(activeObject);
+			Break(character);
 			e.IgnoreCollision = true;
 		}
 	}
@@ -186,19 +200,13 @@ public class MonitorInstance : ActiveObject
 	private void Break(ICharacter character)
 	{
 		_breaker = character;
-		ICharacter character1 = character;
-		Vector2 velocity = character.Velocity;
-		double x = velocity.X;
-		velocity = character.Velocity;
-		double y = velocity.Y * -1.0;
-		Vector2 vector2 = new Vector2(x, y);
-		character1.Velocity = vector2;
+		character.Velocity = new Vector2(character.Velocity.X, character.Velocity.Y * -1.0);
 		if (character.Jumped)
 			character.IsJumping = true;
 		_broken = true;
 		(Entry.State as MonitorInstance).Broken = true;
-		_shellAnimation.Index = 2;
-		_shellOverlayAnimation.Index = 3;
+		_shellAnimation.Index = AnimationBrokenShell;
+		_shellOverlayAnimation.Index = AnimationBrokenShellOverlay;
 		CollisionVectors = new CollisionVector[0];
 		CollisionRectangles = new CollisionRectangle[0];
 		RegisterCollisionUpdate();
@@ -209,7 +217,7 @@ public class MonitorInstance : ActiveObject
 
 	private void CreateExplosionObject()
 	{
-		Level.ObjectManager.AddObject(new ObjectPlacement(Type.GetAbsolutePath("SONICORCA/OBJECTS/EXPLOSION/BADNIK"), Level.Map.Layers.IndexOf(Layer), Position));
+		Level.ObjectManager.AddObject(new ObjectPlacement(Type.GetAbsolutePath(MonitorType.ExplosionResourceKey), Level.Map.Layers.IndexOf(Layer), Position));
 	}
 
 	private void CreateRaisingContents()
@@ -228,7 +236,7 @@ public class MonitorInstance : ActiveObject
 				_breaker.Player.GainLives();
 				break;
 			case MonitorContents.Ring:
-				_breaker.Player.GainRings(10);
+				_breaker.Player.GainRings(RingsInMonitor);
 				Level.SoundManager.PlaySound(_breaker, "SONICORCA/SOUND/RING");
 				break;
 			case MonitorContents.SpeedShoes:

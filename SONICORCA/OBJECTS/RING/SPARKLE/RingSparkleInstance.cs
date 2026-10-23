@@ -9,10 +9,11 @@ using SonicOrca.Core.Objects.Base;
 #nullable disable
 namespace SONICORCA.OBJECTS.RING.SPARKLE;
 
+/// <summary>A short sparkle particle that shows where a ring was collected.</summary>
 public class RingSparkleInstance : ParticleObject
 {
 	public RingSparkleInstance()
-	  : base("/ANIGROUP")
+		: base(RingSparkleType.AnimationGroupResourceKey)
 	{
 		AdditiveBlending = true;
 		FilterMultiplier = 0.0;

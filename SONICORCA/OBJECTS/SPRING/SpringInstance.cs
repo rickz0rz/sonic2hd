@@ -16,8 +16,28 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.SPRING;
 
+/// <summary>
+/// A spring. When a character touches the spring side, the spring bounces the character in its direction with its
+/// strength. A spring with a strength of 52 or more uses the strong spring sprite.
+/// </summary>
 public class SpringInstance : ActiveObject
 {
+	private const int AnimationStrong = 0;
+	private const int AnimationWeak = 2;
+
+	/// <summary>The diagonal sprites come 4 animations after the straight sprites.</summary>
+	private const int DiagonalAnimationOffset = 4;
+
+	private const int StrongSpringMinStrength = 52;
+
+	/// <summary>The collision vector ID of the spring side.</summary>
+	private const int SpringCollisionId = 1;
+
+	/// <summary>The Character animation that a diagonal spring sets. It stays until the character lands.</summary>
+	private const int CharacterAnimationSpringLaunch = 12;
+
+	private const int MinSlopeLockTicks = 16;
+
 	private SpringDirection _direction = SpringDirection.Right;
 	private int _strength = 40;
 	private AnimationInstance _animation;
@@ -38,74 +58,77 @@ public class SpringInstance : ActiveObject
 		set => _strength = value;
 	}
 
-	public SpringInstance() => DesignBounds = new Rectanglei(-101, -104, 202, 208 /*0xD0*/);
+	public SpringInstance() => DesignBounds = new Rectanglei(-101, -104, 202, 208);
 
 	protected override void OnStart()
 	{
-		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"));
-		_animation.Index = _strength >= 52 ? 0 : 2;
+		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath(SpringType.AnimationGroupResourceKey));
+		_animation.Index = _strength >= StrongSpringMinStrength ? AnimationStrong : AnimationWeak;
 		if ((int)_direction % 2 == 1)
-			_animation.Index += 4;
+			_animation.Index += DiagonalAnimationOffset;
 		_bounceAnimationIndex = _animation.Index + 1;
+
+		// Set the collision shape. The vectors with the spring collision ID are the spring side.
+		// DownRight and DownLeft springs have no collision.
 		switch (_direction)
 		{
 			case SpringDirection.Up:
-				CollisionVectors = new CollisionVector[6]
+				CollisionVectors = new CollisionVector[]
 				{
-		  new CollisionVector( this, new Vector2i(-64, 64 /*0x40*/), new Vector2i(-64, 8)),
-		  new CollisionVector( this, new Vector2i(-64, 8), new Vector2i(-56, 0)),
-		  new CollisionVector( this, new Vector2i(-56, 0), new Vector2i(56, 0)),
-		  new CollisionVector( this, new Vector2i(56, 0), new Vector2i(64 /*0x40*/, 8)),
-		  new CollisionVector( this, new Vector2i(64 /*0x40*/, 8), new Vector2i(64 /*0x40*/, 64 /*0x40*/)),
-		  new CollisionVector( this, new Vector2i(-64, 64 /*0x40*/), new Vector2i(64 /*0x40*/, 64 /*0x40*/))
+					new CollisionVector(this, new Vector2i(-64, 64), new Vector2i(-64, 8)),
+					new CollisionVector(this, new Vector2i(-64, 8), new Vector2i(-56, 0)),
+					new CollisionVector(this, new Vector2i(-56, 0), new Vector2i(56, 0)),
+					new CollisionVector(this, new Vector2i(56, 0), new Vector2i(64, 8)),
+					new CollisionVector(this, new Vector2i(64, 8), new Vector2i(64, 64)),
+					new CollisionVector(this, new Vector2i(-64, 64), new Vector2i(64, 64))
 				};
-				CollisionVectors[1].Id = 1;
-				CollisionVectors[2].Id = 1;
-				CollisionVectors[3].Id = 1;
+				CollisionVectors[1].Id = SpringCollisionId;
+				CollisionVectors[2].Id = SpringCollisionId;
+				CollisionVectors[3].Id = SpringCollisionId;
 				_bounceVelocity = new Vector2(0.0, -_strength);
 				break;
 			case SpringDirection.UpRight:
-				CollisionVectors = new CollisionVector[6]
+				CollisionVectors = new CollisionVector[]
 				{
-		  new CollisionVector( this, new Vector2i(-48, -48), new Vector2i(48 /*0x30*/, 48 /*0x30*/)),
-		  new CollisionVector( this, new Vector2i(-48, -84), new Vector2i(-48, -48)),
-		  new CollisionVector( this, new Vector2i(-84, -84), new Vector2i(-48, -84)),
-		  new CollisionVector( this, new Vector2i(-84, 80 /*0x50*/), new Vector2i(-84, -48)),
-		  new CollisionVector( this, new Vector2i(48 /*0x30*/, 80 /*0x50*/), new Vector2i(-84, 80 /*0x50*/)),
-		  new CollisionVector( this, new Vector2i(48 /*0x30*/, 48 /*0x30*/), new Vector2i(48 /*0x30*/, 80 /*0x50*/))
+					new CollisionVector(this, new Vector2i(-48, -48), new Vector2i(48, 48)),
+					new CollisionVector(this, new Vector2i(-48, -84), new Vector2i(-48, -48)),
+					new CollisionVector(this, new Vector2i(-84, -84), new Vector2i(-48, -84)),
+					new CollisionVector(this, new Vector2i(-84, 80), new Vector2i(-84, -48)),
+					new CollisionVector(this, new Vector2i(48, 80), new Vector2i(-84, 80)),
+					new CollisionVector(this, new Vector2i(48, 48), new Vector2i(48, 80))
 				};
-				CollisionVectors[0].Id = 1;
-				CollisionVectors[1].Id = 1;
-				CollisionVectors[2].Id = 1;
-				CollisionVectors[5].Id = 1;
+				CollisionVectors[0].Id = SpringCollisionId;
+				CollisionVectors[1].Id = SpringCollisionId;
+				CollisionVectors[2].Id = SpringCollisionId;
+				CollisionVectors[5].Id = SpringCollisionId;
 				_bounceVelocity = new Vector2(_strength, -_strength);
 				break;
 			case SpringDirection.Right:
-				CollisionVectors = CollisionVector.FromRectangle(this, (Rectanglei)new Rectangle(-64.0, -60.0, 64.0, 128.0));
-				CollisionVectors[2].Id = 1;
+				CollisionVectors = CollisionVector.FromRectangle(this, new Rectanglei(-64, -60, 64, 128));
+				CollisionVectors[2].Id = SpringCollisionId;
 				_bounceVelocity = new Vector2(_strength, 0.0);
 				break;
 			case SpringDirection.Down:
-				CollisionVectors = CollisionVector.FromRectangle(this, (Rectanglei)new Rectangle(-64.0, -69.0, 128.0, 64.0));
-				CollisionVectors[3].Id = 1;
+				CollisionVectors = CollisionVector.FromRectangle(this, new Rectanglei(-64, -69, 128, 64));
+				CollisionVectors[3].Id = SpringCollisionId;
 				_bounceVelocity = new Vector2(0.0, _strength);
 				break;
 			case SpringDirection.Left:
-				CollisionVectors = CollisionVector.FromRectangle(this, (Rectanglei)new Rectangle(5.0, -64.0, 64.0, 128.0));
-				CollisionVectors[0].Id = 1;
+				CollisionVectors = CollisionVector.FromRectangle(this, new Rectanglei(5, -64, 64, 128));
+				CollisionVectors[0].Id = SpringCollisionId;
 				_bounceVelocity = new Vector2(-_strength, 0.0);
 				break;
 			case SpringDirection.UpLeft:
-				CollisionVectors = new CollisionVector[5]
+				CollisionVectors = new CollisionVector[]
 				{
-		  new CollisionVector( this, new Vector2i(-48, 48 /*0x30*/), new Vector2i(48 /*0x30*/, -48)),
-		  new CollisionVector( this, new Vector2i(48 /*0x30*/, -48), new Vector2i(84, -48)),
-		  new CollisionVector( this, new Vector2i(84, -48), new Vector2i(84, 80 /*0x50*/)),
-		  new CollisionVector( this, new Vector2i(84, 80 /*0x50*/), new Vector2i(-48, 80 /*0x50*/)),
-		  new CollisionVector( this, new Vector2i(-48, 80 /*0x50*/), new Vector2i(-48, 48 /*0x30*/))
+					new CollisionVector(this, new Vector2i(-48, 48), new Vector2i(48, -48)),
+					new CollisionVector(this, new Vector2i(48, -48), new Vector2i(84, -48)),
+					new CollisionVector(this, new Vector2i(84, -48), new Vector2i(84, 80)),
+					new CollisionVector(this, new Vector2i(84, 80), new Vector2i(-48, 80)),
+					new CollisionVector(this, new Vector2i(-48, 80), new Vector2i(-48, 48))
 				};
-				CollisionVectors[0].Id = 1;
-				CollisionVectors[1].Id = 1;
+				CollisionVectors[0].Id = SpringCollisionId;
+				CollisionVectors[1].Id = SpringCollisionId;
 				_bounceVelocity = new Vector2(-_strength, -_strength);
 				break;
 		}
@@ -114,64 +137,42 @@ public class SpringInstance : ActiveObject
 
 	protected override void OnCollision(CollisionEvent e)
 	{
-		if (e.Id != 1 || e.ActiveObject.Type.Classification != ObjectClassification.Character)
+		if (e.Id != SpringCollisionId || e.ActiveObject.Type.Classification != ObjectClassification.Character)
 			return;
-		Character activeObject = (Character)e.ActiveObject;
-		switch (Direction)
-		{
-			case SpringDirection.Up:
-			case SpringDirection.UpRight:
-			case SpringDirection.UpLeft:
-				activeObject.LeaveGround();
-				break;
-		}
+		Character character = (Character)e.ActiveObject;
 		if (_direction == SpringDirection.Up || _direction == SpringDirection.UpRight || _direction == SpringDirection.UpLeft)
 		{
-			activeObject.IsAirborne = true;
-			activeObject.IsSpinball = false;
+			character.LeaveGround();
+			character.IsAirborne = true;
+			character.IsSpinball = false;
 			if (_direction == SpringDirection.Up)
 			{
-				activeObject.TumbleAngle = 0.0;
-				activeObject.TumbleTurns = 1;
-				activeObject.GroundVelocity = 1.0;
+				// An up spring makes the character do one somersault.
+				character.TumbleAngle = 0.0;
+				character.TumbleTurns = 1;
+				character.GroundVelocity = 1.0;
 			}
 			else
-				activeObject.Animation.Index = 12;
+				character.Animation.Index = CharacterAnimationSpringLaunch;
 		}
-		if (activeObject.IsAirborne)
+		if (character.IsAirborne)
 		{
-			Character character = activeObject;
-			Vector2 velocity;
-			double x;
-			if (_bounceVelocity.X == 0.0)
-			{
-				velocity = activeObject.Velocity;
-				x = velocity.X;
-			}
-			else
-				x = _bounceVelocity.X;
-			double y;
-			if (_bounceVelocity.Y == 0.0)
-			{
-				velocity = activeObject.Velocity;
-				y = velocity.Y;
-			}
-			else
-				y = _bounceVelocity.Y;
-			Vector2 vector2 = new Vector2(x, y);
-			character.Velocity = vector2;
-			activeObject.IsHurt = false;
+			// Keep the velocity of the character on an axis where the spring has no push.
+			double velocityX = _bounceVelocity.X == 0.0 ? character.Velocity.X : _bounceVelocity.X;
+			double velocityY = _bounceVelocity.Y == 0.0 ? character.Velocity.Y : _bounceVelocity.Y;
+			character.Velocity = new Vector2(velocityX, velocityY);
+			character.IsHurt = false;
 		}
 		else
 		{
-			activeObject.GroundVelocity = _bounceVelocity.X;
-			activeObject.Facing = Math.Sign(_bounceVelocity.X);
-			activeObject.SlopeLockTicks = Math.Max(16 /*0x10*/, activeObject.SlopeLockTicks);
-			activeObject.IsPushing = false;
+			character.GroundVelocity = _bounceVelocity.X;
+			character.Facing = Math.Sign(_bounceVelocity.X);
+			character.SlopeLockTicks = Math.Max(MinSlopeLockTicks, character.SlopeLockTicks);
+			character.IsPushing = false;
 		}
 		_animation.Index = _bounceAnimationIndex;
 		e.MaintainVelocity = true;
-		Level.SoundManager.PlaySound(this, Type.GetAbsolutePath("SONICORCA/SOUND/SPRING"));
+		Level.SoundManager.PlaySound(this, Type.GetAbsolutePath(SpringType.SoundResourceKey));
 	}
 
 	protected override void OnAnimate() => _animation.Animate();
@@ -184,21 +185,15 @@ public class SpringInstance : ActiveObject
 			switch (_direction)
 			{
 				case SpringDirection.Up:
-					objectRenderer.Render(_animation);
-					break;
 				case SpringDirection.UpRight:
+				case SpringDirection.DownRight:
 					objectRenderer.Render(_animation);
 					break;
 				case SpringDirection.Right:
 					objectRenderer.ModelMatrix *= Matrix4.CreateRotationZ(Math.PI / 2.0);
 					objectRenderer.Render(_animation, true);
 					break;
-				case SpringDirection.DownRight:
-					objectRenderer.Render(_animation);
-					break;
 				case SpringDirection.Down:
-					objectRenderer.Render(_animation, flipY: true);
-					break;
 				case SpringDirection.DownLeft:
 					objectRenderer.Render(_animation, flipY: true);
 					break;

@@ -12,8 +12,14 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.POINTS;
 
+/// <summary>
+/// A score number that shows the points the player got. It moves up, slows down, and goes away when it stops.
+/// </summary>
 public class PointsInstance : ActiveObject
 {
+	private const double InitialVelocityY = -12.0;
+	private const double Deceleration = 0.375;
+
 	private Font _font;
 	private int _value;
 	private double _velocityY;
@@ -27,9 +33,9 @@ public class PointsInstance : ActiveObject
 
 	protected override void OnStart()
 	{
-		_font = Level.GameContext.ResourceTree.GetLoadedResource<Font>(Type, "SONICORCA/FONTS/POINTS");
-		_velocityY = -12.0;
-		Priority = 2304 /*0x0900*/;
+		_font = Level.GameContext.ResourceTree.GetLoadedResource<Font>(Type, PointsType.FontResourceKey);
+		_velocityY = InitialVelocityY;
+		Priority = 2304;
 	}
 
 	protected override void OnUpdate()
@@ -41,7 +47,7 @@ public class PointsInstance : ActiveObject
 		else
 		{
 			PositionPrecise = PositionPrecise + new Vector2(0.0, _velocityY);
-			_velocityY += 0.375;
+			_velocityY += Deceleration;
 		}
 	}
 

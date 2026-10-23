@@ -10,6 +10,7 @@ using SonicOrca.Core.Objects.Metadata;
 #nullable disable
 namespace SONICORCA.OBJECTS.MONITOR;
 
+/// <summary>The object type for the item monitor.</summary>
 [SonicOrca.Core.Objects.Metadata.Name("Monitor")]
 [Description("Monitor from Sonic 2")]
 [SonicOrca.Core.Objects.Metadata.Classification(ObjectClassification.General)]

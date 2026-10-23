@@ -18,14 +18,29 @@ using SonicOrca.Graphics;
 #nullable disable
 namespace SONICORCA.OBJECTS.SPRINGBOARD;
 
+/// <summary>
+/// A spring board: a sloped board with a raised end. When a character steps on the board, the board goes down, then
+/// springs back up and launches the characters on it into the air.
+/// </summary>
 public class SpringBoardInstance : ActiveObject
 {
 	private const int AnimationNormal = 0;
 	private const int AnimationStep = 1;
 	private const int AnimationDown = 2;
 	private const int AnimationBounce = 3;
+
+	/// <summary>The state in which the board waits for a character.</summary>
+	private const int StateIdle = 0;
+
+	/// <summary>The state in which the board launches the characters on it.</summary>
+	private const int StateLaunch = 7;
+
+	private const double LaunchVelocity = -32.0;
+
 	private AnimationInstance _animation;
 	private bool _flipX;
+
+	/// <summary>The step of the bounce sequence, from StateIdle to StateLaunch. Each update goes one step forward.</summary>
 	private int _state;
 
 	[StateVariable]
@@ -35,17 +50,19 @@ public class SpringBoardInstance : ActiveObject
 		set => _flipX = value;
 	}
 
-	public SpringBoardInstance() => DesignBounds = new Rectanglei(-116, -32, 232, 64 /*0x40*/);
+	public SpringBoardInstance() => DesignBounds = new Rectanglei(-116, -32, 232, 64);
 
 	protected override void OnStart()
 	{
-		_animation = new AnimationInstance(ResourceTree.GetLoadedResource<AnimationGroup>(Type.GetAbsolutePath("/ANIGROUP")));
-		CollisionVectors = new CollisionVector[4]
+		_animation = new AnimationInstance(ResourceTree.GetLoadedResource<AnimationGroup>(Type.GetAbsolutePath(SpringBoardType.AnimationGroupResourceKey)));
+
+		// Vectors 0 and 1 are the two parts of the top of the board. SetCollision sets the positions.
+		CollisionVectors = new CollisionVector[]
 		{
-	  new CollisionVector( this, new Vector2i(), new Vector2i(), flags: CollisionFlags.Conveyor | CollisionFlags.NoAngle | CollisionFlags.Solid),
-	  new CollisionVector( this, new Vector2i(), new Vector2i(), flags: CollisionFlags.Conveyor | CollisionFlags.NoAngle | CollisionFlags.Solid),
-	  new CollisionVector( this, new Vector2i(), new Vector2i()),
-	  new CollisionVector( this, new Vector2i(), new Vector2i())
+			new CollisionVector(this, new Vector2i(), new Vector2i(), flags: CollisionFlags.Conveyor | CollisionFlags.NoAngle | CollisionFlags.Solid),
+			new CollisionVector(this, new Vector2i(), new Vector2i(), flags: CollisionFlags.Conveyor | CollisionFlags.NoAngle | CollisionFlags.Solid),
+			new CollisionVector(this, new Vector2i(), new Vector2i()),
+			new CollisionVector(this, new Vector2i(), new Vector2i())
 		};
 		SetCollision();
 	}
@@ -60,33 +77,16 @@ public class SpringBoardInstance : ActiveObject
 	{
 		switch (_state)
 		{
-			case 0:
-				bool flag1 = false;
-				Vector2i position1;
+			case StateIdle:
+				bool stepped = false;
 				foreach (ICharacter standingCharacter in GetStandingCharacters())
 				{
-					if (!_flipX)
-					{
-						position1 = standingCharacter.Position;
-						int x1 = position1.X;
-						position1 = Position;
-						int x2 = position1.X;
-						if (132 + MathX.Clamp(-132, x1 - x2, 110) >= 32 /*0x20*/)
-							flag1 = true;
-					}
-					else
-					{
-						position1 = standingCharacter.Position;
-						int x3 = position1.X;
-						position1 = Position;
-						int x4 = position1.X;
-						if (110 + MathX.Clamp(-110, x3 - x4, 132) < 210)
-							flag1 = true;
-					}
+					if (IsOnTriggerPart(GetPositionOnBoard(standingCharacter)))
+						stepped = true;
 				}
-				if (!flag1)
+				if (!stepped)
 					break;
-				SetCollision(32 /*0x20*/);
+				SetCollision(32);
 				++_state;
 				break;
 			case 1:
@@ -95,57 +95,54 @@ public class SpringBoardInstance : ActiveObject
 				break;
 			case 3:
 			case 4:
-				SetCollision(16 /*0x10*/);
+				SetCollision(16);
 				++_state;
 				break;
 			case 5:
-				SetCollision(32 /*0x20*/);
+				SetCollision(32);
 				++_state;
 				break;
 			case 6:
 				SetCollision();
 				++_state;
-				Level.SoundManager.PlaySound(this, "SONICORCA/SOUND/SPRING");
+				Level.SoundManager.PlaySound(this, SpringBoardType.SoundResourceKey);
 				break;
-			case 7:
+			case StateLaunch:
 				foreach (ICharacter standingCharacter in GetStandingCharacters())
 				{
-					Vector2i position2;
-					bool flag2;
-					double num1;
-					if (!_flipX)
-					{
-						position2 = standingCharacter.Position;
-						int x5 = position2.X;
-						position2 = Position;
-						int x6 = position2.X;
-						int num2 = 132 + MathX.Clamp(-132, x5 - x6, 110);
-						if (num2 >= 32 /*0x20*/)
-							flag2 = true;
-						num1 = MathX.Lerp(-16.0, -32.0, (num2 - 32 /*0x20*/) / 210.0);
-					}
-					else
-					{
-						position2 = standingCharacter.Position;
-						int x7 = position2.X;
-						position2 = Position;
-						int x8 = position2.X;
-						int num3 = 110 + MathX.Clamp(-110, x7 - x8, 132);
-						if (num3 < 210)
-							flag2 = true;
-						num1 = MathX.Lerp(-16.0, -32.0, (210 - num3) / 210.0);
-					}
-					if (num1 != 0.0)
+					// This velocity is never 0, so every standing character is launched. The launch velocity is
+					// always LaunchVelocity: the value of this lerp is not used.
+					int boardPosition = GetPositionOnBoard(standingCharacter);
+					double velocityY = !_flipX
+						? MathX.Lerp(-16.0, -32.0, (boardPosition - 32) / 210.0)
+						: MathX.Lerp(-16.0, -32.0, (210 - boardPosition) / 210.0);
+					if (velocityY != 0.0)
 					{
 						standingCharacter.LeaveGround();
-						standingCharacter.Velocity = new Vector2(standingCharacter.Velocity.X, -32.0);
+						standingCharacter.Velocity = new Vector2(standingCharacter.Velocity.X, LaunchVelocity);
 						standingCharacter.TumbleAngle = 0.0;
 						standingCharacter.TumbleTurns = 1;
 					}
 				}
-				_state = 0;
+				_state = StateIdle;
 				break;
 		}
+	}
+
+	/// <summary>
+	/// Gets the position of a character along the board, from the left end of the board (0) to its right end (242).
+	/// </summary>
+	private int GetPositionOnBoard(ICharacter character)
+	{
+		if (!_flipX)
+			return 132 + MathX.Clamp(-132, character.Position.X - Position.X, 110);
+		return 110 + MathX.Clamp(-110, character.Position.X - Position.X, 132);
+	}
+
+	/// <summary>Gets whether a position along the board is on the part that makes the board go down.</summary>
+	private bool IsOnTriggerPart(int boardPosition)
+	{
+		return !_flipX ? boardPosition >= 32 : boardPosition < 210;
 	}
 
 	private List<ICharacter> GetStandingCharacters()
@@ -159,40 +156,43 @@ public class SpringBoardInstance : ActiveObject
 		return standingCharacters;
 	}
 
-	private void SetCollision(int height = 64 /*0x40*/)
+	/// <summary>
+	/// Sets the collision shape of the board. The height is the height of the raised end above the base.
+	/// </summary>
+	private void SetCollision(int height = 64)
 	{
 		if (!_flipX)
 		{
-			Rectanglei rectanglei = Rectanglei.FromLTRB(-132, -32 - height, 110, -32);
-			Vector2i vector2i = new Vector2i(42, rectanglei.Top);
-			CollisionVectors[0].RelativeA = rectanglei.BottomLeft;
-			CollisionVectors[0].RelativeB = vector2i;
-			CollisionVectors[1].RelativeA = vector2i;
-			CollisionVectors[1].RelativeB = rectanglei.TopRight;
-			CollisionVectors[2].RelativeA = rectanglei.TopRight;
-			CollisionVectors[2].RelativeB = rectanglei.BottomRight;
-			CollisionVectors[3].RelativeA = rectanglei.BottomRight;
-			CollisionVectors[3].RelativeB = rectanglei.BottomLeft;
+			Rectanglei bounds = Rectanglei.FromLTRB(-132, -32 - height, 110, -32);
+			Vector2i bend = new Vector2i(42, bounds.Top);
+			CollisionVectors[0].RelativeA = bounds.BottomLeft;
+			CollisionVectors[0].RelativeB = bend;
+			CollisionVectors[1].RelativeA = bend;
+			CollisionVectors[1].RelativeB = bounds.TopRight;
+			CollisionVectors[2].RelativeA = bounds.TopRight;
+			CollisionVectors[2].RelativeB = bounds.BottomRight;
+			CollisionVectors[3].RelativeA = bounds.BottomRight;
+			CollisionVectors[3].RelativeB = bounds.BottomLeft;
 		}
 		else
 		{
-			Rectanglei rectanglei = Rectanglei.FromLTRB(-110, -32 - height, 132, -32);
-			Vector2i vector2i = new Vector2i(42, rectanglei.Top);
-			CollisionVectors[0].RelativeA = vector2i;
-			CollisionVectors[0].RelativeB = rectanglei.BottomRight;
-			CollisionVectors[1].RelativeA = rectanglei.TopLeft;
-			CollisionVectors[1].RelativeB = vector2i;
-			CollisionVectors[2].RelativeA = rectanglei.BottomLeft;
-			CollisionVectors[2].RelativeB = rectanglei.TopLeft;
-			CollisionVectors[3].RelativeA = rectanglei.BottomRight;
-			CollisionVectors[3].RelativeB = rectanglei.BottomLeft;
+			Rectanglei bounds = Rectanglei.FromLTRB(-110, -32 - height, 132, -32);
+			Vector2i bend = new Vector2i(42, bounds.Top);
+			CollisionVectors[0].RelativeA = bend;
+			CollisionVectors[0].RelativeB = bounds.BottomRight;
+			CollisionVectors[1].RelativeA = bounds.TopLeft;
+			CollisionVectors[1].RelativeB = bend;
+			CollisionVectors[2].RelativeA = bounds.BottomLeft;
+			CollisionVectors[2].RelativeB = bounds.TopLeft;
+			CollisionVectors[3].RelativeA = bounds.BottomRight;
+			CollisionVectors[3].RelativeB = bounds.BottomLeft;
 		}
 		RegisterCollisionUpdate();
 	}
 
 	protected override void OnAnimate()
 	{
-		_animation.Index = _state != 0 ? (_state >= 4 ? (_state >= 6 ? 3 : 2) : 1) : 0;
+		_animation.Index = _state != StateIdle ? (_state >= 4 ? (_state >= 6 ? AnimationBounce : AnimationDown) : AnimationStep) : AnimationNormal;
 		_animation.Animate();
 	}
 
