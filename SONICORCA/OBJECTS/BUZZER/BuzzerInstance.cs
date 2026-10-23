@@ -135,11 +135,9 @@ public class BuzzerInstance : Badnik
 	{
 		foreach (ICharacter character in Level.ObjectManager.Characters)
 		{
-			// The loop stops at the first character that is not in the vertical range.
-			// Thus a character after it in the list is not checked.
 			if (Position.Y >= character.Position.Y || Position.Y < character.Position.Y - 1024)
 			{
-				return false;
+				continue;
 			}
 			if (MathX.IsBetween(160.0, Math.Abs(Position.X - character.Position.X), 192.0))
 			{
