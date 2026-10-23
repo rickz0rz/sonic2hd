@@ -57,6 +57,10 @@ copy `publish\S2HD-macos-kit.zip` to the Mac, unzip it and run `./build-app.sh`.
 The site contains no game data. Players choose their own copy of the S2HD game files (a zip of the game folder,
 or the folder itself), and the files are loaded into browser memory without being uploaded.
 
+The web build is online at https://rickz0rz.github.io/sonic2hd/. The workflow `.github/workflows/deploy-web.yml`
+builds it and deploys it to GitHub Pages after each push to `main` that changes the game, the engine or the web
+code. Pull requests only build it, as a check. The deployed site never includes game data.
+
 Publishing needs the `wasm-tools` workload, installed once from an administrator terminal:
 
 ```
