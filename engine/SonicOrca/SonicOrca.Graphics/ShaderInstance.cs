@@ -3,6 +3,9 @@ using System.Collections.Generic;
 
 namespace SonicOrca.Graphics;
 
+/// <summary>
+/// A shader program together with a vertex buffer for it.
+/// </summary>
 public class ShaderInstance : IDisposable
 {
 	private readonly IGraphicsContext _graphicsContext;

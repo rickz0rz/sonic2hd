@@ -4,8 +4,14 @@ using SonicOrca.Geometry;
 
 namespace SonicOrca.Graphics;
 
+/// <summary>
+/// A sprite animation: a list of frames, and what to do after the last frame.
+/// </summary>
 public class Animation
 {
+	/// <summary>
+	/// One frame of an animation: the texture area to draw, its offset and how long to show it.
+	/// </summary>
 	public struct Frame
 	{
 		public int TextureIndex { get; set; }
@@ -35,7 +41,7 @@ public class Animation
 
 	public int? LoopFrameIndex { get; set; }
 
-	public int Duration => _frames.Sum((Frame x) => x.Delay + 1);
+	public int Duration => _frames.Sum(x => x.Delay + 1);
 
 	public Animation()
 	{

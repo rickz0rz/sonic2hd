@@ -4,6 +4,9 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Graphics.V2.Video;
 
+/// <summary>
+/// Plays and draws the first film of a film group. It copies each decoded frame into a texture.
+/// </summary>
 public class FilmInstance
 {
 	private readonly FilmGroup _filmGroup;
@@ -61,18 +64,18 @@ public class FilmInstance
 	{
 	}
 
-	public void Draw(Renderer renderer, Vector2 offset = default(Vector2), bool flipX = false, bool flipY = false)
+	public void Draw(Renderer renderer, Vector2 offset = default, bool flipX = false, bool flipY = false)
 	{
 		Draw(renderer, Colours.White, offset, flipX, flipY);
 	}
 
-	public void Draw(Renderer renderer, Colour colour, Vector2 offset = default(Vector2), bool flipX = false, bool flipY = false)
+	public void Draw(Renderer renderer, Colour colour, Vector2 offset = default, bool flipX = false, bool flipY = false)
 	{
 		IFilmBuffer filmBuffer = _filmGroup.FilmBuffers.First();
-		Rectanglei rectanglei = new Rectanglei(0, 0, filmBuffer.Width, filmBuffer.Height);
-		Rectanglei rectanglei2 = new Rectanglei(0, 0, filmBuffer.Width, filmBuffer.Height);
-		I2dRenderer renderer2 = renderer.Get2dRenderer();
-		Draw(renderer2, colour, rectanglei, rectanglei2, flipX, flipY);
+		Rectanglei source = new Rectanglei(0, 0, filmBuffer.Width, filmBuffer.Height);
+		Rectanglei destination = new Rectanglei(0, 0, filmBuffer.Width, filmBuffer.Height);
+		I2dRenderer renderer2d = renderer.Get2dRenderer();
+		Draw(renderer2d, colour, source, destination, flipX, flipY);
 	}
 
 	public void Draw(I2dRenderer renderer, Colour colour, Rectangle source, Rectangle destination, bool flipX = false, bool flipY = false)
@@ -82,9 +85,9 @@ public class FilmInstance
 		_renderTarget.SetArgbData(filmBuffer.Width, filmBuffer.Height, argbData);
 		using (renderer.BeginMatixState())
 		{
-			Matrix4 identity = Matrix4.Identity;
-			identity *= Matrix4.CreateScale((!flipX) ? 1 : (-1), (!flipY) ? 1 : (-1));
-			renderer.ModelMatrix = identity;
+			Matrix4 modelMatrix = Matrix4.Identity;
+			modelMatrix *= Matrix4.CreateScale(flipX ? -1 : 1, flipY ? -1 : 1);
+			renderer.ModelMatrix = modelMatrix;
 			renderer.Colour = Colours.White;
 			renderer.BlendMode = BlendMode.Opaque;
 			renderer.RenderTexture(_renderTarget, source, destination, flipX, flipY);

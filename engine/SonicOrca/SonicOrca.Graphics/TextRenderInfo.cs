@@ -2,6 +2,9 @@ using SonicOrca.Geometry;
 
 namespace SonicOrca.Graphics;
 
+/// <summary>
+/// The text, font, bounds, colours and shadow for one text draw call.
+/// </summary>
 public class TextRenderInfo
 {
 	public Font Font { get; set; }

@@ -4,6 +4,10 @@ using SonicOrca.Geometry;
 
 namespace SonicOrca.Graphics;
 
+/// <summary>
+/// The base class for the renderer. It gives access to the specialised renderers and makes sure that only one of
+/// them is active at a time.
+/// </summary>
 public abstract class Renderer : IDisposable
 {
 	private readonly HashSet<IRenderer> _registeredRenderers = new HashSet<IRenderer>();
@@ -48,50 +52,54 @@ public abstract class Renderer : IDisposable
 		ActivateRenderer(null);
 	}
 
+	/// <summary>
+	/// Writes the four corners of a rectangle in this order: top left, bottom left, bottom right, top right.
+	/// </summary>
 	public static void GetVertices(Rectangle destination, Vector2[] vertices)
 	{
 		vertices[0].X = destination.Left;
 		vertices[0].Y = destination.Top;
 		vertices[1].X = destination.Left;
-		ref Vector2 reference = ref vertices[2];
-		double y = (vertices[1].Y = vertices[0].Y + destination.Height);
-		reference.Y = y;
-		ref Vector2 reference2 = ref vertices[3];
-		y = (vertices[2].X = vertices[0].X + destination.Width);
-		reference2.X = y;
+		vertices[2].Y = vertices[1].Y = vertices[0].Y + destination.Height;
+		vertices[3].X = vertices[2].X = vertices[0].X + destination.Width;
 		vertices[3].Y = destination.Top;
 	}
 
+	/// <summary>
+	/// Writes the texture coordinates of a source rectangle, in the same corner order as <see cref="GetVertices"/>.
+	/// </summary>
 	public static void GetTextureMappings(ITexture texture, Rectanglei source, Vector2[] textureMappings, bool flipX = false, bool flipY = false)
 	{
-		double x = (flipX ? (source.Right / (double)texture.Width) : (source.Left / (double)texture.Width));
-		double x2 = (flipX ? (source.Left / (double)texture.Width) : (source.Right / (double)texture.Width));
-		double y = (flipY ? (source.Bottom / (double)texture.Height) : (source.Top / (double)texture.Height));
-		double y2 = (flipY ? (source.Top / (double)texture.Height) : (source.Bottom / (double)texture.Height));
-		textureMappings[0].X = x;
-		textureMappings[0].Y = y;
-		textureMappings[1].X = x;
-		textureMappings[1].Y = y2;
-		textureMappings[2].X = x2;
-		textureMappings[2].Y = y2;
-		textureMappings[3].X = x2;
-		textureMappings[3].Y = y;
+		double left = flipX ? (source.Right / (double)texture.Width) : (source.Left / (double)texture.Width);
+		double right = flipX ? (source.Left / (double)texture.Width) : (source.Right / (double)texture.Width);
+		double top = flipY ? (source.Bottom / (double)texture.Height) : (source.Top / (double)texture.Height);
+		double bottom = flipY ? (source.Top / (double)texture.Height) : (source.Bottom / (double)texture.Height);
+		SetQuadMappings(textureMappings, left, top, right, bottom);
 	}
 
+	/// <summary>
+	/// Does the same as <see cref="GetTextureMappings"/>, but moves each edge half a texel into the source
+	/// rectangle. This stops the texture filter from sampling the texels outside the rectangle.
+	/// </summary>
 	public static void GetTextureMappingsHalfIn(ITexture texture, Rectanglei source, ref Vector2[] textureMappings, bool flipX = false, bool flipY = false)
 	{
-		double x = (flipX ? ((source.Right - 0.5) / texture.Width) : ((source.Left + 0.5) / texture.Width));
-		double x2 = (flipX ? ((source.Left + 0.5) / texture.Width) : ((source.Right - 0.5) / texture.Width));
-		double y = (flipY ? ((source.Bottom - 0.5) / texture.Height) : ((source.Top + 0.5) / texture.Height));
-		double y2 = (flipY ? ((source.Top + 0.5) / texture.Height) : ((source.Bottom - 0.5) / texture.Height));
-		textureMappings[0].X = x;
-		textureMappings[0].Y = y;
-		textureMappings[1].X = x;
-		textureMappings[1].Y = y2;
-		textureMappings[2].X = x2;
-		textureMappings[2].Y = y2;
-		textureMappings[3].X = x2;
-		textureMappings[3].Y = y;
+		double left = flipX ? ((source.Right - 0.5) / texture.Width) : ((source.Left + 0.5) / texture.Width);
+		double right = flipX ? ((source.Left + 0.5) / texture.Width) : ((source.Right - 0.5) / texture.Width);
+		double top = flipY ? ((source.Bottom - 0.5) / texture.Height) : ((source.Top + 0.5) / texture.Height);
+		double bottom = flipY ? ((source.Top + 0.5) / texture.Height) : ((source.Bottom - 0.5) / texture.Height);
+		SetQuadMappings(textureMappings, left, top, right, bottom);
+	}
+
+	private static void SetQuadMappings(Vector2[] textureMappings, double left, double top, double right, double bottom)
+	{
+		textureMappings[0].X = left;
+		textureMappings[0].Y = top;
+		textureMappings[1].X = left;
+		textureMappings[1].Y = bottom;
+		textureMappings[2].X = right;
+		textureMappings[2].Y = bottom;
+		textureMappings[3].X = right;
+		textureMappings[3].Y = top;
 	}
 
 	/// <summary>

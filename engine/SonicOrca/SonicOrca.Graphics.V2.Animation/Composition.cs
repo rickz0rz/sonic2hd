@@ -4,8 +4,14 @@ using SonicOrca.Geometry;
 
 namespace SonicOrca.Graphics.V2.Animation;
 
+/// <summary>
+/// Describes one composition: its frame range, its size and its layers.
+/// </summary>
 public class Composition
 {
+	/// <summary>
+	/// The state of one layer at one frame, as the renderer needs it.
+	/// </summary>
 	public struct Frame
 	{
 		public int TextureIndex { get; set; }
@@ -34,8 +40,6 @@ public class Composition
 	private uint _height;
 
 	private string _name;
-
-	private const uint _ddd = 0u;
 
 	private CompositionLayer[] _layers = new CompositionLayer[0];
 

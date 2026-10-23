@@ -3,6 +3,10 @@ using System.Text.RegularExpressions;
 
 namespace SonicOrca.Graphics;
 
+/// <summary>
+/// A 32-bit ARGB colour, with 8 bits for each channel. It can also get and set the colour as hue, saturation
+/// and luminosity.
+/// </summary>
 public struct Colour : IEquatable<Colour>
 {
 	public uint Argb { get; set; }
@@ -59,37 +63,38 @@ public struct Colour : IEquatable<Colour>
 	{
 		get
 		{
-			double num = Red / 255.0;
-			double num2 = Green / 255.0;
-			double num3 = Blue / 255.0;
-			double num4 = Math.Max(Math.Max(num, num2), num3);
-			double num5 = Math.Min(Math.Min(num, num2), num3);
-			if ((num5 + num4) / 2.0 <= 0.0)
+			double red = Red / 255.0;
+			double green = Green / 255.0;
+			double blue = Blue / 255.0;
+			double max = Math.Max(Math.Max(red, green), blue);
+			double min = Math.Min(Math.Min(red, green), blue);
+			if ((min + max) / 2.0 <= 0.0)
 			{
 				return 0.0;
 			}
-			double num6 = num4 - num5;
-			if (num6 <= 0.0)
+			double delta = max - min;
+			if (delta <= 0.0)
 			{
 				return 0.0;
 			}
-			double num7 = (num4 - num) / num6;
-			double num8 = (num4 - num2) / num6;
-			double num9 = (num4 - num3) / num6;
-			double num10;
-			if (num == num4)
+			double redDistance = (max - red) / delta;
+			double greenDistance = (max - green) / delta;
+			double blueDistance = (max - blue) / delta;
+			// The hue sector, from 0 to 6, before it is scaled to the range 0 to 1.
+			double sector;
+			if (red == max)
 			{
-				num10 = ((num2 == num5) ? (5.0 + num9) : (1.0 - num8));
+				sector = (green == min) ? (5.0 + blueDistance) : (1.0 - greenDistance);
 			}
-			else if (num2 != num4)
+			else if (green != max)
 			{
-				num10 = ((num == num5) ? (3.0 + num8) : (5.0 - num7));
+				sector = (red == min) ? (3.0 + greenDistance) : (5.0 - redDistance);
 			}
 			else
 			{
-				num10 = ((num3 == num5) ? (1.0 + num7) : (3.0 - num9));
+				sector = (blue == min) ? (1.0 + redDistance) : (3.0 - blueDistance);
 			}
-			return num10 / 6.0;
+			return sector / 6.0;
 		}
 		set
 		{
@@ -101,22 +106,22 @@ public struct Colour : IEquatable<Colour>
 	{
 		get
 		{
-			double val = Red / 255.0;
-			double val2 = Green / 255.0;
-			double val3 = Blue / 255.0;
-			double num = Math.Max(Math.Max(val, val2), val3);
-			double num2 = Math.Min(Math.Min(val, val2), val3);
-			double num3 = (num2 + num) / 2.0;
-			if (num3 <= 0.0)
+			double red = Red / 255.0;
+			double green = Green / 255.0;
+			double blue = Blue / 255.0;
+			double max = Math.Max(Math.Max(red, green), blue);
+			double min = Math.Min(Math.Min(red, green), blue);
+			double luminosity = (min + max) / 2.0;
+			if (luminosity <= 0.0)
 			{
 				return 0.0;
 			}
-			double num4 = num - num2;
-			if (!(num4 > 0.0))
+			double delta = max - min;
+			if (!(delta > 0.0))
 			{
-				return num4;
+				return delta;
 			}
-			return num4 / ((num3 <= 0.5) ? (num + num2) : (2.0 - num - num2));
+			return delta / ((luminosity <= 0.5) ? (max + min) : (2.0 - max - min));
 		}
 		set
 		{
@@ -128,11 +133,11 @@ public struct Colour : IEquatable<Colour>
 	{
 		get
 		{
-			double val = Red / 255.0;
-			double val2 = Green / 255.0;
-			double val3 = Blue / 255.0;
-			double num = Math.Max(Math.Max(val, val2), val3);
-			return (Math.Min(Math.Min(val, val2), val3) + num) / 2.0;
+			double red = Red / 255.0;
+			double green = Green / 255.0;
+			double blue = Blue / 255.0;
+			double max = Math.Max(Math.Max(red, green), blue);
+			return (Math.Min(Math.Min(red, green), blue) + max) / 2.0;
 		}
 		set
 		{
@@ -231,57 +236,58 @@ public struct Colour : IEquatable<Colour>
 		hue = MathX.Clamp(0.0, hue, 1.0);
 		sat = MathX.Clamp(0.0, sat, 1.0);
 		lum = MathX.Clamp(0.0, lum, 1.0);
-		double num = lum;
-		double num2 = lum;
-		double num3 = lum;
-		double num4 = ((lum <= 0.5) ? (lum * (1.0 + sat)) : (lum + sat - lum * sat));
-		if (num4 > 0.0)
+		double red = lum;
+		double green = lum;
+		double blue = lum;
+		double max = (lum <= 0.5) ? (lum * (1.0 + sat)) : (lum + sat - lum * sat);
+		if (max > 0.0)
 		{
-			double num5 = lum + lum - num4;
-			double num6 = (num4 - num5) / num4;
+			double min = lum + lum - max;
+			double saturation = (max - min) / max;
 			hue *= 6.0;
-			int num7 = (int)hue;
-			double num8 = hue - num7;
-			double num9 = num4 * num6 * num8;
-			double num10 = num5 + num9;
-			double num11 = num4 - num9;
-			switch (num7)
+			int sector = (int)hue;
+			double fraction = hue - sector;
+			double step = max * saturation * fraction;
+			double rising = min + step;
+			double falling = max - step;
+			// A hue of exactly 1 gives sector 6. No case matches it, so the colour stays grey.
+			switch (sector)
 			{
 				case 0:
-					num = num4;
-					num2 = num10;
-					num3 = num5;
+					red = max;
+					green = rising;
+					blue = min;
 					break;
 				case 1:
-					num = num11;
-					num2 = num4;
-					num3 = num5;
+					red = falling;
+					green = max;
+					blue = min;
 					break;
 				case 2:
-					num = num5;
-					num2 = num4;
-					num3 = num10;
+					red = min;
+					green = max;
+					blue = rising;
 					break;
 				case 3:
-					num = num5;
-					num2 = num11;
-					num3 = num4;
+					red = min;
+					green = falling;
+					blue = max;
 					break;
 				case 4:
-					num = num10;
-					num2 = num5;
-					num3 = num4;
+					red = rising;
+					green = min;
+					blue = max;
 					break;
 				case 5:
-					num = num4;
-					num2 = num5;
-					num3 = num11;
+					red = max;
+					green = min;
+					blue = falling;
 					break;
 			}
 		}
-		Red = (byte)MathX.Clamp(0.0, num * 255.0, 255.0);
-		Green = (byte)MathX.Clamp(0.0, num2 * 255.0, 255.0);
-		Blue = (byte)MathX.Clamp(0.0, num3 * 255.0, 255.0);
+		Red = (byte)MathX.Clamp(0.0, red * 255.0, 255.0);
+		Green = (byte)MathX.Clamp(0.0, green * 255.0, 255.0);
+		Blue = (byte)MathX.Clamp(0.0, blue * 255.0, 255.0);
 	}
 
 	public string ToHexString()
@@ -303,7 +309,7 @@ public struct Colour : IEquatable<Colour>
 
 	public static Colour ParseHex(string s)
 	{
-		if (!TryParseHex(s, out var result))
+		if (!TryParseHex(s, out Colour result))
 		{
 			throw new FormatException("Invalid colour hex string.");
 		}

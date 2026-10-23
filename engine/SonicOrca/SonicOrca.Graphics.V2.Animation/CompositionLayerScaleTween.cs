@@ -2,6 +2,9 @@ using System.Collections.Generic;
 
 namespace SonicOrca.Graphics.V2.Animation;
 
+/// <summary>
+/// Tweens the scale of a layer, in percent.
+/// </summary>
 public class CompositionLayerScaleTween : CompositionLayerTween
 {
 	public CompositionLayerScaleTween(uint startFrame, uint endFrame, KeyValuePair<double, double> startEndValuesX, KeyValuePair<double, double> startEndValuesY, KeyValuePair<double, double> startEndValuesZ)

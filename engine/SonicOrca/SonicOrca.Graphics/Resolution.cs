@@ -1,5 +1,8 @@
 namespace SonicOrca.Graphics;
 
+/// <summary>
+/// A display resolution in pixels.
+/// </summary>
 public struct Resolution
 {
 	public int Width { get; }

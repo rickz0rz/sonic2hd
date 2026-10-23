@@ -7,6 +7,9 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Graphics.V2.Video;
 
+/// <summary>
+/// Decodes a video file one frame at a time into a BGR byte buffer.
+/// </summary>
 // Originally backed by Accord.Video.FFMPEG (C++/CLI, Windows/.NET Framework only); now uses FFMediaToolkit
 public class FilmBuffer : IFilmBuffer, IDisposable, ILoadedResource
 {

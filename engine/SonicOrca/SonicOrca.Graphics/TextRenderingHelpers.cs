@@ -2,6 +2,9 @@ using SonicOrca.Geometry;
 
 namespace SonicOrca.Graphics;
 
+/// <summary>
+/// Draws and measures text with a 2D renderer, one character at a time.
+/// </summary>
 public static class TextRenderingHelpers
 {
 	public static Rectangle RenderWith2d(I2dRenderer g, TextRenderInfo textRenderInfo)
@@ -10,18 +13,8 @@ public static class TextRenderingHelpers
 		{
 			return default;
 		}
-		if (textRenderInfo.Shadow != default(Vector2))
-		{
-			new TextRenderInfo
-			{
-				Font = textRenderInfo.Font,
-				Bounds = textRenderInfo.Bounds.OffsetBy(textRenderInfo.Shadow),
-				Alignment = textRenderInfo.Alignment,
-				Colour = textRenderInfo.ShadowColour,
-				Overlay = textRenderInfo.ShadowOverlay,
-				Text = textRenderInfo.Text
-			};
-		}
+		// This method does not draw the shadow. The decompiled code made a shadow TextRenderInfo here when Shadow
+		// is not zero, but it did not use it.
 		return RenderWith2dInternal(g, textRenderInfo);
 	}
 
@@ -45,17 +38,17 @@ public static class TextRenderingHelpers
 		{
 			case FontAlignment.MiddleY:
 				{
-					double num = font.Height * textRenderInfo.SizeMultiplier;
-					result.Y += (result.Height - num) / 2.0;
+					double scaledHeight = font.Height * textRenderInfo.SizeMultiplier;
+					result.Y += (result.Height - scaledHeight) / 2.0;
 					break;
 				}
 			case FontAlignment.Bottom:
+				// This changes X, not Y. The behavior is kept as it is.
 				result.X += result.Height * (double)textRenderInfo.SizeMultiplier;
 				break;
 		}
 		Vector2 destination = new Vector2(result.X, result.Y);
-		string text2 = text;
-		foreach (char key in text2)
+		foreach (char key in text)
 		{
 			Font.CharacterDefinition characterDefinition = font[key];
 			if (characterDefinition == null)
@@ -74,22 +67,22 @@ public static class TextRenderingHelpers
 
 	private static void RenderCharacter(I2dRenderer g, Font font, Font.CharacterDefinition characterDefinition, Vector2 destination, Colour colour, int? overlay, float sizeMultiplier)
 	{
-		ITexture[] array = new ITexture[2] { font.ShapeTexture, null };
+		ITexture[] textures = new ITexture[2] { font.ShapeTexture, null };
 		if (overlay.HasValue)
 		{
-			array[1] = font.OverlayTextures[overlay.Value];
+			textures[1] = font.OverlayTextures[overlay.Value];
 		}
 		Rectangle source = characterDefinition.SourceRectangle;
-		Rectangle destination2 = new Rectangle(destination.X + (double)(characterDefinition.Offset.X * sizeMultiplier), destination.Y + (double)(characterDefinition.Offset.Y * sizeMultiplier), source.Width * (double)sizeMultiplier, source.Height * (double)sizeMultiplier);
+		Rectangle characterDestination = new Rectangle(destination.X + (double)(characterDefinition.Offset.X * sizeMultiplier), destination.Y + (double)(characterDefinition.Offset.Y * sizeMultiplier), source.Width * (double)sizeMultiplier, source.Height * (double)sizeMultiplier);
 		g.BlendMode = BlendMode.Alpha;
 		g.Colour = colour;
 		if (overlay.HasValue)
 		{
-			g.RenderTexture(array, source, destination2);
+			g.RenderTexture(textures, source, characterDestination);
 		}
 		else
 		{
-			g.RenderTexture(array[0], source, destination2);
+			g.RenderTexture(textures[0], source, characterDestination);
 		}
 	}
 
@@ -97,8 +90,6 @@ public static class TextRenderingHelpers
 	{
 		Font font = textRenderInfo.Font;
 		string text = textRenderInfo.Text;
-		_ = textRenderInfo.Colour;
-		_ = textRenderInfo.Overlay;
 		Rectangle result = font.MeasureString(text, textRenderInfo.Bounds, textRenderInfo.Alignment);
 		switch (textRenderInfo.Alignment & FontAlignment.HorizontalMask)
 		{
@@ -115,23 +106,9 @@ public static class TextRenderingHelpers
 				result.Y += result.Height * (double)textRenderInfo.SizeMultiplier / 2.0;
 				break;
 			case FontAlignment.Right:
+				// FontAlignment.Right is not a vertical value, so this case never runs. The behavior is kept as it is.
 				result.X += result.Height * (double)textRenderInfo.SizeMultiplier;
 				break;
-		}
-		Vector2 vector = new Vector2(result.X, result.Y);
-		string text2 = text;
-		foreach (char key in text2)
-		{
-			Font.CharacterDefinition characterDefinition = font[key];
-			if (characterDefinition == null)
-			{
-				vector.X += font.DefaultWidth * textRenderInfo.SizeMultiplier;
-			}
-			else
-			{
-				vector.X += characterDefinition.Width * textRenderInfo.SizeMultiplier;
-			}
-			vector.X += font.Tracking * textRenderInfo.SizeMultiplier;
 		}
 		return result;
 	}

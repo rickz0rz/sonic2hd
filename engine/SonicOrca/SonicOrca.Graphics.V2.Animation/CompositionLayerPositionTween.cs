@@ -2,6 +2,9 @@ using System.Collections.Generic;
 
 namespace SonicOrca.Graphics.V2.Animation;
 
+/// <summary>
+/// Tweens the position of a layer.
+/// </summary>
 public class CompositionLayerPositionTween : CompositionLayerTween
 {
 	public CompositionLayerPositionTween(uint startFrame, uint endFrame, KeyValuePair<double, double> startEndValuesX, KeyValuePair<double, double> startEndValuesY, KeyValuePair<double, double> startEndValuesZ)

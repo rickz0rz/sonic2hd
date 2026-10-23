@@ -2,6 +2,10 @@ using System.Runtime.InteropServices;
 
 namespace SonicOrca.Graphics.LowLevel;
 
+/// <summary>
+/// A vector of 4 floats with the memory layout of a GLSL vec4. The components have more than one name:
+/// x, y, z and w, or s, t, p and q, or r, g, b and a.
+/// </summary>
 [StructLayout(LayoutKind.Explicit, Pack = 1)]
 [VertexAttributeType(VertexAttributePointerType.Float, 4)]
 public struct vec4

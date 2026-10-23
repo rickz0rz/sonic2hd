@@ -6,6 +6,9 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Graphics.V2.Animation;
 
+/// <summary>
+/// A loaded composition resource. It holds the compositions, their assets and the textures of the assets.
+/// </summary>
 public class CompositionGroup : ILoadedResource, IDisposable, IReadOnlyList<Composition>, IReadOnlyCollection<Composition>, IEnumerable<Composition>, IEnumerable
 {
 	private readonly ResourceTree _resourceTree;
@@ -39,7 +42,7 @@ public class CompositionGroup : ILoadedResource, IDisposable, IReadOnlyList<Comp
 	public void OnLoaded()
 	{
 		TextureResourceKeys = _textureResourceKeys;
-		Textures = _textureResourceKeys.Select((string x) => _resourceTree.GetLoadedResource<ITexture>(x)).ToArray();
+		Textures = _textureResourceKeys.Select(x => _resourceTree.GetLoadedResource<ITexture>(x)).ToArray();
 		Assets = _assets;
 	}
 

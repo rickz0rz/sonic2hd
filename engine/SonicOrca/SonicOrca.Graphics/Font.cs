@@ -8,8 +8,14 @@ using SonicOrca.Resources;
 
 namespace SonicOrca.Graphics;
 
+/// <summary>
+/// A bitmap font. A shape texture gives the form of each character, and overlay textures can colour it.
+/// </summary>
 public class Font : ILoadedResource, IDisposable, IEnumerable<Font.CharacterDefinition>, IEnumerable
 {
+	/// <summary>
+	/// Where one character is in the shape texture, its draw offset and its advance width.
+	/// </summary>
 	public class CharacterDefinition
 	{
 		private readonly char _key;
@@ -84,7 +90,7 @@ public class Font : ILoadedResource, IDisposable, IEnumerable<Font.CharacterDefi
 		Height = height;
 		Tracking = tracking;
 		DefaultShadow = shadow;
-		_characterDefinitions = characterDefinitions.ToDictionary((CharacterDefinition x) => x.Key);
+		_characterDefinitions = characterDefinitions.ToDictionary(x => x.Key);
 	}
 
 	public Font(ITexture shapeTexture, IEnumerable<ITexture> overlayTextures, int defaultWidth, int height, int tracking, Vector2i? shadow, IEnumerable<CharacterDefinition> characterDefinitions)
@@ -95,7 +101,7 @@ public class Font : ILoadedResource, IDisposable, IEnumerable<Font.CharacterDefi
 		Height = height;
 		Tracking = tracking;
 		DefaultShadow = shadow;
-		_characterDefinitions = characterDefinitions.ToDictionary((CharacterDefinition x) => x.Key);
+		_characterDefinitions = characterDefinitions.ToDictionary(x => x.Key);
 	}
 
 	public void OnLoaded()
@@ -103,7 +109,7 @@ public class Font : ILoadedResource, IDisposable, IEnumerable<Font.CharacterDefi
 		if (_resourceTree != null)
 		{
 			_shapeTexture = _resourceTree.GetLoadedResource<ITexture>(_shapeResourceKey);
-			_overlayTextures = _overlayResourceKeys.Select((string x) => _resourceTree.GetLoadedResource<ITexture>(x)).ToArray();
+			_overlayTextures = _overlayResourceKeys.Select(x => _resourceTree.GetLoadedResource<ITexture>(x)).ToArray();
 		}
 	}
 
@@ -118,46 +124,45 @@ public class Font : ILoadedResource, IDisposable, IEnumerable<Font.CharacterDefi
 
 	public Rectangle MeasureString(string text, Rectangle boundary, FontAlignment alignment)
 	{
-		double num = 0.0;
-		double num2 = Height;
+		double width = 0.0;
+		double height = Height;
 		foreach (char key in text)
 		{
-			num += _characterDefinitions.TryGetValue(key, out var value) ? value.Width : DefaultWidth;
-			num += Tracking;
+			width += _characterDefinitions.TryGetValue(key, out CharacterDefinition definition) ? definition.Width : DefaultWidth;
+			width += Tracking;
 		}
+		// There is no tracking after the last character.
 		if (text.Length > 0)
 		{
-			num -= Tracking;
+			width -= Tracking;
 		}
 		double x = 0.0;
 		double y = 0.0;
-		FontAlignment fontAlignment = alignment & FontAlignment.HorizontalMask;
-		FontAlignment fontAlignment2 = alignment & FontAlignment.VerticalMask;
-		switch (fontAlignment)
+		switch (alignment & FontAlignment.HorizontalMask)
 		{
 			case FontAlignment.Left:
 				x = boundary.X;
 				break;
 			case FontAlignment.MiddleX:
-				x = boundary.X + (boundary.Width - num) / 2.0;
+				x = boundary.X + (boundary.Width - width) / 2.0;
 				break;
 			case FontAlignment.Right:
-				x = boundary.Right - num;
+				x = boundary.Right - width;
 				break;
 		}
-		switch (fontAlignment2)
+		switch (alignment & FontAlignment.VerticalMask)
 		{
-			case FontAlignment.Left:
+			case FontAlignment.Top:
 				y = boundary.Y;
 				break;
 			case FontAlignment.MiddleY:
-				y = boundary.Y + (boundary.Height - num2) / 2.0;
+				y = boundary.Y + (boundary.Height - height) / 2.0;
 				break;
 			case FontAlignment.Bottom:
-				y = boundary.Bottom - num2;
+				y = boundary.Bottom - height;
 				break;
 		}
-		return new Rectangle(x, y, num, num2);
+		return new Rectangle(x, y, width, height);
 	}
 
 	public override string ToString()
