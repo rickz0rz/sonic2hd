@@ -13,8 +13,11 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!-- Same warning suppressions as the desktop game and engine (decompiled code) -->
     <NoWarn>$(NoWarn);CS0649;CS0169;CS0414;CS0219;CS0168;CA1416</NoWarn>
-    <!-- The engine finds object types and resources by reflection; trimming would remove them -->
-    <PublishTrimmed>false</PublishTrimmed>
+    <!-- AOT requires trimming. The engine finds object types and resources by reflection, so only assemblies
+         that opt in to trimming (the framework) are trimmed; the game and engine assemblies are kept whole -->
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>partial</TrimMode>
+    <SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
     <!-- Release publishes compile ahead of time; the interpreter is far too slow for the game.
          Requires the wasm-tools workload: dotnet workload install wasm-tools (from an administrator terminal) -->
     <RunAOTCompilation Condition=" '$(Configuration)' == 'Release' ">true</RunAOTCompilation>
@@ -29,6 +32,7 @@
     <Compile Include="$(RepoRoot)engine/SonicOrca.SDL2/SonicOrca.SDL2/GL*.cs;$(RepoRoot)engine/SonicOrca.SDL2/SonicOrca.SDL2/IGLWindow.cs" Link="SharedGL/%(Filename)%(Extension)" />
     <!-- Shaders are written to the in-memory file system at startup -->
     <EmbeddedResource Include="$(RepoRoot)assets/shaders/**/*" LogicalName="shaders/%(RecursiveDir)%(Filename)%(Extension)" />
+    <TrimmerRootAssembly Include="S2HD.Web;SonicOrca;SonicOrca.Common;SonicOrca.Resources;SonicOrca.Drawing" />
   </ItemGroup>
 
   <ItemGroup>

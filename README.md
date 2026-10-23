@@ -50,6 +50,31 @@ open publish/S2HD.app
 ad-hoc signs it for local use. Alternatively, build a kit on Windows with `.\tools\publish.ps1 -Runtime osx-arm64 -Zip`,
 copy `publish\S2HD-macos-kit.zip` to the Mac, unzip it and run `./build-app.sh`.
 
+## Web (experimental)
+
+`web/S2HD.Web` builds the game for browsers: .NET compiled ahead of time to WebAssembly, rendering through WebGL2.
+The site contains no game data. Players choose their own copy of the S2HD game files (a zip of the game folder,
+or the folder itself), and the files are loaded into browser memory without being uploaded.
+
+Publishing needs the `wasm-tools` workload, installed once from an administrator terminal:
+
+```
+dotnet workload install wasm-tools
+dotnet publish web/S2HD.Web -c Release -o publish/web
+```
+
+The AOT compile takes several minutes. Upload the contents of `publish/web/wwwroot` to any static web host
+(GitHub Pages, Netlify, an S3 bucket and so on). The host must serve `.wasm` files as `application/wasm`; most do.
+To try a build locally:
+
+```
+dotnet run --project tools/web-server -- publish/web/wwwroot 8080
+```
+
+Then open http://localhost:8080. The `?data=<url>` query parameter loads a zip from the same site instead of asking,
+which is useful for testing. Keyboard controls match the desktop game. Audio, gamepads and the credits video are
+not implemented yet, and a browser with WebGL2 and a keyboard is required.
+
 ## Logs and settings
 
 `sonicorca.log` and `sonicorca.cfg` live in `Documents\SonicOrca` on Windows and

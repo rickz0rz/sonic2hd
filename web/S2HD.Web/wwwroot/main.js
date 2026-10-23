@@ -7,9 +7,10 @@ const panel = document.getElementById('panel');
 const status = document.getElementById('status');
 const hud = document.getElementById('hud');
 
-// Diagnostics: when served by tools/web-server, console output is also POSTed to /log
-const report = (text) => fetch('/log', { method: 'POST', body: text }).catch(() => {});
-for (const level of ['log', 'warn', 'error']) {
+// Diagnostics: when served locally by tools/web-server (or with ?log), console output is also POSTed to /log
+const logToServer = location.hostname === 'localhost' || params.has('log');
+const report = (text) => logToServer ? fetch('/log', { method: 'POST', body: text }).catch(() => {}) : console.info(text);
+for (const level of logToServer ? ['log', 'warn', 'error'] : []) {
   const original = console[level].bind(console);
   console[level] = (...args) => { original(...args); report((level === 'log' ? '' : level.toUpperCase() + ' ') + args.join(' ')); };
 }
