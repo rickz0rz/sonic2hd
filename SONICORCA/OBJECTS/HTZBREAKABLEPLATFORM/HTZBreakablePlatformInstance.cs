@@ -94,7 +94,10 @@ public class HTZBreakablePlatformInstance : ActiveObject
 			}));
 		}
 		Level.SoundManager.PlaySound(this, Type.GetAbsolutePath("SONICORCA/SOUND/BREAKABLE"));
-		Level.CreateScoreObject(_playerThatBroke.AwardChainedScore(), Position);
+		// The original (Obj2F) breaks the whole column at once and gives one score. So in Original physics, only the
+		// first block of a full column gives score.
+		if (!Level.OriginalPhysics || RemainingBlocks == MaximumBlocks)
+			Level.CreateScoreObject(_playerThatBroke.AwardChainedScore(), Position);
 		--RemainingBlocks;
 		// Store the count in the level entry so that the object keeps it when it is created again.
 		(Entry.State as HTZBreakablePlatformInstance).RemainingBlocks = RemainingBlocks;
