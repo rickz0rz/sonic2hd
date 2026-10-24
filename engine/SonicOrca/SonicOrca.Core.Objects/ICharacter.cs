@@ -87,6 +87,10 @@ public interface ICharacter : IActiveObject
 
 	bool IsInvincible { get; set; }
 
+	/// <summary>
+	/// The move lock (move_lock in Sonic 2). While it is not 0, the ground movement ignores left and right input. It
+	/// counts down by 1 in each tick on the ground and keeps its value in the air. A value of N locks N ground ticks.
+	/// </summary>
 	int SlopeLockTicks { get; set; }
 
 	bool IsPushing { get; set; }

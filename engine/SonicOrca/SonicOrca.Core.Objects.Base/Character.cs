@@ -272,6 +272,12 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	/// </summary>
 	private const int HurtInvulnerabilityTicks = 120;
 
+	/// <summary>The move lock after a character falls off a wall or a ceiling ($1E in Sonic_SlopeRepel).</summary>
+	private const int SlopeRepelLockTicks = 30;
+
+	/// <summary>True when the slope repel detaches the character in this tick.</summary>
+	private bool _slopeRepelled;
+
 	/// <summary>
 	/// The number of ticks of the death animation before the character is dead.
 	/// </summary>
@@ -2599,14 +2605,10 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			Acceleration = 0.0;
 			Deceleration = 0.0;
 		}
-		if (SlopeLockTicks != 0)
+		if (SlopeLockTicks != 0 && Mode != CollisionMode.Air)
 		{
-			if (Mode == CollisionMode.Air)
-			{
-				SlopeLockTicks = 0;
-				return;
-			}
-			SlopeLockTicks--;
+			// move_lock: the ground movement ignores left and right. Friction still applies when no direction is held.
+			Acceleration = 0.0;
 			Deceleration = 0.0;
 		}
 	}
@@ -2635,7 +2637,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 				ApplySlopeFriction();
 			}
 			GroundVelocity = ChangeSpeed(GroundVelocity, MovingDirection, TopSpeed, Acceleration, Deceleration, Friction);
-			if (MovingDirection * GroundVelocity > 0.0)
+			if (MovingDirection * GroundVelocity > 0.0 && SlopeLockTicks == 0)
 			{
 				Facing = MovingDirection;
 			}
@@ -2842,24 +2844,33 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		}
 	}
 
+	/// <summary>
+	/// Sonic_SlopeRepel: the move lock counts down only on the ground. When there is no lock, a character on a wall or
+	/// a ceiling that moves slower than $280 (10) falls off and gets a move lock of 30 ticks. The ground speed becomes
+	/// 0 after the move, so the character falls with the velocity of this tick.
+	/// </summary>
 	private void UpdateFalling()
 	{
-		if (Mode != CollisionMode.Top && Mode != CollisionMode.Air && !(Math.Abs(GroundVelocity) >= 10.0))
+		if (Mode == CollisionMode.Air)
 		{
-			if ((GroundVector == null || !GroundVector.Flags.HasFlag(CollisionFlags.DontFall)) && ShouldFallOffGround())
-			{
-				CharacterEvents |= CharacterEvent.Fall;
-			}
-			else if (SlopeLockTicks == 0)
-			{
-				SlopeLockTicks = 32;
-			}
+			return;
 		}
-	}
-
-	private bool ShouldFallOffGround()
-	{
-		return Math.Cos(GroundAngle) <= 0.0001;
+		if (SlopeLockTicks != 0)
+		{
+			SlopeLockTicks--;
+			return;
+		}
+		if (Mode == CollisionMode.Top || Math.Abs(GroundVelocity) >= 10.0)
+		{
+			return;
+		}
+		if (GroundVector != null && GroundVector.Flags.HasFlag(CollisionFlags.DontFall))
+		{
+			return;
+		}
+		_slopeRepelled = true;
+		CharacterEvents |= CharacterEvent.Fall;
+		SlopeLockTicks = SlopeRepelLockTicks;
 	}
 
 	private void UpdatePosition()
@@ -2883,6 +2894,11 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			{
 				LeaveGround();
 				CharacterEvents &= ~CharacterEvent.Fall;
+			}
+			if (_slopeRepelled)
+			{
+				GroundVelocity = 0.0;
+				_slopeRepelled = false;
 			}
 		}
 		if (CharacterEvents.HasFlag(CharacterEvent.BarrierAttack))
@@ -3688,6 +3704,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 					{
 						Velocity = default;
 						GroundVelocity = 0.0;
+						SlopeLockTicks = 0;
 						Path = protagonist.Path;
 						Layer = protagonist.Layer;
 						Mode = CollisionMode.Air;
@@ -3711,7 +3728,8 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 						UpdateNormal();
 						break;
 					}
-					if (SlopeLockTicks > 0)
+					// TailsCPU_Normal starts the panic spindash when the move lock is set and the sidekick has stopped.
+					if (SlopeLockTicks > 0 && GroundVelocity == 0.0)
 					{
 						_autoSidekickState = AutoSidekickState.Spindash;
 						goto case AutoSidekickState.Spindash;
