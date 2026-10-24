@@ -4066,13 +4066,13 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		switch (_autoSidekickState)
 		{
 			case AutoSidekickState.Spawning:
-				if (!protagonist.IsDebug && (_humanControlled || Level.Ticks % 64 == 0))
+				if (!protagonist.IsDebug && (_humanControlled || (Level.Ticks % 64 == 0 && CanSidekickRespawn(protagonist))))
 				{
-					// Fly in from above the protagonist.
+					// Fly in from above the protagonist: 288 px in HD mode, $C0 (192 px) in Original mode.
 					_autoSidekickState = AutoSidekickState.Flying;
 					StateFlags = 0;
 					CollisionRadius = NormalCollisionRadius;
-					Position = new Vector2i(protagonist.Position.X, protagonist.Position.Y - 1152);
+					Position = new Vector2i(protagonist.Position.X, protagonist.Position.Y - (Level.OriginalPhysics ? 768 : 1152));
 					Priority = SidekickFlyingPriority;
 					_sidekickOffscreenTicks = SidekickOffscreenTime;
 				}
@@ -4109,6 +4109,14 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 					IsDead = false;
 					ShouldReactToLevel = false;
 					Mode = CollisionMode.Air;
+					if (Level.OriginalPhysics)
+					{
+						if (UpdateSidekickFlyingOriginal(protagonist, protagonistHistory))
+						{
+							goto case AutoSidekickState.Normal;
+						}
+						break;
+					}
 					Vector2i offset = default;
 					int deltaX = _sidekickTargetPosition.X - Position.X;
 					if (deltaX != 0)
@@ -4130,13 +4138,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 					}
 					if (Math.Abs(offset.X) <= 48 && offset.Y == 0 && (state & (CharacterState.Rolling | CharacterState.Airborne | CharacterState.Dying | CharacterState.Dead | CharacterState.Debug)) == 0)
 					{
-						Velocity = default;
-						GroundVelocity = 0.0;
-						SlopeLockTicks = 0;
-						Path = protagonist.Path;
-						Layer = protagonist.Layer;
-						Mode = CollisionMode.Air;
-						_autoSidekickState = AutoSidekickState.Normal;
+						LandSidekick(protagonist);
 						goto case AutoSidekickState.Normal;
 					}
 					break;
@@ -4180,6 +4182,92 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 				}
 				break;
 		}
+	}
+
+	/// <summary>
+	/// True when the sidekick can come back. TailsCPU_Spawning waits until the protagonist is not controlled by an
+	/// object, is not in the air, did not roll-jump and is not under water. HD mode does not wait.
+	/// </summary>
+	private bool CanSidekickRespawn(ICharacter protagonist)
+	{
+		if (!Level.OriginalPhysics)
+		{
+			return true;
+		}
+		return !protagonist.IsObjectControlled && !protagonist.IsAirborne && !protagonist.IsRollJumping && !protagonist.IsUnderwater;
+	}
+
+	/// <summary>
+	/// TailsCPU_Flying_Part2 in Original mode. The target is the position of the protagonist 16 ticks before, not
+	/// lower than 16 px above the water. In each tick the sidekick moves to the target horizontally by 1/16 of the
+	/// distance (12 px at most), plus the speed of the protagonist in whole pixels, plus 1 px. It moves to the target
+	/// at once when the step is the distance or more. It moves 1 px vertically. It lands when it was at the target
+	/// height, reaches the target horizontally, and the protagonist was not in the air, did not roll-jump and was not
+	/// under water. Returns true when it lands.
+	/// </summary>
+	private bool UpdateSidekickFlyingOriginal(ICharacter protagonist, CharacterHistoryItem protagonistHistory)
+	{
+		const int Pixel = 4;
+		Vector2i target = protagonistHistory.Position;
+		target.Y += protagonist.NormalCollisionRadius.Y - NormalCollisionRadius.Y;
+		int? waterTop = GetWaterTop(target.X);
+		if (waterTop.HasValue)
+		{
+			target.Y = Math.Min(target.Y, waterTop.Value - 16 * Pixel);
+		}
+		_sidekickTargetPosition = target;
+		Vector2i offset = default;
+		int distanceX = target.X - Position.X;
+		if (distanceX != 0)
+		{
+			int protagonistSpeed = Math.Abs((int)Math.Floor(protagonist.Velocity.X / Pixel));
+			int step = (Math.Min(Math.Abs(distanceX) / (16 * Pixel), 12) + protagonistSpeed + 1) * Pixel;
+			offset.X = Math.Sign(distanceX) * Math.Min(step, Math.Abs(distanceX));
+			Facing = Math.Sign(distanceX);
+		}
+		// The positions are not always whole original pixels, so the last vertical step can be smaller than 1 px.
+		int distanceY = target.Y - Position.Y;
+		offset.Y = Math.Sign(distanceY) * Math.Min(Math.Abs(distanceY), Pixel);
+		Move(offset);
+		CharacterState state = protagonistHistory.State;
+		CharacterState blockingStates = CharacterState.Airborne | CharacterState.Rolling | CharacterState.Underwater | CharacterState.Dying | CharacterState.Dead | CharacterState.Debug;
+		if (offset.X != distanceX || distanceY != 0 || (state & blockingStates) != 0)
+		{
+			return false;
+		}
+		LandSidekick(protagonist);
+		return true;
+	}
+
+	/// <summary>The top of the water at the given X, or null when there is no water there.</summary>
+	private int? GetWaterTop(int x)
+	{
+		WaterManager waterManager = Level.WaterManager;
+		if (!waterManager.Enabled)
+		{
+			return null;
+		}
+		int? top = null;
+		foreach (Rectanglei waterArea in waterManager.WaterAreas)
+		{
+			if (x >= waterArea.Left && x < waterArea.Right && (top == null || waterArea.Top < top))
+			{
+				top = waterArea.Top;
+			}
+		}
+		return top;
+	}
+
+	/// <summary>Ends the flight of the sidekick. It falls from where it is and follows the protagonist again.</summary>
+	private void LandSidekick(ICharacter protagonist)
+	{
+		Velocity = default;
+		GroundVelocity = 0.0;
+		SlopeLockTicks = 0;
+		Path = protagonist.Path;
+		Layer = protagonist.Layer;
+		Mode = CollisionMode.Air;
+		_autoSidekickState = AutoSidekickState.Normal;
 	}
 
 	/// <summary>
