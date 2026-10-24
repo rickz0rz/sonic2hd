@@ -128,14 +128,22 @@ public class BuzzerInstance : Badnik
 	}
 
 	/// <summary>
-	/// Returns true when a character is below the Buzzer, not more than 1024 pixels down,
-	/// and 160 to 192 pixels away horizontally.
+	/// Returns true when a character is 160 to 192 units away horizontally. In HD, the character must also be below
+	/// the Buzzer, not more than 1024 units down. In the original (Obj4B_ChkPlayers), the character must be in front of
+	/// the Buzzer, and the height does not matter.
 	/// </summary>
 	private bool CheckForCharacter()
 	{
 		foreach (ICharacter character in Level.ObjectManager.Characters)
 		{
-			if (Position.Y >= character.Position.Y || Position.Y < character.Position.Y - 1024)
+			if (Level.OriginalPhysics)
+			{
+				if (Math.Sign(character.Position.X - Position.X) != Math.Sign(_velocityX))
+				{
+					continue;
+				}
+			}
+			else if (Position.Y >= character.Position.Y || Position.Y < character.Position.Y - 1024)
 			{
 				continue;
 			}
