@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using SonicOrca.Core;
 using SonicOrca.Core.Collision;
+using SonicOrca.Core.Objects.Base;
 using SonicOrca.Core.Objects.Metadata;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
@@ -11,7 +12,8 @@ namespace SONICORCA.OBJECTS.CAPSULE;
 
 /// <summary>
 /// The animal capsule at the end of a boss act. When a character pushes the button on top, the lock breaks,
-/// the door opens and the animals come out. Then the level is complete.
+/// the door opens and the animals come out. Then the level is complete. In the Original physics, the capsule releases
+/// the animals as Obj3E in the original, and the level is complete when all the animals have gone.
 /// </summary>
 public class CapsuleInstance : ActiveObject
 {
@@ -36,6 +38,24 @@ public class CapsuleInstance : ActiveObject
 	private const int ButtonSpeed = 8;
 	private const int ButtonPressedY = 24;
 	private const int AnimalCount = 32;
+	private const int HDOpenDoorDelay = 60;
+
+	/// <summary>The ticks from the button press to the door opening in the original ($1D + 1).</summary>
+	private const int OriginalOpenDoorDelay = 30;
+
+	/// <summary>The animals that the original releases when the door opens.</summary>
+	private const int OriginalFirstAnimalCount = 8;
+
+	/// <summary>The x offset of the first animal (-$1C px), the x step (7 px), the first delay ($9A) and the delay step.</summary>
+	private const int OriginalFirstAnimalX = -0x1C * 4;
+	private const int OriginalFirstAnimalStepX = 7 * 4;
+	private const int OriginalFirstAnimalDelay = 0x9A;
+	private const int OriginalFirstAnimalDelayStep = 8;
+
+	/// <summary>After the door opens, the original releases one more animal every 8 frames for 180 frames.</summary>
+	private const int OriginalReleaseTicks = 180;
+	private const int OriginalReleaseInterval = 8;
+	private const int OriginalReleasedAnimalDelay = 12;
 
 	private AnimationInstance _animationButton;
 	private AnimationInstance _animationMain;
@@ -50,6 +70,8 @@ public class CapsuleInstance : ActiveObject
 	private bool _doorOpened;
 	private int _openDoorDelay;
 	private int _completeLevelDelay;
+	private int _releaseTicks;
+	private bool _waitingForAnimals;
 	private bool _unlocked;
 
 	[StateVariable]
@@ -163,7 +185,7 @@ public class CapsuleInstance : ActiveObject
 		_lock.Break();
 		_lock.LockLifetime = false;
 		_buttonPressed = true;
-		_openDoorDelay = 60;
+		_openDoorDelay = Level.OriginalPhysics ? OriginalOpenDoorDelay : HDOpenDoorDelay;
 		LockLifetime = true;
 	}
 
@@ -180,6 +202,10 @@ public class CapsuleInstance : ActiveObject
 			{
 				OpenDoor();
 			}
+		}
+		else if (Level.OriginalPhysics)
+		{
+			UpdateOriginalRelease();
 		}
 		else
 		{
@@ -203,7 +229,62 @@ public class CapsuleInstance : ActiveObject
 		_animationMiddle.Index = AnimationMiddleOpening;
 		_animationDoor.Cycles = 0;
 		_animationMiddle.Cycles = 0;
-		CreateAnimals();
+		if (Level.OriginalPhysics)
+			CreateOriginalAnimals();
+		else
+			CreateAnimals();
+	}
+
+	/// <summary>
+	/// Releases the first animals of the original (loc_3F2FC): a row of animals that jump out from right to left.
+	/// </summary>
+	private void CreateOriginalAnimals()
+	{
+		int offsetX = OriginalFirstAnimalX;
+		int delay = OriginalFirstAnimalDelay;
+		for (int index = 0; index < OriginalFirstAnimalCount; ++index)
+		{
+			CreateAnimal(offsetX, delay);
+			offsetX += OriginalFirstAnimalStepX;
+			delay -= OriginalFirstAnimalDelayStep;
+		}
+		_releaseTicks = OriginalReleaseTicks;
+		_waitingForAnimals = true;
+	}
+
+	/// <summary>
+	/// Releases one animal every 8 frames for 180 frames (loc_3F3A8). Then completes the level when no animal is
+	/// left in the level (loc_3F406).
+	/// </summary>
+	private void UpdateOriginalRelease()
+	{
+		if (!_waitingForAnimals)
+			return;
+		if (_releaseTicks > 0)
+		{
+			if (Level.Ticks % OriginalReleaseInterval == 0)
+			{
+				// A random offset from -6 px to 25 px, on a random side.
+				int offsetX = (Level.Random.Next(32) - 6) * 4;
+				if (Level.Random.Next(2) == 0)
+					offsetX = -offsetX;
+				CreateAnimal(offsetX, OriginalReleasedAnimalDelay);
+			}
+			--_releaseTicks;
+			return;
+		}
+		if (Level.ObjectManager.ActiveObjects.Any(x => x is Animal && !x.Finished))
+			return;
+		_waitingForAnimals = false;
+		Level.Player.RemoveStatusAtEndOfAct();
+		Level.CompleteLevel();
+		LockLifetime = false;
+	}
+
+	private void CreateAnimal(int offsetX, int delay)
+	{
+		Vector2i offset = new Vector2i(offsetX, 32);
+		Level.CreateRandomAnimalObject(Level.Map.Layers.IndexOf(Layer), Position + offset, offset.X <= 0 ? -1 : 1, delay);
 	}
 
 	/// <summary>

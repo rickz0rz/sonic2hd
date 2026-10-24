@@ -247,6 +247,19 @@ public class Player
 		RemoveSpeedShoes();
 	}
 
+	/// <summary>
+	/// Removes the barrier, the invincibility and the speed shoes at the end of an act, as Load_EndOfAct in the
+	/// original (it clears status_secondary).
+	/// </summary>
+	public void RemoveStatusAtEndOfAct()
+	{
+		RemovePowerups();
+		if (Protagonist != null)
+		{
+			Protagonist.Barrier = BarrierType.None;
+		}
+	}
+
 	public bool IsStarpostActivated(int index)
 	{
 		return index <= StarpostIndex;
