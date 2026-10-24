@@ -10,4 +10,8 @@
     <PackageReference Include="OpenTK.Graphics" Version="4.9.4" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="S2HD.Tests" />
+  </ItemGroup>
+
 </Project>

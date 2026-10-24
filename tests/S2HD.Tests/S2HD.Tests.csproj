@@ -19,6 +19,8 @@
     <ProjectReference Include="../../engine/SonicOrca.Resources/SonicOrca.Resources.csproj" />
     <!-- For the PNG reader used to compare screenshots -->
     <ProjectReference Include="../../engine/SonicOrca/SonicOrca.csproj" />
+    <!-- For unit tests of the renderer logic that do not need a GPU -->
+    <ProjectReference Include="../../engine/SonicOrca.Drawing/SonicOrca.Drawing.csproj" />
   </ItemGroup>
 
   <ItemGroup>

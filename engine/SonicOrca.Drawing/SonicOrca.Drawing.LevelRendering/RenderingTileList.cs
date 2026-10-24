@@ -1,3 +1,5 @@
+using System;
+
 namespace SonicOrca.Drawing.LevelRendering;
 
 /// <summary>
@@ -17,8 +19,7 @@ internal class RenderingTileList
 
 	private void ExpandBuffer()
 	{
-		// Note: this does not copy the existing entries into the new buffer.
-		_buffer = new TileRenderInfo[_buffer.Length * 2];
+		Array.Resize(ref _buffer, _buffer.Length * 2);
 	}
 
 	public void Clear()

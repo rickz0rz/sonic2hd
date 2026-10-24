@@ -248,11 +248,10 @@ internal class MaskRenderer : IMaskRenderer, IDisposable, IRenderer
 		bottom = source.Bottom / (float)sourceTexture.Height;
 		float sourceWidth = right - left;
 		float sourceHeight = bottom - top;
-		left += (clippedDestination.Left - destination.Left) / (float)destination.Width / sourceWidth;
-		top += (clippedDestination.Top - destination.Top) / (float)destination.Height / sourceHeight;
-		// Note: the right edge divides by the source height, not by the source width
-		right -= (destination.Right - clippedDestination.Right) / (float)destination.Width / sourceHeight;
-		bottom -= (destination.Bottom - clippedDestination.Bottom) / (float)destination.Height / sourceHeight;
+		left += (clippedDestination.Left - destination.Left) / (float)destination.Width * sourceWidth;
+		top += (clippedDestination.Top - destination.Top) / (float)destination.Height * sourceHeight;
+		right -= (destination.Right - clippedDestination.Right) / (float)destination.Width * sourceWidth;
+		bottom -= (destination.Bottom - clippedDestination.Bottom) / (float)destination.Height * sourceHeight;
 	}
 
 	public void Deactivate()
