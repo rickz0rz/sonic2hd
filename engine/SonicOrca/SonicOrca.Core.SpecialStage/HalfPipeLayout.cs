@@ -58,7 +58,8 @@ public static class HalfPipeLayout
 
 	/// <summary>
 	/// The total rings needed at checkpoints 1, 2 and 3 of each Sonic 2 special stage, for one character. The
-	/// ring counts continue from one section to the next.
+	/// ring counts continue from one section to the next. From SpecialStage_RingReq_Alone in the Sonic 2
+	/// disassembly (s2disasm), which also has an unused fourth value for each stage.
 	/// </summary>
 	private static readonly int[,] SoloRingQuotas =
 	{
@@ -71,13 +72,15 @@ public static class HalfPipeLayout
 		{ 100, 150, 190 },
 	};
 
-	/// <summary>The same as <see cref="SoloRingQuotas"/>, for Sonic and Tails together.</summary>
+	/// <summary>
+	/// The same as <see cref="SoloRingQuotas"/>, for Sonic and Tails together. From SpecialStage_RingReq_Team.
+	/// </summary>
 	private static readonly int[,] DuoRingQuotas =
 	{
 		{ 40, 80, 140 },
 		{ 50, 100, 140 },
 		{ 60, 110, 160 },
-		{ 40, 110, 150 },
+		{ 40, 100, 150 },
 		{ 55, 110, 200 },
 		{ 80, 140, 220 },
 		{ 100, 190, 210 },

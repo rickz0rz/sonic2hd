@@ -24,12 +24,16 @@ public sealed class HalfPipeTests
 		Assert.Equal(new[] { first, second, third }, checkpoints.Select(c => c.RingGoal));
 	}
 
-	[Fact]
-	public void Checkpoints_UseTheDuoQuotas()
+	// Values from SpecialStage_RingReq_Team in the Sonic 2 disassembly
+	[Theory]
+	[InlineData(0, 40, 80, 140)]
+	[InlineData(3, 40, 100, 150)]
+	[InlineData(6, 100, 190, 210)]
+	public void Checkpoints_UseTheDuoQuotas(int stage, int first, int second, int third)
 	{
-		var (_, checkpoints) = HalfPipeLayout.Create(SegmentCount, NodesPerSegment, 0, duo: true);
+		var (_, checkpoints) = HalfPipeLayout.Create(SegmentCount, NodesPerSegment, stage, duo: true);
 
-		Assert.Equal(new[] { 40, 80, 140 }, checkpoints.Select(c => c.RingGoal));
+		Assert.Equal(new[] { first, second, third }, checkpoints.Select(c => c.RingGoal));
 	}
 
 	[Theory]
