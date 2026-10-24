@@ -53,6 +53,12 @@ public class Player
 
 	public int StarpostTime { get; set; }
 
+	/// <summary>The collision path of the protagonist at the last star post (top_solid_bit in Obj79_SaveData).</summary>
+	public int StarpostPath { get; set; }
+
+	/// <summary>The layer index (the priority) of the protagonist at the last star post, or -1 if it is not known.</summary>
+	public int StarpostLayerIndex { get; set; } = -1;
+
 	public ICharacter Protagonist { get; set; }
 
 	public CharacterType ProtagonistCharacterType { get; set; }
@@ -220,5 +226,7 @@ public class Player
 		StarpostIndex = index;
 		StarpostPosition = position;
 		StarpostTime = _level.Time;
+		StarpostPath = Protagonist.Path;
+		StarpostLayerIndex = _level.Map.Layers.IndexOf(Protagonist.Layer);
 	}
 }

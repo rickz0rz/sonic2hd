@@ -433,9 +433,13 @@ public class Level : IDisposable
 		string protagonistResourceKey = CharacterTypeResourceKeys[(int)protagonistType];
 		string sidekickResourceKey = CharacterTypeResourceKeys[(int)sidekickType];
 		// Create the sidekick first, so that the protagonist is added after it.
-		ICharacter sidekick = (sidekickType != CharacterType.Null) ? CreateCharacter(sidekickResourceKey, sidekickStartPosition) : null;
-		ICharacter protagonist = CreateCharacter(protagonistResourceKey, playerStartPosition);
-		SetupCharacters(protagonist, sidekick);
+		// At a star post, the characters start on the path and the layer that the protagonist had there (Obj79_LoadData).
+		bool atStarpost = _player.StarpostIndex != -1;
+		int startPath = atStarpost ? _player.StarpostPath : PrepareSettings.StartPath;
+		int startLayerIndex = (atStarpost && _player.StarpostLayerIndex >= 0) ? _player.StarpostLayerIndex : StartLayerIndex;
+		ICharacter sidekick = (sidekickType != CharacterType.Null) ? CreateCharacter(sidekickResourceKey, sidekickStartPosition, startLayerIndex) : null;
+		ICharacter protagonist = CreateCharacter(protagonistResourceKey, playerStartPosition, startLayerIndex);
+		SetupCharacters(protagonist, sidekick, startPath);
 		Player.ProtagonistCharacterType = protagonistType;
 		Player.SidekickCharacterType = sidekickType;
 		if (!string.IsNullOrEmpty(PrepareSettings.RecordedPlayGhostReadPath))
@@ -444,27 +448,27 @@ public class Level : IDisposable
 		}
 	}
 
-	private void SetupCharacters(ICharacter protagonist, ICharacter sidekick)
+	private void SetupCharacters(ICharacter protagonist, ICharacter sidekick, int startPath)
 	{
 		_camera.ObjectToTrack = (ActiveObject)protagonist;
 		_camera.CentreObjectToTrack();
 		protagonist.Player = Player;
-		protagonist.Path = PrepareSettings.StartPath;
+		protagonist.Path = startPath;
 		Player.Protagonist = protagonist;
 		Player.ProtagonistGamepadIndex = 0;
 		if (sidekick != null)
 		{
 			sidekick.Player = Player;
 			sidekick.IsSidekick = true;
-			sidekick.Path = PrepareSettings.StartPath;
+			sidekick.Path = startPath;
 			Player.Sidekick = sidekick;
 			Player.SidekickGamepadIndex = 1;
 		}
 	}
 
-	private ICharacter CreateCharacter(string resourceKey, Vector2i position)
+	private ICharacter CreateCharacter(string resourceKey, Vector2i position, int layerIndex)
 	{
-		ObjectPlacement placement = new ObjectPlacement(resourceKey, Map.Layers.IndexOf(Map.Layers[StartLayerIndex]), position);
+		ObjectPlacement placement = new ObjectPlacement(resourceKey, layerIndex, position);
 		ObjectEntry objectEntry = new ObjectEntry(this, placement);
 		_objectManager.AddObjectEntry(objectEntry);
 		ActiveObject activeObject = _objectManager.ActivateObjectEntry(objectEntry);
