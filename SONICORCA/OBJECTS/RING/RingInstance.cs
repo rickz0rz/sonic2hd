@@ -186,6 +186,11 @@ public class RingInstance : ActiveObject
 		ICharacter character = (ICharacter)e.ActiveObject;
 		if (!_stationary && !_attracted && _lifeTicks >= CollectableLifeTicks)
 			return;
+		// The original blocks rings in the first 30 frames after a hit (Touch_Rings: invulnerable_time >= 90).
+		// The character has no public member for its invulnerability time, so this blocks rings while the hit
+		// throws the character back.
+		if (character.IsHurt)
+			return;
 		Collect(character.Player);
 	}
 
