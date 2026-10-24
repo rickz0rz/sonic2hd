@@ -11,6 +11,9 @@ public class Player
 {
 	private const int RingsForLife = 100;
 
+	/// <summary>The ring count of the last extra life. The original gives lives only at 100 and 200 rings.</summary>
+	private const int LastRingsForLife = 200;
+
 	private const int ScoreForLife = 50000;
 
 	private const int MaxLives = 999;
@@ -118,7 +121,11 @@ public class Player
 		CurrentRings = Math.Min(CurrentRings + count, MaxRings);
 		if (CurrentRings >= TargetRingCountForNextLife)
 		{
-			TargetRingCountForNextLife += RingsForLife;
+			// As Extra_life_flags in the original: one life at 100 rings and one at 200 rings. Losing the rings
+			// resets the target.
+			TargetRingCountForNextLife = TargetRingCountForNextLife < LastRingsForLife
+				? TargetRingCountForNextLife + RingsForLife
+				: int.MaxValue;
 			GainLives();
 		}
 	}
