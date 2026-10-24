@@ -116,6 +116,20 @@ the `[general]` section of `sonicorca.cfg`.
 
 Without `--base`, `pack` writes all resources of the folder. That file can replace `data/sonicorca.dat`.
 
+### Import all
+
+The build does not make the data of the missing zones. One script makes all the mods that come from the
+disassembly: the zones, the special stage layouts and the demos. The sections below tell what each import does.
+
+```sh
+git clone https://github.com/sonicretro/s2disasm.git ../s2disasm
+./tools/import-all.sh
+```
+
+The script finds the disassembly at `S2DISASM_DIR`, `../s2disasm` or `../../sonicretro/s2disasm`. It writes the
+`.dat` files to the `mods` folder in the user data folder. To use other folders, give them as arguments:
+`./tools/import-all.sh <s2disasm> <mods>`. Run the script again after an update of this repository.
+
 ### Special stage layouts
 
 The demo data has no special stage layouts, so `--halfpipe` plays a generated layout. The import command converts
