@@ -132,6 +132,13 @@ Put `special-stages.dat` in a `mods` folder. The 7 stages then have the original
 checkpoints and emerald. The layouts are data from the original game, so do not commit them to this repository.
 The tests use the disassembly when they find it next to the checkout or at `S2DISASM_DIR`.
 
+### Entering a special stage
+
+Touch a star post with 50 rings or more and fewer than 7 emeralds. A circle of stars then appears above the star
+post. Jump into the circle to start the special stage. The circle goes away after about 8 seconds. After the stage,
+the player starts again at the star post with 0 rings. The stage score goes into the level score. A won stage
+gives an emerald, and the next star circle opens the next stage. A failed stage opens the same stage again.
+
 The behavior of levels and objects is C# code in `SONICORCA/`, not data. The `AREA.area.cs` and `.object.cs`
 resources only name the class to use.
 
@@ -203,3 +210,5 @@ The test uses these environment variables, which you can also set by hand:
 | `S2HD_RANDOM_SEED` | Seeds the random number generators of the level and the particles |
 | `S2HD_CAPTURE_LEVEL_TICKS` | Saves a screenshot at these level ticks, for example `60,600` |
 | `S2HD_EXIT_AFTER_CAPTURES` | With `1`, quits after the last screenshot |
+| `S2HD_TEST_START_RINGS` | Gives the player this number of rings at the start of a level |
+| `S2HD_TEST_SPECIAL_STAGE_AT_TICK` | Starts the special stage at this level tick, one time only |

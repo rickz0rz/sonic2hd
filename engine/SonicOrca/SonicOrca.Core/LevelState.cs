@@ -12,5 +12,7 @@ public enum LevelState
 	Editing,
 	Restart,
 	RestartCheckpoint,
-	Quit
+	Quit,
+	/// <summary>The player entered the star circle of a starpost: play the special stage, then restart there.</summary>
+	SpecialStage
 }

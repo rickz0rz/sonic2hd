@@ -37,6 +37,12 @@ public class LevelPrepareSettings
 
 	public int Score { get; set; }
 
+	/// <summary>The Chaos Emeralds that the player has, from 0 to 7.</summary>
+	public int Emeralds { get; set; }
+
+	/// <summary>The special stage that the next star circle opens, from 0 to 6. It goes up only when an emerald is won.</summary>
+	public int SpecialStage { get; set; }
+
 	public bool Debugging { get; set; }
 
 	public double NightMode { get; set; }

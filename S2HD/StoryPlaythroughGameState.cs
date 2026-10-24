@@ -97,6 +97,8 @@ internal class StoryPlaythroughGameState : IGameState, IDisposable
 			{
 				_prepareSettings.Lives = _levelGameState.Player.Lives;
 				_prepareSettings.Score = _levelGameState.Player.Score;
+				_prepareSettings.Emeralds = _levelGameState.Player.Emeralds;
+				_prepareSettings.SpecialStage = _levelGameState.PrepareSettings.SpecialStage;
 				if (!LoadNextLevel())
 					playNextLevel = false;
 			}
@@ -137,6 +139,8 @@ internal class StoryPlaythroughGameState : IGameState, IDisposable
 			Act = 1,
 			Lives = _prepareSettings.Lives,
 			Score = _prepareSettings.Score,
+			Emeralds = _prepareSettings.Emeralds,
+			SpecialStage = _prepareSettings.SpecialStage,
 			Debugging = _prepareSettings.Debugging,
 			ProtagonistCharacter = _prepareSettings.ProtagonistCharacter,
 			SidekickCharacter = _prepareSettings.SidekickCharacter
