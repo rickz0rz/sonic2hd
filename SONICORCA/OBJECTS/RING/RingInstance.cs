@@ -193,8 +193,10 @@ public class RingInstance : ActiveObject
 	{
 		player.GainRings();
 		CreateSparkles();
-		++Level.RingsCollected;
-		if (Level.RingsCollected == Level.RingsPerfectTarget)
+		// Only placed rings count for the perfect bonus, as Perfect_rings_left in the original.
+		if (!_scatter)
+			++Level.RingsCollected;
+		if (!_scatter && Level.RingsCollected == Level.RingsPerfectTarget)
 			Level.SoundManager.PlaySound(this, Type.GetAbsolutePath(RingType.PerfectSoundResourceKey));
 		else
 			Level.SoundManager.PlaySound(this, Type.GetAbsolutePath(RingType.CollectSoundResourceKey));
