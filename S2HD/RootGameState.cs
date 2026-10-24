@@ -40,9 +40,6 @@ internal class RootGameState : IGameState, IDisposable
 	public IEnumerable<UpdateResult> Update()
 	{
 		Initialise();
-		// This is the pressed state of the first frame only. Input.Pressed gets a new object each frame,
-		// so the gamepad checks below do not see later presses.
-		InputState firstFramePressed = _gameContext.Input.Pressed;
 		InputContext input = _gameContext.Input;
 		if (_cmdLineArgs.HasOption("level"))
 		{
@@ -95,7 +92,7 @@ internal class RootGameState : IGameState, IDisposable
 					ShowLogos();
 					foreach (UpdateResult updateResult in _currentGameState.Update())
 					{
-						if (firstFramePressed.GamePad[0].Start || input.Pressed.Keyboard[EnterScancode])
+						if (input.Pressed.GamePad[0].Start || input.Pressed.Keyboard[EnterScancode])
 							break;
 						yield return updateResult;
 					}
@@ -105,7 +102,7 @@ internal class RootGameState : IGameState, IDisposable
 					ShowTeamLogo();
 					foreach (UpdateResult updateResult in _currentGameState.Update())
 					{
-						if (firstFramePressed.GamePad[0].Start || input.Pressed.Keyboard[EnterScancode])
+						if (input.Pressed.GamePad[0].Start || input.Pressed.Keyboard[EnterScancode])
 							break;
 						yield return updateResult;
 					}

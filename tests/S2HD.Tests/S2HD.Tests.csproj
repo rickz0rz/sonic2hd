@@ -21,4 +21,9 @@
     <ProjectReference Include="../../engine/SonicOrca/SonicOrca.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The settings class of the game, to test how it saves the settings without the game window -->
+    <Compile Include="../../S2HD/S2HDSettings.cs" Link="Game/S2HDSettings.cs" />
+  </ItemGroup>
+
 </Project>
