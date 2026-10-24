@@ -12,7 +12,11 @@ namespace SONICORCA.OBJECTS.MASHER;
 /// </summary>
 public class MasherInstance : Badnik
 {
-	private const double InitialVelocity = -1.5625;
+	/// <summary>
+	/// The speed of the first jump. The original sets y_vel to -$400. The old value of -1.5625 was 400 / 256, which read
+	/// the hexadecimal value as decimal.
+	/// </summary>
+	private const double InitialVelocity = -16.0;
 	private const double LaunchVelocity = -20.0;
 	private const double Acceleration = 0.375;
 	private const int AnimationNormal = 0;

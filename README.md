@@ -175,6 +175,17 @@ for example `SONICORCA/MUSIC/LEVELS/CNZ` or `SONICORCA/MUSIC/LEVELS/OOZ`. The da
 objects, for example the bumpers, the arrow shooters and the lasers of the OOZ boss. These objects play the nearest
 sound that the data has, or no sound.
 
+### Physics
+
+The PHYSICS setting in Options > Game selects how the characters and the objects move:
+
+- ORIGINAL (the default) follows the code of the original Sonic 2. For example, Sonic can stand still on a slope,
+  a held direction limits the speed in the air, and the drowning numbers start 12 seconds before Sonic drowns.
+- HD keeps the behavior of Sonic 2 HD where it is different.
+
+The attract demos always use the original physics. With `--level`, the `--physics` option overrides the setting.
+The test variable `S2HD_PHYSICS` also overrides the setting, but not the demos or `--physics`.
+
 ### Entering a special stage
 
 Touch a star post with 50 rings or more and fewer than 7 emeralds. A circle of stars then appears above the star
@@ -187,6 +198,14 @@ players. The computer controls Tails: Tails does what Sonic did 16 frames before
 the second player controls Tails. The computer takes control again 3 seconds after the last input. Each player
 has separate rings, and the goals use the total. A jump or a bomb changes the lanes of the two players.
 
+### Super Sonic
+
+With 7 emeralds and 50 rings or more, Sonic becomes Super Sonic at the top of a jump, as in the original. Super
+Sonic is faster, jumps higher and cannot be hurt. A pit, a crush or drowning can still kill him. He loses 1 ring
+each second. He becomes normal again when he has no rings, at the end of the act or when he dies. Tails cannot
+become super. The data has no Super Sonic art, music or sound, so the game colours Sonic gold and the level music
+continues. Super Sonic has the values of the original in the two physics modes.
+
 The behavior of levels and objects is C# code in `SONICORCA/`, not data. The `AREA.area.cs` and `.object.cs`
 resources only name the class to use.
 
@@ -197,6 +216,7 @@ resources only name the class to use.
 | `--level <zone> [--act <n>]` | Starts a level directly, for example `--level htz --act 2` |
 | `--protagonist <name>`, `--sidekick <name>` | Chooses the characters for `--level` (`sonic`, `tails`, `knuckles`) |
 | `--debug` | Starts the level with debug mode on |
+| `--physics original`, `--physics hd` | Plays the `--level` level with this physics, whatever the PHYSICS setting is |
 | `--demo` | Plays the attract demo (the demos of all zones that have one play in turn) |
 | `--record <file>` | Records the input of the level to a file, for example for a demo |
 | `--playback <file>` | Plays a recorded input in place of the controller |
@@ -293,4 +313,6 @@ The test uses these environment variables, which you can also set by hand:
 | `S2HD_CAPTURE_LEVEL_TICKS` | Saves a screenshot at these level ticks, for example `60,600` |
 | `S2HD_EXIT_AFTER_CAPTURES` | With `1`, quits after the last screenshot |
 | `S2HD_TEST_START_RINGS` | Gives the player this number of rings at the start of a level |
+| `S2HD_TEST_EMERALDS` | Gives the player this number of emeralds at the start of a level. With `7` and 50 rings, Sonic can become Super Sonic |
 | `S2HD_TEST_SPECIAL_STAGE_AT_TICK` | Starts the special stage at this level tick, one time only |
+| `S2HD_PHYSICS` | With `original` or `hd`, plays the levels with this physics. With `hd`, the tests use the golden screenshots in `tests/golden-hd/`, not `tests/golden/` |

@@ -85,11 +85,20 @@ public class DrillEggmanInstance : BossObject
 	/// </summary>
 	private const int TurnMargin = 512;
 
+	/// <summary>
+	/// In the original physics, the car turns around at fixed positions, relative to the left edge.
+	/// The left edge is at the left limit of the camera in the original ($28F0). The original turn points
+	/// are $28A0 and $2B08, a lap of 616 px.
+	/// </summary>
+	private const int OriginalTurnLeftOffset = -80 * 4;
+	private const int OriginalTurnRightOffset = 536 * 4;
+
 	private const int LowerPropellerTicks = 60;
 	private const int DefeatedTicks = 179;
 	private const int PostDefeatIdleTicks = 12;
 	private const int PostDefeatPropellerTicks = 50;
 	private const int FleeRiseTicks = 146;
+	private const int OriginalFleeRiseTicks = 96;
 
 	/// <summary>
 	/// The size of the area around the car in which explosions appear after the defeat.
@@ -228,7 +237,7 @@ public class DrillEggmanInstance : BossObject
 				if (--_stateTimer > 0)
 					break;
 				_status = StatusType.Finished;
-				_stateTimer = FleeRiseTicks;
+				_stateTimer = Level.OriginalPhysics ? OriginalFleeRiseTicks : FleeRiseTicks;
 				Fleeing = true;
 				break;
 			case StatusType.Finished:
@@ -242,7 +251,9 @@ public class DrillEggmanInstance : BossObject
 	/// </summary>
 	private void UpdateNormal()
 	{
-		if (_eggMobile.Position.X <= LeftEdge - TurnMargin || _eggMobile.Position.X >= RightEdge + TurnMargin)
+		int turnLeftX = Level.OriginalPhysics ? LeftEdge + OriginalTurnLeftOffset : LeftEdge - TurnMargin;
+		int turnRightX = Level.OriginalPhysics ? LeftEdge + OriginalTurnRightOffset : RightEdge + TurnMargin;
+		if (_eggMobile.Position.X <= turnLeftX || _eggMobile.Position.X >= turnRightX)
 		{
 			_velocityX *= -1;
 			_eggMobile.FlipX = _velocityX > 0;
@@ -252,9 +263,12 @@ public class DrillEggmanInstance : BossObject
 				_drill.Position = new Vector2i(Position.X + (Position.X - _drill.Position.X), _drill.Position.Y);
 				_drill.FlipX = _velocityX > 0;
 			}
-			if (Health == 1)
+			if (Health == 1 && !Level.OriginalPhysics)
 				ReleaseDrill();
 		}
+		// In the original physics, the drill comes off at 1 health as soon as the protagonist is in front of it.
+		if (Health == 1 && Level.OriginalPhysics && !_drill.Released && IsProtagonistInFrontOfDrill())
+			ReleaseDrill();
 		_eggMobile.Position += new Vector2i(_velocityX, 0);
 		Position += new Vector2i(_velocityX, 0);
 		if (!_drill.Released)
@@ -273,6 +287,15 @@ public class DrillEggmanInstance : BossObject
 			return;
 		// The smoke moves away from the direction of travel.
 		EmitSmoke((Vector2)new Vector2i(Level.Random.Next(-128, 28), -32), new Vector2(_velocityX >= 0 ? -1.0 : 1.0, -4.0));
+	}
+
+	/// <summary>
+	/// Returns true when the protagonist is on the side that the drill points to.
+	/// </summary>
+	private bool IsProtagonistInFrontOfDrill()
+	{
+		int distance = _drill.Position.X - Level.Player.Protagonist.Position.X;
+		return distance >= 0 ? !_drill.FlipX : _drill.FlipX;
 	}
 
 	/// <summary>

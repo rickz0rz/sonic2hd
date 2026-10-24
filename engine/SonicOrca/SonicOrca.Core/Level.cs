@@ -29,6 +29,9 @@ public class Level : IDisposable
 
 	private const int FadeDuration = 60;
 
+	/// <summary>The largest distance from the feet of a character at the start down to the floor that it starts on.</summary>
+	private const int StartFloorDistance = 32;
+
 	private const double ScreenWidth = 1920.0;
 
 	private const double ScreenHeight = 1080.0;
@@ -122,6 +125,15 @@ public class Level : IDisposable
 
 	public LevelPrepareSettings PrepareSettings { get; set; }
 
+	/// <summary>
+	/// The physics mode of the level: the mode of the prepare settings (a demo always plays in Original mode), the test
+	/// hook S2HD_PHYSICS, or the game settings.
+	/// </summary>
+	public PhysicsMode Physics => PrepareSettings?.Physics ?? SonicOrca.Core.Debugging.TestHooks.Physics ?? _gameContext.Physics;
+
+	/// <summary>True when the level plays as the original Sonic 2 (<see cref="PhysicsMode.Original"/>).</summary>
+	public bool OriginalPhysics => Physics == PhysicsMode.Original;
+
 	public string Name { get; set; }
 
 	public bool ShowAsZone { get; set; }
@@ -145,6 +157,12 @@ public class Level : IDisposable
 	public Rectanglei SeamlessNextBounds { get; set; }
 
 	public bool SeamlessAct { get; set; }
+
+	/// <summary>
+	/// True from the first update of a boss until the level starts again, as Current_Boss_ID in the original. In
+	/// Original physics the characters cannot leave the screen on the right during a boss fight.
+	/// </summary>
+	public bool BossFight { get; set; }
 
 	public double NightMode { get; set; }
 
@@ -341,6 +359,7 @@ public class Level : IDisposable
 		_fadeTransition.Clear();
 		StateFlags = 0;
 		Ticks = 0;
+		BossFight = false;
 		_intervals.Clear();
 		InitialiseEarthquake();
 		FinishOnCompleteLevel = true;
@@ -358,6 +377,10 @@ public class Level : IDisposable
 		if (SonicOrca.Core.Debugging.TestHooks.StartRings is int testRings && _player.StarpostIndex == -1)
 		{
 			_player.CurrentRings = testRings;
+		}
+		if (SonicOrca.Core.Debugging.TestHooks.Emeralds is int testEmeralds)
+		{
+			_player.Emeralds = testEmeralds;
 		}
 		_player.RemovePowerups();
 		if (PrepareSettings.Seamless)
@@ -383,7 +406,7 @@ public class Level : IDisposable
 		{
 			_soundManager.PlayMusic(LevelMusic);
 		}
-		Time = ((_player.StarpostIndex != -1) ? _player.StarpostTime : 0);
+		Time = ((_player.StarpostIndex != -1) ? GetStarpostStartTime() : 0);
 		_hud.ShowMiliseconds = PrepareSettings.TimeTrial;
 		ClassicDebugMode = PrepareSettings.Debugging;
 		Controller.IsDebug = PrepareSettings.Debugging;
@@ -460,12 +483,11 @@ public class Level : IDisposable
 
 	private void SetupCharacters(ICharacter protagonist, ICharacter sidekick, int startPath)
 	{
-		_camera.ObjectToTrack = (ActiveObject)protagonist;
-		_camera.CentreObjectToTrack();
 		protagonist.Player = Player;
 		protagonist.Path = startPath;
 		Player.Protagonist = protagonist;
 		Player.ProtagonistGamepadIndex = 0;
+		PlaceOnFloor(protagonist);
 		if (sidekick != null)
 		{
 			sidekick.Player = Player;
@@ -473,6 +495,22 @@ public class Level : IDisposable
 			sidekick.Path = startPath;
 			Player.Sidekick = sidekick;
 			Player.SidekickGamepadIndex = 1;
+			PlaceOnFloor(sidekick);
+		}
+		_camera.ObjectToTrack = (ActiveObject)protagonist;
+		_camera.CentreObjectToTrack();
+	}
+
+	/// <summary>
+	/// Puts a character on the floor under its start position. The start positions and the star post positions are
+	/// for the height of the original Sonic. A shorter character would start in the air and fall when the level
+	/// starts.
+	/// </summary>
+	private static void PlaceOnFloor(ICharacter character)
+	{
+		if (character is Character placedCharacter)
+		{
+			placedCharacter.PlaceOnFloor(StartFloorDistance);
 		}
 	}
 
@@ -493,6 +531,20 @@ public class Level : IDisposable
 		ghostCharacter.LockLifetime = true;
 		ghostCharacter.Initialise(character.Animation.AnimationGroup);
 		return ghostCharacter;
+	}
+
+	/// <summary>
+	/// The time at the start from a star post. HD physics uses the time of the star post. Obj79_LoadData sets the
+	/// frame of the saved time to 59 and takes 1 from the second, so the time goes back to the start of the second
+	/// and 1 frame more.
+	/// </summary>
+	private int GetStarpostStartTime()
+	{
+		if (!OriginalPhysics)
+		{
+			return _player.StarpostTime;
+		}
+		return Math.Max(0, _player.StarpostTime / 60 * 60 - 1);
 	}
 
 	public Vector2i GetPlayerStartPosition()
@@ -519,6 +571,12 @@ public class Level : IDisposable
 				StateFlags |= LevelStateFlags.Updating;
 				StateFlags |= LevelStateFlags.UpdateTime;
 				StateFlags |= LevelStateFlags.Animating;
+				// The original unlocks the controls on the frame that the timer starts. HD physics waits for the title
+				// card.
+				if (OriginalPhysics)
+				{
+					StateFlags |= LevelStateFlags.AllowCharacterControl;
+				}
 			}
 			if (_titleCard.AllowCharacterControl)
 			{

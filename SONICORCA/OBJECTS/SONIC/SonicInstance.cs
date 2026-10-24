@@ -8,7 +8,8 @@ namespace SONICORCA.OBJECTS.SONIC;
 
 /// <summary>
 /// Sonic, a playable character. The Character base class has the movement. This class sets the sprites, draws the
-/// body with the character shader, and plays the peel-out sounds in the winning pose.
+/// body with the character shader, and plays the peel-out sounds in the winning pose. Sonic can become Super Sonic.
+/// There is no Super Sonic art, so the shader colours the skin texture gold.
 /// </summary>
 public class SonicInstance : Character
 {
@@ -18,11 +19,24 @@ public class SonicInstance : Character
 	/// <summary>The winning tick on which the peel-out release sound plays.</summary>
 	private const int PeeloutReleaseTick = 70;
 
+	/// <summary>
+	/// The height radius of Sonic in HD mode. The sprites line up with a collision box of this height. A taller box
+	/// moves the centre up, so the sprite moves down by the difference.
+	/// </summary>
+	private const int HDCollisionRadiusY = 60;
+
 	private int _winningTicks;
 
 	protected override void OnStart()
 	{
 		AnimationGroupResourceKey = Type.GetAbsolutePath(SonicType.AnimationGroupResourceKey);
+		HasSuperAbility = true;
+		if (Level.OriginalPhysics)
+		{
+			// The collision box of the original Sonic: x_radius 9 and y_radius $13, and 7 and $E in a roll.
+			NormalCollisionRadius = new Vector2i(36, 76);
+			SpinballCollisionRadius = new Vector2i(28, 56);
+		}
 		base.OnStart();
 	}
 
@@ -49,13 +63,18 @@ public class SonicInstance : Character
 		double hueShift = Level.GameContext.Configuration.GetPropertyDouble("debug", "sonic_hue_shift");
 		double saturationShift = Level.GameContext.Configuration.GetPropertyDouble("debug", "sonic_sat_shift");
 		double luminanceShift = Level.GameContext.Configuration.GetPropertyDouble("debug", "sonic_lum_shift");
+		(double superHue, double superSaturation, double superLuminance) = GetSuperColourShift();
+		hueShift += superHue;
+		saturationShift += superSaturation;
+		luminanceShift += superLuminance;
 		if (DrawBodyRotated)
 			characterRenderer.ModelMatrix *= Matrix4.CreateRotationZ(ShowAngle);
 		SonicOrca.Graphics.Animation.Frame currentFrame = Animation.CurrentFrame;
 		Vector2 offset = (Vector2)currentFrame.Offset;
 
 		// Move the sprite up, so that it lines up with the collision box. A spinball needs less offset.
-		Vector2 origin = !IsSpinball ? new Vector2(offset.X, offset.Y - 16.0) : new Vector2(offset.X, offset.Y - 4.0);
+		double standingOffsetY = -16.0 + (NormalCollisionRadius.Y - HDCollisionRadiusY);
+		Vector2 origin = !IsSpinball ? new Vector2(offset.X, offset.Y + standingOffsetY) : new Vector2(offset.X, offset.Y - 4.0);
 		Rectangle destination = new Rectangle(
 			origin.X - currentFrame.Source.Width / 2,
 			origin.Y - currentFrame.Source.Height / 2,

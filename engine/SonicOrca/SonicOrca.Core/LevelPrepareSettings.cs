@@ -9,6 +9,9 @@ public class LevelPrepareSettings
 {
 	public bool TimeTrial { get; set; }
 
+	/// <summary>The physics mode of the level, or null for the mode of the game settings.</summary>
+	public PhysicsMode? Physics { get; set; }
+
 	public CharacterType ProtagonistCharacter { get; set; }
 
 	public CharacterType SidekickCharacter { get; set; }
@@ -36,6 +39,9 @@ public class LevelPrepareSettings
 	public int Lives { get; set; }
 
 	public int Score { get; set; }
+
+	/// <summary>The number of continues. Only the Original physics uses them.</summary>
+	public int Continues { get; set; }
 
 	/// <summary>The Chaos Emeralds that the player has, from 0 to 7.</summary>
 	public int Emeralds { get; set; }

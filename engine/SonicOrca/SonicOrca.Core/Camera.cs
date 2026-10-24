@@ -179,6 +179,7 @@ public class Camera
 		box.Y += _trackBounds.Height / 2.0;
 		// Position of the object relative to the track bounds. The camera moves when the object leaves the box.
 		Vector2 relativePosition = ObjectToTrack.Position;
+		relativePosition.X = cameraProperties.TrackX ?? relativePosition.X;
 		relativePosition.X -= _trackBounds.X;
 		relativePosition.Y -= _trackBounds.Y;
 		if (cameraProperties.Delay.X == 0)

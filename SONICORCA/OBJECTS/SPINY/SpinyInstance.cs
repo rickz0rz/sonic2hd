@@ -53,9 +53,11 @@ public class SpinyInstance : Badnik
 		_velocity = _wall ? new Vector2(0.0, -1.0) : new Vector2(-1.0, 0.0);
 		_status = StatusType.Moving;
 		_moveTimeLeft = MoveTicks;
+		// The original box (size $B) is 16 by 16 pixels. The HD box is half that size.
+		int size = Level.OriginalPhysics ? 64 : 32;
 		CollisionRectangles = new CollisionRectangle[]
 		{
-			new CollisionRectangle(this, 0, -16, -16, 32, 32)
+			new CollisionRectangle(this, 0, -size / 2, -size / 2, size, size)
 		};
 	}
 
@@ -117,8 +119,9 @@ public class SpinyInstance : Badnik
 		{
 			if (character.ShouldReactToLevel)
 			{
+				// The original (loc_38B1E) checks only the horizontal distance.
 				double distanceY = character.Position.Y - Position.Y;
-				if (distanceY >= -540.0 && distanceY <= 280.0 && Math.Abs(character.Position.X - Position.X) < 384.0)
+				if ((Level.OriginalPhysics || (distanceY >= -540.0 && distanceY <= 280.0)) && Math.Abs(character.Position.X - Position.X) < 384.0)
 					return true;
 			}
 		}
@@ -194,9 +197,11 @@ public class SpinyInstance : Badnik
 		{
 			base.OnStart();
 			_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath(SpinyType.AnimationGroupResourceKey), AnimationPlasma);
+			// The original box (size $18) is 8 by 8 pixels. The HD box is half that size.
+			int size = Level.OriginalPhysics ? 32 : 16;
 			CollisionRectangles = new CollisionRectangle[]
 			{
-				new CollisionRectangle(this, 0, -8, -8, 16, 16)
+				new CollisionRectangle(this, 0, -size / 2, -size / 2, size, size)
 			};
 		}
 

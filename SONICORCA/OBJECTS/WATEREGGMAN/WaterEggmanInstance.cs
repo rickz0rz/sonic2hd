@@ -111,6 +111,32 @@ public class WaterEggmanInstance : BossObject
 	private const int MaxArmExtension = 256;
 
 	/// <summary>
+	/// In the original physics, the container moves 1 px per frame, from $10 px to $58 px in front of the egg mobile.
+	/// The jar is 33 units in front of the egg mobile when the arm is in, so this extension puts it at $58 px.
+	/// </summary>
+	private const int OriginalArmSpeed = 4;
+	private const int OriginalMaxArmExtension = 0x58 * 4 - 33;
+
+	/// <summary>
+	/// In the original physics, the container can only drop the chemical when it is more than $40 px in front
+	/// of the egg mobile.
+	/// </summary>
+	private const int OriginalMinDropArmExtension = 0x40 * 4 - 33;
+
+	/// <summary>
+	/// In the original physics, the egg mobile follows the protagonist at 1 px per frame.
+	/// </summary>
+	private const double OriginalFollowSpeed = 4.0;
+
+	/// <summary>
+	/// In the original physics, the egg mobile stays between $2A28 and $2B70 when it faces left. The fill
+	/// positions are $2A50 and $2B30, so the limits are 40 px and 64 px outside them. The limits are mirrored
+	/// when the egg mobile faces right.
+	/// </summary>
+	private const int OriginalFollowNearLimit = 40 * 4;
+	private const int OriginalFollowFarLimit = 64 * 4;
+
+	/// <summary>
 	/// When the arm extends past this length, the jar can no longer splash Eggman if the boss is defeated.
 	/// </summary>
 	private const int ArmSplashLimit = 24;
@@ -138,6 +164,11 @@ public class WaterEggmanInstance : BossObject
 	/// </summary>
 	private const int DropTick = 2;
 	private const int DropTicks = 30;
+
+	/// <summary>
+	/// In the original physics, the chemical falls 18 frames after the container opens.
+	/// </summary>
+	private const int OriginalDropTick = 18;
 
 	/// <summary>
 	/// The number of ticks in which the suction tube sucks, and the step of the suction animation per tick.
@@ -216,6 +247,11 @@ public class WaterEggmanInstance : BossObject
 	private SuctionTube _suctionTube;
 	private bool _mobileExploding;
 	private bool _isFaceSplash;
+
+	/// <summary>
+	/// True when the chemical droplet has hit the floor or gone into the water.
+	/// </summary>
+	private bool _chemicalLanded;
 
 	public State ActionState
 	{
@@ -316,7 +352,7 @@ public class WaterEggmanInstance : BossObject
 					// Retract the arm, fly to the fill position and turn to face the middle of the arena.
 					int fillX = _fillSide == -1 ? LeftFillX : RightFillX;
 					_nonHoverPosition.X = MathX.GoTowards(_nonHoverPosition.X, fillX, FlySpeed);
-					_armExtension = Math.Max(0, _armExtension - ArmSpeed);
+					_armExtension = Math.Max(0, _armExtension - CurrentArmSpeed);
 					bool faceRight = _nonHoverPosition.X < (LeftFillX + RightFillX) / 2;
 					if (_armExtension == 0)
 					{
@@ -354,7 +390,7 @@ public class WaterEggmanInstance : BossObject
 					if (_tubeY < MaxTubeY)
 					{
 						_tubeY += TubeSpeed;
-						_armExtension = Math.Max(0, _armExtension - ArmSpeed);
+						_armExtension = Math.Max(0, _armExtension - CurrentArmSpeed);
 						break;
 					}
 					_tubeY = MaxTubeY;
@@ -385,11 +421,22 @@ public class WaterEggmanInstance : BossObject
 					break;
 				case State.Aiming:
 					// Extend the arm and fly to a position where the jar is above the protagonist.
-					_armExtension = Math.Min(MaxArmExtension, _armExtension + ArmSpeed);
+					_armExtension = Math.Min(CurrentMaxArmExtension, _armExtension + CurrentArmSpeed);
 					if (_armExtension >= ArmSplashLimit)
 						_willJarSplashRobotnik = false;
-					ICharacter protagonist = Level.Player.Protagonist;
-					int aimX = _fillSide != -1 ? protagonist.Position.X + AimDistance : protagonist.Position.X - AimDistance;
+					if (Level.OriginalPhysics)
+					{
+						// The original follows the protagonist slowly and drops only when the protagonist is below.
+						FollowProtagonist();
+						if (_armExtension > OriginalMinDropArmExtension && IsProtagonistBelowJar())
+						{
+							_stateTicks = 0;
+							_chemicalLanded = false;
+							_state = State.DroppingChemical;
+						}
+						break;
+					}
+					int aimX = GetAimX();
 					_nonHoverPosition.X = MathX.GoTowards(_nonHoverPosition.X, aimX, FlySpeed);
 					if (_armExtension == MaxArmExtension && _nonHoverPosition.X == aimX)
 					{
@@ -398,7 +445,18 @@ public class WaterEggmanInstance : BossObject
 					}
 					break;
 				case State.DroppingChemical:
-					if (_stateTicks == DropTick)
+					if (Level.OriginalPhysics)
+					{
+						// The original keeps following the protagonist until the chemical lands.
+						FollowProtagonist();
+						if (_stateTicks > OriginalDropTick && _chemicalLanded)
+						{
+							_fillSide = _fillSide == -1 ? 1 : -1;
+							_state = State.MoveToSide;
+							break;
+						}
+					}
+					if (_stateTicks == (Level.OriginalPhysics ? OriginalDropTick : DropTick))
 					{
 						Vector2i dropletOffset = JarOffset;
 						dropletOffset.X += _flipX ? 8 : -8;
@@ -409,7 +467,7 @@ public class WaterEggmanInstance : BossObject
 						_jarEmpty = true;
 						_jarFull = false;
 					}
-					if (_stateTicks < DropTicks)
+					if (_stateTicks < DropTicks || Level.OriginalPhysics)
 					{
 						++_stateTicks;
 						break;
@@ -545,6 +603,42 @@ public class WaterEggmanInstance : BossObject
 				LockLifetime = false;
 			yield return UpdateResult.Next();
 		}
+	}
+
+	private int CurrentArmSpeed => Level.OriginalPhysics ? OriginalArmSpeed : ArmSpeed;
+
+	private int CurrentMaxArmExtension => Level.OriginalPhysics ? OriginalMaxArmExtension : MaxArmExtension;
+
+	/// <summary>
+	/// Gets the position that puts the jar above the protagonist. The egg mobile stays on the side
+	/// where it filled the jar.
+	/// </summary>
+	private int GetAimX()
+	{
+		ICharacter protagonist = Level.Player.Protagonist;
+		return _fillSide != -1 ? protagonist.Position.X + AimDistance : protagonist.Position.X - AimDistance;
+	}
+
+	/// <summary>
+	/// Moves the egg mobile 1 px per frame toward the aim position, between the original limits.
+	/// </summary>
+	private void FollowProtagonist()
+	{
+		int leftLimit = LeftFillX - (_fillSide != -1 ? OriginalFollowNearLimit : OriginalFollowFarLimit);
+		int rightLimit = RightFillX + (_fillSide != -1 ? OriginalFollowFarLimit : OriginalFollowNearLimit);
+		int aimX = Math.Clamp(GetAimX(), leftLimit, rightLimit);
+		_nonHoverPosition.X = MathX.GoTowards(_nonHoverPosition.X, aimX, OriginalFollowSpeed);
+	}
+
+	/// <summary>
+	/// Returns true when the protagonist is in the original drop range below the jar. When the egg mobile faces
+	/// left, the range is 8 px to 32 px right of the jar. When it faces right, the range is 16 px left of the jar
+	/// to 8 px right of the jar.
+	/// </summary>
+	private bool IsProtagonistBelowJar()
+	{
+		int distance = Level.Player.Protagonist.Position.X - (Position.X + JarOffset.X);
+		return _flipX ? distance >= -16 * 4 && distance <= 8 * 4 : distance >= 8 * 4 && distance <= 32 * 4;
 	}
 
 	private void EmitSmoke(Vector2 offset, Vector2 velocity)
@@ -1464,9 +1558,15 @@ public class WaterEggmanInstance : BossObject
 	/// <summary>
 	/// The chemical that drops from the jar. It hurts characters. When it hits the floor, it splashes into
 	/// small projectiles. It goes away in the water.
+	/// In the original physics, the hit box is 12 x 12 px and the floor check uses a radius of 32 px. Thus the
+	/// chemical stops above the floor, and a character that ducks is safe. On the floor, the chemical and the
+	/// projectiles are harmless.
 	/// </summary>
 	private class ChemicalDroplet : Enemy
 	{
+		private const int FloorRadius = 64;
+		private const int OriginalFloorRadius = 128;
+
 		private AnimationInstance _animationInstance;
 		private double _velocityY;
 		private Updater _updater;
@@ -1483,7 +1583,7 @@ public class WaterEggmanInstance : BossObject
 			Priority = 320;
 			CollisionRectangles = new CollisionRectangle[]
 			{
-				new CollisionRectangle(this, 0, -64, -64, 128, 128)
+				Level.OriginalPhysics ? new CollisionRectangle(this, 0, -24, -24, 48, 48) : new CollisionRectangle(this, 0, -64, -64, 128, 128)
 			};
 		}
 
@@ -1502,11 +1602,19 @@ public class WaterEggmanInstance : BossObject
 				MovePrecise(0.0, _velocityY);
 				if (Level.WaterManager.IsUnderwater(Position))
 				{
+					Parent._chemicalLanded = true;
 					Finish();
 					yield break;
 				}
 			}
 			while (!HasHitFloor());
+			Parent._chemicalLanded = true;
+			if (Level.OriginalPhysics)
+			{
+				// Put the splash on the floor.
+				CollisionRectangles = new CollisionRectangle[0];
+				MovePrecise(0.0, OriginalFloorRadius - FloorRadius);
+			}
 			EmitProjectiles();
 			EmitSmallProjectile(new Vector2i(-64, -12));
 			EmitSmallProjectile(new Vector2i(-38, -22));
@@ -1526,7 +1634,7 @@ public class WaterEggmanInstance : BossObject
 		private bool HasHitFloor()
 		{
 			double shift = double.MaxValue;
-			foreach (CollisionInfo collision in CollisionVector.GetCollisions(this, 64))
+			foreach (CollisionInfo collision in CollisionVector.GetCollisions(this, Level.OriginalPhysics ? OriginalFloorRadius : FloorRadius, FloorRadius))
 			{
 				if (collision.Vector.Mode == CollisionMode.Top)
 				{
@@ -1618,7 +1726,8 @@ public class WaterEggmanInstance : BossObject
 			base.OnStart();
 			_animationInstance = new AnimationInstance(Parent._animationGroup, AnimationSplashSmallDrop);
 			Priority = 320;
-			CollisionRectangles = new CollisionRectangle[]
+			// In the original physics, the drops of the splash are harmless.
+			CollisionRectangles = Level.OriginalPhysics ? new CollisionRectangle[0] : new CollisionRectangle[]
 			{
 				new CollisionRectangle(this, 0, -8, -8, 16, 16)
 			};

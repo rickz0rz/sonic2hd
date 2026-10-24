@@ -95,6 +95,8 @@ internal class DemoGameState : IGameState, IDisposable
 			ProtagonistCharacter = CharacterType.Sonic,
 			// The demos of the original play with Tails, who follows Sonic
 			SidekickCharacter = CharacterType.Tails,
+			// The recordings take their routes only with the physics of the original
+			Physics = PhysicsMode.Original,
 			RecordedPlayReadData = demoData
 		});
 		bool finishingDemo = false;

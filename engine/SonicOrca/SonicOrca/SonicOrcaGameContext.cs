@@ -145,6 +145,9 @@ public abstract class SonicOrcaGameContext : IDisposable
 
 	public abstract IVideoSettings VideoSettings { get; }
 
+	/// <summary>The physics mode of the game settings.</summary>
+	public virtual PhysicsMode Physics => PhysicsMode.Original;
+
 	public SonicOrcaGameContext(IPlatform platform)
 	{
 		Singleton = this;

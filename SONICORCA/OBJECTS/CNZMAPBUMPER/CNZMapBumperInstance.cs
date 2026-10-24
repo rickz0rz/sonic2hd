@@ -58,7 +58,8 @@ public class CNZMapBumperInstance : ActiveObject
 	{
 		int bx = Position.X / Scale;
 		int by = Position.Y / Scale;
-		int halfHeight = (character.IsSpinball ? 0x0E : 0x13) - 3;
+		// y_radius - 3, from the collision box of the character ($13 standing and $E rolling for the original Sonic)
+		int halfHeight = character.CollisionRadius.Y / Scale - 3;
 		int left = character.Position.X / Scale - 9;
 		int top = character.Position.Y / Scale - halfHeight;
 		int w = HalfSizes[_kind, 0];

@@ -50,6 +50,8 @@ internal class S2HDSonicOrcaGameContext(IPlatform platform) : SonicOrcaGameConte
 
 	public override IVideoSettings VideoSettings => Settings;
 
+	public override PhysicsMode Physics => Settings.Physics;
+
 	public override void Initialise()
 	{
 		base.Initialise();

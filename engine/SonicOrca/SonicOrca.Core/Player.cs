@@ -1,5 +1,6 @@
 using System;
 using SonicOrca.Core.Objects;
+using SonicOrca.Core.Objects.Base;
 using SonicOrca.Geometry;
 
 namespace SonicOrca.Core;
@@ -15,6 +16,12 @@ public class Player
 	private const int LastRingsForLife = 200;
 
 	private const int ScoreForLife = 50000;
+
+	/// <summary>
+	/// The highest score. The original keeps the score in units of 10 and stops it at 999999 (AddPoints), which
+	/// shows as 9999990.
+	/// </summary>
+	private const int MaxScore = 9999990;
 
 	private const int MaxLives = 999;
 
@@ -46,6 +53,9 @@ public class Player
 	public int TargetRingCountForNextLife { get; private set; }
 
 	public int TargetScoreForNextLife { get; private set; }
+
+	/// <summary>The number of continues (Continue_count in the original). Only the Original physics uses them.</summary>
+	public int Continues { get; set; }
 
 	public int StarpostIndex { get; set; }
 
@@ -113,7 +123,8 @@ public class Player
 
 	public void GainScore(int points)
 	{
-		Score += points;
+		// As AddPoints in the original: one call gives at most one extra life.
+		Score = Math.Min(Score + points, MaxScore);
 		if (Score >= TargetScoreForNextLife)
 		{
 			TargetScoreForNextLife += ScoreForLife;
@@ -128,12 +139,33 @@ public class Player
 		if (CurrentRings >= TargetRingCountForNextLife)
 		{
 			// As Extra_life_flags in the original: one life at 100 rings and one at 200 rings. Losing the rings
-			// resets the target.
-			TargetRingCountForNextLife = TargetRingCountForNextLife < LastRingsForLife
+			// resets the target. HD gives a life at each 100 rings.
+			TargetRingCountForNextLife = !_level.OriginalPhysics || TargetRingCountForNextLife < LastRingsForLife
 				? TargetRingCountForNextLife + RingsForLife
 				: int.MaxValue;
 			GainLives();
 		}
+	}
+
+	/// <summary>
+	/// Sets the score at the start of a level, and sets the score of the next extra life to the next multiple of
+	/// <see cref="ScoreForLife"/>. The original keeps Next_Extra_life_score between levels.
+	/// </summary>
+	public void SetStartScore(int score)
+	{
+		Score = Math.Min(score, MaxScore);
+		TargetScoreForNextLife = (Score / ScoreForLife + 1) * ScoreForLife;
+	}
+
+	/// <summary>
+	/// Uses a continue after the game is over: the player gets the start lives again and the score goes back to 0,
+	/// as the continue screen of the original.
+	/// </summary>
+	public void UseContinue()
+	{
+		Continues--;
+		Lives = StartLives;
+		SetStartScore(0);
 	}
 
 	public void GainLives(int count = 1)
@@ -196,6 +228,11 @@ public class Player
 
 	public void GiveInvincibility()
 	{
+		// invincible_monitor does nothing for Super Sonic, who is already invincible.
+		if (Protagonist.StateFlags.HasFlag(CharacterState.Super))
+		{
+			return;
+		}
 		InvincibillityTicks = PowerupTicks;
 		Protagonist.IsInvincible = true;
 		_level.SoundManager.PlayJingle(JingleType.Invincibility);
@@ -214,6 +251,19 @@ public class Player
 	{
 		RemoveInvincibility();
 		RemoveSpeedShoes();
+	}
+
+	/// <summary>
+	/// Removes the barrier, the invincibility and the speed shoes at the end of an act, as Load_EndOfAct in the
+	/// original (it clears status_secondary).
+	/// </summary>
+	public void RemoveStatusAtEndOfAct()
+	{
+		RemovePowerups();
+		if (Protagonist != null)
+		{
+			Protagonist.Barrier = BarrierType.None;
+		}
 	}
 
 	public bool IsStarpostActivated(int index)

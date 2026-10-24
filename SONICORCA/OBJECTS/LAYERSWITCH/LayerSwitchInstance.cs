@@ -171,7 +171,9 @@ public class LayerSwitchInstance : ActiveObject
 
 	private void UpdateCharacter(ICharacter character)
 	{
-		if (character.IsDebug || !character.ShouldReactToLevel || character.IsObjectControlled || _pathConstrained && character.Path != _path)
+		// The original (Obj03) also switches a character that an object controls, for example in a tube.
+		bool skipObjectControlled = !Level.OriginalPhysics && character.IsObjectControlled;
+		if (character.IsDebug || !character.ShouldReactToLevel || skipObjectControlled || _pathConstrained && character.Path != _path)
 			return;
 		// Side A is above (horizontal switch) or to the left (vertical switch). Side B is below or to the right.
 		int side = _horizontal

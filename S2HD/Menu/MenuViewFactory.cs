@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using SonicOrca;
+using SonicOrca.Core;
 using SonicOrca.Graphics;
 
 namespace S2HD.Menu;
@@ -36,10 +37,25 @@ internal class MenuViewFactory
 
 	public IMenuViewModel GetOptionsView()
 	{
-		return new ListMenuViewModel(new IMenuItem[2]
+		return new ListMenuViewModel(new IMenuItem[3]
 		{
+			new MenuItem("GAME", GetGameOptions(), MenuTags.GAME_MENU),
 			new MenuItem("AUDIO", GetAudioOptions(), MenuTags.AUDIO_MENU),
 			new MenuItem("VIDEO", GetVideoOptions(), MenuTags.VIDEO_MENU)
+		}, MenuTags.OPTIONS_MENU);
+	}
+
+	public ISettingListMenuViewModel GetGameOptions()
+	{
+		S2HDSettings settings = _gameContext.Settings;
+		return new SettingListMenuViewModel(new ISetting[1]
+		{
+			// ORIGINAL plays as the original Sonic 2, HD as Sonic 2 HD. A level uses the setting when it starts.
+			new StandardOptionSetting("PHYSICS", new string[2]
+			{
+				"ORIGINAL",
+				"HD"
+			}, () => (int)settings.Physics, value => settings.Physics = (PhysicsMode)value)
 		}, MenuTags.OPTIONS_MENU);
 	}
 

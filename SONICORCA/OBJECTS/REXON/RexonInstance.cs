@@ -33,6 +33,13 @@ public class RexonInstance : ActiveObject
 
 	private const int TurnTicks = 128;
 	private const int DetectDistanceX = 640;
+
+	/// <summary>
+	/// Original: the Rexon sees a character up to 160 pixels to its left, but only up to 96 pixels to its right
+	/// (Obj94_WaitForPlayer).
+	/// </summary>
+	private const int DetectDistanceLeftOriginal = 640;
+	private const int DetectDistanceRightOriginal = 384;
 	private const double SwimSpeed = 0.5;
 
 	private AnimationGroup _animationGroup;
@@ -77,7 +84,7 @@ public class RexonInstance : ActiveObject
 	private void WaitForCharacter()
 	{
 		ICharacter closestCharacter = Level.ObjectManager.GetClosestCharacterTo((Vector2)Position);
-		if (closestCharacter != null && Math.Abs(Position.X - closestCharacter.Position.X) < DetectDistanceX)
+		if (closestCharacter != null && IsInDetectRange(closestCharacter.Position.X - Position.X))
 		{
 			_facingRight = closestCharacter.Position.X > Position.X;
 			_velocity = new Vector2();
@@ -93,6 +100,13 @@ public class RexonInstance : ActiveObject
 			}
 			PositionPrecise = PositionPrecise + _velocity;
 		}
+	}
+
+	private bool IsInDetectRange(int distanceX)
+	{
+		if (Level.OriginalPhysics)
+			return distanceX > -DetectDistanceLeftOriginal && distanceX <= DetectDistanceRightOriginal;
+		return Math.Abs(distanceX) < DetectDistanceX;
 	}
 
 	/// <summary>Creates the head first, then the neck segments down to the body, and links each one to the next.</summary>
@@ -196,14 +210,16 @@ public class RexonInstance : ActiveObject
 			_index = index;
 			StateTicksRemaining = NeckRaiseTicks[_index];
 			_oscillation += _index * 16;
-			Vector2i offset = new Vector2i(-80, 64);
-			if (Rexon._facingRight)
-				offset.X *= -1;
+			// The original (Obj97_Init) starts the segments 24 pixels to the left, or 40 pixels to the right when the
+			// Rexon faces right. The rise speed does not change with the direction, so these offsets centre the neck.
+			Vector2i offset = Level.OriginalPhysics ? new Vector2i(Rexon._facingRight ? 160 : -96, 64) : new Vector2i(Rexon._facingRight ? 80 : -80, 64);
 			Position = Position + offset;
 			Priority = ParentObject.Priority + 1 + _index;
+			// The original box (size $B) is 16 by 16 pixels. The HD box is half that size.
+			int size = Level.OriginalPhysics ? 64 : 32;
 			CollisionRectangles = new CollisionRectangle[]
 			{
-				new CollisionRectangle(this, 0, -16, -16, 32, 32)
+				new CollisionRectangle(this, 0, -size / 2, -size / 2, size, size)
 			};
 			CanBeDestoryed = false;
 		}
@@ -240,7 +256,8 @@ public class RexonInstance : ActiveObject
 		private void StartRaise()
 		{
 			State = NeckState.Rise;
-			_velocity = new Vector2(-0.45, -8.0);
+			// The original rise speed is -$120, which is -4.5 units for each tick. HD uses -0.45.
+			_velocity = new Vector2(Level.OriginalPhysics ? -4.5 : -0.45, -8.0);
 			StateTicksRemaining = NeckRaiseTicks[HeadIndex - _index];
 		}
 
@@ -385,9 +402,11 @@ public class RexonInstance : ActiveObject
 		{
 			base.OnStart();
 			_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath(RexonType.AnimationGroupResourceKey), AnimationProjectile);
+			// The original box (size $18) is 8 by 8 pixels.
+			int size = Level.OriginalPhysics ? 32 : 50;
 			CollisionRectangles = new CollisionRectangle[]
 			{
-				new CollisionRectangle(this, 0, -25, -25, 50, 50)
+				new CollisionRectangle(this, 0, -size / 2, -size / 2, size, size)
 			};
 			Priority += 32;
 		}

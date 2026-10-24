@@ -81,7 +81,8 @@ public class LevelGameState : IGameState, IDisposable
 		_level = _levelLoader.Level;
 		_player = _level.Player;
 		_player.Lives = PrepareSettings.Lives;
-		_player.Score = PrepareSettings.Score;
+		_player.SetStartScore(PrepareSettings.Score);
+		_player.Continues = PrepareSettings.Continues;
 		_player.Emeralds = PrepareSettings.Emeralds;
 		_levelLoader.LoadLevel();
 		while (true)
@@ -265,8 +266,17 @@ public class LevelGameState : IGameState, IDisposable
 		}
 		else if (_level.Player.Lives == 0)
 		{
-			_finished = true;
-			return;
+			if (!_level.OriginalPhysics || _level.Player.Continues <= 0)
+			{
+				_finished = true;
+				return;
+			}
+			// The original goes to the continue screen when the player has continues. This game has no continue
+			// screen, so it uses a continue at once and restarts the act from its start.
+			_level.Player.UseContinue();
+			_level.Time = 0;
+			_level.RingsCollected = 0;
+			_level.Player.StarpostIndex = -1;
 		}
 		_levelLoader.LoadLevel();
 	}

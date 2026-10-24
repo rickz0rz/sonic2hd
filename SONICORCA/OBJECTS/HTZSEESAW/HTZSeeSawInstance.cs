@@ -198,7 +198,8 @@ public class HTZSeeSawInstance : ActiveObject
 		if (side != 0)
 		{
 			launchVelocity = new Vector2(51.0 / 16.0, 43.75);
-			if (yVelocity > 36.0)
+			// The original (Obj14) gives the big launch at a landing y_vel of $A00 (40 units) or more.
+			if (Level.OriginalPhysics ? yVelocity >= 40.0 : yVelocity > 36.0)
 				launchVelocity = new Vector2(2.5, 56.0);
 		}
 		if (_sol.Side == 1)

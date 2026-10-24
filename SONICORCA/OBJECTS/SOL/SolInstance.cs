@@ -4,6 +4,7 @@ using SonicOrca.Core;
 using SonicOrca.Core.Collision;
 using SonicOrca.Core.Objects;
 using SonicOrca.Core.Objects.Base;
+using SonicOrca.Core.Objects.Metadata;
 using SonicOrca.Extensions;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
@@ -12,7 +13,8 @@ namespace SONICORCA.OBJECTS.SOL;
 
 /// <summary>
 /// Sol, a badnik that moves slowly to the left with four fireballs that turn around it. When the protagonist comes
-/// near, it fires each fireball to the left when that fireball gets to the bottom of the circle.
+/// near, it fires each fireball to the left when that fireball gets to the bottom of the circle. A flipped Sol moves
+/// to the right, turns its fireballs the other way and fires them to the right.
 /// </summary>
 public class SolInstance : Badnik
 {
@@ -21,8 +23,25 @@ public class SolInstance : Badnik
 	private const int FireballCount = 4;
 	private const int DetectDistanceX = 640;
 	private const int DetectDistanceY = 320;
+
+	/// <summary>
+	/// Original: the ticks between the detection and the first fire. The Sol shows the first frame of its fire
+	/// animation for 16 ticks, and the fireballs fire only on the second frame (Obj95_FireballUpdate).
+	/// </summary>
+	private const int WindUpTicksOriginal = 16;
+
 	private AnimationInstance _animation;
 	private bool _waitingForCharacter;
+	private int _windUpTicks;
+
+	/// <summary>The Sol moves to the right and fires to the right (status.npc.x_flip).</summary>
+	[StateVariable]
+	private bool FlipX { get; set; }
+
+	private int Direction => FlipX ? 1 : -1;
+
+	/// <summary>True when the fireballs can fire: the Sol saw the protagonist and finished its wind-up.</summary>
+	private bool CanFire => !_waitingForCharacter && _windUpTicks == 0;
 
 	public SolInstance() => DesignBounds = new Rectanglei(-36, -36, 72, 72);
 
@@ -30,9 +49,11 @@ public class SolInstance : Badnik
 	{
 		base.OnStart();
 		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath(SolType.AnimationGroupResourceKey));
+		// The original box (size $B) is 16 by 16 pixels.
+		int size = Level.OriginalPhysics ? 64 : 72;
 		CollisionRectangles = new CollisionRectangle[]
 		{
-			new CollisionRectangle(this, 0, -36, -36, 72, 72)
+			new CollisionRectangle(this, 0, -size / 2, -size / 2, size, size)
 		};
 		_waitingForCharacter = true;
 
@@ -58,10 +79,14 @@ public class SolInstance : Badnik
 	protected override void OnUpdate()
 	{
 		base.OnUpdate();
-		Position = Position + new Vector2i(-1, 0);
+		Position = Position + new Vector2i(Direction, 0);
+		if (_windUpTicks > 0)
+			--_windUpTicks;
 		if (!_waitingForCharacter || !IsCharacterCloseEnough(Level.Player.Protagonist))
 			return;
 		_waitingForCharacter = false;
+		if (Level.OriginalPhysics)
+			_windUpTicks = WindUpTicksOriginal;
 	}
 
 	private bool IsCharacterCloseEnough(ICharacter character)
@@ -93,6 +118,7 @@ public class SolInstance : Badnik
 		private const double FireSpeed = 8.0;
 		private AnimationInstance _animation;
 		private bool _fired;
+		private int _fireDirection;
 
 		public int Angle { get; set; }
 
@@ -102,9 +128,11 @@ public class SolInstance : Badnik
 		{
 			base.OnStart();
 			_animation = new AnimationInstance(Sol._animation.AnimationGroup, AnimationFireball);
+			// The original box (size $18) is 8 by 8 pixels. The HD box is half that size.
+			int size = Level.OriginalPhysics ? 32 : 16;
 			CollisionRectangles = new CollisionRectangle[]
 			{
-				new CollisionRectangle(this, 0, -8, -8, 16, 16)
+				new CollisionRectangle(this, 0, -size / 2, -size / 2, size, size)
 			};
 			LockLifetime = true;
 		}
@@ -116,19 +144,20 @@ public class SolInstance : Badnik
 			{
 				if (Sol.Finished)
 					Finish();
-				else if (Sol._waitingForCharacter || Angle != FireAngle)
+				else if (!Sol.CanFire || Angle != FireAngle)
 				{
-					Angle = MathX.Wrap(Angle + 1, FullCircle);
+					Angle = MathX.Wrap(Angle - Sol.Direction, FullCircle);
 					UpdateOrbitPosition();
 				}
 				else
 				{
 					_fired = true;
+					_fireDirection = Sol.Direction;
 					LockLifetime = false;
 				}
 			}
 			else
-				PositionPrecise = PositionPrecise + new Vector2(-FireSpeed, 0.0);
+				PositionPrecise = PositionPrecise + new Vector2(FireSpeed * _fireDirection, 0.0);
 		}
 
 		protected override void OnUpdateEditor()

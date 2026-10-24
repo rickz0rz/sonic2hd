@@ -1,3 +1,4 @@
+using System;
 using SonicOrca.Core;
 using SonicOrca.Core.Collision;
 using SonicOrca.Core.Objects;
@@ -241,6 +242,11 @@ public class MonitorInstance : ActiveObject
 				break;
 			case MonitorContents.Invincibility:
 				_breaker.Player.GiveInvincibility();
+				break;
+			case MonitorContents.Robotnik:
+				// The Robotnik monitor hurts the character (robotnik_monitor and Touch_ChkHurt2 in the original).
+				if (_breaker.CanBeHurt)
+					_breaker.Hurt(Math.Sign(_breaker.Position.X - Position.X));
 				break;
 		}
 	}

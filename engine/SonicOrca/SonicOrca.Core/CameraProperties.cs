@@ -14,4 +14,10 @@ public class CameraProperties
 	public Vector2 MaxVelocity { get; set; }
 
 	public Vector2 Offset { get; set; }
+
+	/// <summary>
+	/// The X position that the camera follows instead of the position of the object, or null for the position of the
+	/// object. A character uses it for the camera lag after a spindash.
+	/// </summary>
+	public double? TrackX { get; set; }
 }

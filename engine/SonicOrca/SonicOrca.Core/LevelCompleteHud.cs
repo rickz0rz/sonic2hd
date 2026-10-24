@@ -61,6 +61,9 @@ internal class LevelCompleteHud : IDisposable
 
 	private const int PerfectBonusPoints = 50000;
 
+	/// <summary>The tally total that gives a continue in the Original physics (1000 in the units of the original).</summary>
+	private const int ContinueTotal = 10000;
+
 	private const int MusicFadeOutDuration = 60;
 
 	private const int PreDelayTime = 90;
@@ -309,13 +312,16 @@ internal class LevelCompleteHud : IDisposable
 		if (bankedPoints == 0)
 		{
 			_level.SoundManager.PlaySound(_tallyEndSample);
+			if (_level.OriginalPhysics && _total >= ContinueTotal)
+				_level.Player.Continues++;
 			return false;
 		}
 		TimeBonus -= timePoints;
 		RingBonus -= ringPoints;
 		PerfectBonus -= perfectPoints;
 		_total += bankedPoints;
-		_level.Player.Score += bankedPoints;
+		// The original banks the points through AddPoints, so the tally can give extra lives.
+		_level.Player.GainScore(bankedPoints);
 		// Play the tally sound on every second bank only.
 		_tallySwitchDelay = (_tallySwitchDelay + 1) % 2;
 		if (_tallySwitchDelay == 0)

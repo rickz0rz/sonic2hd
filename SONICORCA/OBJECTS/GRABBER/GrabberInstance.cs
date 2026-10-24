@@ -60,6 +60,30 @@ public class GrabberInstance : Badnik
 	/// <summary>The number of changes of horizontal input that a character needs to escape.</summary>
 	private const int EscapeInputChanges = 8;
 
+	/// <summary>The number of units in one original pixel.</summary>
+	private const int OriginalPixel = 4;
+
+	/// <summary>
+	/// Original: the maximum horizontal distance and the maximum distance below the Grabber at which it sees a
+	/// character (loc_38E52).
+	/// </summary>
+	private const int OriginalDetectRangeX = 64 * OriginalPixel;
+	private const int OriginalDetectRangeY = 128 * OriginalPixel;
+
+	/// <summary>
+	/// Original: the number of ticks from the grab to the explosion. ObjA7_CheckExplode waits 1 tick, then 16, 15
+	/// and so on down to 2 ticks.
+	/// </summary>
+	private const int OriginalExplodeTicks = 136;
+
+	/// <summary>Original: the length of one escape window, and the presses that a character needs in it (loc_390BC).</summary>
+	private const int OriginalEscapeWindowTicks = 32;
+	private const int OriginalEscapePresses = 4;
+
+	/// <summary>The width and height of the body and claw collision boxes, in HD and in the original.</summary>
+	private const int CollisionSizeHD = 32;
+	private const int CollisionSizeOriginal = 64;
+
 	private AnimationGroup _animationGroup;
 	private AnimationInstance _animationBody;
 	private AnimationInstance _animationLegs;
@@ -86,19 +110,37 @@ public class GrabberInstance : Badnik
 	private int _previousCharacterLayer;
 	private ICharacter _grabbedCharacter;
 
+	/// <summary>Original: the ticks until the Grabber explodes. Zero when the countdown has not started.</summary>
+	private int _explodeTicks;
+
+	/// <summary>Original: the state of the escape window. The window opens at the first left or right press.</summary>
+	private bool _escapeWindowOpen;
+	private int _escapeWindowTicks;
+	private int _escapePresses;
+	private int _escapeLastPress;
+	private int _escapePreviousDirection;
+
 	public GrabberInstance()
 	{
 		DesignBounds = new Rectanglei(-128, -128, 256, 256);
+		SetCollisionRectangles(CollisionSizeHD);
+	}
+
+	/// <summary>Sets the body box and the claw box. Both boxes are squares of the given size.</summary>
+	private void SetCollisionRectangles(int size)
+	{
+		Vector2i clawCentre = CharacterGrabOffset + new Vector2i(0, 8);
 		CollisionRectangles = new CollisionRectangle[2]
 		{
-			new CollisionRectangle(this, CollisionIdBody, -16, -16, 32, 32),
-			new CollisionRectangle(this, CollisionIdClaws, CharacterGrabOffset.X - 16, CharacterGrabOffset.Y - 8, 32, 32)
+			new CollisionRectangle(this, CollisionIdBody, -size / 2, -size / 2, size, size),
+			new CollisionRectangle(this, CollisionIdClaws, clawCentre.X - size / 2, clawCentre.Y - size / 2, size, size)
 		};
 	}
 
 	protected override void OnStart()
 	{
 		base.OnStart();
+		SetCollisionRectangles(Level.OriginalPhysics ? CollisionSizeOriginal : CollisionSizeHD);
 		_regrabTicksCounter = 0;
 		_canGrabAgain = true;
 		_playerEscaped = false;
@@ -126,9 +168,21 @@ public class GrabberInstance : Badnik
 	protected override void OnUpdate()
 	{
 		base.OnUpdate();
+		if (Level.OriginalPhysics && _explodeTicks > 0)
+		{
+			--_explodeTicks;
+			if (_explodeTicks == 0)
+			{
+				Explode();
+				return;
+			}
+		}
 		if (_grabbedCharacter != null)
 		{
-			UpdateEscape();
+			if (Level.OriginalPhysics)
+				UpdateEscapeOriginal();
+			else
+				UpdateEscape();
 		}
 		if (_playerEscaped)
 		{
@@ -197,6 +251,58 @@ public class GrabberInstance : Badnik
 		}
 	}
 
+	/// <summary>
+	/// Original: the escape of loc_390BC. The first left or right press opens a window of 32 ticks. Each later press
+	/// that differs from the last press counts. At the end of the window, the character escapes with 4 or more counted
+	/// presses. Otherwise the counter clears and the next press opens a new window.
+	/// </summary>
+	private void UpdateEscapeOriginal()
+	{
+		int direction = _grabbedCharacter.Input.HorizontalDirection;
+		int press = direction != _escapePreviousDirection ? direction : 0;
+		_escapePreviousDirection = direction;
+		if (!_escapeWindowOpen)
+		{
+			if (press == 0)
+				return;
+			_escapeWindowOpen = true;
+			_escapeWindowTicks = OriginalEscapeWindowTicks;
+			_escapeLastPress = press;
+			return;
+		}
+		if (--_escapeWindowTicks > 0)
+		{
+			if (press != 0 && press != _escapeLastPress)
+			{
+				_escapeLastPress = press;
+				++_escapePresses;
+			}
+			return;
+		}
+		if (_escapePresses >= OriginalEscapePresses)
+		{
+			// The Grabber stops and still explodes, but it can no longer hurt or grab.
+			ReleaseCharacter();
+			_status = StatusType.Exploding;
+		}
+		_escapeWindowOpen = false;
+		_escapePresses = 0;
+	}
+
+	/// <summary>Hurts the character that the Grabber holds, and replaces the Grabber with an explosion.</summary>
+	private void Explode()
+	{
+		if (_grabbedCharacter != null)
+		{
+			// Release the character first. Otherwise the release clears the knockback of the hurt.
+			ICharacter character = _grabbedCharacter;
+			ReleaseCharacter();
+			character.Hurt(_direction);
+		}
+		CreateExplosionObject();
+		FinishForever();
+	}
+
 	private void UpdateStatus()
 	{
 		switch (_status)
@@ -233,7 +339,8 @@ public class GrabberInstance : Badnik
 				_status = StatusType.Raising;
 				if (_grabbedCharacter == null)
 					break;
-				_ticksRemaining = GrabHoldTicks;
+				// The original goes up at once after the grab (ObjA7_GrabCharacter).
+				_ticksRemaining = Level.OriginalPhysics ? 0 : GrabHoldTicks;
 				break;
 			case StatusType.Raising:
 				if (_ticksRemaining > 0)
@@ -249,14 +356,17 @@ public class GrabberInstance : Badnik
 				}
 				if (_grabbedCharacter != null)
 				{
+					// The original countdown starts at the grab, so it runs on here.
 					_status = StatusType.Exploding;
-					_ticksRemaining = ExplodeDelayTicks;
+					_ticksRemaining = Level.OriginalPhysics ? 0 : ExplodeDelayTicks;
 					break;
 				}
 				_status = StatusType.Patroling;
 				_ticksRemaining = 0;
 				break;
 			case StatusType.Exploding:
+				if (Level.OriginalPhysics)
+					break;
 				--_ticksRemaining;
 				if (_ticksRemaining != 0)
 					break;
@@ -275,12 +385,32 @@ public class GrabberInstance : Badnik
 	/// <summary>Returns true when a character is below the Grabber, near its horizontal position.</summary>
 	private bool DetectPlayer()
 	{
+		if (Level.OriginalPhysics)
+			return DetectPlayerOriginal();
 		foreach (ICharacter character in Level.ObjectManager.Characters)
 		{
 			if (character.ShouldReactToLevel && character.Position.Y - Position.Y >= 0.0 && Math.Abs(character.Position.X - Position.X) < (double)(CollisionRectangles[CollisionIdClaws].Bounds.Width / 4))
 				return true;
 		}
 		return false;
+	}
+
+	/// <summary>
+	/// Original: the check of loc_38E52. It uses the character that is nearest horizontally. That character must be
+	/// less than 64 pixels to the side and 1 to 127 pixels below.
+	/// </summary>
+	private bool DetectPlayerOriginal()
+	{
+		ICharacter nearest = null;
+		foreach (ICharacter character in Level.ObjectManager.Characters)
+		{
+			if (character.ShouldReactToLevel && (nearest == null || Math.Abs(character.Position.X - Position.X) < Math.Abs(nearest.Position.X - Position.X)))
+				nearest = character;
+		}
+		if (nearest == null)
+			return false;
+		int dy = nearest.Position.Y - Position.Y;
+		return Math.Abs(nearest.Position.X - Position.X) < OriginalDetectRangeX && dy >= OriginalPixel && dy < OriginalDetectRangeY;
 	}
 
 	private void GrabCharacter(ICharacter character)
@@ -294,6 +424,13 @@ public class GrabberInstance : Badnik
 		character.Facing = _direction * -1;
 		character.SpecialState = CharacterSpecialState.Grabbed;
 		_ticksRemaining = 0;
+		if (Level.OriginalPhysics)
+		{
+			_explodeTicks = OriginalExplodeTicks;
+			_escapeWindowOpen = false;
+			_escapePresses = 0;
+			_escapePreviousDirection = character.Input.HorizontalDirection;
+		}
 		_previousCharacterLayer = Level.Map.Layers.IndexOf(_grabbedCharacter.Layer);
 		_grabbedCharacter.Layer = Layer;
 	}
@@ -309,7 +446,8 @@ public class GrabberInstance : Badnik
 		_grabbedCharacter.Layer = Level.Map.Layers[_previousCharacterLayer];
 		_grabbedCharacter.SpecialState = CharacterSpecialState.Normal;
 		_grabbedCharacter.Velocity = new Vector2();
-		_grabbedCharacter.IsSpinball = true;
+		// The original releases the character in the walk animation, not in a roll (loc_390FA).
+		_grabbedCharacter.IsSpinball = !Level.OriginalPhysics;
 		_grabbedCharacter.IsAirborne = true;
 		_grabbedCharacter.CheckCollision = true;
 		_grabbedCharacter.ObjectLink = null;
@@ -321,6 +459,9 @@ public class GrabberInstance : Badnik
 		if (e.ActiveObject.Type.Classification != ObjectClassification.Character)
 			return;
 		ICharacter character = (ICharacter)e.ActiveObject;
+		// Original: after an escape, the Grabber has no collision until it explodes.
+		if (Level.OriginalPhysics && _explodeTicks > 0 && _grabbedCharacter == null)
+			return;
 		if (e.Id == CollisionIdBody)
 		{
 			if (!character.IsDeadly)
@@ -330,7 +471,10 @@ public class GrabberInstance : Badnik
 		}
 		else
 		{
-			if (_grabbedCharacter != null || _status == StatusType.Patroling || !_canGrabAgain || character.IsAirborne)
+			if (_grabbedCharacter != null || !_canGrabAgain)
+				return;
+			// The original grabs only on the way down and up, and also grabs a character in the air.
+			if (Level.OriginalPhysics ? _status != StatusType.Lowering && _status != StatusType.Raising : _status == StatusType.Patroling || character.IsAirborne)
 				return;
 			GrabCharacter(character);
 			e.MaintainVelocity = true;
@@ -377,12 +521,13 @@ public class GrabberInstance : Badnik
 						break;
 					}
 					break;
-				case StatusType.Exploding:
-					// The body flashes faster and faster until it explodes.
-					_explodeOpacityAngleVelocity = (float)MathX.Clamp(Math.PI / 30.0, _explodeOpacityAngleVelocity + Math.PI / 600.0, Math.PI / 4.0);
-					_explodeOpacityAngle += _explodeOpacityAngleVelocity;
-					_explodeOpacity = (float)MathX.Clamp(0.0, (1.0 - Math.Cos(_explodeOpacityAngle)) / 2.0, 1.0);
-					break;
+			}
+			// The body flashes faster and faster until it explodes. The original countdown starts at the grab.
+			if (_status == StatusType.Exploding || (Level.OriginalPhysics && _explodeTicks > 0))
+			{
+				_explodeOpacityAngleVelocity = (float)MathX.Clamp(Math.PI / 30.0, _explodeOpacityAngleVelocity + Math.PI / 600.0, Math.PI / 4.0);
+				_explodeOpacityAngle += _explodeOpacityAngleVelocity;
+				_explodeOpacity = (float)MathX.Clamp(0.0, (1.0 - Math.Cos(_explodeOpacityAngle)) / 2.0, 1.0);
 			}
 			if (_grabbedCharacter != null)
 				_animationBody.Index = AnimationBodyHold;

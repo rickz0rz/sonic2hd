@@ -244,7 +244,16 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 
 	private const string DefaultInvincibilityResourceKey = "SONICORCA/OBJECTS/INVINCIBILITY/ANIGROUP";
 
+	/// <summary>
+	/// The limit of each velocity component, in both modes. The original has no limit on the fall speed, but the
+	/// collision here tests the collision box after the move and does not sweep. The box is 112 to 120 units high, so
+	/// a faster character could go through a floor in one tick. 96 (24 px per frame, $1800) is 1.5 times the largest
+	/// speed of the HD gravity, and a fall of the original seldom gets near it.
+	/// </summary>
 	private const int MaximumVelocity = 96;
+
+	/// <summary>The height radius of a standing character in HD physics.</summary>
+	private const int DefaultHeightRadius = 60;
 
 	/// <summary>
 	/// The draw priority of a character in normal play.
@@ -281,6 +290,68 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	/// <summary>A character cannot collect rings while its invulnerability is this value or more ($5A in Touch_Rings).</summary>
 	private const int RingCollectInvulnerabilityTicks = 90;
 
+	/// <summary>The speed values that set the top speed, the acceleration and the deceleration in Original mode.</summary>
+	private enum OriginalSpeedValues
+	{
+		Normal,
+		Underwater,
+		SpeedShoes
+	}
+
+	private OriginalSpeedValues _originalSpeedValues;
+
+	/// <summary>The emeralds that a character needs to become super (Sonic_CheckGoSuper).</summary>
+	private const int SuperEmeralds = 7;
+
+	/// <summary>The rings that a character needs to become super (Sonic_CheckGoSuper).</summary>
+	private const int SuperRings = 50;
+
+	/// <summary>A super character loses 1 ring each time this number of ticks ends (Super_Sonic_frame_count).</summary>
+	private const int SuperRingDrainTicks = 60;
+
+	/// <summary>
+	/// The number of ticks that the transformation holds the character in place. Sonic_CheckGoSuper sets obj_control
+	/// to $81. PalCycle_SuperSonic clears it after it waits 16 frames and fades the palette in 5 steps of 4 frames.
+	/// </summary>
+	private const int SuperTransformTicks = 36;
+
+	/// <summary>The ticks before the palette fade of the transformation starts ($F in Palette_timer).</summary>
+	private const int SuperPaletteDelayTicks = 16;
+
+	/// <summary>The number of ticks of the palette fade back to normal (PalCycle_SuperSonic, the revert part).</summary>
+	private const int SuperRevertTicks = 24;
+
+	/// <summary>The number of ticks of one cycle of the super palette (9 palette frames of 8 frames each).</summary>
+	private const int SuperPaletteCycleTicks = 72;
+
+	/// <summary>The top speed, the acceleration and the deceleration of a super character ($A00, $30, $100).</summary>
+	private const double SuperTopSpeed = 40.0;
+
+	private const double SuperAcceleration = 0.75;
+
+	private const double SuperDeceleration = 4.0;
+
+	/// <summary>The friction of a super character that walks ($C in Obj01_UpdateSpeedOnGround), also under water.</summary>
+	private const double SuperFriction = 0.1875;
+
+	/// <summary>The jump speed of a super character ($800 in Sonic_Jump). Under water it is $380, as for Sonic.</summary>
+	private const double SuperJumpForce = 32.0;
+
+	/// <summary>The lowest spindash speed of a super character ($B00 in SpindashSpeedsSuper).</summary>
+	private const double SuperSpindashBaseSpeed = 44.0;
+
+	/// <summary>The ticks until the super character loses the next ring.</summary>
+	private int _superRingDrainTicks;
+
+	/// <summary>The ticks that the transformation still holds the character in place.</summary>
+	private int _superTransformTicks;
+
+	/// <summary>The number of ticks since the character became super. The palette uses it.</summary>
+	private int _superPaletteTicks;
+
+	/// <summary>The ticks that the palette fade back to normal still runs.</summary>
+	private int _superRevertTicks;
+
 	/// <summary>True when the slope repel detaches the character in this tick.</summary>
 	private bool _slopeRepelled;
 
@@ -307,6 +378,14 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	private int _pushTicks;
 
 	private double _spindashExtraSpeed;
+
+	/// <summary>The charge of a spindash in Original mode (spindash_counter): $200 for each press, $800 at most.</summary>
+	private int _spindashCounter;
+
+	/// <summary>
+	/// The number of ticks that the camera still lags after a spindash in Original mode (Horiz_scroll_delay_val).
+	/// </summary>
+	private int _spindashCameraLag;
 
 	private Vector2 _intersection;
 
@@ -474,6 +553,15 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		}
 	}
 
+	/// <summary>
+	/// The ground angle as the angle byte of Sonic 2: 256 steps for a full turn, 0 for a flat floor, $40 for a wall
+	/// on the right side of the character and $80 for a ceiling.
+	/// </summary>
+	private int GroundAngleByte => (int)Math.Round(GroundAngle * 128.0 / Math.PI) & 0xFF;
+
+	/// <summary>True when the ground angle is from $60 to $9F: the character is on a ceiling or near it.</summary>
+	private bool IsOnCeilingAngle => ((GroundAngleByte + 0x60) & 0xFF) >= 0xC0;
+
 	public double DistanceFromLedge { get; set; }
 
 	public ActiveObject ObjectLink { get; set; }
@@ -493,6 +581,23 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	public int MovingDirection => Math.Sign(Input.HorizontalDirection);
 
 	public CharacterLookDirection LookDirection { get; set; }
+
+	/// <summary>
+	/// True when the character ducks. In Original mode the character ducks only when it stands still (Sonic_Duck runs
+	/// only when the ground speed is 0) or charges a spindash. A moving character that holds down can still start a
+	/// roll.
+	/// </summary>
+	private bool IsDucking
+	{
+		get
+		{
+			if (LookDirection != CharacterLookDirection.Ducking)
+			{
+				return false;
+			}
+			return !Level.OriginalPhysics || GroundVelocity == 0.0 || IsCharging;
+		}
+	}
 
 	public int LookDelay { get; set; }
 
@@ -540,7 +645,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		{
 			if (!IsSpinball && !IsCharging)
 			{
-				return IsInvincible;
+				return IsInvincible || IsSuper;
 			}
 			return true;
 		}
@@ -560,7 +665,8 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			{
 				return false;
 			}
-			if (IsInvincible)
+			// Sonic_CheckGoSuper sets the invincible status, so a super character also cannot be hurt.
+			if (IsInvincible || IsSuper)
 			{
 				return false;
 			}
@@ -861,7 +967,18 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		}
 		set
 		{
+			bool hadSpeedShoes = HasSpeedShoes;
 			StateFlags = (value ? (StateFlags | CharacterState.SpeedShoes) : (StateFlags & ~CharacterState.SpeedShoes));
+			// The speed shoes set the speed values of Original mode when they start and when they end, also under
+			// water.
+			if (value)
+			{
+				_originalSpeedValues = OriginalSpeedValues.SpeedShoes;
+			}
+			else if (hadSpeedShoes)
+			{
+				_originalSpeedValues = OriginalSpeedValues.Normal;
+			}
 		}
 	}
 
@@ -937,6 +1054,9 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			StateFlags = (value ? (StateFlags | CharacterState.Super) : (StateFlags & ~CharacterState.Super));
 		}
 	}
+
+	/// <summary>True while the transformation to a super character holds the character in place.</summary>
+	private bool IsTransformingToSuper => IsSuper && _superTransformTicks > 0;
 
 	public bool IsCharging
 	{
@@ -1051,7 +1171,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 				{
 					Animation.Index = (int)CharacterAnimation.Lookup;
 				}
-				else if (LookDirection == CharacterLookDirection.Ducking)
+				else if (IsDucking)
 				{
 					Animation.Index = (int)CharacterAnimation.Duck;
 				}
@@ -1283,7 +1403,11 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			{
 				Land();
 			}
-			UpdateCollisionsWithObjects();
+			// obj_control bit 7: the transformation to a super character ignores the objects.
+			if (!IsTransformingToSuper)
+			{
+				UpdateCollisionsWithObjects();
+			}
 			if (Mode != CollisionMode.Air)
 			{
 				_collisionDetected[(int)Mode] = true;
@@ -1562,11 +1686,11 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 				}
 				else
 				{
-					GroundVelocity = ((Math.Abs(Velocity.X) > Math.Abs(Velocity.Y)) ? (Velocity.X * GroundVector.FlipX) : (Velocity.X * Math.Cos(GroundAngle) + Velocity.Y * Math.Sin(GroundAngle)));
+					GroundVelocity = GetLandingGroundVelocity();
 					Velocity = new Vector2(GroundVelocity * Math.Cos(GroundAngle), GroundVelocity * Math.Sin(GroundAngle));
 				}
 			}
-			if (wasHurt)
+			if (wasHurt && Level.OriginalPhysics)
 			{
 				// Sonic_HurtStop: the character stops when it lands, and the invulnerability starts again.
 				GroundVelocity = 0.0;
@@ -1575,6 +1699,81 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			}
 		}
 		Player.ResetScoreChain();
+	}
+
+	/// <summary>
+	/// The ground speed when the character lands. When the character moves more sideways than vertically, the ground
+	/// speed is the horizontal velocity. Otherwise HD mode uses the projection of the velocity on the ground. Original
+	/// mode follows Sonic_DoLevelCollision: when the character moves mostly down, a flat floor (angle within $0F) gives
+	/// the horizontal velocity, a slope ($10 to $1F) gives half the vertical velocity, and a steep slope ($20 to $3F)
+	/// gives the vertical velocity, limited to $FC0 (63). The sign comes from the angle. When the character moves
+	/// mostly up into a steep ceiling, the ground speed is the vertical velocity with the sign from the angle.
+	/// </summary>
+	private double GetLandingGroundVelocity()
+	{
+		double velocityX = Velocity.X;
+		double velocityY = Velocity.Y;
+		double projection = velocityX * Math.Cos(GroundAngle) + velocityY * Math.Sin(GroundAngle);
+		if (Math.Abs(velocityX) > Math.Abs(velocityY))
+		{
+			return velocityX * GroundVector.FlipX;
+		}
+		if (!Level.OriginalPhysics)
+		{
+			return projection;
+		}
+		int angle = GroundAngleByte;
+		int sign = (angle >= 0x80) ? -1 : 1;
+		bool steep = ((angle + 0x20) & 0x40) != 0;
+		if (velocityY < 0.0)
+		{
+			return steep ? velocityY * sign : projection;
+		}
+		if (steep)
+		{
+			return Math.Min(velocityY, 63.0) * sign;
+		}
+		if (((angle + 0x10) & 0x20) != 0)
+		{
+			return velocityY / 2.0 * sign;
+		}
+		return velocityX;
+	}
+
+	/// <summary>
+	/// Moves the character down onto the floor under its centre when the floor is no more than the given distance
+	/// below its feet. The level uses it at the start of a level and at a star post. The start positions of the
+	/// original are for a character with a height radius of 19 px (76 units). A shorter character starts in the air
+	/// and falls when the level starts.
+	/// </summary>
+	public void PlaceOnFloor(int maximumDistance)
+	{
+		double x = PositionPrecise.X;
+		double feetY = PositionPrecise.Y + CollisionRadius.Y;
+		Rectanglei searchArea = new Rectanglei((int)Math.Floor(x) - 1, (int)Math.Floor(feetY) - 1, 3, maximumDistance + 3);
+		double? floorY = null;
+		foreach (CollisionVector vector in Level.CollisionTable.GetPossibleCollisionIntersections(searchArea, CheckLandscapeCollision, CheckObjectCollision))
+		{
+			if (vector.Mode != CollisionMode.Top || !CanCollideWithVector(vector) || CheckIgnoreFlag(vector))
+			{
+				continue;
+			}
+			Vector2i a = vector.AbsoluteA;
+			Vector2i b = vector.AbsoluteB;
+			if (a.X == b.X || x < Math.Min(a.X, b.X) || x > Math.Max(a.X, b.X))
+			{
+				continue;
+			}
+			double y = a.Y + (double)(b.Y - a.Y) * (x - a.X) / (b.X - a.X);
+			if (y >= feetY && y <= feetY + maximumDistance && (floorY == null || y < floorY))
+			{
+				floorY = y;
+			}
+		}
+		if (floorY.HasValue)
+		{
+			PositionPrecise = new Vector2(x, floorY.Value - CollisionRadius.Y);
+		}
 	}
 
 	public void LeaveGround()
@@ -2184,7 +2383,10 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 
 	private void UpdateCollisionsWithObjects()
 	{
-		int offsetY = RectangleCollisionRadius.Y - NormalCollisionRadius.Y;
+		// The touch box is 16 units above the centre of a standing character of the default height (60). A taller
+		// character (Sonic in Original physics) has the same box above the feet. In a roll the radius is the same in
+		// the two modes, so the box stays 16 units above the centre.
+		int offsetY = RectangleCollisionRadius.Y - (IsSpinball ? DefaultHeightRadius : NormalCollisionRadius.Y);
 		Rectangle collisionArea = Rectangle.FromLTRB(PositionPrecise.X - RectangleCollisionRadius.X, PositionPrecise.Y - RectangleCollisionRadius.Y - offsetY, PositionPrecise.X + RectangleCollisionRadius.X, PositionPrecise.Y + RectangleCollisionRadius.Y - offsetY);
 		foreach (ActiveObject activeObject in Level.ObjectManager.ActiveObjects)
 		{
@@ -2425,6 +2627,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		SlopeLockTicks = 0;
 		LookDirection = CharacterLookDirection.Normal;
 		BreathTicks = MaximumBreath;
+		_originalSpeedValues = OriginalSpeedValues.Normal;
 		CollisionRadius = NormalCollisionRadius;
 		CheckCollision = true;
 		CheckLandscapeCollision = true;
@@ -2470,7 +2673,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	private void SetDefaultConstants()
 	{
 		LedgeSensorRadius = 9;
-		NormalCollisionRadius = new Vector2i(40, 60);
+		NormalCollisionRadius = new Vector2i(40, DefaultHeightRadius);
 		RectangleCollisionRadius = new Vector2i(44, 76);
 		SpinballCollisionRadius = new Vector2i(34, 56);
 		FloorSensorRadius = 32;
@@ -2480,14 +2683,25 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 
 	public void HandleInput()
 	{
-		if (IsWinning || IsHurt || IsObjectControlled)
+		// The transformation to a super character holds the character in place and ignores the input.
+		if (IsWinning || IsHurt || IsObjectControlled || IsTransformingToSuper)
 		{
 			Input.Clear();
 			LookDirection = CharacterLookDirection.Normal;
 			return;
 		}
 		LookDirection = CharacterLookDirection.Normal;
-		if (!IsAirborne && !IsSpinball && _balanceDirection == CharacterBalanceDirection.None)
+		if (Level.OriginalPhysics && IsCharging && !IsAirborne)
+		{
+			// Sonic_UpdateSpindash keeps the charge while down is held, also with left or right, and ignores left and
+			// right.
+			if (Input.VerticalDirection >= 0.5)
+			{
+				LookDirection = CharacterLookDirection.Ducking;
+			}
+			Input.Throttle = 0.0;
+		}
+		else if (!IsAirborne && !IsSpinball && _balanceDirection == CharacterBalanceDirection.None)
 		{
 			// Look up or duck when the vertical input is stronger than the horizontal input.
 			double throttle = Input.Throttle;
@@ -2536,6 +2750,13 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		{
 			GroundVelocity = 0.0;
 		}
+		if (IsTransformingToSuper)
+		{
+			// obj_control: the movement does not run, so the character keeps its velocity but does not move.
+			_superTransformTicks--;
+			UpdateSuper();
+			return;
+		}
 		UpdateVariables();
 		UpdateMovement();
 		UpdateSpindash();
@@ -2546,9 +2767,11 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		UpdateBalance();
 		UpdateLooking();
 		UpdatePushing();
+		UpdateSuper();
 		UpdateWaterLogic();
-		// The invulnerability does not count down while the character flies back from a hit (Obj01_Hurt).
-		if (InvulnerabilityTicks > 0 && !IsHurt)
+		// In Original mode, the invulnerability does not count down while the character flies back from a hit
+		// (Obj01_Hurt).
+		if (InvulnerabilityTicks > 0 && !(IsHurt && Level.OriginalPhysics))
 		{
 			InvulnerabilityTicks--;
 		}
@@ -2575,17 +2798,28 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	{
 		Acceleration = 0.1875;
 		Deceleration = 2.0;
-		Friction = Acceleration;
 		TopSpeed = 24.0;
+		if (Level.OriginalPhysics)
+		{
+			SetOriginalSpeedValues();
+		}
+		else if (HasSpeedShoes)
+		{
+			Acceleration = 0.375;
+			TopSpeed = 48.0;
+		}
+		else if (IsSuper)
+		{
+			// HD mode has no Super Sonic, so it uses the values of the original. The halving under water below gives
+			// the underwater values of the original ($500, $18 and $80).
+			TopSpeed = SuperTopSpeed;
+			Acceleration = SuperAcceleration;
+			Deceleration = SuperDeceleration;
+		}
+		Friction = Acceleration;
 		JumpForce = 26.0;
 		JumpReleaseForce = 16.0;
 		Gravity = 0.875;
-		if (HasSpeedShoes)
-		{
-			Acceleration = 0.375;
-			Friction = 0.375;
-			TopSpeed = 48.0;
-		}
 		if (Mode == CollisionMode.Air)
 		{
 			if (IsRollJumping)
@@ -2600,7 +2834,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		else if (IsSpinball)
 		{
 			Acceleration = 0.0;
-			Deceleration = 0.5;
+			Deceleration = GetRollDeceleration();
 			Friction /= 2.0;
 		}
 		else if (MovingDirection != 0)
@@ -2609,18 +2843,30 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		}
 		if (IsUnderwater)
 		{
-			Acceleration *= 0.5;
-			Deceleration *= 0.5;
-			Friction *= 0.5;
-			TopSpeed *= 0.5;
+			if (!Level.OriginalPhysics)
+			{
+				// In Original mode, SetOriginalSpeedValues gives the speed values under water.
+				Acceleration *= 0.5;
+				Deceleration *= 0.5;
+				Friction *= 0.5;
+				TopSpeed *= 0.5;
+			}
 			JumpForce *= 2205.0 / 4095.0;
 			JumpReleaseForce *= 0.5;
 			Gravity = 0.25;
 		}
+		else if (IsSuper)
+		{
+			JumpForce = SuperJumpForce;
+		}
+		if (IsSuper && Mode != CollisionMode.Air && !IsSpinball && MovingDirection == 0)
+		{
+			Friction = SuperFriction;
+		}
 		if (IsHurt)
 		{
-			// Obj01_Hurt_Normal: gravity is $30, or $10 under water.
-			Gravity = IsUnderwater ? 0.25 : 0.75;
+			// Obj01_Hurt_Normal: gravity is $30, or $10 under water. HD mode uses $30 also under water.
+			Gravity = (IsUnderwater && Level.OriginalPhysics) ? 0.25 : 0.75;
 			Acceleration = 0.0;
 			Deceleration = 0.0;
 		}
@@ -2629,12 +2875,75 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			Acceleration = 0.0;
 			Deceleration = 0.0;
 		}
-		if (SlopeLockTicks != 0 && Mode != CollisionMode.Air)
+		if (Level.OriginalPhysics)
 		{
-			// move_lock: the ground movement ignores left and right. Friction still applies when no direction is held.
-			Acceleration = 0.0;
+			if (SlopeLockTicks != 0 && Mode != CollisionMode.Air)
+			{
+				// move_lock: the ground movement ignores left and right. Friction still applies when no direction is
+				// held.
+				Acceleration = 0.0;
+				Deceleration = 0.0;
+			}
+		}
+		else if (SlopeLockTicks != 0)
+		{
+			// HD: the lock ends in the air. On the ground it counts down here and blocks only the deceleration.
+			if (Mode == CollisionMode.Air)
+			{
+				SlopeLockTicks = 0;
+				return;
+			}
+			SlopeLockTicks--;
 			Deceleration = 0.0;
 		}
+	}
+
+	/// <summary>
+	/// Original mode: the top speed, the acceleration and the deceleration of the last event that set them, as the
+	/// speed values of Sonic 2 (Sonic_top_speed). Sonic_Water sets $300, 6 and $40 when the character goes into the
+	/// water and $600, $C and $80 when it comes out, also with speed shoes (a bug of the original). The speed shoes set
+	/// $C00, $18 and $80, also under water, and the normal values when they end. A super character uses $A00, $30 and
+	/// $100 for the normal values and $500, $18 and $80 under water.
+	/// </summary>
+	private void SetOriginalSpeedValues()
+	{
+		switch (_originalSpeedValues)
+		{
+			case OriginalSpeedValues.Normal when IsSuper:
+				TopSpeed = SuperTopSpeed;
+				Acceleration = SuperAcceleration;
+				Deceleration = SuperDeceleration;
+				break;
+			case OriginalSpeedValues.Underwater when IsSuper:
+				TopSpeed = SuperTopSpeed / 2.0;
+				Acceleration = SuperAcceleration / 2.0;
+				Deceleration = SuperDeceleration / 2.0;
+				break;
+			case OriginalSpeedValues.Underwater:
+				TopSpeed = 12.0;
+				Acceleration = 0.09375;
+				Deceleration = 1.0;
+				break;
+			case OriginalSpeedValues.SpeedShoes:
+				TopSpeed = 48.0;
+				Acceleration = 0.375;
+				Deceleration = 2.0;
+				break;
+		}
+	}
+
+	/// <summary>
+	/// The deceleration of a roll when the player holds the other direction. HD mode uses $20 (0.5), and half under
+	/// water. Sonic_RollSpeed uses $20 also under water. Tails_RollSpeed uses a quarter of the deceleration of Tails, so
+	/// the value is half under water. Only Tails can fly, so CanFly identifies Tails here.
+	/// </summary>
+	private double GetRollDeceleration()
+	{
+		if (Level.OriginalPhysics && CanFly)
+		{
+			return Deceleration / 4.0;
+		}
+		return 0.5;
 	}
 
 	private void UpdateMovement()
@@ -2642,15 +2951,22 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		if (Mode == CollisionMode.Air)
 		{
 			Vector2 velocity = Velocity;
-			if (MovingDirection != 0)
+			if (Level.OriginalPhysics)
 			{
-				velocity.X = ChangeSpeed(velocity.X, MovingDirection, TopSpeed, Acceleration, Acceleration, 0.0);
-				Facing = MovingDirection;
+				UpdateAirMovementOriginal(ref velocity);
 			}
-			velocity.Y = ChangeSpeed(velocity.Y, 1, 64.0, Gravity, Gravity, 0.0);
-			if (velocity.Y < 0.0 && velocity.Y > 0.0 - JumpReleaseForce && !IsHurt)
+			else
 			{
-				velocity.X *= 31.0 / 32.0;
+				if (MovingDirection != 0)
+				{
+					velocity.X = ChangeSpeed(velocity.X, MovingDirection, TopSpeed, Acceleration, Acceleration, 0.0);
+					Facing = MovingDirection;
+				}
+				velocity.Y = ChangeSpeed(velocity.Y, 1, 64.0, Gravity, Gravity, 0.0);
+				if (velocity.Y < 0.0 && velocity.Y > 0.0 - JumpReleaseForce)
+				{
+					velocity.X *= 31.0 / 32.0;
+				}
 			}
 			Velocity = velocity;
 		}
@@ -2660,13 +2976,53 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			{
 				ApplySlopeFriction();
 			}
-			GroundVelocity = ChangeSpeed(GroundVelocity, MovingDirection, TopSpeed, Acceleration, Deceleration, Friction, TurnaroundSpeed);
-			if (MovingDirection * GroundVelocity > 0.0 && SlopeLockTicks == 0)
+			GroundVelocity = ChangeSpeed(GroundVelocity, MovingDirection, TopSpeed, Acceleration, Deceleration, Friction, Level.OriginalPhysics ? TurnaroundSpeed : 0.0);
+			if (MovingDirection * GroundVelocity > 0.0 && (SlopeLockTicks == 0 || !Level.OriginalPhysics))
 			{
 				Facing = MovingDirection;
 			}
 			UpdateBraking();
 		}
+	}
+
+	/// <summary>
+	/// The air movement of Original mode, in the order of Obj01_MdAir.
+	/// <list type="bullet">
+	/// <item>Sonic_UpVelCap: when the character did not jump, the upward speed is limited to $FC0 (63), except in
+	/// pinball mode.</item>
+	/// <item>Sonic_ChgJumpDir: a held direction adds the air acceleration. The speed is then limited to the top speed,
+	/// even when the character was faster. After a roll jump, the direction has no effect.</item>
+	/// <item>Sonic_JumpPeakDecelerate: the air drag applies when the vertical velocity is from -$400 (-16) to 0, also
+	/// under water.</item>
+	/// <item>ObjectMoveAndFall: the gravity has no limit. UpdatePosition keeps a limit for the collision.</item>
+	/// </list>
+	/// A hurt character only falls (Obj01_Hurt_Normal).
+	/// </summary>
+	private void UpdateAirMovementOriginal(ref Vector2 velocity)
+	{
+		if (IsHurt)
+		{
+			velocity.Y += Gravity;
+			return;
+		}
+		if (!Jumped && !ForceSpinball && velocity.Y < -63.0)
+		{
+			velocity.Y = -63.0;
+		}
+		if (MovingDirection != 0 && !IsRollJumping)
+		{
+			velocity.X += Acceleration * MovingDirection;
+			if (velocity.X * MovingDirection > TopSpeed)
+			{
+				velocity.X = TopSpeed * MovingDirection;
+			}
+			Facing = MovingDirection;
+		}
+		if (velocity.Y < 0.0 && velocity.Y >= -16.0)
+		{
+			velocity.X *= 31.0 / 32.0;
+		}
+		velocity.Y += Gravity;
 	}
 
 	private void UpdateBraking()
@@ -2711,16 +3067,26 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		{
 			return;
 		}
+		bool original = Level.OriginalPhysics;
+		// Sonic_SlopeResist and Sonic_RollRepel do nothing on a ceiling (angles $60 to $9F).
+		if (original && IsOnCeilingAngle)
+		{
+			return;
+		}
 		double slopeFactor = 0.0 - Math.Sin(GroundAngle);
 		if (IsSpinball)
 		{
-			// A rolling character speeds up downhill more than it slows down uphill.
-			slopeFactor = (!(GroundVelocity * slopeFactor > 0.0)) ? (slopeFactor * 1.25) : (slopeFactor * 0.2873);
+			// A rolling character speeds up downhill ($50, 1.25) more than it slows down uphill. Sonic_RollRepel uses
+			// a quarter of $50 uphill ($14, 0.3125). HD mode uses 0.2873.
+			double uphillFactor = original ? 0.3125 : 0.2873;
+			slopeFactor = (!(GroundVelocity * slopeFactor > 0.0)) ? (slopeFactor * 1.25) : (slopeFactor * uphillFactor);
 		}
 		else
 		{
 			slopeFactor *= 0.5;
-			if (GroundVelocity == 0.0 && Math.Abs(slopeFactor) <= 0.05)
+			// Sonic_SlopeResist does nothing when the character stands still, so it can stand on any slope. HD mode
+			// pushes a character that stands on a slope of more than about 5.7 degrees.
+			if (GroundVelocity == 0.0 && (original || Math.Abs(slopeFactor) <= 0.05))
 			{
 				return;
 			}
@@ -2730,30 +3096,67 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 
 	private void UpdateSpindash()
 	{
+		bool original = Level.OriginalPhysics;
 		if (IsCharging)
 		{
 			LookDelay = DefaultLookDelay;
-			_spindashExtraSpeed *= 31.0 / 32.0;
+			if (original)
+			{
+				_spindashCounter -= _spindashCounter >> 5;
+			}
+			else
+			{
+				_spindashExtraSpeed *= 31.0 / 32.0;
+			}
 			if (Input.ABC == CharacterInputButtonState.Pressed)
 			{
-				_spindashExtraSpeed = Math.Min(_spindashExtraSpeed + 4.0, 16.0);
+				if (original)
+				{
+					_spindashCounter = Math.Min(_spindashCounter + 0x200, 0x800);
+				}
+				else
+				{
+					_spindashExtraSpeed = Math.Min(_spindashExtraSpeed + 4.0, 16.0);
+				}
 				Level.SoundManager.PlaySound(this, "SONICORCA/SOUND/SPINDASH/CHARGE");
 			}
 			if (LookDirection != CharacterLookDirection.Ducking)
 			{
 				IsCharging = false;
-				GroundVelocity = (SpindashBaseSpeed + _spindashExtraSpeed) * Facing;
+				// SpindashSpeeds: $800 plus $80 for each $100 of the charge. HD mode uses the charge as it is. A super
+				// character starts at $B00 (SpindashSpeedsSuper).
+				double baseSpeed = IsSuper ? SuperSpindashBaseSpeed : SpindashBaseSpeed;
+				double speed = original ? baseSpeed + 2.0 * (_spindashCounter >> 8) : baseSpeed + _spindashExtraSpeed;
+				GroundVelocity = speed * Facing;
 				CharacterEvents |= CharacterEvent.SpindashLaunch;
-				CameraProperties.Delay = new Vector2i(16, CameraProperties.Delay.Y);
+				if (original)
+				{
+					_spindashCameraLag = GetSpindashCameraLag(speed);
+				}
+				else
+				{
+					CameraProperties.Delay = new Vector2i(16, CameraProperties.Delay.Y);
+				}
 				Level.SoundManager.PlaySound(this, "SONICORCA/SOUND/SPINDASH/RELEASE");
 			}
 		}
-		else if (!IsSpinball && Mode != CollisionMode.Air && LookDirection == CharacterLookDirection.Ducking && Input.ABC == CharacterInputButtonState.Pressed)
+		else if (!IsSpinball && Mode != CollisionMode.Air && IsDucking && Input.ABC == CharacterInputButtonState.Pressed)
 		{
 			IsCharging = true;
 			_spindashExtraSpeed = 0.0;
+			_spindashCounter = 0;
 			Level.SoundManager.PlaySound(this, "SONICORCA/SOUND/SPINDASH/CHARGE");
 		}
+	}
+
+	/// <summary>
+	/// Sonic_UpdateSpindash: the camera lags for 32 frames at the lowest spindash speed ($800) and for 2 frames less
+	/// for each $100 more. ScrollHoriz then reads old positions of the character, see <see cref="SetCameraTracking"/>.
+	/// </summary>
+	private static int GetSpindashCameraLag(double speed)
+	{
+		int originalSpeed = (int)Math.Round(speed * 64.0);
+		return (0x2000 - ((2 * (originalSpeed - 0x800)) & 0x1F00)) >> 8;
 	}
 
 	private void UpdateSpinning()
@@ -2768,13 +3171,13 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		}
 		else if (IsSpinball)
 		{
-			// Sonic_CheckRollStop: the roll stops only when the ground speed is 0.
-			if (GroundVelocity == 0.0)
+			// Sonic_CheckRollStop: the roll stops only when the ground speed is 0. HD mode stops it below 2.
+			if (Level.OriginalPhysics ? GroundVelocity == 0.0 : Math.Abs(GroundVelocity) < 2.0)
 			{
 				IsSpinball = false;
 			}
 		}
-		else if ((LookDirection == CharacterLookDirection.Ducking || CharacterEvents.HasFlag(CharacterEvent.SpindashLaunch)) && Math.Abs(GroundVelocity) >= 2.0)
+		else if ((LookDirection == CharacterLookDirection.Ducking || CharacterEvents.HasFlag(CharacterEvent.SpindashLaunch)) && IsFastEnoughToRoll())
 		{
 			IsSpinball = true;
 			if (CharacterEvents.HasFlag(CharacterEvent.SpindashLaunch))
@@ -2786,6 +3189,14 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 				Level.SoundManager.PlaySound(this, "SONICORCA/SOUND/SPINBALL");
 			}
 		}
+	}
+
+	/// <summary>
+	/// Sonic_Roll: a character starts to roll at a ground speed of $80 (2) or more. HD mode needs more than 4.
+	/// </summary>
+	private bool IsFastEnoughToRoll()
+	{
+		return Level.OriginalPhysics ? Math.Abs(GroundVelocity) >= 2.0 : Math.Abs(GroundVelocity) > 4.0;
 	}
 
 	/// <summary>
@@ -2811,6 +3222,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		{
 			return;
 		}
+		CheckGoSuper();
 		if (IsJumping)
 		{
 			if (!Input.ABC.HasFlag(CharacterInputButtonState.Down))
@@ -2876,6 +3288,11 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	/// </summary>
 	private void UpdateFalling()
 	{
+		if (!Level.OriginalPhysics)
+		{
+			UpdateFallingHD();
+			return;
+		}
 		if (Mode == CollisionMode.Air)
 		{
 			return;
@@ -2898,12 +3315,161 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		SlopeLockTicks = SlopeRepelLockTicks;
 	}
 
+	/// <summary>
+	/// HD mode: a character on a wall or a ceiling that moves slower than 10 falls off only at 90 degrees or more, and
+	/// keeps its ground speed. Otherwise it gets a lock of 32 ticks that blocks the deceleration.
+	/// </summary>
+	private void UpdateFallingHD()
+	{
+		if (Mode != CollisionMode.Top && Mode != CollisionMode.Air && !(Math.Abs(GroundVelocity) >= 10.0))
+		{
+			if ((GroundVector == null || !GroundVector.Flags.HasFlag(CollisionFlags.DontFall)) && Math.Cos(GroundAngle) <= 0.0001)
+			{
+				CharacterEvents |= CharacterEvent.Fall;
+			}
+			else if (SlopeLockTicks == 0)
+			{
+				SlopeLockTicks = 32;
+			}
+		}
+	}
+
+	/// <summary>
+	/// Sonic_CheckGoSuper: at the top of a jump, a character with the super ability, 7 emeralds and 50 rings or more
+	/// becomes super. Sonic_JumpHeight calls it while the character jumps and the high byte of the vertical velocity is
+	/// 0, so the vertical velocity is from 0 to $FF (less than 4). As in revision 2 of the original, the character does
+	/// not become super at the end of the act, when the time does not run.
+	/// </summary>
+	private void CheckGoSuper()
+	{
+		if (!HasSuperAbility || IsSidekick || IsSuper || !Jumped || Mode != CollisionMode.Air)
+		{
+			return;
+		}
+		if (Velocity.Y < 0.0 || Velocity.Y >= 4.0)
+		{
+			return;
+		}
+		if (Player.Emeralds < SuperEmeralds || Player.CurrentRings < SuperRings)
+		{
+			return;
+		}
+		if (!Level.StateFlags.HasFlag(LevelStateFlags.UpdateTime))
+		{
+			return;
+		}
+		BecomeSuper();
+	}
+
+	/// <summary>
+	/// Makes the character super. The original also plays a sound and the Super Sonic music. The HD data has neither,
+	/// so the level music continues. As in revision 1 of the original, the character stays in a roll.
+	/// </summary>
+	private void BecomeSuper()
+	{
+		IsSuper = true;
+		_superTransformTicks = SuperTransformTicks;
+		_superPaletteTicks = 0;
+		_superRevertTicks = 0;
+		_superRingDrainTicks = SuperRingDrainTicks;
+		// Sonic_CheckGoSuper sets the super speed values also under water and with speed shoes.
+		_originalSpeedValues = OriginalSpeedValues.Normal;
+	}
+
+	/// <summary>
+	/// Sonic_Super: a super character loses 1 ring each 60 ticks. It becomes normal when it has no rings or when the
+	/// time stops at the end of the act. A death clears the super state with the other state flags.
+	/// </summary>
+	private void UpdateSuper()
+	{
+		if (_superRevertTicks > 0)
+		{
+			_superRevertTicks--;
+		}
+		if (!IsSuper)
+		{
+			return;
+		}
+		_superPaletteTicks++;
+		if (!Level.StateFlags.HasFlag(LevelStateFlags.UpdateTime))
+		{
+			RevertToNormal();
+			return;
+		}
+		_superRingDrainTicks--;
+		if (_superRingDrainTicks >= 0)
+		{
+			return;
+		}
+		_superRingDrainTicks = SuperRingDrainTicks;
+		if (Player.CurrentRings > 0)
+		{
+			Player.CurrentRings--;
+		}
+		if (Player.CurrentRings == 0)
+		{
+			RevertToNormal();
+		}
+	}
+
+	/// <summary>
+	/// Sonic_RevertToNormal: the character is not super any more and gets the normal speed values, or the underwater
+	/// values. The original sets them also when the character has speed shoes.
+	/// </summary>
+	private void RevertToNormal()
+	{
+		IsSuper = false;
+		_superTransformTicks = 0;
+		_superRevertTicks = SuperRevertTicks;
+		_originalSpeedValues = IsUnderwater ? OriginalSpeedValues.Underwater : OriginalSpeedValues.Normal;
+	}
+
+	/// <summary>
+	/// Gets the change to the hue, the saturation and the luminance of the skin texture that colours a super character
+	/// gold. The HD data has no Super Sonic art, so the colour change replaces the palette of the original. As in
+	/// PalCycle_SuperSonic, the colour fades in after 16 ticks, then cycles, and fades out when the character becomes
+	/// normal. The fade goes through a light colour so that the hue does not go through green.
+	/// </summary>
+	protected (double Hue, double Saturation, double Luminance) GetSuperColourShift()
+	{
+		const double GoldHue = -0.47;
+		const double GoldSaturation = 0.1;
+		const double GoldLuminance = 0.2;
+		const double FlashLuminance = 0.45;
+		const double CycleLuminance = 0.1;
+		double amount;
+		double cycle = 0.0;
+		if (IsSuper)
+		{
+			amount = MathX.Clamp(0.0, (double)(_superPaletteTicks - SuperPaletteDelayTicks) / (SuperTransformTicks - SuperPaletteDelayTicks), 1.0);
+			if (amount >= 1.0)
+			{
+				double phase = (double)(_superPaletteTicks - SuperTransformTicks) / SuperPaletteCycleTicks;
+				cycle = 0.5 - 0.5 * Math.Cos(phase * Math.PI * 2.0);
+			}
+		}
+		else if (_superRevertTicks > 0)
+		{
+			amount = (double)_superRevertTicks / SuperRevertTicks;
+		}
+		else
+		{
+			return (0.0, 0.0, 0.0);
+		}
+		if (amount < 0.5)
+		{
+			return (0.0, 0.0, amount * 2.0 * FlashLuminance);
+		}
+		double toGold = (amount - 0.5) * 2.0;
+		return (GoldHue, GoldSaturation * toGold, FlashLuminance + (GoldLuminance - FlashLuminance) * toGold + CycleLuminance * cycle);
+	}
+
 	private void UpdatePosition()
 	{
 		if (Mode != CollisionMode.Air)
 		{
 			GroundVelocity = Math.Sign(GroundVelocity) * Math.Min(Math.Abs(GroundVelocity), MaximumVelocity);
-			Velocity = new Vector2(MathX.Clamp(-64.0, GroundVelocity * Math.Cos(GroundAngle), 64.0), MathX.Clamp(-64.0, GroundVelocity * Math.Sin(GroundAngle), 64.0));
+			Velocity = GetGroundVelocityVector();
 			AddPlatformVelocity();
 			if (CharacterEvents.HasFlag(CharacterEvent.Jump))
 			{
@@ -2948,6 +3514,10 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			CharacterEvents &= ~CharacterEvent.DoubleJump;
 		}
 		Velocity = new Vector2(Math.Sign(Velocity.X) * Math.Min(Math.Abs(Velocity.X), MaximumVelocity), Math.Sign(Velocity.Y) * Math.Min(Math.Abs(Velocity.Y), MaximumVelocity));
+		if (Level.OriginalPhysics)
+		{
+			ApplyLevelSideBoundsOriginal();
+		}
 		bool hasRightCollision = _collisionEvents[(int)CollisionMode.Right] != null;
 		bool hasLeftCollision = _collisionEvents[(int)CollisionMode.Left] != null;
 		// A pushing character does not move vertically, unless it pushes a mobile vector.
@@ -2969,6 +3539,26 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			moveY = Velocity.Y;
 		}
 		PositionPrecise += new Vector2(Velocity.X, moveY);
+	}
+
+	/// <summary>
+	/// The velocity from the ground speed. HD mode limits each component to 64. The original limits only the
+	/// horizontal velocity of a roll, to $1000 (64) in Sonic_SetRollSpeeds. In both modes UpdatePosition then limits
+	/// each component to <see cref="MaximumVelocity"/>.
+	/// </summary>
+	private Vector2 GetGroundVelocityVector()
+	{
+		double velocityX = GroundVelocity * Math.Cos(GroundAngle);
+		double velocityY = GroundVelocity * Math.Sin(GroundAngle);
+		if (!Level.OriginalPhysics)
+		{
+			return new Vector2(MathX.Clamp(-64.0, velocityX, 64.0), MathX.Clamp(-64.0, velocityY, 64.0));
+		}
+		if (IsSpinball)
+		{
+			velocityX = MathX.Clamp(-64.0, velocityX, 64.0);
+		}
+		return new Vector2(velocityX, velocityY);
 	}
 
 	private void UpdateBalance()
@@ -3007,11 +3597,18 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			LookDirection = CharacterLookDirection.Normal;
 		}
 		Vector2 offset = CameraProperties.Offset;
-		switch (LookDirection)
+		CharacterLookDirection lookDirection = LookDirection;
+		if (lookDirection == CharacterLookDirection.Ducking && !IsDucking)
+		{
+			lookDirection = CharacterLookDirection.Normal;
+		}
+		// Sonic_Lookup moves the camera up to $C8 (104 px above the normal position). HD mode stops at 86 px.
+		double lookUpLimit = Level.OriginalPhysics ? -416.0 : -344.0;
+		switch (lookDirection)
 		{
 			case CharacterLookDirection.Up:
 				LookDelay = Math.Max(0, LookDelay - 1);
-				offset.Y = ((LookDelay == 0) ? Math.Max(-344.0, offset.Y - 8.0) : MathX.ChangeSpeed(offset.Y, -8.0));
+				offset.Y = ((LookDelay == 0) ? Math.Max(lookUpLimit, offset.Y - 8.0) : MathX.ChangeSpeed(offset.Y, -8.0));
 				break;
 			case CharacterLookDirection.Normal:
 				LookDelay = DefaultLookDelay;
@@ -3110,7 +3707,32 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		return speed;
 	}
 
-	private void ApplyLevelBounds()
+	/// <summary>
+	/// Sonic_LevelBound: tests the position after the move of this tick. The left limit is 16 px right of the left
+	/// edge of the camera range. The right limit is 24 px left of the right edge in a boss fight, and 40 px right of
+	/// the right edge otherwise, so the character can run out of the screen at the end of an act. A character at a
+	/// limit stops there: the horizontal velocity and the ground speed become 0.
+	/// </summary>
+	private void ApplyLevelSideBoundsOriginal()
+	{
+		const int LeftMargin = 64;
+		const int BossRightMargin = 96;
+		const int RightOverhang = 160;
+		Rectanglei bounds = Level.Bounds;
+		double left = bounds.X + LeftMargin;
+		double right = Level.BossFight ? bounds.Right - BossRightMargin : bounds.Right + RightOverhang;
+		double nextX = PositionPrecise.X + Velocity.X;
+		if (nextX >= left && nextX < right)
+		{
+			return;
+		}
+		PositionPrecise = new Vector2((nextX < left) ? left : right, PositionPrecise.Y);
+		Velocity = new Vector2(0.0, Velocity.Y);
+		GroundVelocity = 0.0;
+	}
+
+	/// <summary>HD mode: the centre of the character stays 9 px from the sides of the camera range.</summary>
+	private void ApplyLevelSideBoundsHD()
 	{
 		if (Position.X - LevelBoundsMargin < Level.Bounds.X)
 		{
@@ -3123,6 +3745,15 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			PositionPrecise = new Vector2(Level.Bounds.Right - 1 - LevelBoundsMargin, PositionPrecise.Y);
 			Velocity = new Vector2(0.0, Velocity.Y);
 			GroundVelocity = MathX.Clamp(0.0, GroundVelocity, 1.0);
+		}
+	}
+
+	private void ApplyLevelBounds()
+	{
+		// Original mode tests the side limits in UpdatePosition, see ApplyLevelSideBoundsOriginal.
+		if (!Level.OriginalPhysics || IsDebug)
+		{
+			ApplyLevelSideBoundsHD();
 		}
 		if (IsDebug)
 		{
@@ -3143,9 +3774,29 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		}
 	}
 
+	/// <summary>
+	/// Sets how the camera follows the character. The camera keeps the character between 16 px left of the screen
+	/// centre and the centre. On the ground the character stays 16 px above the centre in Original mode, as with the
+	/// Camera_Y_pos_bias of $60 on the 224 px screen of the original. HD mode uses 4 px. In the air the character can
+	/// move from 48 px above the centre to 16 px below it, as in ScrollVerti.
+	/// After a spindash in Original mode, the camera reads the positions of the character from old ticks, as
+	/// ScrollHoriz reads the position buffer: in each tick the position is one tick newer and the buffer index is
+	/// one tick older. The camera keeps the positions from before the release for about half of the lag, and then
+	/// catches up at up to 16 px per frame.
+	/// </summary>
 	private void SetCameraTracking()
 	{
 		CameraProperties cameraProperties = CameraProperties;
+		cameraProperties.TrackX = null;
+		if (_spindashCameraLag > 0)
+		{
+			CharacterHistoryItem item = _history[_spindashCameraLag - 1];
+			if (item != null)
+			{
+				cameraProperties.TrackX = item.Position.X;
+			}
+			_spindashCameraLag--;
+		}
 		cameraProperties.MaxVelocity = new Vector2(64.0, cameraProperties.MaxVelocity.Y);
 		if (IsAirborne)
 		{
@@ -3154,7 +3805,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		}
 		else
 		{
-			Rectangle box = new Rectangle(-64.0, -16.0, 64.0, 0.0);
+			Rectangle box = new Rectangle(-64.0, Level.OriginalPhysics ? -64.0 : -16.0, 64.0, 0.0);
 			if (IsSpinball)
 			{
 				box.Y += NormalCollisionRadius.Y - SpinballCollisionRadius.Y;
@@ -3170,10 +3821,15 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 
 	/// <summary>
 	/// ScrollVerti on the ground: the camera moves 2 px per frame (8) while the look offset is not 0, 16 px (64) when
-	/// the ground speed is $800 (32) or more, and 6 px (24) otherwise.
+	/// the ground speed is $800 (32) or more, and 6 px (24) otherwise. HD mode uses the vertical velocity: 6 px up to a
+	/// velocity of 6, and 16 px above it.
 	/// </summary>
 	private double GetGroundCameraMaxVelocityY(CameraProperties cameraProperties)
 	{
+		if (!Level.OriginalPhysics)
+		{
+			return (Velocity.Y <= 6.0) ? 24.0 : 64.0;
+		}
 		if (cameraProperties.Offset.Y != 0.0)
 		{
 			return 8.0;
@@ -3681,13 +4337,13 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		switch (_autoSidekickState)
 		{
 			case AutoSidekickState.Spawning:
-				if (!protagonist.IsDebug && (_humanControlled || Level.Ticks % 64 == 0))
+				if (!protagonist.IsDebug && (_humanControlled || (Level.Ticks % 64 == 0 && CanSidekickRespawn(protagonist))))
 				{
-					// Fly in from above the protagonist.
+					// Fly in from above the protagonist: 288 px in HD mode, $C0 (192 px) in Original mode.
 					_autoSidekickState = AutoSidekickState.Flying;
 					StateFlags = 0;
 					CollisionRadius = NormalCollisionRadius;
-					Position = new Vector2i(protagonist.Position.X, protagonist.Position.Y - 1152);
+					Position = new Vector2i(protagonist.Position.X, protagonist.Position.Y - (Level.OriginalPhysics ? 768 : 1152));
 					Priority = SidekickFlyingPriority;
 					_sidekickOffscreenTicks = SidekickOffscreenTime;
 				}
@@ -3724,6 +4380,14 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 					IsDead = false;
 					ShouldReactToLevel = false;
 					Mode = CollisionMode.Air;
+					if (Level.OriginalPhysics)
+					{
+						if (UpdateSidekickFlyingOriginal(protagonist, protagonistHistory))
+						{
+							goto case AutoSidekickState.Normal;
+						}
+						break;
+					}
 					Vector2i offset = default;
 					int deltaX = _sidekickTargetPosition.X - Position.X;
 					if (deltaX != 0)
@@ -3745,13 +4409,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 					}
 					if (Math.Abs(offset.X) <= 48 && offset.Y == 0 && (state & (CharacterState.Rolling | CharacterState.Airborne | CharacterState.Dying | CharacterState.Dead | CharacterState.Debug)) == 0)
 					{
-						Velocity = default;
-						GroundVelocity = 0.0;
-						SlopeLockTicks = 0;
-						Path = protagonist.Path;
-						Layer = protagonist.Layer;
-						Mode = CollisionMode.Air;
-						_autoSidekickState = AutoSidekickState.Normal;
+						LandSidekick(protagonist);
 						goto case AutoSidekickState.Normal;
 					}
 					break;
@@ -3795,6 +4453,92 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 				}
 				break;
 		}
+	}
+
+	/// <summary>
+	/// True when the sidekick can come back. TailsCPU_Spawning waits until the protagonist is not controlled by an
+	/// object, is not in the air, did not roll-jump and is not under water. HD mode does not wait.
+	/// </summary>
+	private bool CanSidekickRespawn(ICharacter protagonist)
+	{
+		if (!Level.OriginalPhysics)
+		{
+			return true;
+		}
+		return !protagonist.IsObjectControlled && !protagonist.IsAirborne && !protagonist.IsRollJumping && !protagonist.IsUnderwater;
+	}
+
+	/// <summary>
+	/// TailsCPU_Flying_Part2 in Original mode. The target is the position of the protagonist 16 ticks before, not
+	/// lower than 16 px above the water. In each tick the sidekick moves to the target horizontally by 1/16 of the
+	/// distance (12 px at most), plus the speed of the protagonist in whole pixels, plus 1 px. It moves to the target
+	/// at once when the step is the distance or more. It moves 1 px vertically. It lands when it was at the target
+	/// height, reaches the target horizontally, and the protagonist was not in the air, did not roll-jump and was not
+	/// under water. Returns true when it lands.
+	/// </summary>
+	private bool UpdateSidekickFlyingOriginal(ICharacter protagonist, CharacterHistoryItem protagonistHistory)
+	{
+		const int Pixel = 4;
+		Vector2i target = protagonistHistory.Position;
+		target.Y += protagonist.NormalCollisionRadius.Y - NormalCollisionRadius.Y;
+		int? waterTop = GetWaterTop(target.X);
+		if (waterTop.HasValue)
+		{
+			target.Y = Math.Min(target.Y, waterTop.Value - 16 * Pixel);
+		}
+		_sidekickTargetPosition = target;
+		Vector2i offset = default;
+		int distanceX = target.X - Position.X;
+		if (distanceX != 0)
+		{
+			int protagonistSpeed = Math.Abs((int)Math.Floor(protagonist.Velocity.X / Pixel));
+			int step = (Math.Min(Math.Abs(distanceX) / (16 * Pixel), 12) + protagonistSpeed + 1) * Pixel;
+			offset.X = Math.Sign(distanceX) * Math.Min(step, Math.Abs(distanceX));
+			Facing = Math.Sign(distanceX);
+		}
+		// The positions are not always whole original pixels, so the last vertical step can be smaller than 1 px.
+		int distanceY = target.Y - Position.Y;
+		offset.Y = Math.Sign(distanceY) * Math.Min(Math.Abs(distanceY), Pixel);
+		Move(offset);
+		CharacterState state = protagonistHistory.State;
+		CharacterState blockingStates = CharacterState.Airborne | CharacterState.Rolling | CharacterState.Underwater | CharacterState.Dying | CharacterState.Dead | CharacterState.Debug;
+		if (offset.X != distanceX || distanceY != 0 || (state & blockingStates) != 0)
+		{
+			return false;
+		}
+		LandSidekick(protagonist);
+		return true;
+	}
+
+	/// <summary>The top of the water at the given X, or null when there is no water there.</summary>
+	private int? GetWaterTop(int x)
+	{
+		WaterManager waterManager = Level.WaterManager;
+		if (!waterManager.Enabled)
+		{
+			return null;
+		}
+		int? top = null;
+		foreach (Rectanglei waterArea in waterManager.WaterAreas)
+		{
+			if (x >= waterArea.Left && x < waterArea.Right && (top == null || waterArea.Top < top))
+			{
+				top = waterArea.Top;
+			}
+		}
+		return top;
+	}
+
+	/// <summary>Ends the flight of the sidekick. It falls from where it is and follows the protagonist again.</summary>
+	private void LandSidekick(ICharacter protagonist)
+	{
+		Velocity = default;
+		GroundVelocity = 0.0;
+		SlopeLockTicks = 0;
+		Path = protagonist.Path;
+		Layer = protagonist.Layer;
+		Mode = CollisionMode.Air;
+		_autoSidekickState = AutoSidekickState.Normal;
 	}
 
 	/// <summary>
@@ -3975,8 +4719,9 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 
 	private void EnterWater()
 	{
+		_originalSpeedValues = OriginalSpeedValues.Underwater;
 		Velocity = new Vector2(Velocity.X / 2.0, Velocity.Y / 4.0);
-		if (IsAirborne && !IsObjectControlled)
+		if (ShouldSplash() && !IsObjectControlled)
 		{
 			Level.WaterManager.CreateSplash(Layer, SplashType.Enter, Position);
 			Level.SoundManager.PlaySound(SplashSoundResourceKey);
@@ -3985,14 +4730,23 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 
 	private void LeaveWater()
 	{
+		_originalSpeedValues = OriginalSpeedValues.Normal;
 		// Obj01_OutWater doubles the vertical speed, unless the character is hurt, and limits it to -$1000 (-64).
 		// On the ground the next tick computes the velocity from the ground speed again, so only the air matters.
-		if (IsAirborne)
+		// HD mode doubles only an upward speed, also when the character is hurt, and limits it to -48.
+		if (Level.OriginalPhysics)
 		{
-			double velocityY = IsHurt ? Velocity.Y : Velocity.Y * 2.0;
-			Velocity = new Vector2(Velocity.X, Math.Max(velocityY, -64.0));
+			if (IsAirborne)
+			{
+				double velocityY = IsHurt ? Velocity.Y : Velocity.Y * 2.0;
+				Velocity = new Vector2(Velocity.X, Math.Max(velocityY, -64.0));
+			}
 		}
-		if (IsAirborne && !IsObjectControlled && !IsDying)
+		else if (IsAirborne && Velocity.Y < 0.0)
+		{
+			Velocity = new Vector2(Velocity.X, Math.Max(Velocity.Y * 2.0, -48.0));
+		}
+		if (ShouldSplash() && !IsObjectControlled && !IsDying)
 		{
 			Level.WaterManager.CreateSplash(Layer, SplashType.Exit, Position);
 			Level.SoundManager.PlaySound(SplashSoundResourceKey);
@@ -4003,6 +4757,19 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			Level.SoundManager.StopJingle(JingleType.Drowning);
 			Level.SoundManager.PlayMusic();
 		}
+	}
+
+	/// <summary>
+	/// True when the character makes a splash as it goes into or out of the water. HD mode makes a splash in the air.
+	/// Sonic_Water makes a splash when the new vertical speed is not 0, also on the ground.
+	/// </summary>
+	private bool ShouldSplash()
+	{
+		if (!Level.OriginalPhysics)
+		{
+			return IsAirborne;
+		}
+		return Math.Floor(Velocity.Y * 64.0) != 0.0;
 	}
 
 	private void CheckForDrowning()
@@ -4024,7 +4791,22 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			}
 			_drowningClimax = true;
 		}
-		// Show the countdown once each second (60 ticks) in the last 5 seconds.
+		if (Level.OriginalPhysics)
+		{
+			// Obj0A_Countdown: the numbers 5 to 0 come each 2 seconds, from 12 seconds before the character drowns.
+			// The character drowns when the 30 seconds of air are used.
+			if (BreathTicks > 0 && BreathTicks <= BreathLeftDrowningMusic && BreathTicks % 120 == 0)
+			{
+				ShowBreathTimeRemaining(BreathTicks / 120 - 1);
+			}
+			if (BreathTicks <= 0)
+			{
+				Drown();
+			}
+			return;
+		}
+		// HD mode shows the countdown once each second (60 ticks) in the last 5 seconds, and the character drowns
+		// 1 second after 0.
 		if (BreathTicks <= 300 && BreathTicks % 60 == 0)
 		{
 			ShowBreathTimeRemaining(BreathTicks / 60);
@@ -4046,12 +4828,13 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		Level.SoundManager.PlaySound(this, DrownSoundResourceKey);
 	}
 
-	private void ShowBreathTimeRemaining(int secondsLeft)
+	/// <summary>Shows a number of the drowning countdown, from 5 to 0.</summary>
+	private void ShowBreathTimeRemaining(int number)
 	{
 		_drownCountdownPosition = Position + new Vector2i(96, -96);
-		if (secondsLeft >= 0 && secondsLeft <= 5)
+		if (number >= 0 && number <= 5)
 		{
-			_drowningAnimation.Index = 5 - secondsLeft;
+			_drowningAnimation.Index = 5 - number;
 			_drowningAnimation.Cycles = 0;
 		}
 	}
