@@ -16,8 +16,14 @@ namespace SonicOrca.Core.SpecialStage;
 /// </summary>
 public sealed class HalfPipePlayer
 {
-	/// <summary>The pipe radius of the player in pixels (ss_z_pos).</summary>
-	public const int Radius = 0x6E;
+	/// <summary>The pipe radius in pixels (ss_z_pos) of the inner lane. Sonic starts in this lane.</summary>
+	public const int InnerRadius = 0x6E;
+
+	/// <summary>The pipe radius in pixels of the outer lane, nearer to the camera. Tails starts in this lane.</summary>
+	public const int OuterRadius = 0x80;
+
+	/// <summary>The radius at which the outer lane starts: a player there shows in front of the other player.</summary>
+	private const int FrontRadius = 0x77;
 
 	public const int BottomAngle = 0x40;
 
@@ -74,6 +80,15 @@ public sealed class HalfPipePlayer
 
 	public int Angle { get; private set; } = BottomAngle;
 
+	/// <summary>The pipe radius of the player in pixels. It moves one pixel each frame toward the lane.</summary>
+	public int Radius { get; private set; }
+
+	/// <summary>The lane that the player moves to: true for the outer lane, false for the inner lane.</summary>
+	public bool OuterLane { get; set; }
+
+	/// <summary>True when the player is in front of a player in the other lane.</summary>
+	public bool InFront => Radius >= FrontRadius;
+
 	public short Inertia { get; private set; }
 
 	/// <summary>True on the pipe surface: only then can the player collect rings and hit bombs.</summary>
@@ -96,8 +111,11 @@ public sealed class HalfPipePlayer
 	/// <summary>The position in the pipe, in pixels from the centre, with Y down.</summary>
 	public (double X, double Y) Position => (_x / 65536.0, _y / 65536.0);
 
-	public HalfPipePlayer()
+	/// <param name="outerLane">True to start in the outer lane, as Tails does.</param>
+	public HalfPipePlayer(bool outerLane = false)
 	{
+		OuterLane = outerLane;
+		Radius = outerLane ? OuterRadius : InnerRadius;
 		PlaceOnPipe();
 	}
 
@@ -119,11 +137,14 @@ public sealed class HalfPipePlayer
 		if (IsHurt)
 		{
 			UpdateHurt();
+			MoveToLane();
 			MoveAroundPipe();
 			return false;
 		}
 		Move(left, right);
-		if (ApplyTraction())
+		bool falls = ApplyTraction();
+		MoveToLane();
+		if (falls)
 		{
 			// Too slow upside down: fall with the physics of a jump, from the current speed (0)
 			_mode = Mode.Fall;
@@ -206,6 +227,13 @@ public sealed class HalfPipePlayer
 		PlaceOnPipe();
 	}
 
+	/// <summary>Moves the player one pixel toward the radius of its lane (SSPlayerSwapPositions).</summary>
+	private void MoveToLane()
+	{
+		int target = OuterLane ? OuterRadius : InnerRadius;
+		Radius += Math.Sign(target - Radius);
+	}
+
 	private void PlaceOnPipe()
 	{
 		_x = (Cos(Angle) * Radius >> 8) << 16;
@@ -249,6 +277,7 @@ public sealed class HalfPipePlayer
 			_slowing = true;
 			PlaceOnPipe();
 		}
+		MoveToLane();
 	}
 
 	/// <summary>The angle of a position, with the octant approximation of SSPlayer_JumpAngle.</summary>

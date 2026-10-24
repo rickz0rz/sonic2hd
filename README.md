@@ -139,6 +139,11 @@ post. Jump into the circle to start the special stage. The circle goes away afte
 the player starts again at the star post with 0 rings. The stage score goes into the level score. A won stage
 gives an emerald, and the next star circle opens the next stage. A failed stage opens the same stage again.
 
+When Tails follows Sonic in the level, Tails also plays in the special stage, with the ring quotas for two
+players. The computer controls Tails: Tails does what Sonic did 16 frames before. When the second pad has input,
+the second player controls Tails. The computer takes control again 3 seconds after the last input. Each player
+has separate rings, and the goals use the total. A jump or a bomb changes the lanes of the two players.
+
 The behavior of levels and objects is C# code in `SONICORCA/`, not data. The `AREA.area.cs` and `.object.cs`
 resources only name the class to use.
 
@@ -152,7 +157,7 @@ resources only name the class to use.
 | `--demo` | Plays the Emerald Hill attract demo |
 | `--nologos` | Skips the disclaimer and the logo screens |
 | `--credits`, `--options` | Opens the credits or the options screen |
-| `--halfpipe [1-7]` | Opens a 3D special stage (in development). Left and right move Sonic around the pipe, and an action button jumps, with the physics of Sonic 2. Collect enough rings for each of the three checkpoints, and avoid the bombs. Escape closes it |
+| `--halfpipe [1-7]` | Opens a 3D special stage (in development). Left and right move Sonic around the pipe, and an action button jumps, with the physics of Sonic 2. Collect enough rings for each of the three checkpoints, and avoid the bombs. Tails follows Sonic. Add `--sidekick none` to play Sonic alone. Escape closes it |
 
 On macOS, pass options to the executable in the app bundle, for example
 `publish/S2HD.app/Contents/MacOS/S2HD --level cpz`.
