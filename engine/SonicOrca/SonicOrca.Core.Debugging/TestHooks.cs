@@ -8,6 +8,7 @@ namespace SonicOrca.Core.Debugging;
 /// Hooks for automated tests. Each one is off unless its environment variable is set.
 /// <list type="bullet">
 /// <item>S2HD_RANDOM_SEED=1: seeds the random number generators of the level and the particle manager.</item>
+/// <item>S2HD_PHYSICS=hd or original: plays the levels in this physics mode, whatever the settings say.</item>
 /// <item>S2HD_CAPTURE_LEVEL_TICKS=60,600: saves a screenshot when the level draws these ticks, counted from the
 /// level start. Unlike frame numbers, ticks do not depend on how long the level took to load.</item>
 /// <item>S2HD_EXIT_AFTER_CAPTURES=1: quits after the last screenshot.</item>
@@ -25,6 +26,9 @@ public static class TestHooks
 			.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(int.Parse));
 
 	private static readonly bool HasLevelTickCaptures = PendingLevelTickCaptures.Count > 0;
+
+	public static readonly PhysicsMode? Physics =
+		Enum.TryParse(Environment.GetEnvironmentVariable("S2HD_PHYSICS"), ignoreCase: true, out PhysicsMode mode) ? mode : null;
 
 	public static readonly bool ExitAfterCaptures = Environment.GetEnvironmentVariable("S2HD_EXIT_AFTER_CAPTURES") == "1";
 

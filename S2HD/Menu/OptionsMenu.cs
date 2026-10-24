@@ -157,6 +157,7 @@ internal class OptionsMenu : IDisposable
 				ResetCompositions();
 				_currentComposition = _subMenuOptionsPopInComposition;
 				break;
+			case MenuTags.GAME_MENU:
 			case MenuTags.AUDIO_MENU:
 				ResetCompositions();
 				_currentComposition = _subMenuAudioPopInComposition;

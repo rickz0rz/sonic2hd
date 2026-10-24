@@ -9,6 +9,9 @@ public class LevelPrepareSettings
 {
 	public bool TimeTrial { get; set; }
 
+	/// <summary>The physics mode of the level, or null for the mode of the game settings.</summary>
+	public PhysicsMode? Physics { get; set; }
+
 	public CharacterType ProtagonistCharacter { get; set; }
 
 	public CharacterType SidekickCharacter { get; set; }

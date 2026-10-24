@@ -122,6 +122,15 @@ public class Level : IDisposable
 
 	public LevelPrepareSettings PrepareSettings { get; set; }
 
+	/// <summary>
+	/// The physics mode of the level: the mode of the prepare settings (a demo always plays in Original mode), the test
+	/// hook S2HD_PHYSICS, or the game settings.
+	/// </summary>
+	public PhysicsMode Physics => PrepareSettings?.Physics ?? SonicOrca.Core.Debugging.TestHooks.Physics ?? _gameContext.Physics;
+
+	/// <summary>True when the level plays as the original Sonic 2 (<see cref="PhysicsMode.Original"/>).</summary>
+	public bool OriginalPhysics => Physics == PhysicsMode.Original;
+
 	public string Name { get; set; }
 
 	public bool ShowAsZone { get; set; }

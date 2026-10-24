@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using S2HD.Menu;
 using SonicOrca;
 using SonicOrca.Core;
@@ -246,7 +247,10 @@ internal class RootGameState : IGameState, IDisposable
 			Debugging = _cmdLineArgs.HasOption("debug"),
 			LevelNumber = levelNumber,
 			Lives = 3,
-			TimeTrial = _cmdLineArgs.HasOption("timetrial")
+			TimeTrial = _cmdLineArgs.HasOption("timetrial"),
+			Physics = Enum.TryParse(_cmdLineArgs.GetOptionValues("physics").FirstOrDefault(), ignoreCase: true, out PhysicsMode physics)
+				? physics
+				: null
 		};
 		string[] actValues = _cmdLineArgs.GetOptionValues("act");
 		if (actValues.Length != 0 && int.TryParse(actValues[0], out int act))

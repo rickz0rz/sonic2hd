@@ -14,4 +14,5 @@ internal class MenuTags
 	public const int AUDIO_MENU = 6;
 	public const int VIDEO_MENU = 7;
 	public const int CONTROLS_MENU = 8;
+	public const int GAME_MENU = 9;
 }
