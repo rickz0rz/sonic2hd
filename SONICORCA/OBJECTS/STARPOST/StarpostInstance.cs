@@ -27,6 +27,16 @@ public class StarpostInstance : ActiveObject
 	private const double StarAxleRadius = 44.0;
 	private static readonly Vector2 StarAxleMidpoint = new Vector2(0.0, -52.0);
 
+	/// <summary>
+	/// The area around the starpost position where the protagonist position activates it in the Original physics
+	/// (Obj79_CheckActivation): x from -8 to +8 px and y from -64 to +40 px.
+	/// </summary>
+	private static readonly Rectanglei OriginalActivationArea = new Rectanglei(-8 * 4, -0x40 * 4, 0x10 * 4, 0x68 * 4);
+
+	/// <summary>The ticks of the two turns of the star: 32 in the original (the dongle object), 30 in HD.</summary>
+	private const int OriginalStarSpinTicks = 32;
+	private const int HDStarSpinTicks = 30;
+
 	private AnimationInstance _standAnimation;
 	private AnimationInstance _starAnimation;
 	private AnimationInstance _starGlowAnimation;
@@ -72,10 +82,12 @@ public class StarpostInstance : ActiveObject
 			_activated = true;
 			_glowing = true;
 		}
+		if (Level.OriginalPhysics && !_activated)
+			CheckOriginalActivation();
 		if (_starSpinning)
 		{
-			// Spin two full turns in 30 ticks, then glow.
-			_starAngle += 2.0 * Math.PI / 15.0;
+			// Spin two full turns, then glow.
+			_starAngle += 4.0 * Math.PI / (Level.OriginalPhysics ? OriginalStarSpinTicks : HDStarSpinTicks);
 			if (_starAngle >= 4.0 * Math.PI)
 			{
 				_starAngle = 0.0;
@@ -91,13 +103,34 @@ public class StarpostInstance : ActiveObject
 		_starPosition = new Vector2(StarAxleMidpoint.X + Math.Sin(_starAngle) * StarAxleRadius, StarAxleMidpoint.Y - Math.Cos(_starAngle) * StarAxleRadius);
 	}
 
+	/// <summary>
+	/// The original activates the starpost when the position of the protagonist is in an area around the starpost,
+	/// not when the hitboxes touch.
+	/// </summary>
+	private void CheckOriginalActivation()
+	{
+		ICharacter character = Level.Player.Protagonist;
+		if (character == null || character.IsDebug)
+			return;
+		Vector2i offset = character.Position - Position;
+		if (offset.X < OriginalActivationArea.Left || offset.X >= OriginalActivationArea.Right
+			|| offset.Y < OriginalActivationArea.Top || offset.Y >= OriginalActivationArea.Bottom)
+			return;
+		Activate(character);
+	}
+
 	protected override void OnCollision(CollisionEvent e)
 	{
-		if (_activated || e.ActiveObject.Type.Classification != ObjectClassification.Character)
+		if (Level.OriginalPhysics || _activated || e.ActiveObject.Type.Classification != ObjectClassification.Character)
 			return;
 		ICharacter character = (ICharacter)e.ActiveObject;
 		if (character.IsSidekick)
 			return;
+		Activate(character);
+	}
+
+	private void Activate(ICharacter character)
+	{
 		character.Player.ActivateStarpost(_index, Position + new Vector2i(0, 64));
 		_activated = true;
 		_starSpinning = true;
