@@ -20,6 +20,9 @@ public class StarpostInstance : ActiveObject
 	public const int AnimationStarActive = 2;
 	public const int AnimationStarActiveGlow = 3;
 
+	/// <summary>The centre of the star circle (for the special stage) above the starpost.</summary>
+	private static readonly Vector2i BonusStarOffset = new Vector2i(0, -220);
+
 	/// <summary>The distance from the star to the axle that it turns around.</summary>
 	private const double StarAxleRadius = 44.0;
 	private static readonly Vector2 StarAxleMidpoint = new Vector2(0.0, -52.0);
@@ -99,6 +102,14 @@ public class StarpostInstance : ActiveObject
 		_activated = true;
 		_starSpinning = true;
 		Level.SoundManager.PlaySound(this, Type.GetAbsolutePath(StarpostType.SoundResourceKey));
+		// With 50 rings and fewer than 7 emeralds, a star circle opens the special stage (Sonic 2)
+		Player player = character.Player;
+		if (player.CurrentRings >= SONICORCA.OBJECTS.STARPOSTBONUSSTAR.StarpostBonusStarInstance.RingsNeeded
+			&& player.Emeralds <= SONICORCA.OBJECTS.STARPOSTBONUSSTAR.StarpostBonusStarInstance.MaxEmeralds)
+		{
+			Level.ObjectManager.AddObject(new ObjectPlacement(Type.GetAbsolutePath(StarpostType.BonusStarResourceKey),
+				Level.Map.Layers.IndexOf(Layer), Position + BonusStarOffset));
+		}
 	}
 
 	protected override void OnAnimate()

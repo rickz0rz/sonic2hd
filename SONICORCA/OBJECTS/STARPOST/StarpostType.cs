@@ -14,4 +14,6 @@ public class StarpostType : ObjectType
 	public const string AnimationGroupResourceKey = "/ANIGROUP";
 	[Dependency]
 	public const string SoundResourceKey = "SONICORCA/SOUND/STARPOST";
+	[Dependency]
+	public const string BonusStarResourceKey = "SONICORCA/OBJECTS/STARPOSTBONUSSTAR";
 }

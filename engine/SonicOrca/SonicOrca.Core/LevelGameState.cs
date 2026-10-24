@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using SonicOrca.Core.Network;
+using SonicOrca.Core.SpecialStage;
 using SonicOrca.Geometry;
+using SonicOrca.Menu;
 
 namespace SonicOrca.Core;
 
@@ -28,6 +30,9 @@ public class LevelGameState : IGameState, IDisposable
 	private bool _finished;
 
 	private bool _areaPaused;
+
+	/// <summary>The special stage while the player plays it, or null.</summary>
+	private ScreenGameState _specialStage;
 
 	private int _lastNotificationTickCount;
 
@@ -77,6 +82,7 @@ public class LevelGameState : IGameState, IDisposable
 		_player = _level.Player;
 		_player.Lives = PrepareSettings.Lives;
 		_player.Score = PrepareSettings.Score;
+		_player.Emeralds = PrepareSettings.Emeralds;
 		_levelLoader.LoadLevel();
 		while (true)
 		{
@@ -109,6 +115,12 @@ public class LevelGameState : IGameState, IDisposable
 				case LevelState.Quit:
 					_finished = true;
 					break;
+				case LevelState.SpecialStage:
+					foreach (UpdateResult result in PlaySpecialStage())
+					{
+						yield return result;
+					}
+					break;
 			}
 			yield return UpdateResult.Next();
 			if (_finished)
@@ -128,10 +140,43 @@ public class LevelGameState : IGameState, IDisposable
 
 	public void Draw()
 	{
+		if (_specialStage != null)
+		{
+			_specialStage.Draw();
+			return;
+		}
 		if (_draw)
 		{
 			_level.Draw(_gameContext.Renderer);
 		}
+	}
+
+	/// <summary>
+	/// Plays the special stage, then restarts the level at the starpost with no rings, as in Sonic 2. The stage gives
+	/// its score. When the player wins the emerald, the next star circle opens the next stage.
+	/// </summary>
+	private IEnumerable<UpdateResult> PlaySpecialStage()
+	{
+		var screen = new HalfPipeSpecialStageScreen(_gameContext, PrepareSettings.SpecialStage);
+		_specialStage = new ScreenGameState(_gameContext, screen);
+		foreach (UpdateResult result in _specialStage.Update())
+		{
+			yield return result;
+		}
+		_specialStage.Dispose();
+		_specialStage = null;
+		if (screen.Results != null)
+		{
+			_player.GainScore(screen.Results.Score);
+		}
+		if (screen.Cleared)
+		{
+			_player.Emeralds = Math.Min(_player.Emeralds + 1, HalfPipeLayout.StageCount);
+			PrepareSettings.SpecialStage = (PrepareSettings.SpecialStage + 1) % HalfPipeLayout.StageCount;
+		}
+		PrepareSettings.Emeralds = _player.Emeralds;
+		_level.State = LevelState.RestartCheckpoint;
+		ReloadLevel(restartFromBeginning: false);
 	}
 
 	private void StartLevel()

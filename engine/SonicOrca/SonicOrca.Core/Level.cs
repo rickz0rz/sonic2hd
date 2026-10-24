@@ -343,6 +343,10 @@ public class Level : IDisposable
 		}
 		_player.ResetScoreChain();
 		_player.ResetRings();
+		if (SonicOrca.Core.Debugging.TestHooks.StartRings is int testRings && _player.StarpostIndex == -1)
+		{
+			_player.CurrentRings = testRings;
+		}
 		_player.RemovePowerups();
 		if (PrepareSettings.Seamless)
 		{
@@ -676,6 +680,11 @@ public class Level : IDisposable
 			});
 		}
 		Ticks++;
+		if (SonicOrca.Core.Debugging.TestHooks.SpecialStageAtTick == Ticks && !SonicOrca.Core.Debugging.TestHooks.SpecialStageTestDone)
+		{
+			SonicOrca.Core.Debugging.TestHooks.SpecialStageTestDone = true;
+			FadeOut(LevelState.SpecialStage);
+		}
 	}
 
 	public void HandleInput()
