@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -45,6 +46,9 @@ public static class PriorityTiles
 	/// <summary>The tile of the low-priority part of animated block N is AnimatedFirstTile + N.</summary>
 	public const int AnimatedFirstTile = 2048;
 
+	/// <summary>The tile of a whole redrawn block on the background layer is BackgroundFirstTile + N.</summary>
+	public const int BackgroundFirstTile = 3072;
+
 	/// <summary>The blocks with a pattern that animated art changes.</summary>
 	public static HashSet<int> GetAnimatedBlocks(byte[] blockMappings, IReadOnlyList<AnimatedArt> animations)
 	{
@@ -73,26 +77,30 @@ public static class PriorityTiles
 	/// <param name="art">The level art: 8 x 8 patterns, 4 bits for each pixel.</param>
 	/// <param name="blockMappings">The 16 x 16 block mappings: four pattern words for each block.</param>
 	public static (string TileSet, byte[] Texture) Create(int hdTiles, byte[] art, byte[] blockMappings, uint[] palette,
-		ICollection<int> priorityBlocks, ICollection<int> animatedBlocks, IReadOnlyList<AnimatedArt> animations, int scale)
+		ICollection<int> priorityBlocks, ICollection<int> animatedBlocks, IReadOnlyList<AnimatedArt> animations, int scale,
+		ICollection<int> backgroundBlocks = null)
 	{
+		backgroundBlocks ??= Array.Empty<int>();
 		int tileSize = BlockSize * scale;
 		// The tile id, then the texture slot and the time of each frame
 		var tiles = new SortedDictionary<int, List<(int Slot, int Duration)>>();
-		var drawings = new List<(int Slot, byte[] Art, int Block, bool Priority)>();
+		// The priority of the patterns to draw: high, low, or null for all the patterns (the background)
+		var drawings = new List<(int Slot, byte[] Art, int Block, bool? Priority)>();
 		foreach (int block in priorityBlocks.Where(b => !animatedBlocks.Contains(b)))
 		{
 			tiles[FirstTile + block] = new List<(int, int)> { (block, 0) };
 			drawings.Add((block, art, block, true));
 		}
 		int nextSlot = BlockCount;
-		foreach (int block in animatedBlocks.OrderBy(b => b))
+		foreach (int block in animatedBlocks.Union(backgroundBlocks).OrderBy(b => b))
 		{
 			// A block without animated art (for example one with patterns that the HD tiles do not have) has one frame
 			AnimatedArt animation = animations.FirstOrDefault(a => Enumerable.Range(0, 4).Any(q => a.Contains(GetWord(blockMappings, block, q) & 0x7FF)));
 			int frameCount = animation?.Frames.Count ?? 1;
-			foreach (bool priority in new[] { true, false })
+			foreach (bool? priority in new bool?[] { true, false, null })
 			{
-				if (!HasPatterns(blockMappings, block, priority))
+				bool wanted = priority == null ? backgroundBlocks.Contains(block) : animatedBlocks.Contains(block) && HasPatterns(blockMappings, block, priority.Value);
+				if (!wanted)
 				{
 					continue;
 				}
@@ -103,14 +111,14 @@ public static class PriorityTiles
 					drawings.Add((nextSlot, animation?.Apply(art, frame) ?? art, block, priority));
 					nextSlot++;
 				}
-				tiles[(priority ? FirstTile : AnimatedFirstTile) + block] = frames;
+				tiles[(priority == null ? BackgroundFirstTile : priority.Value ? FirstTile : AnimatedFirstTile) + block] = frames;
 			}
 		}
 
 		int width = TilesPerRow * tileSize;
 		int height = (nextSlot + TilesPerRow - 1) / TilesPerRow * tileSize;
 		var pixels = new byte[width * height * 4];
-		foreach ((int slot, byte[] slotArt, int block, bool priority) in drawings)
+		foreach ((int slot, byte[] slotArt, int block, bool? priority) in drawings)
 		{
 			DrawBlock(pixels, width, slot % TilesPerRow * tileSize, slot / TilesPerRow * tileSize, slotArt, blockMappings, palette, block, priority, scale);
 		}
@@ -157,14 +165,14 @@ public static class PriorityTiles
 		return (blockMappings[block * 8 + quarter * 2] << 8) | blockMappings[block * 8 + quarter * 2 + 1];
 	}
 
-	/// <summary>Draws the high-priority or the low-priority patterns of a block at four times the size.</summary>
+	/// <summary>Draws the high-priority or the low-priority patterns of a block (or all of them) at four times the size.</summary>
 	private static void DrawBlock(byte[] pixels, int width, int left, int top, byte[] art, byte[] blockMappings, uint[] palette,
-		int block, bool priority, int scale)
+		int block, bool? priority, int scale)
 	{
 		for (int quarter = 0; quarter < 4; quarter++)
 		{
 			int word = GetWord(blockMappings, block, quarter);
-			if (((word & 0x8000) != 0) != priority)
+			if (priority != null && ((word & 0x8000) != 0) != priority.Value)
 			{
 				continue;
 			}

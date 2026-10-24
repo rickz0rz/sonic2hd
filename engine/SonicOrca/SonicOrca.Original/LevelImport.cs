@@ -368,7 +368,9 @@ public sealed record OriginalZone(string Name, string Key, string ChunksFile, st
 				new OriginalSprite("SONICORCA/OBJECTS/WFZBELTPLATFORM", "art/nemesis/Platform on belt in WFZ.nem", "mappings/sprite/objBD.asm", 3),
 				new OriginalSprite("SONICORCA/OBJECTS/WFZGUNPLATFORM", "art/nemesis/Retracting platform from WFZ.nem", "mappings/sprite/objBE.asm", 3),
 			},
-			"art/kosinski/WFZ_SCZ.kos", "mappings/16x16/WFZ_SCZ.kos", 1023)
+			"art/kosinski/WFZ_SCZ.kos", "mappings/16x16/WFZ_SCZ.kos", 1023,
+			// The background moves with the camera (ScrollBG), less the offsets of Eggman's getaway ship in it
+			new BackgroundLayer("back", 128, 1.0, 1.0, 16 * 128 * 4))
 		{
 			// The patterns of WFZ that are not in the SCZ art (ArtKos_WFZ)
 			MoreArt = new[] { ("art/kosinski/WFZ_Supp.kos", 0x307) },
@@ -642,6 +644,7 @@ public static class LevelImport
 		IReadOnlyList<AnimatedArt> animations = null;
 		var used = new HashSet<int>();
 		var usedAnimated = new HashSet<int>();
+		var usedBackground = new HashSet<int>();
 		LevelLayer high = null;
 		if (zone.ArtFile != null)
 		{
@@ -686,6 +689,20 @@ public static class LevelImport
 				}
 			}
 			layers.Add(high);
+			// The background shows whole blocks: a redrawn block gets a tile with all its patterns
+			for (int row = 0; row < back.Rows; row++)
+			{
+				for (int column = 0; column < back.Columns; column++)
+				{
+					ushort entry = GetBlock(chunks, layouts[0], column, row, background: true);
+					int block = entry & 0x3FF;
+					if (block != 0 && animatedBlocks.Contains(block))
+					{
+						usedBackground.Add(block);
+						back.Tiles[column, row] = PriorityTiles.BackgroundFirstTile + ToTile(entry);
+					}
+				}
+			}
 		}
 
 		// The front tile of a block: the HD tile, or the animated tile of a block with animated art
@@ -726,7 +743,7 @@ public static class LevelImport
 
 		if (zone.ArtFile != null)
 		{
-			(tileSet, priorityTexture) = PriorityTiles.Create(zone.HdTiles, art, blockMappings, palette, used, usedAnimated, animations, Scale);
+			(tileSet, priorityTexture) = PriorityTiles.Create(zone.HdTiles, art, blockMappings, palette, used, usedAnimated, animations, Scale, usedBackground);
 		}
 		foreach (LevelLayer layer in layers)
 		{
