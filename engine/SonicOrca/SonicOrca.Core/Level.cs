@@ -375,6 +375,10 @@ public class Level : IDisposable
 		{
 			_player.CurrentRings = testRings;
 		}
+		if (SonicOrca.Core.Debugging.TestHooks.Emeralds is int testEmeralds)
+		{
+			_player.Emeralds = testEmeralds;
+		}
 		_player.RemovePowerups();
 		if (PrepareSettings.Seamless)
 		{

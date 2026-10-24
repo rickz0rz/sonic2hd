@@ -1,5 +1,6 @@
 using System;
 using SonicOrca.Core.Objects;
+using SonicOrca.Core.Objects.Base;
 using SonicOrca.Geometry;
 
 namespace SonicOrca.Core;
@@ -227,6 +228,11 @@ public class Player
 
 	public void GiveInvincibility()
 	{
+		// invincible_monitor does nothing for Super Sonic, who is already invincible.
+		if (Protagonist.StateFlags.HasFlag(CharacterState.Super))
+		{
+			return;
+		}
 		InvincibillityTicks = PowerupTicks;
 		Protagonist.IsInvincible = true;
 		_level.SoundManager.PlayJingle(JingleType.Invincibility);

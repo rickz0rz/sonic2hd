@@ -198,6 +198,14 @@ players. The computer controls Tails: Tails does what Sonic did 16 frames before
 the second player controls Tails. The computer takes control again 3 seconds after the last input. Each player
 has separate rings, and the goals use the total. A jump or a bomb changes the lanes of the two players.
 
+### Super Sonic
+
+With 7 emeralds and 50 rings or more, Sonic becomes Super Sonic at the top of a jump, as in the original. Super
+Sonic is faster, jumps higher and cannot be hurt. A pit, a crush or drowning can still kill him. He loses 1 ring
+each second. He becomes normal again when he has no rings, at the end of the act or when he dies. Tails cannot
+become super. The data has no Super Sonic art, music or sound, so the game colours Sonic gold and the level music
+continues. Super Sonic has the values of the original in the two physics modes.
+
 The behavior of levels and objects is C# code in `SONICORCA/`, not data. The `AREA.area.cs` and `.object.cs`
 resources only name the class to use.
 
@@ -305,5 +313,6 @@ The test uses these environment variables, which you can also set by hand:
 | `S2HD_CAPTURE_LEVEL_TICKS` | Saves a screenshot at these level ticks, for example `60,600` |
 | `S2HD_EXIT_AFTER_CAPTURES` | With `1`, quits after the last screenshot |
 | `S2HD_TEST_START_RINGS` | Gives the player this number of rings at the start of a level |
+| `S2HD_TEST_EMERALDS` | Gives the player this number of emeralds at the start of a level. With `7` and 50 rings, Sonic can become Super Sonic |
 | `S2HD_TEST_SPECIAL_STAGE_AT_TICK` | Starts the special stage at this level tick, one time only |
 | `S2HD_PHYSICS` | With `original` or `hd`, plays the levels with this physics. With `hd`, the tests use the golden screenshots in `tests/golden-hd/`, not `tests/golden/` |

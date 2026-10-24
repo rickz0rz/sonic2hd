@@ -13,6 +13,7 @@ namespace SonicOrca.Core.Debugging;
 /// level start. Unlike frame numbers, ticks do not depend on how long the level took to load.</item>
 /// <item>S2HD_EXIT_AFTER_CAPTURES=1: quits after the last screenshot.</item>
 /// <item>S2HD_TEST_START_RINGS=60: gives the player this number of rings when a level starts.</item>
+/// <item>S2HD_TEST_EMERALDS=7: gives the player this number of emeralds when a level starts.</item>
 /// <item>S2HD_TEST_SPECIAL_STAGE_AT_TICK=300: at this level tick, goes to the special stage as from a star circle.</item>
 /// </list>
 /// </summary>
@@ -34,6 +35,10 @@ public static class TestHooks
 
 	public static readonly int? StartRings =
 		int.TryParse(Environment.GetEnvironmentVariable("S2HD_TEST_START_RINGS"), out int rings) ? rings : null;
+
+	/// <summary>The emeralds that the player has at the start of a level, to test Super Sonic.</summary>
+	public static readonly int? Emeralds =
+		int.TryParse(Environment.GetEnvironmentVariable("S2HD_TEST_EMERALDS"), out int emeralds) ? emeralds : null;
 
 	public static readonly int? SpecialStageAtTick =
 		int.TryParse(Environment.GetEnvironmentVariable("S2HD_TEST_SPECIAL_STAGE_AT_TICK"), out int tick) ? tick : null;

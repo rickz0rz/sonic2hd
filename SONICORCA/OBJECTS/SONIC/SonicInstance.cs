@@ -8,7 +8,8 @@ namespace SONICORCA.OBJECTS.SONIC;
 
 /// <summary>
 /// Sonic, a playable character. The Character base class has the movement. This class sets the sprites, draws the
-/// body with the character shader, and plays the peel-out sounds in the winning pose.
+/// body with the character shader, and plays the peel-out sounds in the winning pose. Sonic can become Super Sonic.
+/// There is no Super Sonic art, so the shader colours the skin texture gold.
 /// </summary>
 public class SonicInstance : Character
 {
@@ -23,6 +24,7 @@ public class SonicInstance : Character
 	protected override void OnStart()
 	{
 		AnimationGroupResourceKey = Type.GetAbsolutePath(SonicType.AnimationGroupResourceKey);
+		HasSuperAbility = true;
 		base.OnStart();
 	}
 
@@ -49,6 +51,10 @@ public class SonicInstance : Character
 		double hueShift = Level.GameContext.Configuration.GetPropertyDouble("debug", "sonic_hue_shift");
 		double saturationShift = Level.GameContext.Configuration.GetPropertyDouble("debug", "sonic_sat_shift");
 		double luminanceShift = Level.GameContext.Configuration.GetPropertyDouble("debug", "sonic_lum_shift");
+		(double superHue, double superSaturation, double superLuminance) = GetSuperColourShift();
+		hueShift += superHue;
+		saturationShift += superSaturation;
+		luminanceShift += superLuminance;
 		if (DrawBodyRotated)
 			characterRenderer.ModelMatrix *= Matrix4.CreateRotationZ(ShowAngle);
 		SonicOrca.Graphics.Animation.Frame currentFrame = Animation.CurrentFrame;

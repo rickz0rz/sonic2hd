@@ -297,6 +297,58 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 
 	private OriginalSpeedValues _originalSpeedValues;
 
+	/// <summary>The emeralds that a character needs to become super (Sonic_CheckGoSuper).</summary>
+	private const int SuperEmeralds = 7;
+
+	/// <summary>The rings that a character needs to become super (Sonic_CheckGoSuper).</summary>
+	private const int SuperRings = 50;
+
+	/// <summary>A super character loses 1 ring each time this number of ticks ends (Super_Sonic_frame_count).</summary>
+	private const int SuperRingDrainTicks = 60;
+
+	/// <summary>
+	/// The number of ticks that the transformation holds the character in place. Sonic_CheckGoSuper sets obj_control
+	/// to $81. PalCycle_SuperSonic clears it after it waits 16 frames and fades the palette in 5 steps of 4 frames.
+	/// </summary>
+	private const int SuperTransformTicks = 36;
+
+	/// <summary>The ticks before the palette fade of the transformation starts ($F in Palette_timer).</summary>
+	private const int SuperPaletteDelayTicks = 16;
+
+	/// <summary>The number of ticks of the palette fade back to normal (PalCycle_SuperSonic, the revert part).</summary>
+	private const int SuperRevertTicks = 24;
+
+	/// <summary>The number of ticks of one cycle of the super palette (9 palette frames of 8 frames each).</summary>
+	private const int SuperPaletteCycleTicks = 72;
+
+	/// <summary>The top speed, the acceleration and the deceleration of a super character ($A00, $30, $100).</summary>
+	private const double SuperTopSpeed = 40.0;
+
+	private const double SuperAcceleration = 0.75;
+
+	private const double SuperDeceleration = 4.0;
+
+	/// <summary>The friction of a super character that walks ($C in Obj01_UpdateSpeedOnGround), also under water.</summary>
+	private const double SuperFriction = 0.1875;
+
+	/// <summary>The jump speed of a super character ($800 in Sonic_Jump). Under water it is $380, as for Sonic.</summary>
+	private const double SuperJumpForce = 32.0;
+
+	/// <summary>The lowest spindash speed of a super character ($B00 in SpindashSpeedsSuper).</summary>
+	private const double SuperSpindashBaseSpeed = 44.0;
+
+	/// <summary>The ticks until the super character loses the next ring.</summary>
+	private int _superRingDrainTicks;
+
+	/// <summary>The ticks that the transformation still holds the character in place.</summary>
+	private int _superTransformTicks;
+
+	/// <summary>The number of ticks since the character became super. The palette uses it.</summary>
+	private int _superPaletteTicks;
+
+	/// <summary>The ticks that the palette fade back to normal still runs.</summary>
+	private int _superRevertTicks;
+
 	/// <summary>True when the slope repel detaches the character in this tick.</summary>
 	private bool _slopeRepelled;
 
@@ -590,7 +642,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		{
 			if (!IsSpinball && !IsCharging)
 			{
-				return IsInvincible;
+				return IsInvincible || IsSuper;
 			}
 			return true;
 		}
@@ -610,7 +662,8 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			{
 				return false;
 			}
-			if (IsInvincible)
+			// Sonic_CheckGoSuper sets the invincible status, so a super character also cannot be hurt.
+			if (IsInvincible || IsSuper)
 			{
 				return false;
 			}
@@ -999,6 +1052,9 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		}
 	}
 
+	/// <summary>True while the transformation to a super character holds the character in place.</summary>
+	private bool IsTransformingToSuper => IsSuper && _superTransformTicks > 0;
+
 	public bool IsCharging
 	{
 		get
@@ -1344,7 +1400,11 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			{
 				Land();
 			}
-			UpdateCollisionsWithObjects();
+			// obj_control bit 7: the transformation to a super character ignores the objects.
+			if (!IsTransformingToSuper)
+			{
+				UpdateCollisionsWithObjects();
+			}
 			if (Mode != CollisionMode.Air)
 			{
 				_collisionDetected[(int)Mode] = true;
@@ -2581,7 +2641,8 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 
 	public void HandleInput()
 	{
-		if (IsWinning || IsHurt || IsObjectControlled)
+		// The transformation to a super character holds the character in place and ignores the input.
+		if (IsWinning || IsHurt || IsObjectControlled || IsTransformingToSuper)
 		{
 			Input.Clear();
 			LookDirection = CharacterLookDirection.Normal;
@@ -2647,6 +2708,13 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		{
 			GroundVelocity = 0.0;
 		}
+		if (IsTransformingToSuper)
+		{
+			// obj_control: the movement does not run, so the character keeps its velocity but does not move.
+			_superTransformTicks--;
+			UpdateSuper();
+			return;
+		}
 		UpdateVariables();
 		UpdateMovement();
 		UpdateSpindash();
@@ -2657,6 +2725,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		UpdateBalance();
 		UpdateLooking();
 		UpdatePushing();
+		UpdateSuper();
 		UpdateWaterLogic();
 		// In Original mode, the invulnerability does not count down while the character flies back from a hit
 		// (Obj01_Hurt).
@@ -2697,6 +2766,14 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			Acceleration = 0.375;
 			TopSpeed = 48.0;
 		}
+		else if (IsSuper)
+		{
+			// HD mode has no Super Sonic, so it uses the values of the original. The halving under water below gives
+			// the underwater values of the original ($500, $18 and $80).
+			TopSpeed = SuperTopSpeed;
+			Acceleration = SuperAcceleration;
+			Deceleration = SuperDeceleration;
+		}
 		Friction = Acceleration;
 		JumpForce = 26.0;
 		JumpReleaseForce = 16.0;
@@ -2735,6 +2812,14 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			JumpForce *= 2205.0 / 4095.0;
 			JumpReleaseForce *= 0.5;
 			Gravity = 0.25;
+		}
+		else if (IsSuper)
+		{
+			JumpForce = SuperJumpForce;
+		}
+		if (IsSuper && Mode != CollisionMode.Air && !IsSpinball && MovingDirection == 0)
+		{
+			Friction = SuperFriction;
 		}
 		if (IsHurt)
 		{
@@ -2775,12 +2860,23 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	/// Original mode: the top speed, the acceleration and the deceleration of the last event that set them, as the
 	/// speed values of Sonic 2 (Sonic_top_speed). Sonic_Water sets $300, 6 and $40 when the character goes into the
 	/// water and $600, $C and $80 when it comes out, also with speed shoes (a bug of the original). The speed shoes set
-	/// $C00, $18 and $80, also under water, and the normal values when they end.
+	/// $C00, $18 and $80, also under water, and the normal values when they end. A super character uses $A00, $30 and
+	/// $100 for the normal values and $500, $18 and $80 under water.
 	/// </summary>
 	private void SetOriginalSpeedValues()
 	{
 		switch (_originalSpeedValues)
 		{
+			case OriginalSpeedValues.Normal when IsSuper:
+				TopSpeed = SuperTopSpeed;
+				Acceleration = SuperAcceleration;
+				Deceleration = SuperDeceleration;
+				break;
+			case OriginalSpeedValues.Underwater when IsSuper:
+				TopSpeed = SuperTopSpeed / 2.0;
+				Acceleration = SuperAcceleration / 2.0;
+				Deceleration = SuperDeceleration / 2.0;
+				break;
 			case OriginalSpeedValues.Underwater:
 				TopSpeed = 12.0;
 				Acceleration = 0.09375;
@@ -2985,8 +3081,10 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			if (LookDirection != CharacterLookDirection.Ducking)
 			{
 				IsCharging = false;
-				// SpindashSpeeds: $800 plus $80 for each $100 of the charge. HD mode uses the charge as it is.
-				double speed = original ? SpindashBaseSpeed + 2.0 * (_spindashCounter >> 8) : SpindashBaseSpeed + _spindashExtraSpeed;
+				// SpindashSpeeds: $800 plus $80 for each $100 of the charge. HD mode uses the charge as it is. A super
+				// character starts at $B00 (SpindashSpeedsSuper).
+				double baseSpeed = IsSuper ? SuperSpindashBaseSpeed : SpindashBaseSpeed;
+				double speed = original ? baseSpeed + 2.0 * (_spindashCounter >> 8) : baseSpeed + _spindashExtraSpeed;
 				GroundVelocity = speed * Facing;
 				CharacterEvents |= CharacterEvent.SpindashLaunch;
 				if (original)
@@ -3082,6 +3180,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		{
 			return;
 		}
+		CheckGoSuper();
 		if (IsJumping)
 		{
 			if (!Input.ABC.HasFlag(CharacterInputButtonState.Down))
@@ -3191,6 +3290,136 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 				SlopeLockTicks = 32;
 			}
 		}
+	}
+
+	/// <summary>
+	/// Sonic_CheckGoSuper: at the top of a jump, a character with the super ability, 7 emeralds and 50 rings or more
+	/// becomes super. Sonic_JumpHeight calls it while the character jumps and the high byte of the vertical velocity is
+	/// 0, so the vertical velocity is from 0 to $FF (less than 4). As in revision 2 of the original, the character does
+	/// not become super at the end of the act, when the time does not run.
+	/// </summary>
+	private void CheckGoSuper()
+	{
+		if (!HasSuperAbility || IsSidekick || IsSuper || !Jumped || Mode != CollisionMode.Air)
+		{
+			return;
+		}
+		if (Velocity.Y < 0.0 || Velocity.Y >= 4.0)
+		{
+			return;
+		}
+		if (Player.Emeralds < SuperEmeralds || Player.CurrentRings < SuperRings)
+		{
+			return;
+		}
+		if (!Level.StateFlags.HasFlag(LevelStateFlags.UpdateTime))
+		{
+			return;
+		}
+		BecomeSuper();
+	}
+
+	/// <summary>
+	/// Makes the character super. The original also plays a sound and the Super Sonic music. The HD data has neither,
+	/// so the level music continues. As in revision 1 of the original, the character stays in a roll.
+	/// </summary>
+	private void BecomeSuper()
+	{
+		IsSuper = true;
+		_superTransformTicks = SuperTransformTicks;
+		_superPaletteTicks = 0;
+		_superRevertTicks = 0;
+		_superRingDrainTicks = SuperRingDrainTicks;
+		// Sonic_CheckGoSuper sets the super speed values also under water and with speed shoes.
+		_originalSpeedValues = OriginalSpeedValues.Normal;
+	}
+
+	/// <summary>
+	/// Sonic_Super: a super character loses 1 ring each 60 ticks. It becomes normal when it has no rings or when the
+	/// time stops at the end of the act. A death clears the super state with the other state flags.
+	/// </summary>
+	private void UpdateSuper()
+	{
+		if (_superRevertTicks > 0)
+		{
+			_superRevertTicks--;
+		}
+		if (!IsSuper)
+		{
+			return;
+		}
+		_superPaletteTicks++;
+		if (!Level.StateFlags.HasFlag(LevelStateFlags.UpdateTime))
+		{
+			RevertToNormal();
+			return;
+		}
+		_superRingDrainTicks--;
+		if (_superRingDrainTicks >= 0)
+		{
+			return;
+		}
+		_superRingDrainTicks = SuperRingDrainTicks;
+		if (Player.CurrentRings > 0)
+		{
+			Player.CurrentRings--;
+		}
+		if (Player.CurrentRings == 0)
+		{
+			RevertToNormal();
+		}
+	}
+
+	/// <summary>
+	/// Sonic_RevertToNormal: the character is not super any more and gets the normal speed values, or the underwater
+	/// values. The original sets them also when the character has speed shoes.
+	/// </summary>
+	private void RevertToNormal()
+	{
+		IsSuper = false;
+		_superTransformTicks = 0;
+		_superRevertTicks = SuperRevertTicks;
+		_originalSpeedValues = IsUnderwater ? OriginalSpeedValues.Underwater : OriginalSpeedValues.Normal;
+	}
+
+	/// <summary>
+	/// Gets the change to the hue, the saturation and the luminance of the skin texture that colours a super character
+	/// gold. The HD data has no Super Sonic art, so the colour change replaces the palette of the original. As in
+	/// PalCycle_SuperSonic, the colour fades in after 16 ticks, then cycles, and fades out when the character becomes
+	/// normal. The fade goes through a light colour so that the hue does not go through green.
+	/// </summary>
+	protected (double Hue, double Saturation, double Luminance) GetSuperColourShift()
+	{
+		const double GoldHue = -0.47;
+		const double GoldSaturation = 0.1;
+		const double GoldLuminance = 0.2;
+		const double FlashLuminance = 0.45;
+		const double CycleLuminance = 0.1;
+		double amount;
+		double cycle = 0.0;
+		if (IsSuper)
+		{
+			amount = MathX.Clamp(0.0, (double)(_superPaletteTicks - SuperPaletteDelayTicks) / (SuperTransformTicks - SuperPaletteDelayTicks), 1.0);
+			if (amount >= 1.0)
+			{
+				double phase = (double)(_superPaletteTicks - SuperTransformTicks) / SuperPaletteCycleTicks;
+				cycle = 0.5 - 0.5 * Math.Cos(phase * Math.PI * 2.0);
+			}
+		}
+		else if (_superRevertTicks > 0)
+		{
+			amount = (double)_superRevertTicks / SuperRevertTicks;
+		}
+		else
+		{
+			return (0.0, 0.0, 0.0);
+		}
+		if (amount < 0.5)
+		{
+			return (0.0, 0.0, amount * 2.0 * FlashLuminance);
+		}
+		double toGold = (amount - 0.5) * 2.0;
+		return (GoldHue, GoldSaturation * toGold, FlashLuminance + (GoldLuminance - FlashLuminance) * toGold + CycleLuminance * cycle);
 	}
 
 	private void UpdatePosition()
