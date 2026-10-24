@@ -53,6 +53,9 @@ public class Player
 
 	public int TargetScoreForNextLife { get; private set; }
 
+	/// <summary>The number of continues (Continue_count in the original). Only the Original physics uses them.</summary>
+	public int Continues { get; set; }
+
 	public int StarpostIndex { get; set; }
 
 	public Vector2i StarpostPosition { get; set; }
@@ -151,6 +154,17 @@ public class Player
 	{
 		Score = Math.Min(score, MaxScore);
 		TargetScoreForNextLife = (Score / ScoreForLife + 1) * ScoreForLife;
+	}
+
+	/// <summary>
+	/// Uses a continue after the game is over: the player gets the start lives again and the score goes back to 0,
+	/// as the continue screen of the original.
+	/// </summary>
+	public void UseContinue()
+	{
+		Continues--;
+		Lives = StartLives;
+		SetStartScore(0);
 	}
 
 	public void GainLives(int count = 1)

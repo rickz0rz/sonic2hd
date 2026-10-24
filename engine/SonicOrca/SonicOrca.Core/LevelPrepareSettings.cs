@@ -40,6 +40,9 @@ public class LevelPrepareSettings
 
 	public int Score { get; set; }
 
+	/// <summary>The number of continues. Only the Original physics uses them.</summary>
+	public int Continues { get; set; }
+
 	/// <summary>The Chaos Emeralds that the player has, from 0 to 7.</summary>
 	public int Emeralds { get; set; }
 
