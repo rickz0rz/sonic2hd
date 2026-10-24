@@ -42,6 +42,9 @@ public static class TestHooks
 
 	public static Random CreateRandom() => RandomSeed is int value ? new Random(value) : new Random();
 
+	/// <summary>A random number generator with the test seed when it is set, otherwise with <paramref name="seed"/>.</summary>
+	public static Random CreateRandom(int seed) => new Random(RandomSeed ?? seed);
+
 	/// <summary>
 	/// True once for each requested tick, when the frame drew that level tick. Returns the file name to use.
 	/// </summary>
