@@ -16,6 +16,12 @@ public class Player
 
 	private const int ScoreForLife = 50000;
 
+	/// <summary>
+	/// The highest score. The original keeps the score in units of 10 and stops it at 999999 (AddPoints), which
+	/// shows as 9999990.
+	/// </summary>
+	private const int MaxScore = 9999990;
+
 	private const int MaxLives = 999;
 
 	private const int MaxRings = 999;
@@ -113,7 +119,8 @@ public class Player
 
 	public void GainScore(int points)
 	{
-		Score += points;
+		// As AddPoints in the original: one call gives at most one extra life.
+		Score = Math.Min(Score + points, MaxScore);
 		if (Score >= TargetScoreForNextLife)
 		{
 			TargetScoreForNextLife += ScoreForLife;
@@ -134,6 +141,16 @@ public class Player
 				: int.MaxValue;
 			GainLives();
 		}
+	}
+
+	/// <summary>
+	/// Sets the score at the start of a level, and sets the score of the next extra life to the next multiple of
+	/// <see cref="ScoreForLife"/>. The original keeps Next_Extra_life_score between levels.
+	/// </summary>
+	public void SetStartScore(int score)
+	{
+		Score = Math.Min(score, MaxScore);
+		TargetScoreForNextLife = (Score / ScoreForLife + 1) * ScoreForLife;
 	}
 
 	public void GainLives(int count = 1)

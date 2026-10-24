@@ -315,7 +315,8 @@ internal class LevelCompleteHud : IDisposable
 		RingBonus -= ringPoints;
 		PerfectBonus -= perfectPoints;
 		_total += bankedPoints;
-		_level.Player.Score += bankedPoints;
+		// The original banks the points through AddPoints, so the tally can give extra lives.
+		_level.Player.GainScore(bankedPoints);
 		// Play the tally sound on every second bank only.
 		_tallySwitchDelay = (_tallySwitchDelay + 1) % 2;
 		if (_tallySwitchDelay == 0)

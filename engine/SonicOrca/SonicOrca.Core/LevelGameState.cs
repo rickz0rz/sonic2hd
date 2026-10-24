@@ -81,7 +81,7 @@ public class LevelGameState : IGameState, IDisposable
 		_level = _levelLoader.Level;
 		_player = _level.Player;
 		_player.Lives = PrepareSettings.Lives;
-		_player.Score = PrepareSettings.Score;
+		_player.SetStartScore(PrepareSettings.Score);
 		_player.Emeralds = PrepareSettings.Emeralds;
 		_levelLoader.LoadLevel();
 		while (true)
