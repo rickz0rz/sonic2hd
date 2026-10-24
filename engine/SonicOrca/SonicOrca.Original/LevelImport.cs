@@ -647,6 +647,7 @@ public static class LevelImport
 		{
 			// The high-priority patterns go on a layer after the front layer, so they cover the characters
 			art = Kosinski.Decompress(File.ReadAllBytes(Path(zone.ArtFile)));
+			var morePatterns = new List<(int First, int Count)>();
 			foreach ((string file, int tile) in zone.MoreArt)
 			{
 				byte[] more = Kosinski.Decompress(File.ReadAllBytes(Path(file)));
@@ -655,11 +656,25 @@ public static class LevelImport
 					Array.Resize(ref art, tile * 32 + more.Length);
 				}
 				more.CopyTo(art, tile * 32);
+				morePatterns.Add((tile, more.Length / 32));
 			}
 			blockMappings = AnimatedArt.AddAnimatedBlocks(disassembly, zone.Name, Kosinski.Decompress(File.ReadAllBytes(Path(zone.BlocksFile))));
 			priorityBlocks = PriorityTiles.GetPriorityBlocks(blockMappings);
 			animations = AnimatedArt.Read(disassembly, zone.Name);
 			animatedBlocks = PriorityTiles.GetAnimatedBlocks(blockMappings, animations);
+			// The HD tiles of the blocks that use the extra art are the tiles of the other zone (WFZ has the SCZ
+			// tiles), so these blocks are drawn from the original art too, as for the animated blocks
+			for (int block = 0; block * 8 + 7 < blockMappings.Length; block++)
+			{
+				for (int quarter = 0; quarter < 4; quarter++)
+				{
+					int pattern = ((blockMappings[block * 8 + quarter * 2] << 8) | blockMappings[block * 8 + quarter * 2 + 1]) & 0x7FF;
+					if (morePatterns.Any(m => pattern >= m.First && pattern < m.First + m.Count))
+					{
+						animatedBlocks.Add(block);
+					}
+				}
+			}
 			high = new LevelLayer(map) { Name = "front_high" };
 			high.Resize(columns, rows);
 			for (int row = 0; row < rows; row++)

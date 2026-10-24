@@ -87,7 +87,9 @@ public static class PriorityTiles
 		int nextSlot = BlockCount;
 		foreach (int block in animatedBlocks.OrderBy(b => b))
 		{
-			AnimatedArt animation = animations.First(a => Enumerable.Range(0, 4).Any(q => a.Contains(GetWord(blockMappings, block, q) & 0x7FF)));
+			// A block without animated art (for example one with patterns that the HD tiles do not have) has one frame
+			AnimatedArt animation = animations.FirstOrDefault(a => Enumerable.Range(0, 4).Any(q => a.Contains(GetWord(blockMappings, block, q) & 0x7FF)));
+			int frameCount = animation?.Frames.Count ?? 1;
 			foreach (bool priority in new[] { true, false })
 			{
 				if (!HasPatterns(blockMappings, block, priority))
@@ -95,10 +97,10 @@ public static class PriorityTiles
 					continue;
 				}
 				var frames = new List<(int, int)>();
-				for (int frame = 0; frame < animation.Frames.Count; frame++)
+				for (int frame = 0; frame < frameCount; frame++)
 				{
-					frames.Add((nextSlot, animation.Frames[frame].Duration));
-					drawings.Add((nextSlot, animation.Apply(art, frame), block, priority));
+					frames.Add((nextSlot, animation?.Frames[frame].Duration ?? 0));
+					drawings.Add((nextSlot, animation?.Apply(art, frame) ?? art, block, priority));
 					nextSlot++;
 				}
 				tiles[(priority ? FirstTile : AnimatedFirstTile) + block] = frames;
