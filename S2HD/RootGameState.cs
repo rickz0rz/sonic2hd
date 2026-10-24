@@ -4,8 +4,10 @@ using System.Globalization;
 using S2HD.Menu;
 using SonicOrca;
 using SonicOrca.Core;
+using SonicOrca.Core.SpecialStage;
 using SonicOrca.Geometry;
 using SonicOrca.Input;
+using SonicOrca.Menu;
 
 namespace S2HD;
 
@@ -68,6 +70,13 @@ internal class RootGameState : IGameState, IDisposable
 			else if (_cmdLineArgs.HasOption("options"))
 			{
 				ShowOptions();
+				foreach (UpdateResult updateResult in _currentGameState.Update())
+					yield return updateResult;
+			}
+			if (_cmdLineArgs.HasOption("halfpipe"))
+			{
+				// Test mode for the 3D special stage, which the demo does not use yet
+				ChangeGameState(new ScreenGameState(_gameContext, new HalfPipeSpecialStageScreen(_gameContext)));
 				foreach (UpdateResult updateResult in _currentGameState.Update())
 					yield return updateResult;
 			}
