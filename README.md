@@ -175,6 +175,17 @@ for example `SONICORCA/MUSIC/LEVELS/CNZ` or `SONICORCA/MUSIC/LEVELS/OOZ`. The da
 objects, for example the bumpers, the arrow shooters and the lasers of the OOZ boss. These objects play the nearest
 sound that the data has, or no sound.
 
+### Physics
+
+The PHYSICS setting in Options > Game selects how the characters and the objects move:
+
+- ORIGINAL (the default) follows the code of the original Sonic 2. For example, Sonic can stand still on a slope,
+  a held direction limits the speed in the air, and the drowning numbers start 12 seconds before Sonic drowns.
+- HD keeps the behavior of Sonic 2 HD where it is different.
+
+The attract demos always use the original physics. With `--level`, the `--physics` option overrides the setting.
+The test variable `S2HD_PHYSICS` also overrides the setting, but not the demos or `--physics`.
+
 ### Entering a special stage
 
 Touch a star post with 50 rings or more and fewer than 7 emeralds. A circle of stars then appears above the star
@@ -197,6 +208,7 @@ resources only name the class to use.
 | `--level <zone> [--act <n>]` | Starts a level directly, for example `--level htz --act 2` |
 | `--protagonist <name>`, `--sidekick <name>` | Chooses the characters for `--level` (`sonic`, `tails`, `knuckles`) |
 | `--debug` | Starts the level with debug mode on |
+| `--physics original`, `--physics hd` | Plays the `--level` level with this physics, whatever the PHYSICS setting is |
 | `--demo` | Plays the attract demo (the demos of all zones that have one play in turn) |
 | `--record <file>` | Records the input of the level to a file, for example for a demo |
 | `--playback <file>` | Plays a recorded input in place of the controller |
@@ -294,3 +306,4 @@ The test uses these environment variables, which you can also set by hand:
 | `S2HD_EXIT_AFTER_CAPTURES` | With `1`, quits after the last screenshot |
 | `S2HD_TEST_START_RINGS` | Gives the player this number of rings at the start of a level |
 | `S2HD_TEST_SPECIAL_STAGE_AT_TICK` | Starts the special stage at this level tick, one time only |
+| `S2HD_PHYSICS` | With `original` or `hd`, plays the levels with this physics. With `hd`, the tests use the golden screenshots in `tests/golden-hd/`, not `tests/golden/` |
