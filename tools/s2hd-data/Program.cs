@@ -32,6 +32,7 @@ try
 		["pack", string folder, string file, "--base", string baseFile] => Pack(folder, file, baseFile),
 		["import-special-stages", string disassembly, string folder] => ImportSpecialStages(disassembly, folder),
 		["import-level", string zone, string disassembly, string folder] => ImportLevel(zone, disassembly, folder),
+		["import-demos", string disassembly, string folder] => ImportDemos(disassembly, folder),
 		_ => Usage(),
 	};
 }
@@ -112,6 +113,24 @@ static int ImportSpecialStages(string disassembly, string folder)
 	return 0;
 }
 
+static int ImportDemos(string disassembly, string folder)
+{
+	if (!File.Exists(Path.Combine(disassembly, "s2.asm")))
+	{
+		Console.Error.WriteLine($"Error: The folder {disassembly} does not contain s2.asm.");
+		return 1;
+	}
+	string output = Path.Combine(folder, "SONICORCA", "RECORDINGS");
+	Directory.CreateDirectory(output);
+	foreach ((string zone, string label) in OriginalDemos.All)
+	{
+		byte[] recording = OriginalDemos.ToRecording(OriginalDemos.ReadButtons(disassembly, label));
+		File.WriteAllBytes(Path.Combine(output, zone + ".rec"), recording);
+	}
+	Console.WriteLine($"Wrote {OriginalDemos.All.Count} demos to {output}.");
+	return 0;
+}
+
 static int ImportLevel(string zoneName, string disassembly, string folder)
 {
 	if (!OriginalZone.All.TryGetValue(zoneName, out OriginalZone zone))
@@ -185,6 +204,7 @@ static int Usage()
 		  s2hd-data pack   <folder> <file.dat> [--base <original.dat>]
 		  s2hd-data import-special-stages <s2disasm folder> <folder>
 		  s2hd-data import-level <zone> <s2disasm folder> <folder>
+		  s2hd-data import-demos <s2disasm folder> <folder>
 		""");
 	return 2;
 }

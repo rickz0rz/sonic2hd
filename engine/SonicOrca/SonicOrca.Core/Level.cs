@@ -46,7 +46,13 @@ public class Level : IDisposable
 
 	private readonly Player _player;
 
-	private readonly Random _random = SonicOrca.Core.Debugging.TestHooks.CreateRandom();
+	private Random _random = SonicOrca.Core.Debugging.TestHooks.CreateRandom();
+
+	/// <summary>
+	/// The seed of the random numbers while a recording plays or records, so that a recorded play gives the same
+	/// result when it plays back.
+	/// </summary>
+	private const int RecordedPlaySeed = 0;
 
 	private readonly FadeTransition _fadeTransition = new FadeTransition(FadeDuration);
 
@@ -398,6 +404,10 @@ public class Level : IDisposable
 			if (!string.IsNullOrEmpty(PrepareSettings.RecordedPlayWritePath))
 			{
 				_playRecorder.BeginRecording(PrepareSettings.RecordedPlayWritePath);
+			}
+			if (_playRecorder.Playing || _playRecorder.Recording)
+			{
+				_random = SonicOrca.Core.Debugging.TestHooks.CreateRandom(RecordedPlaySeed);
 			}
 		}
 		State = LevelState.Playing;
