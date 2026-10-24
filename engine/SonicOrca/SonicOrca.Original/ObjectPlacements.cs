@@ -759,10 +759,27 @@ public static class ObjectPlacements
 							direction = (originalPlacement.FlipX ? 5 : 3);
 							break;
 					}
+					// Bit 0 makes the character do somersaults: up and down springs give 2 (1 for a yellow spring),
+					// the other springs 4 (2 for a yellow spring). Bits 2-3 set the collision path: 4 sets the
+					// primary path (0) and 8 the secondary path (1). Bit 7 clears the velocity of the other axis.
+					bool yellow = (originalPlacement.SubType & 2) != 0;
+					bool vertical = direction == 0 || direction == 4;
+					int twirlTurns = 0;
+					if ((originalPlacement.SubType & 1) != 0)
+						twirlTurns = vertical ? (yellow ? 1 : 2) : (yellow ? 2 : 4);
+					int path = (originalPlacement.SubType & 0xC) switch
+					{
+						4 => 0,
+						8 => 1,
+						_ => -1
+					};
 					behaviour = new
 					{
-						Strength = (((originalPlacement.SubType & 2) != 0) ? 40 : 64),
-						Direction = direction
+						Strength = yellow ? 40 : 64,
+						Direction = direction,
+						TwirlTurns = twirlTurns,
+						Path = path,
+						ClearOtherVelocity = (originalPlacement.SubType & 0x80) != 0
 					};
 					break;
 				}
