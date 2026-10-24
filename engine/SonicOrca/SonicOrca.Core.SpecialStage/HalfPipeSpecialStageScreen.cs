@@ -13,8 +13,10 @@ using SonicOrca.Resources;
 namespace SonicOrca.Core.SpecialStage;
 
 /// <summary>
-/// A test screen for a 3D half-pipe special stage. The camera moves along a track that the segment layout makes.
-/// Start it with --halfpipe. Escape closes it. The minus and equals keys change the field of view.
+/// The 3D half-pipe special stage. The player runs along a track that the segment layout makes, moves around the
+/// pipe with left and right, and jumps with an action button. Rings count toward the goal of each checkpoint, and
+/// bombs take rings away. Start it with --halfpipe. Escape closes it. The minus and equals keys change the field
+/// of view.
 /// </summary>
 public class HalfPipeSpecialStageScreen : Screen
 {
@@ -67,6 +69,13 @@ public class HalfPipeSpecialStageScreen : Screen
 		}
 	}
 
+	private enum StageState
+	{
+		Playing,
+		Failed,
+		Cleared
+	}
+
 	private const string MusicResourceKey = "SONICORCA/MUSIC/SPECIALSTAGE/S2";
 
 	private const string FontResourceKey = "SONICORCA/FONTS/HUD";
@@ -75,9 +84,27 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	private const string FloorResourceKey = "SONICORCA/SPECIALSTAGE/HALFPIPE/FLOOR";
 
-	private const string BallResourceKey = "SONICORCA/SPECIALSTAGE/HALFPIPE/BALL";
+	private const string SonicAnimationResourceKey = "SONICORCA/SPECIALSTAGE/ANIGROUP";
 
-	// SDL scan codes of the keys that change the field of view.
+	private const string RingAnimationResourceKey = "SONICORCA/SPECIALSTAGE/RINGANIM";
+
+	private const string RingEffectAnimationResourceKey = "SONICORCA/SPECIALSTAGE/RINGEFFECTANIM";
+
+	private const string ExplosionAnimationResourceKey = "SONICORCA/SPECIALSTAGE/EXPLOSIONANIM";
+
+	private const string BombResourceKey = "SONICORCA/SPECIALSTAGE/BOMB";
+
+	private const string ShadowResourceKey = "SONICORCA/SPECIALSTAGE/SHADOW";
+
+	private const string RingsLabelResourceKey = "SONICORCA/SPECIALSTAGE/RINGS";
+
+	private const string RingSoundResourceKey = "SONICORCA/SOUND/RING";
+
+	private const string JumpSoundResourceKey = "SONICORCA/SOUND/JUMP";
+
+	private const string RingLossSoundResourceKey = "SONICORCA/SOUND/RINGSCATTER";
+
+	// SDL scan codes of the keys that change the field of view, and of Escape.
 	private const int ScancodeMinus = 45;
 
 	private const int ScancodeEquals = 46;
@@ -87,8 +114,37 @@ public class HalfPipeSpecialStageScreen : Screen
 	/// <summary>The number of track nodes in front of and behind the current node that are drawn.</summary>
 	private const int DrawDistance = 128;
 
-	/// <summary>The number of rings in each row across the pipe.</summary>
-	private const int RingsPerRow = 7;
+	/// <summary>The number of track nodes in front of the camera that objects are drawn.</summary>
+	private const int ObjectDrawDistance = 90;
+
+	/// <summary>The number of track nodes between the camera and the player.</summary>
+	private const int PlayerLead = 4;
+
+	/// <summary>A bomb takes this number of rings, or all of the rings when the player has fewer.</summary>
+	private const int BombRingLoss = 10;
+
+	/// <summary>The player touches an object when the angles are nearer than this, in radians.</summary>
+	private const double TouchAngle = 0.22;
+
+	/// <summary>The player is above an object when the jump height is more than this.</summary>
+	private const double TouchHeight = 0.9;
+
+	/// <summary>The ticks that the result message shows before the stage closes.</summary>
+	private const int ResultTicks = 180;
+
+	// Sprite sizes in track units. The pipe radius is 4.
+	private const double SonicHeight = 2.4;
+
+	private const double RingSize = 1.1;
+
+	private const double BombSize = 1.2;
+
+	private const double EffectSize = 1.2;
+
+	private const double ShadowWidth = 1.2;
+
+	/// <summary>Sprites stand this far above the surface, so the surface does not hide them.</summary>
+	private const double SurfaceGap = 0.05;
 
 	private readonly SonicOrcaGameContext _gameContext;
 
@@ -96,15 +152,37 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	private readonly ResourceSession _resourceSession;
 
+	private readonly HalfPipePlayer _player = new HalfPipePlayer();
+
+	private readonly int _stage;
+
 	private Font _font;
 
 	private ITexture _backgroundTexture;
 
 	private ITexture _floorTexture;
 
-	private ITexture _ballTexture;
+	private ITexture _bombTexture;
+
+	private ITexture _shadowTexture;
+
+	private ITexture _ringsLabelTexture;
+
+	private AnimationInstance _sonicAnimation;
+
+	private AnimationInstance _ringAnimation;
+
+	private AnimationGroup _ringEffectAnimation;
+
+	private AnimationGroup _explosionAnimation;
 
 	private SampleInfo _musicSampleInfo;
+
+	private Sample _ringSound;
+
+	private Sample _jumpSound;
+
+	private Sample _ringLossSound;
 
 	private Matrix4 _projectionMatrix;
 
@@ -121,6 +199,18 @@ public class HalfPipeSpecialStageScreen : Screen
 	private double _fov = 60.0;
 
 	private int _currentTrackNode;
+
+	private List<HalfPipeObject> _objects;
+
+	private List<HalfPipeCheckpoint> _checkpoints;
+
+	private int _nextCheckpoint;
+
+	private int _rings;
+
+	private StageState _state = StageState.Playing;
+
+	private int _resultTicks;
 
 	private SegmentGeometry[] _layout = new SegmentGeometry[92]
 	{
@@ -240,26 +330,51 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	private Vector3 _cameraTarget;
 
-	public HalfPipeSpecialStageScreen(SonicOrcaGameContext gameContext)
+	/// <param name="stage">The special stage number, from 0 to 6. It selects the ring quotas.</param>
+	public HalfPipeSpecialStageScreen(SonicOrcaGameContext gameContext, int stage = 0)
 	{
+		_stage = stage;
 		_gameContext = gameContext;
 		_graphicsContext = _gameContext.Window.GraphicsContext;
 		_resourceSession = new ResourceSession(gameContext.ResourceTree);
 	}
 
+	/// <summary>The rings that the player has.</summary>
+	public int Rings => _rings;
+
+	/// <summary>True when the player reached the goal of every checkpoint.</summary>
+	public bool Cleared => _state == StageState.Cleared;
+
+	private int PlayerTrackNode => Math.Min(_currentTrackNode + PlayerLead, _trackNodes.Count - 1);
+
 	public override async Task LoadAsync(ScreenLoadingProgress progress, CancellationToken ct = default)
 	{
-		_resourceSession.PushDependency(FontResourceKey);
-		_resourceSession.PushDependency(BackgroundResourceKey);
-		_resourceSession.PushDependency(FloorResourceKey);
-		_resourceSession.PushDependency(BallResourceKey);
-		_resourceSession.PushDependency(MusicResourceKey);
+		string[] keys =
+		{
+			FontResourceKey, BackgroundResourceKey, FloorResourceKey, SonicAnimationResourceKey, RingAnimationResourceKey,
+			RingEffectAnimationResourceKey, ExplosionAnimationResourceKey, BombResourceKey, ShadowResourceKey,
+			RingsLabelResourceKey, MusicResourceKey, RingSoundResourceKey, JumpSoundResourceKey, RingLossSoundResourceKey,
+		};
+		foreach (string key in keys)
+		{
+			_resourceSession.PushDependency(key);
+		}
 		await _resourceSession.LoadAsync(ct);
-		_font = _gameContext.ResourceTree.GetLoadedResource<Font>(FontResourceKey);
-		_backgroundTexture = _gameContext.ResourceTree.GetLoadedResource<ITexture>(BackgroundResourceKey);
-		_floorTexture = _gameContext.ResourceTree.GetLoadedResource<ITexture>(FloorResourceKey);
-		_ballTexture = _gameContext.ResourceTree.GetLoadedResource<ITexture>(BallResourceKey);
-		_musicSampleInfo = _gameContext.ResourceTree.GetLoadedResource<SampleInfo>(MusicResourceKey);
+		ResourceTree tree = _gameContext.ResourceTree;
+		_font = tree.GetLoadedResource<Font>(FontResourceKey);
+		_backgroundTexture = tree.GetLoadedResource<ITexture>(BackgroundResourceKey);
+		_floorTexture = tree.GetLoadedResource<ITexture>(FloorResourceKey);
+		_bombTexture = tree.GetLoadedResource<ITexture>(BombResourceKey);
+		_shadowTexture = tree.GetLoadedResource<ITexture>(ShadowResourceKey);
+		_ringsLabelTexture = tree.GetLoadedResource<ITexture>(RingsLabelResourceKey);
+		_sonicAnimation = new AnimationInstance(tree, SonicAnimationResourceKey);
+		_ringAnimation = new AnimationInstance(tree, RingAnimationResourceKey);
+		_ringEffectAnimation = tree.GetLoadedResource<AnimationGroup>(RingEffectAnimationResourceKey);
+		_explosionAnimation = tree.GetLoadedResource<AnimationGroup>(ExplosionAnimationResourceKey);
+		_musicSampleInfo = tree.GetLoadedResource<SampleInfo>(MusicResourceKey);
+		_ringSound = tree.GetLoadedResource<Sample>(RingSoundResourceKey);
+		_jumpSound = tree.GetLoadedResource<Sample>(JumpSoundResourceKey);
+		_ringLossSound = tree.GetLoadedResource<Sample>(RingLossSoundResourceKey);
 	}
 
 	public override void Initialise()
@@ -269,6 +384,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		_vertexBuffer = _graphicsContext.CreateVertexBuffer(3, 2);
 		_projectionMatrix = Matrix4.Perspective(MathX.ToRadians(_fov), 16.0 / 9.0, 1.0, 1024.0);
 		CreateTrackNodes();
+		(_objects, _checkpoints) = HalfPipeLayout.Create(_layout.Length, PointsPerSegment, _stage, duo: false);
 	}
 
 	private void CreateTrackNodes()
@@ -334,12 +450,102 @@ public class HalfPipeSpecialStageScreen : Screen
 			_musicInstance = new SampleInstance(_gameContext, _musicSampleInfo);
 			_musicInstance.Play();
 		}
-		if (_ticks % 2 == 0)
+
+		if (_state == StageState.Playing)
 		{
-			_currentTrackNode = (_currentTrackNode + 1) % _trackNodes.Count;
+			UpdatePlayer();
+			// The track moves one node each two ticks, until the player reaches the end
+			if (_ticks % 2 == 0 && PlayerTrackNode < _trackNodes.Count - 1)
+			{
+				_currentTrackNode++;
+			}
+			UpdateObjects();
+			UpdateCheckpoints();
+		}
+		else if (++_resultTicks >= ResultTicks)
+		{
+			Finish();
+		}
+
+		_ringAnimation.Animate();
+		foreach (HalfPipeObject used in _objects)
+		{
+			if (used.Used)
+			{
+				used.UsedTicks++;
+			}
 		}
 		UpdateCamera();
 		_ticks++;
+	}
+
+	private void UpdatePlayer()
+	{
+		Controller current = _gameContext.Current[0];
+		Controller pressed = _gameContext.Pressed[0];
+		if (_player.Update(current.DirectionLeft.X, pressed.Action1))
+		{
+			_gameContext.Audio.PlaySound(_jumpSound);
+		}
+		int animation = _player.IsJumping ? 1 : 0;
+		if (_sonicAnimation.Index != animation)
+		{
+			_sonicAnimation.Index = animation;
+		}
+		_sonicAnimation.Animate();
+	}
+
+	/// <summary>Collects the rings and hits the bombs that the player touches.</summary>
+	private void UpdateObjects()
+	{
+		int playerNode = PlayerTrackNode;
+		foreach (HalfPipeObject item in _objects)
+		{
+			// The track moves one node each two ticks, so a window of two nodes sees each object once
+			if (item.Used || item.TrackNode < playerNode - 1 || item.TrackNode > playerNode)
+			{
+				continue;
+			}
+			if (Math.Abs(item.Angle - _player.Angle) > TouchAngle || _player.Height > TouchHeight)
+			{
+				continue;
+			}
+			if (item.Kind == HalfPipeObjectKind.Ring)
+			{
+				item.Used = true;
+				_rings++;
+				_gameContext.Audio.PlaySound(_ringSound);
+			}
+			else if (!_player.IsHurt)
+			{
+				item.Used = true;
+				_player.Hurt();
+				int lost = Math.Min(_rings, BombRingLoss);
+				_rings -= lost;
+				if (lost > 0)
+				{
+					_gameContext.Audio.PlaySound(_ringLossSound);
+				}
+			}
+		}
+	}
+
+	private void UpdateCheckpoints()
+	{
+		if (_nextCheckpoint >= _checkpoints.Count || PlayerTrackNode < _checkpoints[_nextCheckpoint].TrackNode)
+		{
+			return;
+		}
+		if (_rings < _checkpoints[_nextCheckpoint].RingGoal)
+		{
+			_state = StageState.Failed;
+			return;
+		}
+		_nextCheckpoint++;
+		if (_nextCheckpoint == _checkpoints.Count)
+		{
+			_state = StageState.Cleared;
+		}
 	}
 
 	public override void Unload()
@@ -378,7 +584,7 @@ public class HalfPipeSpecialStageScreen : Screen
 	public override void Draw(Renderer renderer)
 	{
 		DrawBackground(renderer);
-		DrawPipe(renderer);
+		DrawScene(renderer);
 		DrawHud(renderer);
 	}
 
@@ -392,81 +598,18 @@ public class HalfPipeSpecialStageScreen : Screen
 		i2dRenderer.Deactivate();
 	}
 
-	private void DrawPipe(Renderer renderer)
+	private void DrawScene(Renderer renderer)
 	{
 		_modelViewMatrix = Matrix4.LookAt(_camera.X, _camera.Y, 0.0 - _camera.Z, _cameraTarget.X, _cameraTarget.Y, 0.0 - _cameraTarget.Z, 0.0, 1.0, 0.0);
 		_modelViewMatrix *= Matrix4.CreateScale(1.0, 1.0, -1.0);
 		_graphicsContext.ClearDepthBuffer();
 		_graphicsContext.DepthTesting = true;
+		_graphicsContext.BlendMode = BlendMode.Alpha;
 		List<TexturedQuad> quads = new List<TexturedQuad>();
-		double textureScale = 8.0 / _floorTexture.Width;
-		// The number of track nodes that one repeat of the floor texture covers.
-		int textureRepeatNodes = (int)(_floorTexture.Height * textureScale / 2.0);
-		Vector3[] previousSection = null;
-		for (int i = 0; i < _trackNodes.Count; i++)
-		{
-			if (i < _currentTrackNode - DrawDistance)
-			{
-				continue;
-			}
-			if (i > _currentTrackNode + DrawDistance)
-			{
-				break;
-			}
-			TrackNode trackNode = _trackNodes[i];
-			Matrix4 transform = Matrix4.Identity.RotateY(trackNode.Angle.X).Translate(trackNode.Position);
-			Vector3[] section = (from x in GetCrossSection()
-								 select transform * x).ToArray();
+		AddPipeQuads(quads);
+		AddObjectQuads(quads);
+		AddPlayerQuads(quads);
 
-			// Join this cross section to the previous one with floor quads.
-			if (previousSection != null)
-			{
-				for (int j = 0; j < section.Length - 1; j++)
-				{
-					int textureRow = i % textureRepeatNodes;
-					quads.Add(new TexturedQuad(new Vector3[4]
-					{
-						section[j],
-						previousSection[j],
-						previousSection[j + 1],
-						section[j + 1]
-					}, new Vector2[4]
-					{
-						new Vector2(j / (double)(section.Length - 1), 1.0 - (textureRow + 1) / (double)textureRepeatNodes),
-						new Vector2(j / (double)(section.Length - 1), 1.0 - textureRow / (double)textureRepeatNodes),
-						new Vector2((j + 1) / (double)(section.Length - 1), 1.0 - textureRow / (double)textureRepeatNodes),
-						new Vector2((j + 1) / (double)(section.Length - 1), 1.0 - (textureRow + 1) / (double)textureRepeatNodes)
-					}, _floorTexture));
-				}
-			}
-			previousSection = section;
-
-			// Put a row of rings across the pipe once in each texture repeat.
-			if ((i + textureRepeatNodes / 2 + 1) % textureRepeatNodes != 0)
-			{
-				continue;
-			}
-			double ringHalfSize = 0.5;
-			double ringRadius = 3.0;
-			for (int ring = 0; ring < RingsPerRow; ring++)
-			{
-				double ringAngle = ring * (MathX.ToRadians(180.0) / 6.0);
-				Vector3 ringCentre = new Vector3((0.0 - Math.Cos(ringAngle)) * ringRadius, Math.Sin(ringAngle) * ringRadius, 0.0);
-				quads.Add(new TexturedQuad(new Vector3[4]
-				{
-					new Vector3(ringCentre.X - ringHalfSize, ringCentre.Y - ringHalfSize, 0.0),
-					new Vector3(ringCentre.X - ringHalfSize, ringCentre.Y + ringHalfSize, 0.0),
-					new Vector3(ringCentre.X + ringHalfSize, ringCentre.Y + ringHalfSize, 0.0),
-					new Vector3(ringCentre.X + ringHalfSize, ringCentre.Y - ringHalfSize, 0.0)
-				}.Select(x => transform * x).ToArray(), new Vector2[4]
-				{
-					new Vector2(0.0, 0.0),
-					new Vector2(0.0, 1.0),
-					new Vector2(1.0, 1.0),
-					new Vector2(1.0, 0.0)
-				}, _ballTexture));
-			}
-		}
 		// Draw the quads from back to front. Group the quads that use the same texture into one draw call.
 		List<Tuple<int, ITexture>> batches = new List<Tuple<int, ITexture>>();
 		int batchCount = 0;
@@ -501,7 +644,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		program.SetUniform("ProjectionMatrix", _projectionMatrix);
 		program.SetUniform("ModelViewMatrix", _modelViewMatrix);
 		program.SetUniform("InputTexture", 0);
-		program.SetUniform("InputLightSource", _trackNodes[_currentTrackNode].Position + new Vector3(0.0, 0.0, 0.0));
+		program.SetUniform("InputLightSource", _trackNodes[_currentTrackNode].Position);
 		int firstQuad = 0;
 		foreach (Tuple<int, ITexture> batch in batches)
 		{
@@ -510,6 +653,135 @@ public class HalfPipeSpecialStageScreen : Screen
 			firstQuad += batch.Item1;
 		}
 		_graphicsContext.DepthTesting = false;
+	}
+
+	private Matrix4 GetNodeTransform(int trackNode)
+	{
+		TrackNode node = _trackNodes[trackNode];
+		return Matrix4.Identity.RotateY(node.Angle.X).Translate(node.Position);
+	}
+
+	private void AddPipeQuads(List<TexturedQuad> quads)
+	{
+		double textureScale = 8.0 / _floorTexture.Width;
+		// The number of track nodes that one repeat of the floor texture covers.
+		int textureRepeatNodes = (int)(_floorTexture.Height * textureScale / 2.0);
+		Vector3[] previousSection = null;
+		int first = Math.Max(0, _currentTrackNode - DrawDistance);
+		int last = Math.Min(_trackNodes.Count - 1, _currentTrackNode + DrawDistance);
+		for (int i = first; i <= last; i++)
+		{
+			Matrix4 transform = GetNodeTransform(i);
+			Vector3[] section = GetCrossSection().Select(x => transform * x).ToArray();
+			// Join this cross section to the previous one with floor quads.
+			if (previousSection != null)
+			{
+				int textureRow = i % textureRepeatNodes;
+				for (int j = 0; j < section.Length - 1; j++)
+				{
+					quads.Add(new TexturedQuad(new[]
+					{
+						section[j],
+						previousSection[j],
+						previousSection[j + 1],
+						section[j + 1]
+					}, new[]
+					{
+						new Vector2(j / (double)(section.Length - 1), 1.0 - (textureRow + 1) / (double)textureRepeatNodes),
+						new Vector2(j / (double)(section.Length - 1), 1.0 - textureRow / (double)textureRepeatNodes),
+						new Vector2((j + 1) / (double)(section.Length - 1), 1.0 - textureRow / (double)textureRepeatNodes),
+						new Vector2((j + 1) / (double)(section.Length - 1), 1.0 - (textureRow + 1) / (double)textureRepeatNodes)
+					}, _floorTexture));
+				}
+			}
+			previousSection = section;
+		}
+	}
+
+	private void AddObjectQuads(List<TexturedQuad> quads)
+	{
+		int first = _currentTrackNode;
+		int last = Math.Min(_trackNodes.Count - 1, _currentTrackNode + ObjectDrawDistance);
+		foreach (HalfPipeObject item in _objects)
+		{
+			if (item.TrackNode < first || item.TrackNode > last)
+			{
+				continue;
+			}
+			Matrix4 transform = GetNodeTransform(item.TrackNode);
+			if (!item.Used)
+			{
+				if (item.Kind == HalfPipeObjectKind.Ring)
+				{
+					quads.Add(CreateSprite(transform, item.Angle, 0.0, RingSize, RingSize, _ringAnimation.CurrentTexture, _ringAnimation.CurrentFrame.Source));
+				}
+				else
+				{
+					quads.Add(CreateSprite(transform, item.Angle, 0.0, BombSize, BombSize, _bombTexture, new Rectanglei(0, 0, _bombTexture.Width, _bombTexture.Height)));
+				}
+				continue;
+			}
+			// A used ring sparkles and a used bomb explodes, once through the animation
+			AnimationGroup effect = item.Kind == HalfPipeObjectKind.Ring ? _ringEffectAnimation : _explosionAnimation;
+			Animation animation = effect[0];
+			int frame = item.UsedTicks / Math.Max(1, animation.Frames[0].Delay);
+			if (frame < animation.Frames.Count)
+			{
+				Animation.Frame effectFrame = animation.Frames[frame];
+				quads.Add(CreateSprite(transform, item.Angle, 0.0, EffectSize, EffectSize, effect.Textures[effectFrame.TextureIndex], effectFrame.Source));
+			}
+		}
+	}
+
+	private void AddPlayerQuads(List<TexturedQuad> quads)
+	{
+		Matrix4 transform = GetNodeTransform(PlayerTrackNode);
+		if (_player.IsJumping)
+		{
+			double shadowHeight = ShadowWidth * _shadowTexture.Height / _shadowTexture.Width;
+			quads.Add(CreateSprite(transform, _player.Angle, 0.0, ShadowWidth, shadowHeight, _shadowTexture, new Rectanglei(0, 0, _shadowTexture.Width, _shadowTexture.Height)));
+		}
+		// The player flashes while bombs cannot hurt him
+		if (_player.IsHurt && _ticks / 4 % 2 == 0)
+		{
+			return;
+		}
+		Rectanglei source = _sonicAnimation.CurrentFrame.Source;
+		double width = SonicHeight * source.Width / source.Height;
+		quads.Add(CreateSprite(transform, _player.Angle, _player.Height, width, SonicHeight, _sonicAnimation.CurrentTexture, source));
+	}
+
+	/// <summary>
+	/// Makes an upright sprite that stands on the pipe surface at an angle from the bottom, and faces along the track.
+	/// The sprite leans with the surface, so that its bottom edge is on the surface and its top points to the centre.
+	/// </summary>
+	private static TexturedQuad CreateSprite(Matrix4 transform, double angle, double height, double width, double spriteHeight, ITexture texture, Rectanglei source)
+	{
+		// Theta is the angle of the cross section: 0 at the left edge, pi / 2 at the bottom, pi at the right edge
+		double theta = Math.PI / 2.0 + angle;
+		Vector3 surface = new Vector3(-Math.Cos(theta) * PipeRadius, -Math.Sin(theta) * PipeRadius, 0.0);
+		Vector3 up = new Vector3(Math.Cos(theta), Math.Sin(theta), 0.0);
+		Vector3 right = new Vector3(Math.Sin(theta), -Math.Cos(theta), 0.0);
+		Vector3 bottomCentre = surface + up * (SurfaceGap + height);
+		Vector3 halfWidth = right * (width / 2.0);
+		Vector3 top = up * spriteHeight;
+		double u0 = source.X / (double)texture.Width;
+		double u1 = (source.X + source.Width) / (double)texture.Width;
+		double vTop = source.Y / (double)texture.Height;
+		double vBottom = (source.Y + source.Height) / (double)texture.Height;
+		return new TexturedQuad(new[]
+		{
+			transform * (bottomCentre - halfWidth),
+			transform * (bottomCentre - halfWidth + top),
+			transform * (bottomCentre + halfWidth + top),
+			transform * (bottomCentre + halfWidth)
+		}, new[]
+		{
+			new Vector2(u0, vBottom),
+			new Vector2(u0, vTop),
+			new Vector2(u1, vTop),
+			new Vector2(u1, vBottom)
+		}, texture);
 	}
 
 	private Vector3[] GetCrossSection()
@@ -526,6 +798,28 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	private void DrawHud(Renderer renderer)
 	{
-		renderer.GetFontRenderer().RenderString($"SEGMENT: {_currentTrackNode} / {_trackNodes.Count}", default, FontAlignment.Left, _font, 0);
+		I2dRenderer g = renderer.Get2dRenderer();
+		g.BlendMode = BlendMode.Alpha;
+		g.Colour = Colours.White;
+		g.RenderTexture(_ringsLabelTexture, new Rectangle(48.0, 40.0, _ringsLabelTexture.Width, _ringsLabelTexture.Height));
+		g.Deactivate();
+		IFontRenderer fontRenderer = renderer.GetFontRenderer();
+		fontRenderer.RenderString(_rings.ToString(), new Rectangle(260.0, 48.0, 0.0, 0.0), FontAlignment.Left, _font, 0);
+		if (_nextCheckpoint < _checkpoints.Count && _state == StageState.Playing)
+		{
+			int toGo = Math.Max(0, _checkpoints[_nextCheckpoint].RingGoal - _rings);
+			string goal = toGo > 0 ? $"GET {toGo} RINGS" : "COOL!";
+			fontRenderer.RenderString(goal, new Rectangle(960.0, 48.0, 0.0, 0.0), FontAlignment.MiddleX, _font, 0);
+		}
+		string message = _state switch
+		{
+			StageState.Failed => "NOT ENOUGH RINGS",
+			StageState.Cleared => "CHAOS EMERALD",
+			_ => null,
+		};
+		if (message != null)
+		{
+			fontRenderer.RenderString(message, new Rectangle(960.0, 480.0, 0.0, 0.0), FontAlignment.MiddleX, _font, 0);
+		}
 	}
 }
