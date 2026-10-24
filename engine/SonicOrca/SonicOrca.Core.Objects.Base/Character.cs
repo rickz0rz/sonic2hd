@@ -1566,7 +1566,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 					Velocity = new Vector2(GroundVelocity * Math.Cos(GroundAngle), GroundVelocity * Math.Sin(GroundAngle));
 				}
 			}
-			if (wasHurt)
+			if (wasHurt && Level.OriginalPhysics)
 			{
 				// Sonic_HurtStop: the character stops when it lands, and the invulnerability starts again.
 				GroundVelocity = 0.0;
@@ -2547,8 +2547,9 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		UpdateLooking();
 		UpdatePushing();
 		UpdateWaterLogic();
-		// The invulnerability does not count down while the character flies back from a hit (Obj01_Hurt).
-		if (InvulnerabilityTicks > 0 && !IsHurt)
+		// In Original mode, the invulnerability does not count down while the character flies back from a hit
+		// (Obj01_Hurt).
+		if (InvulnerabilityTicks > 0 && !(IsHurt && Level.OriginalPhysics))
 		{
 			InvulnerabilityTicks--;
 		}
@@ -2619,8 +2620,8 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		}
 		if (IsHurt)
 		{
-			// Obj01_Hurt_Normal: gravity is $30, or $10 under water.
-			Gravity = IsUnderwater ? 0.25 : 0.75;
+			// Obj01_Hurt_Normal: gravity is $30, or $10 under water. HD mode uses $30 also under water.
+			Gravity = (IsUnderwater && Level.OriginalPhysics) ? 0.25 : 0.75;
 			Acceleration = 0.0;
 			Deceleration = 0.0;
 		}
@@ -2629,10 +2630,25 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			Acceleration = 0.0;
 			Deceleration = 0.0;
 		}
-		if (SlopeLockTicks != 0 && Mode != CollisionMode.Air)
+		if (Level.OriginalPhysics)
 		{
-			// move_lock: the ground movement ignores left and right. Friction still applies when no direction is held.
-			Acceleration = 0.0;
+			if (SlopeLockTicks != 0 && Mode != CollisionMode.Air)
+			{
+				// move_lock: the ground movement ignores left and right. Friction still applies when no direction is
+				// held.
+				Acceleration = 0.0;
+				Deceleration = 0.0;
+			}
+		}
+		else if (SlopeLockTicks != 0)
+		{
+			// HD: the lock ends in the air. On the ground it counts down here and blocks only the deceleration.
+			if (Mode == CollisionMode.Air)
+			{
+				SlopeLockTicks = 0;
+				return;
+			}
+			SlopeLockTicks--;
 			Deceleration = 0.0;
 		}
 	}
@@ -2648,7 +2664,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 				Facing = MovingDirection;
 			}
 			velocity.Y = ChangeSpeed(velocity.Y, 1, 64.0, Gravity, Gravity, 0.0);
-			if (velocity.Y < 0.0 && velocity.Y > 0.0 - JumpReleaseForce && !IsHurt)
+			if (velocity.Y < 0.0 && velocity.Y > 0.0 - JumpReleaseForce && !(IsHurt && Level.OriginalPhysics))
 			{
 				velocity.X *= 31.0 / 32.0;
 			}
@@ -2660,8 +2676,8 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			{
 				ApplySlopeFriction();
 			}
-			GroundVelocity = ChangeSpeed(GroundVelocity, MovingDirection, TopSpeed, Acceleration, Deceleration, Friction, TurnaroundSpeed);
-			if (MovingDirection * GroundVelocity > 0.0 && SlopeLockTicks == 0)
+			GroundVelocity = ChangeSpeed(GroundVelocity, MovingDirection, TopSpeed, Acceleration, Deceleration, Friction, Level.OriginalPhysics ? TurnaroundSpeed : 0.0);
+			if (MovingDirection * GroundVelocity > 0.0 && (SlopeLockTicks == 0 || !Level.OriginalPhysics))
 			{
 				Facing = MovingDirection;
 			}
@@ -2768,13 +2784,13 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		}
 		else if (IsSpinball)
 		{
-			// Sonic_CheckRollStop: the roll stops only when the ground speed is 0.
-			if (GroundVelocity == 0.0)
+			// Sonic_CheckRollStop: the roll stops only when the ground speed is 0. HD mode stops it below 2.
+			if (Level.OriginalPhysics ? GroundVelocity == 0.0 : Math.Abs(GroundVelocity) < 2.0)
 			{
 				IsSpinball = false;
 			}
 		}
-		else if ((LookDirection == CharacterLookDirection.Ducking || CharacterEvents.HasFlag(CharacterEvent.SpindashLaunch)) && Math.Abs(GroundVelocity) >= 2.0)
+		else if ((LookDirection == CharacterLookDirection.Ducking || CharacterEvents.HasFlag(CharacterEvent.SpindashLaunch)) && IsFastEnoughToRoll())
 		{
 			IsSpinball = true;
 			if (CharacterEvents.HasFlag(CharacterEvent.SpindashLaunch))
@@ -2786,6 +2802,14 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 				Level.SoundManager.PlaySound(this, "SONICORCA/SOUND/SPINBALL");
 			}
 		}
+	}
+
+	/// <summary>
+	/// Sonic_Roll: a character starts to roll at a ground speed of $80 (2) or more. HD mode needs more than 4.
+	/// </summary>
+	private bool IsFastEnoughToRoll()
+	{
+		return Level.OriginalPhysics ? Math.Abs(GroundVelocity) >= 2.0 : Math.Abs(GroundVelocity) > 4.0;
 	}
 
 	/// <summary>
@@ -2876,6 +2900,11 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	/// </summary>
 	private void UpdateFalling()
 	{
+		if (!Level.OriginalPhysics)
+		{
+			UpdateFallingHD();
+			return;
+		}
 		if (Mode == CollisionMode.Air)
 		{
 			return;
@@ -2896,6 +2925,25 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		_slopeRepelled = true;
 		CharacterEvents |= CharacterEvent.Fall;
 		SlopeLockTicks = SlopeRepelLockTicks;
+	}
+
+	/// <summary>
+	/// HD mode: a character on a wall or a ceiling that moves slower than 10 falls off only at 90 degrees or more, and
+	/// keeps its ground speed. Otherwise it gets a lock of 32 ticks that blocks the deceleration.
+	/// </summary>
+	private void UpdateFallingHD()
+	{
+		if (Mode != CollisionMode.Top && Mode != CollisionMode.Air && !(Math.Abs(GroundVelocity) >= 10.0))
+		{
+			if ((GroundVector == null || !GroundVector.Flags.HasFlag(CollisionFlags.DontFall)) && Math.Cos(GroundAngle) <= 0.0001)
+			{
+				CharacterEvents |= CharacterEvent.Fall;
+			}
+			else if (SlopeLockTicks == 0)
+			{
+				SlopeLockTicks = 32;
+			}
+		}
 	}
 
 	private void UpdatePosition()
@@ -3170,10 +3218,15 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 
 	/// <summary>
 	/// ScrollVerti on the ground: the camera moves 2 px per frame (8) while the look offset is not 0, 16 px (64) when
-	/// the ground speed is $800 (32) or more, and 6 px (24) otherwise.
+	/// the ground speed is $800 (32) or more, and 6 px (24) otherwise. HD mode uses the vertical velocity: 6 px up to a
+	/// velocity of 6, and 16 px above it.
 	/// </summary>
 	private double GetGroundCameraMaxVelocityY(CameraProperties cameraProperties)
 	{
+		if (!Level.OriginalPhysics)
+		{
+			return (Velocity.Y <= 6.0) ? 24.0 : 64.0;
+		}
 		if (cameraProperties.Offset.Y != 0.0)
 		{
 			return 8.0;
@@ -3987,10 +4040,18 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	{
 		// Obj01_OutWater doubles the vertical speed, unless the character is hurt, and limits it to -$1000 (-64).
 		// On the ground the next tick computes the velocity from the ground speed again, so only the air matters.
-		if (IsAirborne)
+		// HD mode doubles only an upward speed, also when the character is hurt, and limits it to -48.
+		if (Level.OriginalPhysics)
 		{
-			double velocityY = IsHurt ? Velocity.Y : Velocity.Y * 2.0;
-			Velocity = new Vector2(Velocity.X, Math.Max(velocityY, -64.0));
+			if (IsAirborne)
+			{
+				double velocityY = IsHurt ? Velocity.Y : Velocity.Y * 2.0;
+				Velocity = new Vector2(Velocity.X, Math.Max(velocityY, -64.0));
+			}
+		}
+		else if (IsAirborne && Velocity.Y < 0.0)
+		{
+			Velocity = new Vector2(Velocity.X, Math.Max(Velocity.Y * 2.0, -48.0));
 		}
 		if (IsAirborne && !IsObjectControlled && !IsDying)
 		{
