@@ -129,8 +129,8 @@ public class CPZSpinTubeInstance : ActiveObject
 	private void CharacterBegin(ICharacter character)
 	{
 		character.IsAirborne = true;
-		character.ForceSpinball = true;
 		character.IsSpinball = true;
+		character.ForceSpinball = true;
 		character.Position = Position + _path[_pathIndex][0].Position;
 		character.ObjectLink = this;
 		character.ObjectTag = 1;

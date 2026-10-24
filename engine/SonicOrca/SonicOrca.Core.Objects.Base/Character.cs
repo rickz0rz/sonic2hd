@@ -868,6 +868,10 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		}
 	}
 
+	/// <summary>
+	/// The pinball mode of Sonic 2 (pinball_mode). While it is set, the character rolls and cannot stop rolling or
+	/// jump from a roll on the ground. When the flag is set, a character that does not roll starts to roll at once.
+	/// </summary>
 	public bool ForceSpinball
 	{
 		get
@@ -877,6 +881,11 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		set
 		{
 			StateFlags = (value ? (StateFlags | CharacterState.ForceSpinball) : (StateFlags & ~CharacterState.ForceSpinball));
+			if (value && !IsSpinball)
+			{
+				IsSpinball = true;
+				Level.SoundManager.PlaySound(this, "SONICORCA/SOUND/SPINBALL");
+			}
 		}
 	}
 
@@ -1514,7 +1523,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		{
 			IsAirborne = false;
 			IsJumping = false;
-			if (Level.Ticks - LastTickOnGround > KeepSpinballAirborneTolerance)
+			if (Level.Ticks - LastTickOnGround > KeepSpinballAirborneTolerance && !ForceSpinball)
 			{
 				IsSpinball = false;
 			}
@@ -2727,7 +2736,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		{
 			return;
 		}
-		if (GroundVector != null && GroundVector.Flags.HasFlag(CollisionFlags.ForceRoll))
+		if (ForceSpinball || (GroundVector != null && GroundVector.Flags.HasFlag(CollisionFlags.ForceRoll)))
 		{
 			UpdateSpinningForced();
 		}
@@ -2752,6 +2761,10 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		}
 	}
 
+	/// <summary>
+	/// Keeps a character in pinball mode, or on a forced roll vector, rolling. As Sonic_KeepRolling does, a roll
+	/// that stops gets a push of $400 (16) in the facing direction.
+	/// </summary>
 	private void UpdateSpinningForced()
 	{
 		if (!IsSpinball)
@@ -2759,14 +2772,9 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			IsSpinball = true;
 			Level.SoundManager.PlaySound(this, "SONICORCA/SOUND/SPINBALL");
 		}
-		if (Math.Abs(GroundVelocity) < 2.0 && !ShouldFallOffGround())
+		if (GroundVelocity == 0.0)
 		{
-			int direction = Math.Sign(GroundVelocity);
-			if (direction == 0)
-			{
-				direction = Facing;
-			}
-			GroundVelocity = 16 * direction;
+			GroundVelocity = 16 * Facing;
 		}
 	}
 
@@ -2818,7 +2826,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 					Level.SoundManager.PlaySound(this, "SONICORCA/SOUND/JUMP");
 				}
 			}
-			else if (GroundVector != null && !GroundVector.Flags.HasFlag(CollisionFlags.PreventJump))
+			else if (GroundVector != null && !GroundVector.Flags.HasFlag(CollisionFlags.PreventJump) && !(ForceSpinball && IsSpinball))
 			{
 				Jumped = true;
 				IsJumping = true;
