@@ -23,6 +23,18 @@ public class SpikerInstance : Badnik
 	private const int RestTicks = 16;
 	private const int DetectDistanceX = 128;
 	private const int DetectDistanceY = 384;
+
+	/// <summary>Original: the vertical detection distance (loc_3703E).</summary>
+	private const int DetectDistanceYOriginal = 512;
+
+	/// <summary>Original: the ticks that the Spiker stands still between the detection and the fire (loc_36F90).</summary>
+	private const int FireDelayTicksOriginal = 8;
+
+	/// <summary>
+	/// Original: one box (size $12, 16 by 32 pixels) covers the body and the drill. The drill is a part of the body
+	/// until it fires, so a rolling character destroys the Spiker from any side.
+	/// </summary>
+	internal static readonly Rectanglei BoxOriginal = new Rectanglei(-32, -64, 64, 128);
 	private AnimationInstance _animation;
 	private bool _flipX;
 	private bool _flipY;
@@ -31,6 +43,7 @@ public class SpikerInstance : Badnik
 	private bool _resting;
 	private bool _spikeFired;
 	private int _stateTimer;
+	private int _fireDelayTicks;
 	private Spike _spike;
 
 	[StateVariable]
@@ -49,9 +62,10 @@ public class SpikerInstance : Badnik
 		_resting = false;
 		_velocityX = Speed;
 		_stateTimer = MoveTicks;
+		Rectanglei box = Level.OriginalPhysics ? BoxOriginal : new Rectanglei(-32, _flipY ? -128 : 48, 64, 64);
 		CollisionRectangles = new CollisionRectangle[]
 		{
-			new CollisionRectangle(this, 0, -32, _flipY ? -128 : 48, 64, 64)
+			new CollisionRectangle(this, 0, box.X, box.Y, box.Width, box.Height)
 		};
 		_spike = Level.ObjectManager.AddSubObject<Spike>(this);
 		_spike.Position = Position;
@@ -61,6 +75,11 @@ public class SpikerInstance : Badnik
 
 	protected override void Rebound(ICharacter character)
 	{
+		if (Level.OriginalPhysics)
+		{
+			base.Rebound(character);
+			return;
+		}
 		// The decompiled code had two branches here (character below or above the Spiker), and both did the same.
 		Vector2 velocity = character.Velocity;
 		if (velocity.Y < 0.0)
@@ -79,6 +98,13 @@ public class SpikerInstance : Badnik
 	protected override void OnUpdate()
 	{
 		base.OnUpdate();
+		if (_fireDelayTicks > 0)
+		{
+			// Original: the Spiker stands still, then fires.
+			if (--_fireDelayTicks == 0)
+				FireSpike();
+			return;
+		}
 		if (_resting)
 		{
 			if (_stateTimer-- <= 0)
@@ -104,6 +130,14 @@ public class SpikerInstance : Badnik
 		}
 		if (!CheckForCharacter())
 			return;
+		if (Level.OriginalPhysics)
+			_fireDelayTicks = FireDelayTicksOriginal;
+		else
+			FireSpike();
+	}
+
+	private void FireSpike()
+	{
 		_spike.Fire();
 		_spikeFired = true;
 		_spike.LockLifetime = false;
@@ -112,8 +146,12 @@ public class SpikerInstance : Badnik
 
 	private bool CheckForCharacter()
 	{
+		// The original checks only until the drill fires.
+		if (Level.OriginalPhysics && _spikeFired)
+			return false;
 		ICharacter closestCharacter = Level.ObjectManager.GetClosestCharacterTo((Vector2)Position);
-		return closestCharacter != null && Math.Abs(Position.X - closestCharacter.Position.X) < DetectDistanceX && Math.Abs(Position.Y - closestCharacter.Position.Y) < DetectDistanceY;
+		int distanceY = Level.OriginalPhysics ? DetectDistanceYOriginal : DetectDistanceY;
+		return closestCharacter != null && Math.Abs(Position.X - closestCharacter.Position.X) < DetectDistanceX && Math.Abs(Position.Y - closestCharacter.Position.Y) < distanceY;
 	}
 
 	protected override void OnStop()
@@ -199,7 +237,8 @@ public class SpikerInstance : Badnik
 		protected override void OnStart()
 		{
 			base.OnStart();
-			CollisionRectangles = new CollisionRectangle[]
+			// Original: the drill has no box of its own until it fires. The box of the Spiker covers it.
+			CollisionRectangles = Level.OriginalPhysics ? new CollisionRectangle[0] : new CollisionRectangle[]
 			{
 				new CollisionRectangle(this, 0, -32, -72, 64, 144)
 			};
@@ -218,6 +257,14 @@ public class SpikerInstance : Badnik
 		{
 			_animation.Index = FlipX ? AnimationSpikeSpinningRight : AnimationSpikeSpinningLeft;
 			_fired = true;
+			if (Level.OriginalPhysics)
+			{
+				Rectanglei box = BoxOriginal;
+				CollisionRectangles = new CollisionRectangle[]
+				{
+					new CollisionRectangle(this, 0, box.X, box.Y, box.Width, box.Height)
+				};
+			}
 		}
 
 		protected override void OnStop()
