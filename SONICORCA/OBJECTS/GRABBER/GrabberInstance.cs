@@ -294,8 +294,10 @@ public class GrabberInstance : Badnik
 	{
 		if (_grabbedCharacter != null)
 		{
-			_grabbedCharacter.Hurt(_direction);
+			// Release the character first. Otherwise the release clears the knockback of the hurt.
+			ICharacter character = _grabbedCharacter;
 			ReleaseCharacter();
+			character.Hurt(_direction);
 		}
 		CreateExplosionObject();
 		FinishForever();
@@ -337,7 +339,8 @@ public class GrabberInstance : Badnik
 				_status = StatusType.Raising;
 				if (_grabbedCharacter == null)
 					break;
-				_ticksRemaining = GrabHoldTicks;
+				// The original goes up at once after the grab (ObjA7_GrabCharacter).
+				_ticksRemaining = Level.OriginalPhysics ? 0 : GrabHoldTicks;
 				break;
 			case StatusType.Raising:
 				if (_ticksRemaining > 0)
@@ -443,7 +446,8 @@ public class GrabberInstance : Badnik
 		_grabbedCharacter.Layer = Level.Map.Layers[_previousCharacterLayer];
 		_grabbedCharacter.SpecialState = CharacterSpecialState.Normal;
 		_grabbedCharacter.Velocity = new Vector2();
-		_grabbedCharacter.IsSpinball = true;
+		// The original releases the character in the walk animation, not in a roll (loc_390FA).
+		_grabbedCharacter.IsSpinball = !Level.OriginalPhysics;
 		_grabbedCharacter.IsAirborne = true;
 		_grabbedCharacter.CheckCollision = true;
 		_grabbedCharacter.ObjectLink = null;
