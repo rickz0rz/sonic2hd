@@ -18,6 +18,7 @@ public class LayerSwitchInstance : ActiveObject
 	private readonly Dictionary<ICharacter, int> _characterTrace = new Dictionary<ICharacter, int>();
 	private bool _allowAirborne = true;
 	private bool _pathConstrained;
+	private bool _layerOnly;
 	private int _path;
 	private int _width;
 	private int _height;
@@ -41,6 +42,14 @@ public class LayerSwitchInstance : ActiveObject
 	{
 		get => _allowAirborne;
 		set => _allowAirborne = value;
+	}
+
+	/// <summary>The switch changes only the layer of a character, not its path (a flipped switch of Sonic 2).</summary>
+	[StateVariable]
+	private bool LayerOnly
+	{
+		get => _layerOnly;
+		set => _layerOnly = value;
 	}
 
 	[StateVariable]
@@ -174,12 +183,14 @@ public class LayerSwitchInstance : ActiveObject
 			{
 				if (side == -1)
 				{
-					character.Path = _pathA;
+					if (!_layerOnly)
+						character.Path = _pathA;
 					character.Layer = Level.Map.Layers[_layerA];
 				}
 				else
 				{
-					character.Path = _pathB;
+					if (!_layerOnly)
+						character.Path = _pathB;
 					character.Layer = Level.Map.Layers[_layerB];
 				}
 			}

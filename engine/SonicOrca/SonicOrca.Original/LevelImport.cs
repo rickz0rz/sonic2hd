@@ -15,8 +15,9 @@ namespace SonicOrca.Original;
 /// <param name="Offset">The position of the act in the zone map, in original pixels. A multiple of 128 (one chunk).</param>
 /// <param name="FirstColumn">The first map column, in blocks, that shows this act. The columns before it show the previous act.</param>
 /// <param name="Size">The size of the act, in original pixels: the camera limits of LevelSize plus one screen.</param>
+/// <param name="BumpersFile">The bumpers in the landscape (CNZ only), or null.</param>
 public sealed record OriginalAct(int Number, string LayoutFile, string ObjectsFile, string RingsFile, string StartFile,
-	Vector2i Offset, int FirstColumn, Vector2i Size);
+	Vector2i Offset, int FirstColumn, Vector2i Size, string BumpersFile = null);
 
 /// <summary>A zone of the original game, as the files of the Sonic 2 disassembly (github.com/sonicretro/s2disasm) give it.</summary>
 /// <param name="Key">The resource key of the zone, for example "SONICORCA/LEVELS/CNZ".</param>
@@ -24,9 +25,12 @@ public sealed record OriginalAct(int Number, string LayoutFile, string ObjectsFi
 /// <param name="MapSize">The size of the front layer, in blocks (16 original pixels).</param>
 /// <param name="PaletteFile">The zone palette, for the sprites of its objects.</param>
 /// <param name="Sprites">The art of the objects that the game data does not have.</param>
+/// <param name="ArtFile">The level art (Kosinski), for the tiles in front of the characters.</param>
+/// <param name="BlocksFile">The 16 x 16 block mappings (Kosinski).</param>
+/// <param name="HdTiles">The number of tiles in the HD tile set of the zone.</param>
 public sealed record OriginalZone(string Name, string Key, string ChunksFile, string PrimaryCollisionFile,
 	string SecondaryCollisionFile, IReadOnlyList<OriginalAct> Acts, Vector2i MapSize, string PaletteFile,
-	IReadOnlyList<OriginalSprite> Sprites)
+	IReadOnlyList<OriginalSprite> Sprites, string ArtFile = null, string BlocksFile = null, int HdTiles = 0)
 {
 	/// <summary>The zones that the importer knows.</summary>
 	public static IReadOnlyDictionary<string, OriginalZone> All { get; } = new Dictionary<string, OriginalZone>(StringComparer.OrdinalIgnoreCase)
@@ -38,9 +42,9 @@ public sealed record OriginalZone(string Name, string Key, string ChunksFile, st
 			new[]
 			{
 				new OriginalAct(1, "level/layout/CNZ_1.kos", "level/objects/CNZ_1.bin", "level/rings/CNZ_1.bin", "startpos/CNZ_1.bin",
-					new Vector2i(0, 0), 0, new Vector2i(0x27A0 + 320, 0x720 + 224)),
+					new Vector2i(0, 0), 0, new Vector2i(0x27A0 + 320, 0x720 + 224), "level/objects/CNZ 1 bumpers.bin"),
 				new OriginalAct(2, "level/layout/CNZ_2.kos", "level/objects/CNZ_2.bin", "level/rings/CNZ_2.bin", "startpos/CNZ_2.bin",
-					new Vector2i(85 * 128, 2 * 128), 85 * 8, new Vector2i(0x2A80 + 320, 0x720 + 224)),
+					new Vector2i(85 * 128, 2 * 128), 85 * 8, new Vector2i(0x2A80 + 320, 0x720 + 224), "level/objects/CNZ 2 bumpers.bin"),
 			},
 			new Vector2i(1400, 144), "art/palettes/CNZ.bin",
 			new[]
@@ -56,15 +60,22 @@ public sealed record OriginalZone(string Name, string Key, string ChunksFile, st
 				new OriginalSprite("SONICORCA/OBJECTS/CNZBIGBLOCK", "art/nemesis/Moving block from CNZ and CPZ.nem", "mappings/sprite/objD4.asm", 2),
 				new OriginalSprite("SONICORCA/OBJECTS/CNZELEVATOR", "art/nemesis/CNZ elevator.nem", "mappings/sprite/objD5.asm", 2),
 				new OriginalSprite("SONICORCA/OBJECTS/CNZFLASHINGBLOCK", "art/nemesis/Caterpiller platforms from CNZ.nem", "mappings/sprite/objD2.asm", 2),
-			}),
+				new OriginalSprite("SONICORCA/OBJECTS/CNZSLOTCAGE", "art/nemesis/CNZ slot machine bars.nem", "mappings/sprite/objD6_b.asm", 0),
+				new OriginalSprite("SONICORCA/OBJECTS/CNZSLOTCAGE/BOMB", "art/nemesis/Spikey ball from CNZ slots.nem", "mappings/sprite/objD6_a.asm", 0),
+			},
+			"art/kosinski/CNZ.kos", "mappings/16x16/CNZ.kos", 1023),
 	};
 }
 
 /// <summary>The result of a level import: the map, the binding, and notes about what was not imported.</summary>
 /// <param name="Sprites">The art of the objects that the game data does not have. An object can have more than one, under its key.</param>
 /// <param name="NewObjects">The objects that the binding uses and that the game data does not have: the resource key and the namespace of the code.</param>
+/// <param name="TileSet">The tile set with the tiles in front of the characters, or null.</param>
+/// <param name="PriorityTexture">The texture of the tiles in front of the characters, or null.</param>
+/// <param name="Textures">Other textures, by resource key, for example the slot machine reels.</param>
 public sealed record ImportedLevel(LevelMap Map, LevelBinding Binding, IReadOnlyList<string> Notes,
-	IReadOnlyList<ImportedSprite> Sprites, IReadOnlyDictionary<string, string> NewObjects);
+	IReadOnlyList<ImportedSprite> Sprites, IReadOnlyDictionary<string, string> NewObjects,
+	string TileSet = null, byte[] PriorityTexture = null, IReadOnlyDictionary<string, byte[]> Textures = null);
 
 /// <summary>
 /// Makes the map and the binding of a SonicOrca level from a zone of the original game. The tiles are the blocks of
@@ -114,6 +125,9 @@ public static class LevelImport
 		["SONICORCA/OBJECTS/CNZBIGBLOCK"] = "SONICORCA.OBJECTS.CNZBIGBLOCK",
 		["SONICORCA/OBJECTS/CNZELEVATOR"] = "SONICORCA.OBJECTS.CNZELEVATOR",
 		["SONICORCA/OBJECTS/CNZFLASHINGBLOCK"] = "SONICORCA.OBJECTS.CNZFLASHINGBLOCK",
+		["SONICORCA/OBJECTS/CNZMAPBUMPER"] = "SONICORCA.OBJECTS.CNZMAPBUMPER",
+		["SONICORCA/OBJECTS/CNZSLOTCAGE"] = "SONICORCA.OBJECTS.CNZSLOTCAGE",
+		["SONICORCA/OBJECTS/CNZSLOTREELS"] = "SONICORCA.OBJECTS.CNZSLOTREELS",
 	};
 
 	public static ImportedLevel Import(OriginalZone zone, string disassembly)
@@ -164,7 +178,36 @@ public static class LevelImport
 				front.Tiles[column, row] = ToTile(blocks[column, row]);
 			}
 		}
-		foreach (LevelLayer layer in new[] { back, front })
+		var layers = new List<LevelLayer> { back, front };
+		string tileSet = null;
+		byte[] priorityTexture = null;
+		uint[] palette = SpriteImport.ReadPalette(disassembly, zone.PaletteFile);
+		if (zone.ArtFile != null)
+		{
+			// The high-priority patterns go on a layer after the front layer, so they cover the characters
+			byte[] art = Kosinski.Decompress(File.ReadAllBytes(Path(zone.ArtFile)));
+			byte[] blockMappings = Kosinski.Decompress(File.ReadAllBytes(Path(zone.BlocksFile)));
+			HashSet<int> priorityBlocks = PriorityTiles.GetPriorityBlocks(blockMappings);
+			var used = new HashSet<int>();
+			var high = new LevelLayer(map) { Name = "front_high" };
+			high.Resize(columns, rows);
+			for (int row = 0; row < rows; row++)
+			{
+				for (int column = 0; column < columns; column++)
+				{
+					int block = blocks[column, row] & 0x3FF;
+					if (block != 0 && priorityBlocks.Contains(block))
+					{
+						used.Add(block);
+						high.Tiles[column, row] = PriorityTiles.FirstTile + ToTile(blocks[column, row]);
+					}
+				}
+			}
+			layers.Add(high);
+			tileSet = PriorityTiles.CreateTileSet(zone.HdTiles, used, Scale);
+			priorityTexture = PriorityTiles.RenderTexture(art, blockMappings, palette, used, Scale);
+		}
+		foreach (LevelLayer layer in layers)
 		{
 			map.LayerTree.Children.Add(layer);
 			map.Layers.Add(layer);
@@ -204,10 +247,14 @@ public static class LevelImport
 					FrontLayerIndex, (act.Offset + position) * Scale, new { }));
 				ring++;
 			}
+			if (act.BumpersFile != null)
+			{
+				AddMapBumpers(zone, act, Path(act.BumpersFile), binding);
+			}
 			int index = 0;
 			foreach (ObjectPlacements.OriginalObjectPlacement original in ObjectPlacements.FromFile(Path(act.ObjectsFile)))
 			{
-				ObjectPlacement converted = ObjectPlacements.ConvertOriginalObjectPlacement(original);
+				ObjectPlacement converted = ObjectPlacements.ConvertOriginalObjectPlacement(original, zone.ArtFile != null);
 				if (converted == null)
 				{
 					unsupported[original.Type] = unsupported.GetValueOrDefault(original.Type) + 1;
@@ -224,15 +271,57 @@ public static class LevelImport
 				index++;
 			}
 		}
+		// The slot machine reels: one object on each reel window, where the map has the reel blocks
+		var textures = new Dictionary<string, byte[]>();
+		if (zone.Name == "CNZ" && File.Exists(Path(SlotReels.ArtFile)))
+		{
+			int windows = 0;
+			for (int row = 0; row < rows; row++)
+			{
+				for (int column = 0; column < columns; column++)
+				{
+					if ((blocks[column, row] & 0x3FF) == SlotReels.WindowBlock)
+					{
+						var position = new Vector2i(column * BlockSize, row * BlockSize) * Scale;
+						binding.ObjectPlacements.Add(new ObjectPlacement("SONICORCA/OBJECTS/CNZSLOTREELS", MakeUid(zone, "reels", zone.Acts[0], windows),
+							$"cnzslotreels {windows}", FrontLayerIndex, position, new { }));
+						windows++;
+					}
+				}
+			}
+			textures["SONICORCA/OBJECTS/CNZSLOTREELS/TEXTURE"] = SlotReels.RenderTexture(disassembly, palette, Scale);
+		}
 		foreach (KeyValuePair<int, int> pair in unsupported)
 		{
 			notes.Add($"Object type ${pair.Key:X2}: {pair.Value} not imported, because SonicOrca has no object for it.");
 		}
-		uint[] palette = SpriteImport.ReadPalette(disassembly, zone.PaletteFile);
 		var sprites = zone.Sprites.Select(sprite => SpriteImport.Import(sprite, disassembly, palette, Scale)).ToList();
 		var newObjects = binding.ObjectPlacements.Select(p => p.Key).Distinct().Where(RepositoryObjects.ContainsKey)
 			.ToDictionary(key => key, key => RepositoryObjects[key]);
-		return new ImportedLevel(map, binding, notes, sprites, newObjects);
+		return new ImportedLevel(map, binding, notes, sprites, newObjects, tileSet, priorityTexture, textures);
+	}
+
+	/// <summary>
+	/// Adds the bumpers in the landscape: 6-byte entries of kind (0 to $A), x and y. The file of act 1 has no start
+	/// marker, and both files end with x = $FFFF.
+	/// </summary>
+	private static void AddMapBumpers(OriginalZone zone, OriginalAct act, string file, LevelBinding binding)
+	{
+		byte[] data = File.ReadAllBytes(file);
+		int count = 0;
+		for (int i = 0; i + 6 <= data.Length; i += 6)
+		{
+			int kind = (data[i] << 8) | data[i + 1];
+			int x = (data[i + 2] << 8) | data[i + 3];
+			int y = (data[i + 4] << 8) | data[i + 5];
+			if (x == 0 || x == 0xFFFF || kind > 0xA)
+			{
+				continue;
+			}
+			binding.ObjectPlacements.Add(new ObjectPlacement("SONICORCA/OBJECTS/CNZMAPBUMPER", MakeUid(zone, "bumper", act, count),
+				$"cnzmapbumper {act.Number}-{count}", FrontLayerIndex, (act.Offset + new Vector2i(x, y)) * Scale, new { Kind = kind >> 1 }));
+			count++;
+		}
 	}
 
 	/// <summary>The chunk entry of a block of an act layout, or 0 outside the layout.</summary>

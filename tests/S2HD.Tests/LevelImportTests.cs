@@ -32,7 +32,7 @@ public sealed class LevelImportTests
 	{
 		LevelMap map = Cnz.Value.Map;
 
-		Assert.Equal(new[] { "back", "front" }, map.Layers.Select(l => l.Name));
+		Assert.Equal(new[] { "back", "front", "front_high" }, map.Layers.Select(l => l.Name));
 		Assert.Equal(1400, map.Layers[1].Columns);
 		Assert.Equal(144, map.Layers[1].Rows);
 		Assert.Contains(Enumerable.Range(0, 1400).Select(x => map.Layers[1].Tiles[x, 60]), tile => tile != 0);
@@ -58,8 +58,8 @@ public sealed class LevelImportTests
 		Assert.True(level.Binding.ObjectPlacements.Count(p => p.Key == "SONICORCA/OBJECTS/RING") > 100);
 		Assert.Contains(level.Binding.ObjectPlacements, p => p.Key == "SONICORCA/OBJECTS/STARPOST");
 		Assert.Contains(level.Binding.ObjectPlacements, p => p.Key == "SONICORCA/OBJECTS/SIGNPOST");
-		// The CNZ objects that SonicOrca does not have yet are listed, for example the slot machine cages ($D6)
-		Assert.Contains(level.Notes, note => note.StartsWith("Object type $D6"));
+		// Every object type of CNZ has a SonicOrca object now
+		Assert.Empty(level.Notes);
 	}
 
 	[Fact]
@@ -109,6 +109,46 @@ public sealed class LevelImportTests
 	{
 		Assert.Equal(count, Cnz.Value.Binding.ObjectPlacements.Count(p => p.Key == key));
 		Assert.True(Cnz.Value.NewObjects.ContainsKey(key));
+	}
+
+	[Fact]
+	public void Cnz_HasTheLandscapeBumpers_TheSlotMachines_AndTheirReels()
+	{
+		ImportedLevel level = Cnz.Value;
+
+		// 53 and 52 bumpers in "CNZ 1 bumpers.bin" and "CNZ 2 bumpers.bin", without the markers
+		Assert.Equal(105, level.Binding.ObjectPlacements.Count(p => p.Key == "SONICORCA/OBJECTS/CNZMAPBUMPER"));
+		Assert.Equal(29, level.Binding.ObjectPlacements.Count(p => p.Key == "SONICORCA/OBJECTS/CNZSLOTCAGE"));
+		// One reel window for each of the 10 slot machines. The window of the second machine of act 1 is at (1680, 528).
+		var reels = level.Binding.ObjectPlacements.Where(p => p.Key == "SONICORCA/OBJECTS/CNZSLOTREELS").ToList();
+		Assert.Equal(10, reels.Count);
+		Assert.Contains(reels, r => r.Position == new SonicOrca.Geometry.Vector2i(1680 * 4, 528 * 4));
+		Assert.True(level.Textures.ContainsKey("SONICORCA/OBJECTS/CNZSLOTREELS/TEXTURE"));
+	}
+
+	[Fact]
+	public void Cnz_HighPriorityPatterns_GoOnALayerAboveTheCharacters()
+	{
+		ImportedLevel level = Cnz.Value;
+		LevelLayer high = level.Map.Layers[2];
+
+		Assert.Contains("<texture>/PRIORITY</texture>", level.TileSet);
+		Assert.NotNull(level.PriorityTexture);
+		// Each tile of the layer is a priority tile, and the front layer has the same block there
+		for (int x = 0; x < high.Columns; x += 7)
+		{
+			for (int y = 0; y < high.Rows; y += 5)
+			{
+				int tile = high.Tiles[x, y] & 0xFFF;
+				if (tile != 0)
+				{
+					Assert.Equal(PriorityTiles.FirstTile + (level.Map.Layers[1].Tiles[x, y] & 0xFFF), tile);
+				}
+			}
+		}
+		// A layer switch of CNZ moves a character to the layer of the priority tiles on one side
+		Assert.Contains(level.Binding.ObjectPlacements, p => p.Key == "SONICORCA/OBJECTS/LAYERSWITCH" &&
+			p.Behaviour.Any(b => (b.Key == "RightLayer" || b.Key == "LeftLayer") && Convert.ToInt32(b.Value) == 1));
 	}
 
 	[Fact]

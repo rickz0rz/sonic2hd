@@ -214,7 +214,7 @@ public static class SpriteImport
 		return (pixels, width, height, minX, minY);
 	}
 
-	private static byte[] EncodePng(byte[] pixels, int width, int height)
+	internal static byte[] EncodePng(byte[] pixels, int width, int height)
 	{
 		var stream = new MemoryStream();
 		var writer = new PngWriter(stream, new ImageInfo(width, height, 8, true), "sprite.png");

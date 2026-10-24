@@ -26,6 +26,8 @@
   <ItemGroup>
     <!-- The settings class of the game, to test how it saves the settings without the game window -->
     <Compile Include="../../S2HD/S2HDSettings.cs" Link="Game/S2HDSettings.cs" />
+    <!-- The slot machine logic of Casino Night Zone, which needs only the engine -->
+    <Compile Include="../../SONICORCA/OBJECTS/CNZSLOTCAGE/CNZSlotMachine.cs" Link="Game/CNZSlotMachine.cs" />
   </ItemGroup>
 
 </Project>
