@@ -4324,7 +4324,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	{
 		_originalSpeedValues = OriginalSpeedValues.Underwater;
 		Velocity = new Vector2(Velocity.X / 2.0, Velocity.Y / 4.0);
-		if (IsAirborne && !IsObjectControlled)
+		if (ShouldSplash() && !IsObjectControlled)
 		{
 			Level.WaterManager.CreateSplash(Layer, SplashType.Enter, Position);
 			Level.SoundManager.PlaySound(SplashSoundResourceKey);
@@ -4349,7 +4349,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		{
 			Velocity = new Vector2(Velocity.X, Math.Max(Velocity.Y * 2.0, -48.0));
 		}
-		if (IsAirborne && !IsObjectControlled && !IsDying)
+		if (ShouldSplash() && !IsObjectControlled && !IsDying)
 		{
 			Level.WaterManager.CreateSplash(Layer, SplashType.Exit, Position);
 			Level.SoundManager.PlaySound(SplashSoundResourceKey);
@@ -4360,6 +4360,19 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			Level.SoundManager.StopJingle(JingleType.Drowning);
 			Level.SoundManager.PlayMusic();
 		}
+	}
+
+	/// <summary>
+	/// True when the character makes a splash as it goes into or out of the water. HD mode makes a splash in the air.
+	/// Sonic_Water makes a splash when the new vertical speed is not 0, also on the ground.
+	/// </summary>
+	private bool ShouldSplash()
+	{
+		if (!Level.OriginalPhysics)
+		{
+			return IsAirborne;
+		}
+		return Math.Floor(Velocity.Y * 64.0) != 0.0;
 	}
 
 	private void CheckForDrowning()
@@ -4381,7 +4394,22 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			}
 			_drowningClimax = true;
 		}
-		// Show the countdown once each second (60 ticks) in the last 5 seconds.
+		if (Level.OriginalPhysics)
+		{
+			// Obj0A_Countdown: the numbers 5 to 0 come each 2 seconds, from 12 seconds before the character drowns.
+			// The character drowns when the 30 seconds of air are used.
+			if (BreathTicks > 0 && BreathTicks <= BreathLeftDrowningMusic && BreathTicks % 120 == 0)
+			{
+				ShowBreathTimeRemaining(BreathTicks / 120 - 1);
+			}
+			if (BreathTicks <= 0)
+			{
+				Drown();
+			}
+			return;
+		}
+		// HD mode shows the countdown once each second (60 ticks) in the last 5 seconds, and the character drowns
+		// 1 second after 0.
 		if (BreathTicks <= 300 && BreathTicks % 60 == 0)
 		{
 			ShowBreathTimeRemaining(BreathTicks / 60);
@@ -4403,12 +4431,13 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		Level.SoundManager.PlaySound(this, DrownSoundResourceKey);
 	}
 
-	private void ShowBreathTimeRemaining(int secondsLeft)
+	/// <summary>Shows a number of the drowning countdown, from 5 to 0.</summary>
+	private void ShowBreathTimeRemaining(int number)
 	{
 		_drownCountdownPosition = Position + new Vector2i(96, -96);
-		if (secondsLeft >= 0 && secondsLeft <= 5)
+		if (number >= 0 && number <= 5)
 		{
-			_drowningAnimation.Index = 5 - secondsLeft;
+			_drowningAnimation.Index = 5 - number;
 			_drowningAnimation.Cycles = 0;
 		}
 	}

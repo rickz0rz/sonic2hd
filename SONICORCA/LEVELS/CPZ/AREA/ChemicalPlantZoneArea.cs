@@ -55,6 +55,9 @@ public class ChemicalPlantZoneArea : Area
 	private const int LowWaterTop = 10304;
 	private const int RaisedWaterTop = 8256;
 
+	/// <summary>The size of an original pixel in level units.</summary>
+	private const int OriginalPixel = 4;
+
 	/// <summary>
 	/// The left edge of the camera at which the water rises.
 	/// </summary>
@@ -215,6 +218,12 @@ public class ChemicalPlantZoneArea : Area
 		{
 			_waterHeight = MathX.GoTowards(_waterHeight, targetHeight, WaterSpeed);
 			waterTop = _waterHeight;
+		}
+		// MoveWater: in Original physics the surface moves with oscillator 0, by half of its value
+		// (Water_Level_1 = Water_Level_2 + Oscillating_Data / 2). This is 0 to 15 original pixels.
+		if (_level.OriginalPhysics)
+		{
+			waterTop += (Oscillators.For(_level).GetHighByte(_level, 0) >> 1) * OriginalPixel;
 		}
 		waterArea.Top = waterTop;
 		_level.WaterManager.WaterAreas[0] = waterArea;
