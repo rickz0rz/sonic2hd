@@ -16,7 +16,10 @@ namespace SONICORCA.OBJECTS.COCONUTS;
 /// </summary>
 public class CoconutsInstance : Badnik
 {
-	/// <summary>The climb pattern. Each step moves up or down by one pixel per frame, for a number of frames.</summary>
+	/// <summary>
+	/// The climb pattern. Each step moves up or down by one original pixel per frame, for a number of frames. The
+	/// original writes the speed to the high byte of y_vel, so the speed is $100.
+	/// </summary>
 	private static readonly IReadOnlyList<ClimbDataItem> ClimbData = new ClimbDataItem[6]
 	{
 		new ClimbDataItem(-1, 32),
@@ -32,6 +35,9 @@ public class CoconutsInstance : Badnik
 	private const int AnimationTurning = 2;
 	private const int AnimationThrowing = 3;
 	private const int RestDuration = 16;
+
+	/// <summary>The number of units in one original pixel.</summary>
+	private const int OriginalPixel = 4;
 	private const int ThrowDuration = 8;
 	private const int ThrowWaitDuration = 32;
 	private const double ThrowRangeX = 384.0;
@@ -123,7 +129,7 @@ public class CoconutsInstance : Badnik
 		}
 		else
 		{
-			Position = Position + new Vector2i(0, ClimbData[_climbDataIndex].VelocityY);
+			Position = Position + new Vector2i(0, ClimbData[_climbDataIndex].VelocityY * OriginalPixel);
 		}
 	}
 
