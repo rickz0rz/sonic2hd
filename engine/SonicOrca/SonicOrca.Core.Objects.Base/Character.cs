@@ -3957,9 +3957,12 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 
 	private void LeaveWater()
 	{
-		if (IsAirborne && Velocity.Y < 0.0)
+		// Obj01_OutWater doubles the vertical speed, unless the character is hurt, and limits it to -$1000 (-64).
+		// On the ground the next tick computes the velocity from the ground speed again, so only the air matters.
+		if (IsAirborne)
 		{
-			Velocity = new Vector2(Velocity.X, Math.Max(Velocity.Y * 2.0, -48.0));
+			double velocityY = IsHurt ? Velocity.Y : Velocity.Y * 2.0;
+			Velocity = new Vector2(Velocity.X, Math.Max(velocityY, -64.0));
 		}
 		if (IsAirborne && !IsObjectControlled && !IsDying)
 		{
