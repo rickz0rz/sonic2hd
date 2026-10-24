@@ -28,7 +28,27 @@ public class SpringBoardInstance : ActiveObject
 	/// <summary>The state in which the board launches the characters on it.</summary>
 	private const int StateLaunch = 7;
 
-	private const double LaunchVelocity = -32.0;
+	/// <summary>The launch y velocity without the boost of the launch table (-$400 in the original).</summary>
+	private const double LaunchVelocity = -16.0;
+
+	/// <summary>The minimum x speed for the x boost of the launch table ($400 in the original).</summary>
+	private const double BoostMinSpeedX = 16.0;
+
+	/// <summary>The distance from the board position to the left end of the original board ($1C px).</summary>
+	private const int OriginalHalfWidth = 0x1C * 4;
+
+	/// <summary>
+	/// The launch boost for each original pixel from the lowered end of the board (byte_26550 in the original). One
+	/// step is $100 (1 original pixel per frame) of y speed, and of x speed toward the raised end.
+	/// </summary>
+	private static readonly byte[] LaunchBoosts =
+	{
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2,
+		3, 3, 3, 3, 3, 3, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0,
+	};
 
 	private AnimationInstance _animation;
 	private bool _flipX;
@@ -103,23 +123,34 @@ public class SpringBoardInstance : ActiveObject
 			case StateLaunch:
 				foreach (ICharacter standingCharacter in GetStandingCharacters())
 				{
-					// This velocity is never 0, so every standing character is launched. The launch velocity is
-					// always LaunchVelocity: the value of this lerp is not used.
-					int boardPosition = GetPositionOnBoard(standingCharacter);
-					double velocityY = !_flipX
-						? MathX.Lerp(-16.0, -32.0, (boardPosition - 32) / 210.0)
-						: MathX.Lerp(-16.0, -32.0, (210 - boardPosition) / 210.0);
-					if (velocityY != 0.0)
-					{
-						standingCharacter.LeaveGround();
-						standingCharacter.Velocity = new Vector2(standingCharacter.Velocity.X, LaunchVelocity);
-						standingCharacter.TumbleAngle = 0.0;
-						standingCharacter.TumbleTurns = 1;
-					}
+					// The boost grows toward the raised end. When the character runs at $400 or faster, the boost
+					// also pushes it toward the raised end.
+					int boost = GetLaunchBoost(standingCharacter);
+					double velocityX = standingCharacter.Velocity.X;
+					if (System.Math.Abs(velocityX) >= BoostMinSpeedX)
+						velocityX += _flipX ? -4 * boost : 4 * boost;
+					standingCharacter.LeaveGround();
+					standingCharacter.Velocity = new Vector2(velocityX, LaunchVelocity - 4 * boost);
+					standingCharacter.TumbleAngle = 0.0;
+					standingCharacter.TumbleTurns = 1;
 				}
 				_state = StateIdle;
 				break;
 		}
+	}
+
+	/// <summary>
+	/// Gets the launch boost of a character from its distance to the lowered end of the board, in original pixels
+	/// (loc_2645E in the original). The original mirrors the distance on a flipped board with an offset of $27
+	/// instead of 2 * $1C, which makes the launch of a flipped board lower. This uses the fixed offset, so both
+	/// boards launch the same.
+	/// </summary>
+	private int GetLaunchBoost(ICharacter character)
+	{
+		int distance = (character.Position.X - (Position.X - OriginalHalfWidth)) / 4;
+		if (_flipX)
+			distance = 2 * 0x1C - 1 - distance;
+		return LaunchBoosts[MathX.Clamp(0, distance, LaunchBoosts.Length - 1)];
 	}
 
 	/// <summary>
