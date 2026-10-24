@@ -709,8 +709,23 @@ public static class ObjectPlacements
 				key = "SONICORCA/OBJECTS/HTZROCK";
 				break;
 			case 54:
-				key = "SONICORCA/OBJECTS/SPIKES";
-				break;
+				{
+					key = "SONICORCA/OBJECTS/SPIKES";
+					// Bits 4-7 give the number of spike groups (1 to 4) and the orientation (4 and up is sideways).
+					// A y-flip makes ceiling spikes and an x-flip makes sideways spikes face left. The directions
+					// are the SpikesDirection values: 0 up, 1 right, 2 down, 3 left. Bits 0-3 give the movement:
+					// 1 is vertical and 2 is horizontal.
+					int size = originalPlacement.SubType >> 4;
+					bool sideways = size >= 4;
+					int direction = sideways ? (originalPlacement.FlipX ? 3 : 1) : (originalPlacement.FlipY ? 2 : 0);
+					behaviour = new
+					{
+						Direction = direction,
+						Count = (size & 3) + 1,
+						MovementAxis = originalPlacement.SubType & 0xF
+					};
+					break;
+				}
 			case 62:
 				key = "SONICORCA/OBJECTS/CAPSULE";
 				break;
