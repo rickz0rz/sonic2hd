@@ -39,13 +39,6 @@ public class HalfPipeSpecialStageScreen : Screen
 		}
 	}
 
-	private enum StageState
-	{
-		Playing,
-		Failed,
-		Cleared
-	}
-
 	private const string MusicResourceKey = "SONICORCA/MUSIC/SPECIALSTAGE/S2";
 
 	private const string FontResourceKey = "SONICORCA/FONTS/HUD";
@@ -73,6 +66,18 @@ public class HalfPipeSpecialStageScreen : Screen
 	private const string JumpSoundResourceKey = "SONICORCA/SOUND/JUMP";
 
 	private const string RingLossSoundResourceKey = "SONICORCA/SOUND/RINGSCATTER";
+
+	private const string BombSoundResourceKey = "SONICORCA/SOUND/BADNIKEXPLOSION";
+
+	private const string CheckpointSoundResourceKey = "SONICORCA/SOUND/STARPOST";
+
+	private const string ErrorSoundResourceKey = "SONICORCA/SOUND/NAVIGATE/NO";
+
+	private const string TallySoundResourceKey = "SONICORCA/SOUND/TALLY/SWITCH";
+
+	private const string TallyEndSoundResourceKey = "SONICORCA/SOUND/TALLY/END";
+
+	private const string EmeraldMusicResourceKey = "SONICORCA/MUSIC/JINGLE/STAGECLEAR/S1";
 
 	// SDL scan codes of the keys that change the field of view, and of Escape.
 	private const int ScancodeMinus = 45;
@@ -107,8 +112,34 @@ public class HalfPipeSpecialStageScreen : Screen
 	/// <summary>Converts pixels in the pipe of the original (radius $6E) to track units (radius 4).</summary>
 	private const double PixelsToUnits = PipeRadius / HalfPipePlayer.Radius;
 
-	/// <summary>The ticks that the result message shows before the stage closes.</summary>
-	private const int ResultTicks = 180;
+	/// <summary>The track nodes ahead of the player where the emerald appears: depth $36 at 4 depth units per track frame.</summary>
+	private const int EmeraldAppearOffset = 0x36 * HalfPipeTrackBuilder.NodesPerTrackFrame / 4;
+
+	/// <summary>The track nodes between the player and the won emerald.</summary>
+	private const int EmeraldStopOffset = 3;
+
+	/// <summary>After a failed emerald test, the track moves one node each 12 ticks (60 ticks for each track frame).</summary>
+	private const int SlowTrackTicks = 12;
+
+	/// <summary>The music fades out over this number of ticks.</summary>
+	private const int MusicFadeTicks = 30;
+
+	private const double EmeraldSize = 1.2;
+
+	/// <summary>
+	/// The light, middle and dark colour of the emerald of each stage, from art/palettes/SS Emerald.bin in the Sonic 2
+	/// disassembly. Mega Drive colours: 0BGR, 3 bits for each channel.
+	/// </summary>
+	private static readonly ushort[,] EmeraldColours =
+	{
+		{ 0x0EE8, 0x0EC0, 0x0E80 },
+		{ 0x0E6A, 0x0C08, 0x0806 },
+		{ 0x0A6E, 0x000E, 0x000A },
+		{ 0x0EAE, 0x0E6E, 0x0E4E },
+		{ 0x0AEE, 0x00CE, 0x008A },
+		{ 0x00EA, 0x00C6, 0x0082 },
+		{ 0x0CCC, 0x0AAA, 0x0888 },
+	};
 
 	// Sprite sizes in track units. The pipe radius is 4.
 	private const double SonicHeight = 2.4;
@@ -162,6 +193,29 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	private Sample _ringLossSound;
 
+	private Sample _bombSound;
+
+	private Sample _checkpointSound;
+
+	private Sample _errorSound;
+
+	private Sample _tallySound;
+
+	private Sample _tallyEndSound;
+
+	private Sample _emeraldJingle;
+
+	private ITexture _emeraldTexture;
+
+	private HalfPipeStageFlow _flow;
+
+	private HalfPipeResults _results;
+
+	/// <summary>All rings collected, also those that bombs took away, for the perfect bonus.</summary>
+	private int _ringsCollected;
+
+	private int _musicFadeTicksLeft;
+
 	private Matrix4 _projectionMatrix;
 
 	private Matrix4 _modelViewMatrix;
@@ -186,13 +240,7 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	private List<HalfPipeCheckpoint> _checkpoints;
 
-	private int _nextCheckpoint;
-
 	private int _rings;
-
-	private StageState _state = StageState.Playing;
-
-	private int _resultTicks;
 
 	private const double PipeRadius = 4.0;
 
@@ -216,8 +264,11 @@ public class HalfPipeSpecialStageScreen : Screen
 	/// <summary>The rings that the player has.</summary>
 	public int Rings => _rings;
 
-	/// <summary>True when the player reached the goal of every checkpoint.</summary>
-	public bool Cleared => _state == StageState.Cleared;
+	/// <summary>True when the player won the emerald.</summary>
+	public bool Cleared => _flow?.EmeraldWon ?? false;
+
+	/// <summary>The results of the stage, after it ended. Null while the stage runs.</summary>
+	public HalfPipeResults Results => _results;
 
 	private int PlayerTrackNode => Math.Min(_currentTrackNode + PlayerLead, _track.Nodes.Count - 1);
 
@@ -231,6 +282,8 @@ public class HalfPipeSpecialStageScreen : Screen
 			FontResourceKey, BackgroundResourceKey, FloorResourceKey, SonicAnimationResourceKey, RingAnimationResourceKey,
 			RingEffectAnimationResourceKey, ExplosionAnimationResourceKey, BombResourceKey, ShadowResourceKey,
 			RingsLabelResourceKey, MusicResourceKey, RingSoundResourceKey, JumpSoundResourceKey, RingLossSoundResourceKey,
+			BombSoundResourceKey, CheckpointSoundResourceKey, ErrorSoundResourceKey, TallySoundResourceKey,
+			TallyEndSoundResourceKey, EmeraldMusicResourceKey,
 		};
 		foreach (string key in keys)
 		{
@@ -264,6 +317,12 @@ public class HalfPipeSpecialStageScreen : Screen
 		_ringSound = tree.GetLoadedResource<Sample>(RingSoundResourceKey);
 		_jumpSound = tree.GetLoadedResource<Sample>(JumpSoundResourceKey);
 		_ringLossSound = tree.GetLoadedResource<Sample>(RingLossSoundResourceKey);
+		_bombSound = tree.GetLoadedResource<Sample>(BombSoundResourceKey);
+		_checkpointSound = tree.GetLoadedResource<Sample>(CheckpointSoundResourceKey);
+		_errorSound = tree.GetLoadedResource<Sample>(ErrorSoundResourceKey);
+		_tallySound = tree.GetLoadedResource<Sample>(TallySoundResourceKey);
+		_tallyEndSound = tree.GetLoadedResource<Sample>(TallyEndSoundResourceKey);
+		_emeraldJingle = tree.GetLoadedResource<Sample>(EmeraldMusicResourceKey);
 	}
 
 	public override void Initialise()
@@ -275,6 +334,8 @@ public class HalfPipeSpecialStageScreen : Screen
 		_track = HalfPipeTrackBuilder.Build(_stageData ?? HalfPipeLayout.CreateGenerated(), HalfPipeLayout.GetRingQuotas(_stage, duo: false));
 		_objects = _track.Objects;
 		_checkpoints = _track.Checkpoints;
+		_flow = new HalfPipeStageFlow(_track);
+		_emeraldTexture = CreateEmeraldTexture(_graphicsContext, _stage);
 	}
 
 	public override void Update()
@@ -299,20 +360,22 @@ public class HalfPipeSpecialStageScreen : Screen
 			_musicInstance.Play();
 		}
 
-		if (_state == StageState.Playing)
+		UpdateMusicFade();
+		if (_results != null)
+		{
+			UpdateResults();
+		}
+		else
 		{
 			UpdatePlayer();
 			// The track moves one node each tick (a track frame each 5 ticks), until the player reaches the end
-			if (PlayerTrackNode < _track.Nodes.Count - 1)
+			bool moves = !_flow.TrackSlowed || _ticks % SlowTrackTicks == 0;
+			if (moves && PlayerTrackNode < _track.Nodes.Count - 1)
 			{
 				_currentTrackNode++;
 			}
 			UpdateObjects();
-			UpdateCheckpoints();
-		}
-		else if (++_resultTicks >= ResultTicks)
-		{
-			Finish();
+			UpdateFlow();
 		}
 
 		_ringAnimation.Animate();
@@ -331,9 +394,11 @@ public class HalfPipeSpecialStageScreen : Screen
 	{
 		Controller current = _gameContext.Current[0];
 		Controller pressed = _gameContext.Pressed[0];
-		bool left = current.DirectionLeft.X < -0.5;
-		bool right = current.DirectionLeft.X > 0.5;
-		if (_player.Update(left, right, pressed.Action1))
+		// From the emerald on, only START has an effect
+		bool masked = _flow.InputMasked;
+		bool left = !masked && current.DirectionLeft.X < -0.5;
+		bool right = !masked && current.DirectionLeft.X > 0.5;
+		if (_player.Update(left, right, !masked && pressed.Action1))
 		{
 			_gameContext.Audio.PlaySound(_jumpSound);
 		}
@@ -367,9 +432,12 @@ public class HalfPipeSpecialStageScreen : Screen
 			if (item.Kind == HalfPipeObjectKind.Ring)
 			{
 				_rings++;
+				_ringsCollected++;
 				_gameContext.Audio.PlaySound(_ringSound);
+				continue;
 			}
-			else if (_player.Hurt())
+			_gameContext.Audio.PlaySound(_bombSound);
+			if (_player.Hurt())
 			{
 				// A flashing player still makes the bomb explode, but takes no damage
 				int lost = Math.Min(_rings, BombRingLoss);
@@ -382,22 +450,108 @@ public class HalfPipeSpecialStageScreen : Screen
 		}
 	}
 
-	private void UpdateCheckpoints()
+	private void UpdateFlow()
 	{
-		if (_nextCheckpoint >= _checkpoints.Count || PlayerTrackNode < _checkpoints[_nextCheckpoint].TrackNode)
+		foreach (HalfPipeFlowEvent flowEvent in _flow.Update(PlayerTrackNode, _rings, EmeraldAppearOffset))
+		{
+			switch (flowEvent)
+			{
+				case HalfPipeFlowEvent.CheckpointPassed:
+					_gameContext.Audio.PlaySound(_checkpointSound);
+					break;
+				case HalfPipeFlowEvent.CheckpointFailed:
+					_gameContext.Audio.PlaySound(_errorSound);
+					_musicFadeTicksLeft = MusicFadeTicks;
+					break;
+				case HalfPipeFlowEvent.EmeraldNear:
+					_musicFadeTicksLeft = MusicFadeTicks;
+					break;
+				case HalfPipeFlowEvent.EmeraldWon:
+					_musicInstance?.Stop();
+					_musicInstance?.Dispose();
+					_musicInstance = new SampleInstance(_gameContext, _emeraldJingle);
+					_musicInstance.Play();
+					break;
+				case HalfPipeFlowEvent.EmeraldMissed:
+					_gameContext.Audio.PlaySound(_errorSound);
+					break;
+			}
+		}
+		if (_flow.Finished)
+		{
+			_results = new HalfPipeResults(_rings, _flow.EmeraldWon, _ringsCollected, _track.RingCount);
+		}
+	}
+
+	private void UpdateResults()
+	{
+		if (_results.Update())
+		{
+			// The tally sound on every fourth step
+			if (_ticks % 4 == 0)
+			{
+				_gameContext.Audio.PlaySound(_tallySound);
+			}
+		}
+		else if (_results.TallyJustEnded)
+		{
+			_gameContext.Audio.PlaySound(_tallyEndSound);
+		}
+		if (_results.Finished)
+		{
+			Finish();
+		}
+	}
+
+	private void UpdateMusicFade()
+	{
+		if (_musicFadeTicksLeft <= 0 || _musicInstance == null)
 		{
 			return;
 		}
-		if (_rings < _checkpoints[_nextCheckpoint].RingGoal)
+		_musicFadeTicksLeft--;
+		_musicInstance.Volume = _musicFadeTicksLeft / (double)MusicFadeTicks;
+		if (_musicFadeTicksLeft == 0)
 		{
-			_state = StageState.Failed;
-			return;
+			_musicInstance.Stop();
 		}
-		_nextCheckpoint++;
-		if (_nextCheckpoint == _checkpoints.Count)
+	}
+
+	/// <summary>Draws a cut gem in the three colours of the stage's emerald, because the game data has no emerald art.</summary>
+	private static ITexture CreateEmeraldTexture(IGraphicsContext graphicsContext, int stage)
+	{
+		const int Size = 64;
+		var pixels = new byte[Size * Size * 4];
+		Colour light = ToColour(EmeraldColours[stage, 0]);
+		Colour middle = ToColour(EmeraldColours[stage, 1]);
+		Colour dark = ToColour(EmeraldColours[stage, 2]);
+		for (int y = 0; y < Size; y++)
 		{
-			_state = StageState.Cleared;
+			for (int x = 0; x < Size; x++)
+			{
+				// A wide diamond: a flat top part, then a point at the bottom
+				double u = (x + 0.5) / Size * 2.0 - 1.0;
+				double v = (y + 0.5) / Size;
+				bool inside = v < 0.35 ? Math.Abs(u) <= 0.6 + v / 0.35 * 0.4 : Math.Abs(u) <= (1.0 - v) / 0.65;
+				if (!inside)
+				{
+					continue;
+				}
+				Colour colour = v < 0.35 ? (Math.Abs(u) < 0.35 ? light : middle) : (u < 0.0 ? middle : dark);
+				int i = (y * Size + x) * 4;
+				pixels[i] = colour.Red;
+				pixels[i + 1] = colour.Green;
+				pixels[i + 2] = colour.Blue;
+				pixels[i + 3] = 255;
+			}
 		}
+		return graphicsContext.CreateTexture(Size, Size, 4, pixels);
+	}
+
+	private static Colour ToColour(ushort megaDrive)
+	{
+		static byte Channel(int value) => (byte)(value * 255 / 14);
+		return new Colour(255, Channel(megaDrive & 0xE), Channel((megaDrive >> 4) & 0xE), Channel((megaDrive >> 8) & 0xE));
 	}
 
 	public override void Unload()
@@ -411,6 +565,7 @@ public class HalfPipeSpecialStageScreen : Screen
 	public override void Deinitialise()
 	{
 		_vertexBuffer?.Dispose();
+		_emeraldTexture?.Dispose();
 		_pipeShader?.Dispose();
 		_objectShader?.Dispose();
 	}
@@ -450,6 +605,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		AddPipeQuads(quads);
 		AddObjectQuads(quads);
 		AddPlayerQuads(quads);
+		AddEmeraldQuad(quads);
 
 		// Draw the quads from back to front. Group the quads that use the same texture into one draw call.
 		List<Tuple<int, ITexture>> batches = new List<Tuple<int, ITexture>>();
@@ -574,6 +730,23 @@ public class HalfPipeSpecialStageScreen : Screen
 		}
 	}
 
+	private void AddEmeraldQuad(List<TexturedQuad> quads)
+	{
+		if (!_flow.EmeraldVisible)
+		{
+			return;
+		}
+		// The emerald stays where it appeared until it reaches the player. A won emerald then stays in front of the
+		// player and bobs: -1, 0, +1, 0 pixels, 4 frames each.
+		int node = Math.Max(_flow.EmeraldAppearNode, PlayerTrackNode + EmeraldStopOffset);
+		node = Math.Min(node, _track.Nodes.Count - 1);
+		double bob = _flow.EmeraldWon ? new[] { -1, 0, 1, 0 }[_flow.EmeraldWonFrames / 4 % 4] * PixelsToUnits : 0.0;
+		// The emerald floats at 3/4 of the pipe radius from the centre
+		double height = PipeRadius / 4.0 + bob;
+		quads.Add(CreateSprite(GetNodeTransform(node), 0.0, height, EmeraldSize, EmeraldSize, _emeraldTexture,
+			new Rectanglei(0, 0, _emeraldTexture.Width, _emeraldTexture.Height)));
+	}
+
 	private void AddPlayerQuads(List<TexturedQuad> quads)
 	{
 		Matrix4 transform = GetNodeTransform(PlayerTrackNode);
@@ -661,25 +834,44 @@ public class HalfPipeSpecialStageScreen : Screen
 		I2dRenderer g = renderer.Get2dRenderer();
 		g.BlendMode = BlendMode.Alpha;
 		g.Colour = Colours.White;
+		if (_results != null)
+		{
+			// The results: a dark screen with the bonuses
+			g.RenderQuad(new Colour(200, 0, 0, 40), new Rectangle(0.0, 0.0, 1920.0, 1080.0));
+			g.Deactivate();
+			DrawResults(renderer.GetFontRenderer());
+			return;
+		}
 		g.RenderTexture(_ringsLabelTexture, new Rectangle(48.0, 40.0, _ringsLabelTexture.Width, _ringsLabelTexture.Height));
 		g.Deactivate();
 		IFontRenderer fontRenderer = renderer.GetFontRenderer();
 		fontRenderer.RenderString(_rings.ToString(), new Rectangle(260.0, 48.0, 0.0, 0.0), FontAlignment.Left, _font, 0);
-		if (_nextCheckpoint < _checkpoints.Count && _state == StageState.Playing)
+		if (_flow.Counter != null)
 		{
-			int toGo = Math.Max(0, _checkpoints[_nextCheckpoint].RingGoal - _rings);
-			string goal = toGo > 0 ? $"GET {toGo} RINGS" : "COOL!";
-			fontRenderer.RenderString(goal, new Rectangle(960.0, 48.0, 0.0, 0.0), FontAlignment.MiddleX, _font, 0);
+			fontRenderer.RenderString(_flow.Counter, new Rectangle(960.0, 160.0, 0.0, 0.0), FontAlignment.MiddleX, _font, 0);
 		}
-		string message = _state switch
+		if (_flow.Message != null)
 		{
-			StageState.Failed => "NOT ENOUGH RINGS",
-			StageState.Cleared => "CHAOS EMERALD",
-			_ => null,
-		};
-		if (message != null)
-		{
-			fontRenderer.RenderString(message, new Rectangle(960.0, 480.0, 0.0, 0.0), FontAlignment.MiddleX, _font, 0);
+			fontRenderer.RenderString(_flow.Message, new Rectangle(960.0, 440.0, 0.0, 0.0), FontAlignment.MiddleX, _font, 0);
 		}
+	}
+
+	private void DrawResults(IFontRenderer fontRenderer)
+	{
+		void Line(string label, int value, double y)
+		{
+			fontRenderer.RenderString(label, new Rectangle(560.0, y, 0.0, 0.0), FontAlignment.Left, _font, 0);
+			fontRenderer.RenderString(value.ToString(), new Rectangle(1360.0, y, 0.0, 0.0), FontAlignment.Right, _font, 0);
+		}
+		string title = _results.EmeraldWon ? "CHAOS EMERALD" : "SPECIAL STAGE";
+		fontRenderer.RenderString(title, new Rectangle(960.0, 240.0, 0.0, 0.0), FontAlignment.MiddleX, _font, 0);
+		Line("SONIC RINGS", _results.Rings, 400.0);
+		Line("RING BONUS", _results.RingBonus, 500.0);
+		Line("GEMS BONUS", _results.GemsBonus, 580.0);
+		if (_results.PerfectBonus > 0 || _results.Total >= HalfPipeResults.PerfectBonusPoints)
+		{
+			Line("PERFECT BONUS", _results.PerfectBonus, 660.0);
+		}
+		Line("TOTAL", _results.Total, 780.0);
 	}
 }
