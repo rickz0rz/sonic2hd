@@ -56,6 +56,13 @@ public class SubmarineEggmanInstance : BossObject
 	private const double MaxHitBounceVelocityY = -15.125;
 
 	/// <summary>
+	/// The ticks after the flame thrower flame starts until the shot comes out. The original fires the shot
+	/// after 24 frames.
+	/// </summary>
+	private const int FlameThrowerShotTicks = 120;
+	private const int OriginalFlameThrowerShotTicks = 24;
+
+	/// <summary>
 	/// The size of the area around the boss in which explosions appear after the defeat.
 	/// </summary>
 	private const int ExplosionAreaSize = 128;
@@ -207,7 +214,7 @@ public class SubmarineEggmanInstance : BossObject
 					ResetHighlights();
 					break;
 				}
-				if (_stateTimer > -120)
+				if (_stateTimer > -(Level.OriginalPhysics ? OriginalFlameThrowerShotTicks : FlameThrowerShotTicks))
 					break;
 				CreateFlameThrowerShot();
 				_currentHighlight = _animationHighlightsIntro;
@@ -389,7 +396,8 @@ public class SubmarineEggmanInstance : BossObject
 	protected override void Hit(ICharacter character)
 	{
 		base.Hit(character);
-		if (character.Velocity.Y < MaxHitBounceVelocityY)
+		// The original does not limit the bounce.
+		if (!Level.OriginalPhysics && character.Velocity.Y < MaxHitBounceVelocityY)
 			character.Velocity = new Vector2(character.Velocity.X, MaxHitBounceVelocityY);
 		if (Health <= 0)
 			return;
@@ -655,6 +663,13 @@ public class SubmarineEggmanInstance : BossObject
 				_currentAnimation = _fireballTransition;
 			if (!IsMainFireball)
 				return;
+			if (Level.OriginalPhysics)
+			{
+				// The original fireball becomes the first fire of a row at once.
+				if (_fireInstances == 0)
+					CreateOriginalFire();
+				return;
+			}
 			++_ticks;
 			if (_ticks == 15 || _ticks == 20 || _ticks == 25 || _ticks == 29)
 				CreateFire();
@@ -669,6 +684,21 @@ public class SubmarineEggmanInstance : BossObject
 			fire.Position = Position + new Vector2i(_fireInstances * fire.DesignBounds.Width * (int)SpawnDirection, 0);
 			fire.BubbleLeftCount = 4;
 			fire.BubbleRightCount = 4;
+			fire.Priority = 1024;
+			fire.Layer = Level.Map.Layers[Level.Map.Layers.Count - 1];
+			Level.SoundManager.PlaySound(Position, Type.GetAbsolutePath(SubmarineEggmanType.FireBurnSoundResourceKey));
+			++_fireInstances;
+		}
+
+		/// <summary>
+		/// Starts the original row of fires: one fire, which adds the next fires in the spawn direction.
+		/// </summary>
+		private void CreateOriginalFire()
+		{
+			Fire fire = Level.ObjectManager.AddSubObject<Fire>(ParentObject);
+			fire.Position = Position;
+			fire.RowCount = Fire.OriginalRowCount;
+			fire.RowDirection = (int)SpawnDirection;
 			fire.Priority = 1024;
 			fire.Layer = Level.Map.Layers[Level.Map.Layers.Count - 1];
 			Level.SoundManager.PlaySound(Position, Type.GetAbsolutePath(SubmarineEggmanType.FireBurnSoundResourceKey));
@@ -735,12 +765,22 @@ public class SubmarineEggmanInstance : BossObject
 	/// <summary>
 	/// A fire on the ground. It spreads one time to the left and to the right, and each new fire spreads
 	/// one less time in the same direction.
+	/// In the original physics, the fires make a row in one direction instead. Each fire adds the next fire
+	/// 14 px further after 10 frames, and each fire burns for 72 frames.
 	/// </summary>
 	private class Fire : Enemy
 	{
 		private const int LifetimeTicks = 74;
 		private const int SpreadTick = 66;
 		private const int SpreadDistance = 64;
+
+		/// <summary>
+		/// The number of fires that the first fire of an original row adds after it.
+		/// </summary>
+		public const int OriginalRowCount = 3;
+		private const int OriginalLifetimeTicks = 72;
+		private const int OriginalRowTick = OriginalLifetimeTicks - 10;
+		private const int OriginalRowDistance = 14 * 4;
 
 		private AnimationInstance _currentAnimation;
 		private AnimationInstance _fireballIntro;
@@ -751,6 +791,16 @@ public class SubmarineEggmanInstance : BossObject
 
 		public int BubbleRightCount { get; set; }
 
+		/// <summary>
+		/// In the original physics, the number of fires still to add to the row after this fire.
+		/// </summary>
+		public int RowCount { get; set; }
+
+		/// <summary>
+		/// In the original physics, the direction of the row: -1 is left and 1 is right.
+		/// </summary>
+		public int RowDirection { get; set; }
+
 		protected override void OnStart()
 		{
 			_fireballIntro = new AnimationInstance(ResourceTree, Type.GetAbsolutePath(SubmarineEggmanType.AnimationGroupResourceKey), AnimationFireballIntro);
@@ -760,11 +810,16 @@ public class SubmarineEggmanInstance : BossObject
 			{
 				new CollisionRectangle(this, 0, -32, -32, 64, 64)
 			};
-			_timer = LifetimeTicks;
+			_timer = Level.OriginalPhysics ? OriginalLifetimeTicks : LifetimeTicks;
 		}
 
 		protected override void OnUpdate()
 		{
+			if (Level.OriginalPhysics)
+			{
+				UpdateOriginal();
+				return;
+			}
 			--_timer;
 			if (_timer == SpreadTick)
 			{
@@ -778,6 +833,26 @@ public class SubmarineEggmanInstance : BossObject
 			{
 				if (_timer != 0)
 					return;
+				_currentAnimation = _fireballEnd;
+			}
+		}
+
+		private void UpdateOriginal()
+		{
+			--_timer;
+			if (_timer == OriginalRowTick && RowCount > 0)
+			{
+				Fire fire = Level.ObjectManager.AddSubObject<Fire>(ParentObject);
+				fire.Position = Position + new Vector2i(OriginalRowDistance * RowDirection, 0);
+				fire.RowCount = RowCount - 1;
+				fire.RowDirection = RowDirection;
+				fire.Priority = Priority;
+				fire.Layer = Layer;
+			}
+			else if (_timer == 0)
+			{
+				// The fire is harmless while it goes out.
+				CollisionRectangles = new CollisionRectangle[0];
 				_currentAnimation = _fireballEnd;
 			}
 		}
