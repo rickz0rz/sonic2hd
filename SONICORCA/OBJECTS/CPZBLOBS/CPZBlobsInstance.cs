@@ -150,14 +150,28 @@ public class CPZBlobsInstance : ActiveObject
 		private const int PipeDistance = 384;
 
 		/// <summary>The angle in radians that an arc blob turns each frame.</summary>
-		private const double ArcAngleStep = 0.031939525311496228;
+		private const double ArcAngleStepHD = 0.031939525311496228;
+
+		/// <summary>
+		/// Original: the launch speed of both arrangements is -$480 (Obj1D_Init) and the gravity is $18. A blob comes
+		/// back down after 96 ticks, so the arc turns a half circle in 96 ticks.
+		/// </summary>
+		private const double UpVelocityOriginal = -18.0;
+		private const double Gravity = 0.375;
+		private const int FlightTicksOriginal = 96;
+
+		/// <summary>Original: the straight blob plays the gloop sound when it falls at $180 (Obj1D_MoveStraight).</summary>
+		private const double GloopVelocityOriginal = 6.0;
 
 		/// <summary>The height above the bottom pipe of the top splash in the straight arrangement.</summary>
 		private const int TopSplashHeight = 224;
 
 		private const int SplashStartOffsetY = 112;
 		private const int SplashEndOffsetY = 120;
-		private const int BottomWaitDuration = 72;
+		private const int BottomWaitDurationHD = 72;
+
+		/// <summary>Original: an arc blob waits 60 ticks at the bottom (Obj1D_Wait).</summary>
+		private const int BottomWaitDurationOriginal = 60;
 
 		private AnimationInstance _animationBlob;
 		private AnimationInstance _animationTopSplashStart;
@@ -189,6 +203,10 @@ public class CPZBlobsInstance : ActiveObject
 
 		public Vector2 Velocity => _velocity;
 
+		private double ArcAngleStep => Level.OriginalPhysics ? Math.PI / FlightTicksOriginal : ArcAngleStepHD;
+
+		private int BottomWaitDuration => Level.OriginalPhysics ? BottomWaitDurationOriginal : BottomWaitDurationHD;
+
 		protected override void OnStart()
 		{
 			base.OnStart();
@@ -208,7 +226,10 @@ public class CPZBlobsInstance : ActiveObject
 		public void Initialise(Vector2i position, int index, bool flipX)
 		{
 			_index = index;
-			_upVelocity = Host._arrangementType != ArrangementType.Arc ? -9.0 : -17.55;
+			if (Level.OriginalPhysics)
+				_upVelocity = UpVelocityOriginal;
+			else
+				_upVelocity = Host._arrangementType != ArrangementType.Arc ? -9.0 : -17.55;
 			_velocity = new Vector2(0.0, _upVelocity);
 			Position = position;
 			_originalY = Host._arrangementType != ArrangementType.Arc ? position.Y : position.Y + 8;
@@ -280,7 +301,7 @@ public class CPZBlobsInstance : ActiveObject
 			PositionPrecise = PositionPrecise + _velocity;
 			Vector2 startPoint = new Vector2(startX, _originalY);
 			PositionPrecise = new Vector2(Vector2.GetPointRotatedFromRelative(centre, startPoint, _currentAngle).X, PositionPrecise.Y);
-			_velocity.Y += 0.375;
+			_velocity.Y += Gravity;
 			if (PositionPrecise.Y >= _originalY && !_directionChange)
 			{
 				_directionChange = true;
@@ -301,6 +322,11 @@ public class CPZBlobsInstance : ActiveObject
 		/// <summary>Moves the blob straight up out of one pipe end and straight down into the other.</summary>
 		private void UpdateStraight()
 		{
+			if (Level.OriginalPhysics)
+			{
+				UpdateStraightOriginal();
+				return;
+			}
 			PositionPrecise = PositionPrecise + _velocity;
 			if (_directionChange)
 			{
@@ -322,6 +348,26 @@ public class CPZBlobsInstance : ActiveObject
 				_directionChange = true;
 				_velocity.Y = 0.0;
 				_directionChangeNormal = -1;
+			}
+			PositionPrecise = new Vector2(_velocity.Y >= 0.0 ? _downX : _upX, PositionPrecise.Y);
+		}
+
+		/// <summary>
+		/// Original: the straight blob of Obj1D_MoveStraight. It flies up with gravity to 108 pixels and moves to the
+		/// other pipe end at the top. When it comes back to the bottom, it jumps again at once.
+		/// </summary>
+		private void UpdateStraightOriginal()
+		{
+			PositionPrecise = PositionPrecise + _velocity;
+			_velocity.Y += Gravity;
+			if (_velocity.Y == GloopVelocityOriginal)
+			{
+				PlayGloopSound();
+			}
+			if (Position.Y >= _originalY && _velocity.Y > 0.0)
+			{
+				PlayGloopSound();
+				_velocity.Y = _upVelocity;
 			}
 			PositionPrecise = new Vector2(_velocity.Y >= 0.0 ? _downX : _upX, PositionPrecise.Y);
 		}
