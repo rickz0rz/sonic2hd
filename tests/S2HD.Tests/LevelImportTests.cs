@@ -99,6 +99,18 @@ public sealed class LevelImportTests
 		Assert.Equal("SONICORCA.OBJECTS.CNZLAUNCHER", level.NewObjects["SONICORCA/OBJECTS/CNZLAUNCHER"]);
 	}
 
+	[Theory]
+	[InlineData("SONICORCA/OBJECTS/CRAWL", 8)]
+	[InlineData("SONICORCA/OBJECTS/CNZBIGBLOCK", 23)]
+	[InlineData("SONICORCA/OBJECTS/CNZELEVATOR", 16)]
+	[InlineData("SONICORCA/OBJECTS/CNZFLASHINGBLOCK", 8)]
+	[InlineData("SONICORCA/OBJECTS/CNZCONVEYOR", 8)]
+	public void Cnz_HasThePlatformsAndTheBadnik(string key, int count)
+	{
+		Assert.Equal(count, Cnz.Value.Binding.ObjectPlacements.Count(p => p.Key == key));
+		Assert.True(Cnz.Value.NewObjects.ContainsKey(key));
+	}
+
 	[Fact]
 	public void Cnz_ImportGivesTheSameIdsEachTime()
 	{
