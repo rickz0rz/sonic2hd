@@ -53,6 +53,13 @@ internal class WaterRenderer : IWaterRenderer, IRenderer, IDisposable
 
 	public double HueTarget { get; set; }
 
+	/// <summary>The water gradient. The defaults are the colours of the Chemical Plant mega mack.</summary>
+	public Colour DarkColour { get; set; } = new Colour(255, 0, 0, 64);
+
+	public Colour MiddleColour { get; set; } = new Colour(255, 255, 0, 255);
+
+	public Colour LightColour { get; set; } = new Colour(255, 255, 162, 223);
+
 	public double HueAmount { get; set; }
 
 	public double SaturationChange { get; set; }
@@ -144,6 +151,9 @@ internal class WaterRenderer : IWaterRenderer, IRenderer, IDisposable
 		program.SetUniform("InputTexture", 0);
 		program.SetUniform("WaveTexture", 1);
 		program.SetUniform("InputHueTarget", HueTarget);
+		program.SetUniform("InputDarkColour", DarkColour);
+		program.SetUniform("InputMiddleColour", MiddleColour);
+		program.SetUniform("InputLightColour", LightColour);
 		program.SetUniform("InputHueAmount", HueAmount);
 		program.SetUniform("InputSaturationChange", SaturationChange);
 		program.SetUniform("InputLuminosityChange", LuminosityChange);

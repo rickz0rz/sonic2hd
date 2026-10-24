@@ -15,9 +15,15 @@ namespace SonicOrca.Original;
 /// <param name="Offset">The position of the act in the zone map, in original pixels. A multiple of 128 (one chunk).</param>
 /// <param name="FirstColumn">The first map column, in blocks, that shows this act. The columns before it show the previous act.</param>
 /// <param name="Size">The size of the act, in original pixels: the camera limits of LevelSize plus one screen.</param>
+/// <param name="Top">The top camera limit of LevelSize, in original pixels from the top of the act.</param>
 /// <param name="BumpersFile">The bumpers in the landscape (CNZ only), or null.</param>
+/// <param name="WaterHeight">The top of the water (WaterHeight), in original pixels from the top of the act, or -1 without water.</param>
 public sealed record OriginalAct(int Number, string LayoutFile, string ObjectsFile, string RingsFile, string StartFile,
-	Vector2i Offset, int FirstColumn, Vector2i Size, string BumpersFile = null);
+	Vector2i Offset, int FirstColumn, Vector2i Size, string BumpersFile = null, int Top = 0, int WaterHeight = -1);
+
+/// <summary>The background layer of an HD map: its name, its height in blocks and its parallax.</summary>
+/// <param name="RowHeight">The height of the parallax row, in HD pixels.</param>
+public sealed record BackgroundLayer(string Name, int Rows, double ParallaxX, double ParallaxY, int RowHeight);
 
 /// <summary>A zone of the original game, as the files of the Sonic 2 disassembly (github.com/sonicretro/s2disasm) give it.</summary>
 /// <param name="Key">The resource key of the zone, for example "SONICORCA/LEVELS/CNZ".</param>
@@ -28,9 +34,12 @@ public sealed record OriginalAct(int Number, string LayoutFile, string ObjectsFi
 /// <param name="ArtFile">The level art (Kosinski), for the tiles in front of the characters.</param>
 /// <param name="BlocksFile">The 16 x 16 block mappings (Kosinski).</param>
 /// <param name="HdTiles">The number of tiles in the HD tile set of the zone.</param>
+/// <param name="Background">The background layer of the HD map, or null for a plain background.</param>
+/// <param name="FrontName">The name of the front layer of the HD map.</param>
 public sealed record OriginalZone(string Name, string Key, string ChunksFile, string PrimaryCollisionFile,
 	string SecondaryCollisionFile, IReadOnlyList<OriginalAct> Acts, Vector2i MapSize, string PaletteFile,
-	IReadOnlyList<OriginalSprite> Sprites, string ArtFile = null, string BlocksFile = null, int HdTiles = 0)
+	IReadOnlyList<OriginalSprite> Sprites, string ArtFile = null, string BlocksFile = null, int HdTiles = 0,
+	BackgroundLayer Background = null, string FrontName = "front")
 {
 	/// <summary>The zones that the importer knows.</summary>
 	public static IReadOnlyDictionary<string, OriginalZone> All { get; } = new Dictionary<string, OriginalZone>(StringComparer.OrdinalIgnoreCase)
@@ -64,6 +73,41 @@ public sealed record OriginalZone(string Name, string Key, string ChunksFile, st
 				new OriginalSprite("SONICORCA/OBJECTS/CNZSLOTCAGE/BOMB", "art/nemesis/Spikey ball from CNZ slots.nem", "mappings/sprite/objD6_a.asm", 0),
 			},
 			"art/kosinski/CNZ.kos", "mappings/16x16/CNZ.kos", 1023),
+		// The HD map of Aquatic Ruin has act 2 at block (704, 4), after act 1. LevelSize: act 1 $28C0 x ($200 to
+		// $600), act 2 ($180 to $710). The level events of act 2 lock the camera at $2A40 for the boss. The
+		// water tops are $410 and $510.
+		["ARZ"] = new OriginalZone("ARZ", "SONICORCA/LEVELS/ARZ", "mappings/128x128/ARZ.kos",
+			"collision/ARZ primary 16x16 collision index.kos", "collision/ARZ secondary 16x16 collision index.kos",
+			new[]
+			{
+				new OriginalAct(1, "level/layout/ARZ_1.kos", "level/objects/ARZ_1.bin", "level/rings/ARZ_1.bin", "startpos/ARZ_1.bin",
+					new Vector2i(0, 0), 0, new Vector2i(0x28C0 + 320, 0x600 + 224), Top: 0x200, WaterHeight: 0x410),
+				new OriginalAct(2, "level/layout/ARZ_2.kos", "level/objects/ARZ_2.bin", "level/rings/ARZ_2.bin", "startpos/ARZ_2.bin",
+					new Vector2i(704 * 16, 4 * 16), 704, new Vector2i(0x2A40 + 320, 0x710 + 224), Top: 0x180, WaterHeight: 0x510),
+			},
+			new Vector2i(1448, 132), "art/palettes/ARZ.bin",
+			new[]
+			{
+				new OriginalSprite("SONICORCA/OBJECTS/WHISP", "art/nemesis/Blowfly from ARZ.nem", "mappings/sprite/obj8C.asm", 1),
+				new OriginalSprite("SONICORCA/OBJECTS/GROUNDER", "art/nemesis/Grounder from ARZ.nem", "s2.asm#Obj8D_MapUnc_36CF0", 1),
+				// The rocks use palette line 2, and the wall bricks are level art
+				new OriginalSprite("SONICORCA/OBJECTS/GROUNDER/ROCK", "art/nemesis/Grounder from ARZ.nem", "s2.asm#Obj90_MapUnc_36CFA", 2),
+				new OriginalSprite("SONICORCA/OBJECTS/GROUNDER/BRICK", "art/kosinski/ARZ.kos", "s2.asm#Obj90_MapUnc_36D00", 0),
+				new OriginalSprite("SONICORCA/OBJECTS/CHOPCHOP", "art/nemesis/Shark from ARZ.nem", "mappings/sprite/obj91.asm", 1),
+				// The platforms and the pillars are level art
+				new OriginalSprite("SONICORCA/OBJECTS/ARZPLATFORM", "art/kosinski/ARZ.kos", "mappings/sprite/obj18_b.asm", 2),
+				new OriginalSprite("SONICORCA/OBJECTS/ARZSWINGPLATFORM", "art/kosinski/ARZ.kos", "mappings/sprite/obj83.asm", 0),
+				new OriginalSprite("SONICORCA/OBJECTS/ARZCOLLAPSEPLATFORM", "art/kosinski/ARZ.kos", "mappings/sprite/obj1F_d.asm", 2) { SplitFrames = new[] { 1 } },
+				new OriginalSprite("SONICORCA/OBJECTS/ARZFALLINGPILLAR", "art/kosinski/ARZ.kos", "mappings/sprite/obj23.asm", 1),
+				new OriginalSprite("SONICORCA/OBJECTS/ARZRISINGPILLAR", "art/kosinski/ARZ.kos", "mappings/sprite/obj2B.asm", 1) { SplitFrames = new[] { 7, 8, 9, 10, 11, 12, 13 } },
+				new OriginalSprite("SONICORCA/OBJECTS/ARZPILLAR", "art/kosinski/ARZ.kos", "mappings/sprite/obj82.asm", 0),
+				new OriginalSprite("SONICORCA/OBJECTS/ARZROTATINGPLATFORM", "art/kosinski/ARZ.kos", "mappings/sprite/obj83.asm", 0),
+				new OriginalSprite("SONICORCA/OBJECTS/ARZARROWSHOOTER", "art/nemesis/Arrow shooter and arrow from ARZ.nem", "mappings/sprite/obj22.asm", 0),
+				new OriginalSprite("SONICORCA/OBJECTS/ARZBUBBLES", "art/nemesis/Bubble generator.nem", "s2.asm#Obj24_MapUnc_1FBF6", 0),
+				new OriginalSprite("SONICORCA/OBJECTS/ARZLEAVES", "art/nemesis/Leaves in ARZ.nem", "mappings/sprite/obj2C.asm", 3),
+			},
+			"art/kosinski/ARZ.kos", "mappings/16x16/ARZ.kos", 1023,
+			new BackgroundLayer("bg", 96, 0.03125, 0.5, 6144), "fg"),
 	};
 }
 
@@ -128,6 +172,19 @@ public static class LevelImport
 		["SONICORCA/OBJECTS/CNZMAPBUMPER"] = "SONICORCA.OBJECTS.CNZMAPBUMPER",
 		["SONICORCA/OBJECTS/CNZSLOTCAGE"] = "SONICORCA.OBJECTS.CNZSLOTCAGE",
 		["SONICORCA/OBJECTS/CNZSLOTREELS"] = "SONICORCA.OBJECTS.CNZSLOTREELS",
+		["SONICORCA/OBJECTS/WHISP"] = "SONICORCA.OBJECTS.WHISP",
+		["SONICORCA/OBJECTS/GROUNDER"] = "SONICORCA.OBJECTS.GROUNDER",
+		["SONICORCA/OBJECTS/CHOPCHOP"] = "SONICORCA.OBJECTS.CHOPCHOP",
+		["SONICORCA/OBJECTS/ARZPLATFORM"] = "SONICORCA.OBJECTS.ARZPLATFORM",
+		["SONICORCA/OBJECTS/ARZSWINGPLATFORM"] = "SONICORCA.OBJECTS.ARZSWINGPLATFORM",
+		["SONICORCA/OBJECTS/ARZCOLLAPSEPLATFORM"] = "SONICORCA.OBJECTS.ARZCOLLAPSEPLATFORM",
+		["SONICORCA/OBJECTS/ARZFALLINGPILLAR"] = "SONICORCA.OBJECTS.ARZFALLINGPILLAR",
+		["SONICORCA/OBJECTS/ARZRISINGPILLAR"] = "SONICORCA.OBJECTS.ARZRISINGPILLAR",
+		["SONICORCA/OBJECTS/ARZPILLAR"] = "SONICORCA.OBJECTS.ARZPILLAR",
+		["SONICORCA/OBJECTS/ARZROTATINGPLATFORM"] = "SONICORCA.OBJECTS.ARZROTATINGPLATFORM",
+		["SONICORCA/OBJECTS/ARZARROWSHOOTER"] = "SONICORCA.OBJECTS.ARZARROWSHOOTER",
+		["SONICORCA/OBJECTS/ARZBUBBLES"] = "SONICORCA.OBJECTS.ARZBUBBLES",
+		["SONICORCA/OBJECTS/ARZLEAVES"] = "SONICORCA.OBJECTS.ARZLEAVES",
 	};
 
 	public static ImportedLevel Import(OriginalZone zone, string disassembly)
@@ -159,9 +216,10 @@ public static class LevelImport
 		}
 
 		var map = new LevelMap();
-		var back = new LevelLayer(map) { Name = "back", WrapX = true, ParallaxY = 0.5 };
-		back.LayerRowDefinitions.Add(new LayerRowDefinition { Height = LayoutRows * ChunkSize * Scale, Parallax = 0.5 });
-		back.Resize(LayoutColumns * BlocksPerChunk, LayoutRows * BlocksPerChunk);
+		BackgroundLayer background = zone.Background ?? new BackgroundLayer("back", LayoutRows * BlocksPerChunk, 0.5, 0.5, LayoutRows * ChunkSize * Scale);
+		var back = new LevelLayer(map) { Name = background.Name, WrapX = true, ParallaxY = background.ParallaxY };
+		back.LayerRowDefinitions.Add(new LayerRowDefinition { Height = background.RowHeight, Parallax = background.ParallaxX });
+		back.Resize(LayoutColumns * BlocksPerChunk, background.Rows);
 		for (int row = 0; row < back.Rows; row++)
 		{
 			for (int column = 0; column < back.Columns; column++)
@@ -169,7 +227,7 @@ public static class LevelImport
 				back.Tiles[column, row] = ToTile(GetBlock(chunks, layouts[0], column, row, background: true));
 			}
 		}
-		var front = new LevelLayer(map) { Name = "front" };
+		var front = new LevelLayer(map) { Name = zone.FrontName };
 		front.Resize(columns, rows);
 		for (int row = 0; row < rows; row++)
 		{
@@ -237,7 +295,11 @@ public static class LevelImport
 			byte[] start = File.ReadAllBytes(Path(act.StartFile));
 			var startPosition = new Vector2i((start[0] << 8) | start[1], (start[2] << 8) | start[3]);
 			AddMarker(map, front, "startpos_stk_" + n, (act.Offset + startPosition) * Scale);
-			AddMarker(map, front, $"bounds_{n}_lt", act.Offset * Scale);
+			AddMarker(map, front, $"bounds_{n}_lt", (act.Offset + new Vector2i(0, act.Top)) * Scale);
+			if (act.WaterHeight >= 0)
+			{
+				AddMarker(map, front, "water_" + n, (act.Offset + new Vector2i(0, act.WaterHeight)) * Scale);
+			}
 			AddMarker(map, front, $"bounds_{n}_rb", (act.Offset + act.Size) * Scale);
 
 			int ring = 0;
@@ -254,7 +316,7 @@ public static class LevelImport
 			int index = 0;
 			foreach (ObjectPlacements.OriginalObjectPlacement original in ObjectPlacements.FromFile(Path(act.ObjectsFile)))
 			{
-				ObjectPlacement converted = ObjectPlacements.ConvertOriginalObjectPlacement(original, zone.ArtFile != null);
+				ObjectPlacement converted = ObjectPlacements.ConvertOriginalObjectPlacement(original, zone.ArtFile != null, zone.Name);
 				if (converted == null)
 				{
 					unsupported[original.Type] = unsupported.GetValueOrDefault(original.Type) + 1;
@@ -268,6 +330,21 @@ public static class LevelImport
 				string name = converted.Key.Substring(converted.Key.LastIndexOf('/') + 1).ToLowerInvariant();
 				binding.ObjectPlacements.Add(new ObjectPlacement(converted.Key, MakeUid(zone, "object", act, index), $"{name} {n}-{index}",
 					FrontLayerIndex, converted.Position + act.Offset * Scale, state));
+				// The three rotating platforms of the original are one object: add the other two arms
+				if (original.Type == 0x83)
+				{
+					for (int arm = 1; arm <= 2; arm++)
+					{
+						IDictionary<string, object> armState = new ExpandoObject();
+						foreach (KeyValuePair<string, object> value in state)
+						{
+							armState[value.Key] = value.Value;
+						}
+						armState["Arm"] = arm;
+						binding.ObjectPlacements.Add(new ObjectPlacement(converted.Key, MakeUid(zone, "arm" + arm, act, index), $"{name} {n}-{index}-{arm}",
+							FrontLayerIndex, converted.Position + act.Offset * Scale, armState));
+					}
+				}
 				index++;
 			}
 		}

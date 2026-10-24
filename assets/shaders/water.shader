@@ -18,6 +18,9 @@
     uniform sampler2D InputTexture;
 	uniform sampler2D WaveTexture;
     uniform float InputHueTarget;
+    uniform vec4 InputDarkColour;
+    uniform vec4 InputMiddleColour;
+    uniform vec4 InputLightColour;
     uniform float InputHueAmount;
     uniform float InputSaturationChange;
     uniform float InputLuminosityChange;
@@ -226,9 +229,9 @@
         vec3 b=k.xyz;//caustics
 	  	b=vec3(b.x+b.y+b.z)/10.0;
 		texel.xyz=texel.xyz+b;
-      	vec4 mixColorA = vec4(0, 0, 64.0/255.0, 1);//* waterBlendFactor + (1.0 - waterBlendFactor) * texel;
-		vec4 mixColorB = vec4(255.0/255.0, 0, 255.0/255.0, 1)* waterBlendFactor + (1.0 - waterBlendFactor) * texel;
-		vec4 mixColorC = vec4(255.0/255.0, 162.0/255.0, 223.0/255.0, 1)* waterBlendFactor + (1.0 - waterBlendFactor) * texel;
+      	vec4 mixColorA = InputDarkColour;
+		vec4 mixColorB = InputMiddleColour * waterBlendFactor + (1.0 - waterBlendFactor) * texel;
+		vec4 mixColorC = InputLightColour * waterBlendFactor + (1.0 - waterBlendFactor) * texel;
 		float mixFactor=(texel.x+texel.y+texel.z)/3.0;
 		
 		if(mixFactor<0.6)

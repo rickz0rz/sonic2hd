@@ -238,6 +238,11 @@ public class SoundManager
 
 	public void FadeOutMusic(int fadeDuration)
 	{
+		// A level without music (see AreaResourceType) has nothing to fade out
+		if (CurrentInstance == null)
+		{
+			return;
+		}
 		_musicFadeState = MusicFadeState.FadingOut;
 		_musicFadeVolume = CurrentInstance.Volume;
 		_musicFadeAmount = 1.0 / fadeDuration;

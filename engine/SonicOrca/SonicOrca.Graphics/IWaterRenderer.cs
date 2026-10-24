@@ -21,5 +21,12 @@ public interface IWaterRenderer : IRenderer, IDisposable
 
 	float Time { get; set; }
 
+	/// <summary>The colours of the water gradient: for dark, middle and light parts of the picture under the water.</summary>
+	Colour DarkColour { get; set; }
+
+	Colour MiddleColour { get; set; }
+
+	Colour LightColour { get; set; }
+
 	void Render(Rectanglei bounds);
 }

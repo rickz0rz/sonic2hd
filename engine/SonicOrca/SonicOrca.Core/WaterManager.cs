@@ -62,6 +62,13 @@ public class WaterManager
 
 	public double HueTarget { get; set; }
 
+	/// <summary>The water gradient. The defaults are the colours of the Chemical Plant mega mack.</summary>
+	public Colour DarkColour { get; set; } = new Colour(255, 0, 0, 64);
+
+	public Colour MiddleColour { get; set; } = new Colour(255, 255, 0, 255);
+
+	public Colour LightColour { get; set; } = new Colour(255, 255, 162, 223);
+
 	public double HueAmount { get; set; }
 
 	public double SaturationChange { get; set; }
@@ -202,6 +209,9 @@ public class WaterManager
 		{
 			IWaterRenderer waterRenderer = renderer.GetWaterRenderer();
 			waterRenderer.HueTarget = HueTarget;
+			waterRenderer.DarkColour = DarkColour;
+			waterRenderer.MiddleColour = MiddleColour;
+			waterRenderer.LightColour = LightColour;
 			waterRenderer.HueAmount = HueAmount;
 			waterRenderer.SaturationChange = SaturationChange;
 			waterRenderer.LuminosityChange = LuminosityChange;
