@@ -275,6 +275,9 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	/// <summary>The move lock after a character falls off a wall or a ceiling ($1E in Sonic_SlopeRepel).</summary>
 	private const int SlopeRepelLockTicks = 30;
 
+	/// <summary>The ground speed after a turn past 0 ($80 in Sonic_TurnLeft and Sonic_BrakeRollingRight).</summary>
+	private const double TurnaroundSpeed = 2.0;
+
 	/// <summary>A character cannot collect rings while its invulnerability is this value or more ($5A in Touch_Rings).</summary>
 	private const int RingCollectInvulnerabilityTicks = 90;
 
@@ -2657,7 +2660,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			{
 				ApplySlopeFriction();
 			}
-			GroundVelocity = ChangeSpeed(GroundVelocity, MovingDirection, TopSpeed, Acceleration, Deceleration, Friction);
+			GroundVelocity = ChangeSpeed(GroundVelocity, MovingDirection, TopSpeed, Acceleration, Deceleration, Friction, TurnaroundSpeed);
 			if (MovingDirection * GroundVelocity > 0.0 && SlopeLockTicks == 0)
 			{
 				Facing = MovingDirection;
@@ -2765,12 +2768,13 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		}
 		else if (IsSpinball)
 		{
-			if (Math.Abs(GroundVelocity) < 2.0)
+			// Sonic_CheckRollStop: the roll stops only when the ground speed is 0.
+			if (GroundVelocity == 0.0)
 			{
 				IsSpinball = false;
 			}
 		}
-		else if ((LookDirection == CharacterLookDirection.Ducking || CharacterEvents.HasFlag(CharacterEvent.SpindashLaunch)) && Math.Abs(GroundVelocity) > 4.0)
+		else if ((LookDirection == CharacterLookDirection.Ducking || CharacterEvents.HasFlag(CharacterEvent.SpindashLaunch)) && Math.Abs(GroundVelocity) >= 2.0)
 		{
 			IsSpinball = true;
 			if (CharacterEvents.HasFlag(CharacterEvent.SpindashLaunch))
@@ -3063,9 +3067,10 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 
 	/// <summary>
 	/// Changes a speed towards the limit in the given direction, and then applies friction.
-	/// When the speed is against the direction, the speed changes by the deceleration.
+	/// When the speed is against the direction, the speed changes by the deceleration. If the deceleration takes the
+	/// speed past 0, the speed becomes the turnaround speed in the new direction.
 	/// </summary>
-	private static double ChangeSpeed(double speed, int direction, double limit, double acceleration, double deceleration, double friction)
+	private static double ChangeSpeed(double speed, int direction, double limit, double acceleration, double deceleration, double friction, double turnaroundSpeed = 0.0)
 	{
 		if (direction != 0)
 		{
@@ -3073,6 +3078,10 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			if (headroom > limit)
 			{
 				speed += deceleration * direction;
+				if (speed * direction > 0.0 && turnaroundSpeed > 0.0)
+				{
+					speed = turnaroundSpeed * direction;
+				}
 			}
 			else if (headroom > acceleration)
 			{
