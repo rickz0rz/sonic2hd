@@ -20,7 +20,6 @@ internal class RootGameState : IGameState, IDisposable
 {
 	/// <summary>SDL scancode of the Enter key.</summary>
 	private const int EnterScancode = 40;
-	private const string DemoResourceKey = "SONICORCA/RECORDINGS/EHZ";
 
 	/// <summary>The character names for the command line. The index plus 1 is the <see cref="CharacterType"/> value.</summary>
 	private static readonly string[] CharacterNames = new string[3]
@@ -214,7 +213,7 @@ internal class RootGameState : IGameState, IDisposable
 
 	private void PlayDemo()
 	{
-		ChangeGameState(new DemoGameState(_gameContext, DemoResourceKey));
+		ChangeGameState(new DemoGameState(_gameContext));
 	}
 
 	private void ChangeGameState(IGameState newGameState)

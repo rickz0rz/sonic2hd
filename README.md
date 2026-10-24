@@ -197,13 +197,39 @@ resources only name the class to use.
 | `--level <zone> [--act <n>]` | Starts a level directly, for example `--level htz --act 2` |
 | `--protagonist <name>`, `--sidekick <name>` | Chooses the characters for `--level` (`sonic`, `tails`, `knuckles`) |
 | `--debug` | Starts the level with debug mode on |
-| `--demo` | Plays the Emerald Hill attract demo |
+| `--demo` | Plays the attract demo (the demos of all zones that have one play in turn) |
+| `--record <file>` | Records the input of the level to a file, for example for a demo |
+| `--playback <file>` | Plays a recorded input in place of the controller |
 | `--nologos` | Skips the disclaimer and the logo screens |
 | `--credits`, `--options` | Opens the credits or the options screen |
 | `--halfpipe [1-7]` | Opens a 3D special stage (in development). Left and right move Sonic around the pipe, and an action button jumps, with the physics of Sonic 2. Collect enough rings for each of the three checkpoints, and avoid the bombs. Tails follows Sonic. Add `--sidekick none` to play Sonic alone. Escape closes it |
 
 On macOS, pass options to the executable in the app bundle, for example
 `publish/S2HD.app/Contents/MacOS/S2HD --level cpz`.
+
+### Recording an attract demo
+
+The title screen plays a demo when nobody presses a button. Each zone can have a demo: the input recording
+`SONICORCA/RECORDINGS/<ZONE>` of act 1 with Sonic alone. The game data has the Emerald Hill demo. The demos of all
+the zones that can be played (with their import, for the imported zones) play in turn.
+
+1. Record a play of act 1 with Sonic alone. A demo shows the first 30 seconds of the level.
+
+   ```sh
+   publish/S2HD.app/Contents/MacOS/S2HD --nologos --level arz --sidekick none --record arz.rec
+   ```
+
+2. Check it: `--level arz --sidekick none --playback arz.rec` plays the same level again. While a recording plays or
+   records, the random numbers of the level start from the same seed, so the play is the same each time.
+3. Put the file in a mod folder at `SONICORCA/RECORDINGS/ARZ.rec`, pack it, and put the `.dat` file in the `mods`
+   folder:
+
+   ```sh
+   dotnet run --project tools/s2hd-data -- pack demos demos.dat
+   ```
+
+A recording for EHZ in a mod takes the place of the demo of the game data. A recording plays the input only, so a
+change to the physics or to the objects can make an old recording take another route. Record it again then.
 
 ## Logs and settings
 
