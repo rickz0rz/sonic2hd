@@ -399,7 +399,7 @@ public class Level : IDisposable
 		{
 			_soundManager.PlayMusic(LevelMusic);
 		}
-		Time = ((_player.StarpostIndex != -1) ? _player.StarpostTime : 0);
+		Time = ((_player.StarpostIndex != -1) ? GetStarpostStartTime() : 0);
 		_hud.ShowMiliseconds = PrepareSettings.TimeTrial;
 		ClassicDebugMode = PrepareSettings.Debugging;
 		Controller.IsDebug = PrepareSettings.Debugging;
@@ -511,6 +511,20 @@ public class Level : IDisposable
 		return ghostCharacter;
 	}
 
+	/// <summary>
+	/// The time at the start from a star post. HD physics uses the time of the star post. Obj79_LoadData sets the
+	/// frame of the saved time to 59 and takes 1 from the second, so the time goes back to the start of the second
+	/// and 1 frame more.
+	/// </summary>
+	private int GetStarpostStartTime()
+	{
+		if (!OriginalPhysics)
+		{
+			return _player.StarpostTime;
+		}
+		return Math.Max(0, _player.StarpostTime / 60 * 60 - 1);
+	}
+
 	public Vector2i GetPlayerStartPosition()
 	{
 		Vector2i result = PrepareSettings.StartPosition ?? StartPosition;
@@ -535,6 +549,12 @@ public class Level : IDisposable
 				StateFlags |= LevelStateFlags.Updating;
 				StateFlags |= LevelStateFlags.UpdateTime;
 				StateFlags |= LevelStateFlags.Animating;
+				// The original unlocks the controls on the frame that the timer starts. HD physics waits for the title
+				// card.
+				if (OriginalPhysics)
+				{
+					StateFlags |= LevelStateFlags.AllowCharacterControl;
+				}
 			}
 			if (_titleCard.AllowCharacterControl)
 			{
