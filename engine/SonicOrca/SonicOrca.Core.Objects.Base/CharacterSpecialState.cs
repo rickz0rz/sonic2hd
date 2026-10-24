@@ -8,5 +8,7 @@ public enum CharacterSpecialState
 	Normal,
 	Falling,
 	Sliding,
-	Grabbed
+	Grabbed,
+	/// <summary>The character hangs from an object, for example a vine in Mystic Cave.</summary>
+	Hanging
 }

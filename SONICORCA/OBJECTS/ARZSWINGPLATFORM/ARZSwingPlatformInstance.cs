@@ -14,13 +14,11 @@ namespace SONICORCA.OBJECTS.ARZSWINGPLATFORM;
 /// A platform on a chain, as in Sonic 2 (Obj15 in Aquatic Ruin Zone). It swings through half a circle below its
 /// pivot with oscillator 6. The platform of the fall-off kind comes off the chain at the end of a swing while a
 /// character stands on it: it flies at $200, falls with gravity $18 to the water, then floats to the right until it
-/// meets a wall.
+/// meets a wall. The Mystic Cave version derives from this class.
 /// </summary>
 public class ARZSwingPlatformInstance : Platform
 {
-	private const int Scale = 4;
-
-	private const int HalfWidth = 0x20 * Scale;
+	protected const int Scale = 4;
 
 	private const int TopHeight = 9 * Scale;
 
@@ -40,7 +38,7 @@ public class ARZSwingPlatformInstance : Platform
 
 	private Vector2 _pivot;
 
-	private int _cachedOscillator;
+	private int _cachedSwing;
 
 	private int _chainAngle = 0x40;
 
@@ -59,7 +57,7 @@ public class ARZSwingPlatformInstance : Platform
 
 	/// <summary>The number of chain links (subtype bits 0-3).</summary>
 	[StateVariable]
-	private int Links
+	protected int Links
 	{
 		get => _links;
 		set => _links = value;
@@ -67,7 +65,7 @@ public class ARZSwingPlatformInstance : Platform
 
 	/// <summary>The platform comes off the chain (subtype bit 7).</summary>
 	[StateVariable]
-	private bool FallOff
+	protected bool FallOff
 	{
 		get => _fallOff;
 		set => _fallOff = value;
@@ -75,11 +73,17 @@ public class ARZSwingPlatformInstance : Platform
 
 	/// <summary>The swing is mirrored.</summary>
 	[StateVariable]
-	private bool FlipX
+	protected bool FlipX
 	{
 		get => _flipX;
 		set => _flipX = value;
 	}
+
+	/// <summary>Half the width of the platform top (width_pixels).</summary>
+	protected virtual int HalfWidth => 0x20 * Scale;
+
+	/// <summary>The pivot of the chain.</summary>
+	protected Vector2 Pivot => _pivot;
 
 	public ARZSwingPlatformInstance() => DesignBounds = new Rectanglei(-1024, -256, 2048, 1280);
 
@@ -97,10 +101,11 @@ public class ARZSwingPlatformInstance : Platform
 	protected override void UpdateMovement()
 	{
 		int oscillator = Oscillators.For(Level).GetHighByte(Level, 6);
-		if (oscillator != _cachedOscillator)
+		int swing = GetSwing(oscillator);
+		if (swing != _cachedSwing)
 		{
-			_cachedOscillator = oscillator;
-			_chainAngle = _flipX ? 0x80 - oscillator : oscillator;
+			_cachedSwing = swing;
+			_chainAngle = _flipX ? 0x80 - swing : swing;
 			if (_state == State.Swing)
 			{
 				PositionPrecise = PointOnChain((_links * 2 + 1) * 8);
@@ -147,6 +152,12 @@ public class ARZSwingPlatformInstance : Platform
 		}
 	}
 
+	/// <summary>
+	/// Gives the angle of the chain before the mirror, from the high byte of oscillator 6. The platform moves only
+	/// when this value changes. Angle $40 is straight down.
+	/// </summary>
+	protected virtual int GetSwing(int oscillator) => oscillator;
+
 	/// <summary>A point on the chain at a distance from the pivot, in original pixels.</summary>
 	private Vector2 PointOnChain(int distance)
 	{
@@ -164,7 +175,13 @@ public class ARZSwingPlatformInstance : Platform
 		{
 			objectRenderer.Render(_animation, PointOnChain(i * 0x10) - PositionPrecise);
 		}
-		_animation.Index = PlatformFrame;
-		objectRenderer.Render(_animation);
+		RenderPlatform(objectRenderer, _animation);
+	}
+
+	/// <summary>Draws the platform at the object position. The animation has the platform, link and pivot frames.</summary>
+	protected virtual void RenderPlatform(IObjectRenderer objectRenderer, AnimationInstance animation)
+	{
+		animation.Index = PlatformFrame;
+		objectRenderer.Render(animation);
 	}
 }

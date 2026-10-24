@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using SonicOrca.Resources;
 
 namespace SonicOrca.Core;
 
@@ -28,6 +29,21 @@ internal static class Levels
 		new LevelInfo(Sonic2, "wfz", "Wing Fortress Zone", 1, true),
 		new LevelInfo(Sonic2, "dez", "Death Egg Zone", 1, true)
 	};
+
+	/// <summary>
+	/// True when the level can be played: a released level, or an unreleased level with the data of
+	/// "s2hd-data import-level" from a mod. Every import writes the texture of the priority tiles.
+	/// </summary>
+	public static bool IsAvailable(LevelInfo level, ResourceTree resourceTree)
+	{
+		return !level.Unreleased || resourceTree[$"SONICORCA/LEVELS/{level.Mnemonic.ToUpperInvariant()}/TILESET/PRIORITY"]?.Resource != null;
+	}
+
+	/// <summary>Returns the Sonic 2 levels that can be played, in the order of the game.</summary>
+	public static IReadOnlyList<LevelInfo> GetAvailableLevels(ResourceTree resourceTree)
+	{
+		return LevelList.Where(x => x.GameIndex == Sonic2 && IsAvailable(x, resourceTree)).ToArray();
+	}
 
 	/// <summary>Returns the resource key of the area of a Sonic 2 level, or null when the level does not exist.</summary>
 	public static string GetAreaResourceKey(string mnemonic)

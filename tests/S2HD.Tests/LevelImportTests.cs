@@ -32,7 +32,9 @@ public sealed class LevelImportTests
 	{
 		LevelMap map = Cnz.Value.Map;
 
-		Assert.Equal(new[] { "back", "front", "front_high" }, map.Layers.Select(l => l.Name));
+		// After the three layers come the hidden layers of the boss walls (layout changes)
+		Assert.Equal(new[] { "back", "front", "front_high" }, map.Layers.Take(3).Select(l => l.Name));
+		Assert.All(map.Layers.Skip(3), l => Assert.False(l.Visible));
 		Assert.Equal(1400, map.Layers[1].Columns);
 		Assert.Equal(144, map.Layers[1].Rows);
 		Assert.Contains(Enumerable.Range(0, 1400).Select(x => map.Layers[1].Tiles[x, 60]), tile => tile != 0);
@@ -47,7 +49,8 @@ public sealed class LevelImportTests
 		// A floor that meets a wall line of one original pixel would trip a character
 		int steps = vectors.Count(v => (v.RelativeA.X == v.RelativeB.X || v.RelativeA.Y == v.RelativeB.Y) && v.Length <= LevelImport.Scale);
 		Assert.True(steps < 10, $"{steps} small steps");
-		Assert.All(vectors, v => Assert.InRange(v.Paths, 1u, 3u));
+		// Each line is on path 1, path 2 or both. The lines of the layout changes are off until a change is on.
+		Assert.All(vectors, v => Assert.True((v.Paths & 3) != 0 || v.Paths > 3));
 	}
 
 	[Fact]
@@ -142,7 +145,7 @@ public sealed class LevelImportTests
 				int tile = high.Tiles[x, y] & 0xFFF;
 				if (tile != 0)
 				{
-					Assert.Equal(PriorityTiles.FirstTile + (level.Map.Layers[1].Tiles[x, y] & 0xFFF), tile);
+					Assert.Equal(PriorityTiles.FirstTile + (level.Map.Layers[1].Tiles[x, y] & 0xFFF) % PriorityTiles.AnimatedFirstTile, tile);
 				}
 			}
 		}

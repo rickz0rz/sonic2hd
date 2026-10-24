@@ -49,7 +49,7 @@ public class BossObject : Enemy
 
 	public BossObject()
 	{
-		ExplosionResourceKey = "SONICORCA/OBJECTS/BOSS/EXPLOSION";
+		ExplosionResourceKey = "SONICORCA/OBJECTS/EXPLOSION/BOSS";
 		HitSoundResourceKey = "SONICORCA/SOUND/BOSSHIT";
 		Health = 8;
 	}

@@ -117,6 +117,6 @@ public class CNZFlashingBlockInstance : Platform
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 	{
 		_animation.Index = _step;
-		renderer.GetObjectRenderer().Render(_animation, _flipX);
+		renderer.GetObjectRenderer().RenderOriginal(_animation, _flipX);
 	}
 }

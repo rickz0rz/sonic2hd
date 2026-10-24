@@ -116,6 +116,14 @@ internal class StoryPlaythroughGameState : IGameState, IDisposable
 
 	private bool LoadNextLevel()
 	{
+		// A zone with more than two acts (Metropolis) goes on with its next act. The level game state plays act 1
+		// and act 2 together.
+		LevelInfo levelInfo = Levels.GetAvailableLevels(_gameContext.ResourceTree).Skip(_levelNumber - 1).FirstOrDefault();
+		int act = _levelGameState.PrepareSettings.Act;
+		if (levelInfo != null && act >= 2 && act < levelInfo.Acts)
+		{
+			return SetLevel(_levelNumber, act + 1);
+		}
 		++_levelNumber;
 		return SetLevel(_levelNumber);
 	}
@@ -125,18 +133,18 @@ internal class StoryPlaythroughGameState : IGameState, IDisposable
 	/// Returns false when there is no such level.
 	/// </summary>
 	/// <remarks>The <paramref name="index"/> parameter is not used. The callers give the same value as _levelNumber.</remarks>
-	private bool SetLevel(int index)
+	private bool SetLevel(int index, int act = 1)
 	{
 		if (_levelGameState != null)
 			_levelGameState.Dispose();
-		LevelInfo levelInfo = Levels.LevelList.Where(x => x.GameIndex == Levels.Sonic2).Where(x => !x.Unreleased).Skip(_levelNumber - 1).FirstOrDefault();
+		LevelInfo levelInfo = Levels.GetAvailableLevels(_gameContext.ResourceTree).Skip(_levelNumber - 1).FirstOrDefault();
 		if (levelInfo == null)
 			return false;
 		_levelGameState = new LevelGameState(_gameContext);
 		_levelGameState.PrepareSettings = new LevelPrepareSettings()
 		{
 			AreaResourceKey = Levels.GetAreaResourceKey(levelInfo.Mnemonic),
-			Act = 1,
+			Act = act,
 			Lives = _prepareSettings.Lives,
 			Score = _prepareSettings.Score,
 			Emeralds = _prepareSettings.Emeralds,
