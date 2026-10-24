@@ -77,6 +77,18 @@ public sealed class LevelImportTests
 	}
 
 	[Fact]
+	public void Cnz_BonusBlocks_HaveTheFramesForEachOfTheirThreeColours()
+	{
+		ImportedLevel level = Cnz.Value;
+
+		Assert.Equal(98, level.Binding.ObjectPlacements.Count(p => p.Key == "SONICORCA/OBJECTS/CNZBONUSBLOCK"));
+		ImportedSprite block = Assert.Single(level.Sprites, s => s.ObjectKey == "SONICORCA/OBJECTS/CNZBONUSBLOCK");
+		// 6 mapping frames for each of the palette lines 2, 1 and 0
+		Assert.Equal(18, block.AnimationGroup.Split("<animation>").Length - 1);
+		Assert.Equal(18, level.Binding.ObjectPlacements.Count(p => p.Key == "SONICORCA/OBJECTS/CNZHEXBUMPER"));
+	}
+
+	[Fact]
 	public void Cnz_ImportGivesTheSameIdsEachTime()
 	{
 		ImportedLevel again = LevelImport.Import(OriginalZone.All["CNZ"], SpecialStageImportTests.FindDisassembly());

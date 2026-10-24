@@ -150,8 +150,8 @@ these steps:
 - It adds the start positions and the act bounds as map markers.
 - It converts the rings and the objects that SonicOrca has. The command lists the object types that it cannot
   convert yet, for example the flippers.
-- It converts the art of the new CNZ objects (for now the round bumper) from the original sprites, at four times
-  the size, as the CNZ tiles are.
+- It converts the art of the new CNZ objects (the round bumper, the hexagonal bumper and the bonus blocks) from the
+  original sprites, at four times the size, as the CNZ tiles are.
 
 The zone has no music, because the demo data has none for it. A mod can add `SONICORCA/MUSIC/LEVELS/CNZ`. The other
 zones without music (ARZ, MCZ, OOZ and others) also load now, without music.

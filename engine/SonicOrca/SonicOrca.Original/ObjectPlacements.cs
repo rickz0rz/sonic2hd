@@ -356,6 +356,24 @@ public static class ObjectPlacements
 					Height = ((originalPlacement.SubType & 0xF) + 1) * 16 * 4
 				};
 				break;
+			case 215:
+				key = "SONICORCA/OBJECTS/CNZHEXBUMPER";
+				behaviour = new
+				{
+					Moving = originalPlacement.SubType != 0,
+					StartLeft = originalPlacement.FlipX
+				};
+				break;
+			case 216:
+				// Bonus block: bits 6-7 of the subtype give the kind, bits 0-5 the group
+				key = "SONICORCA/OBJECTS/CNZBONUSBLOCK";
+				behaviour = new
+				{
+					Kind = new[] { "Vertical", "Diagonal", "Horizontal", "Horizontal" }[(originalPlacement.SubType >> 6) & 3],
+					Group = originalPlacement.SubType & 0x3F,
+					FlipX = originalPlacement.FlipX
+				};
+				break;
 			case 132:
 				// Pinball mode: bit 2 makes the line horizontal, bits 0-1 give the half length $20 to $100, and a
 				// flipped marker releases a character that crosses to the right (or down) instead
