@@ -32,4 +32,14 @@ public class TornadoType : ObjectType
 
 	[Dependency]
 	public const string Pilot4AnimationGroupResourceKey = "/PILOT4/ANIGROUP";
+
+	/// <summary>The rocket under the plane at the end of Wing Fortress Zone (ObjB2, subtype $5C).</summary>
+	[Dependency]
+	public const string ThrusterAnimationGroupResourceKey = "/THRUSTER/ANIGROUP";
+
+	/// <summary>
+	/// The fire at Eggman's ship at the end of Wing Fortress Zone (ObjB2, subtype $58). It is not a dependency: only
+	/// a mod of Wing Fortress Zone has it.
+	/// </summary>
+	public const string FireResourceKey = "SONICORCA/OBJECTS/WFZTHRUST";
 }

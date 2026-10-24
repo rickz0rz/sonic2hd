@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using SonicOrca;
 using SonicOrca.Core;
 using SonicOrca.Core.Objects;
@@ -9,14 +10,19 @@ using SonicOrca.Extensions;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
 using SonicOrca.Resources;
+using SONICORCA.OBJECTS.TORNADO;
+using SONICORCA.OBJECTS.WFZTHRUST;
 
 namespace SONICORCA.LEVELS.WFZ.AREA;
 
 /// <summary>
 /// The area for Wing Fortress Zone. It loads the tile set, the map and the binding, and sets the level music. A map
 /// from "s2hd-data import-level wfz" adds the collision, the objects, and the markers for the start position, the act
-/// bounds and the act origin. With these markers, the area runs the boss events of the original (LevEvents_WFZ and the
-/// camera changes of ObjC5) and ends the act after the boss. Without them, the level bounds are the bounds of the map.
+/// bounds and the act origin. With these markers, the area runs the level events of the original (LevEvents_WFZ and
+/// the camera changes of ObjC5): the boss, the locked controls after the boss, and the background that moves with
+/// Eggman's getaway ship. The Tornado (ObjB2, subtype $54) then takes the player to the ship, and the act ends when the
+/// original goes to Death Egg Zone (<see cref="WFZEnding"/>). Without the markers, the level bounds are the bounds of
+/// the map.
 /// </summary>
 public class WingFortressZoneArea : Area
 {
@@ -68,10 +74,17 @@ public class WingFortressZoneArea : Area
 	/// <summary>LevEvents_WFZ_Routine6: the end of the act starts when the camera goes below this y.</summary>
 	private const int EndCameraY = 0x500;
 
-	/// <summary>ObjB2_Wait_Leader_position: the player must be at this y or lower for $40 frames.</summary>
+	/// <summary>ObjB2_Wait_Leader_position: the Tornado takes the player at this y or lower.</summary>
 	private const int EndPlayerY = 0x5EC;
 
-	private const int EndTicks = 0x40;
+	/// <summary>
+	/// If the Tornado does not take the player this number of frames after the player comes to y $5EC (the Tornado
+	/// waits $40 frames), the act ends without it. The same occurs when the controls are locked for this number of
+	/// frames and the player does not come to y $5EC.
+	/// </summary>
+	private const int EndFallbackTicks = 0x80;
+
+	private const int EndLockFallbackTicks = 0x400;
 
 	private SonicOrcaGameContext _gameContext;
 	private ResourceTree _resourceTree;
@@ -85,6 +98,27 @@ public class WingFortressZoneArea : Area
 	private int _musicTimer;
 	private bool _levelMusicRestarted;
 	private int _endTimer;
+	private int _lockTimer;
+	private bool _finished;
+	private LevelLayer _background;
+	private BackgroundScroll _backgroundScroll;
+
+	/// <summary>The background layer of a map from "s2hd-data import-level", and the size of its tiles.</summary>
+	private const string BackgroundLayerName = "back";
+
+	private const int BackgroundTileSize = 64;
+
+	/// <summary>The scroll values of the background layer in the map, before the area changes them.</summary>
+	private static readonly ConditionalWeakTable<LevelLayer, BackgroundScroll> BackgroundScrolls = new ConditionalWeakTable<LevelLayer, BackgroundScroll>();
+
+	private sealed class BackgroundScroll
+	{
+		public double[] RowOffsets { get; init; }
+
+		public int OffsetY { get; init; }
+
+		public bool WrapY { get; init; }
+	}
 
 	private enum EventState
 	{
@@ -128,6 +162,9 @@ public class WingFortressZoneArea : Area
 		_bossStarted = false;
 		_levelMusicRestarted = false;
 		_endTimer = 0;
+		_lockTimer = 0;
+		_finished = false;
+		WFZEnding.For(_level).Reset();
 		if (_level.TryGetMarker("bounds_1_lt", out LevelMarker leftTop) && _level.TryGetMarker("bounds_1_rb", out LevelMarker rightBottom))
 		{
 			// A map from "s2hd-data import-level wfz": the start and the bounds of the act
@@ -157,12 +194,76 @@ public class WingFortressZoneArea : Area
 		}
 		_level.RingsPerfectTarget = _level.ObjectManager.ObjectEntryTable.GetRingCountInRegion(_level.Bounds);
 		settings.StartPath = 0;
+		PrepareBackground();
+	}
+
+	/// <summary>
+	/// Finds the background layer of an imported map, and puts back its scroll values, which <see cref="UpdateBackground"/>
+	/// changes. The map can stay loaded when the level starts again.
+	/// </summary>
+	private void PrepareBackground()
+	{
+		_background = _events ? _level.Map.Layers.FirstOrDefault(layer => layer.Name == BackgroundLayerName) : null;
+		if (_background == null || _background.LayerRowDefinitions.Count == 0)
+		{
+			_background = null;
+			return;
+		}
+		BackgroundScroll scroll = BackgroundScrolls.GetValue(_background, layer => new BackgroundScroll
+		{
+			RowOffsets = layer.LayerRowDefinitions.Select(row => row.CurrentOffset).ToArray(),
+			OffsetY = layer.OffsetY,
+			WrapY = layer.WrapY
+		});
+		_backgroundScroll = scroll;
+		for (int i = 0; i < scroll.RowOffsets.Length && i < _background.LayerRowDefinitions.Count; i++)
+		{
+			_background.LayerRowDefinitions[i].CurrentOffset = scroll.RowOffsets[i];
+		}
+		_background.OffsetY = scroll.OffsetY;
+		_background.WrapY = scroll.WrapY;
+	}
+
+	/// <summary>
+	/// The background moves with the offsets of the original (Camera_BG_X_offset and Camera_BG_Y_offset, see
+	/// <see cref="WFZShipOffset"/>): to the right and down while Eggman's ship flies off (LevEvents_WFZ_Routine3), and
+	/// to the left and down while the player holds on to the ship (LevEvents_WFZ_Routine4). The background of the
+	/// original scrolls with the camera, so it wraps at the bottom of the layer, as here.
+	/// </summary>
+	private void UpdateBackground()
+	{
+		int offsetX = WFZShipOffset.Get(_level);
+		int offsetY = WFZShipOffset.GetY(_level);
+		if (_background == null)
+		{
+			return;
+		}
+		for (int i = 0; i < _backgroundScroll.RowOffsets.Length && i < _background.LayerRowDefinitions.Count; i++)
+		{
+			_background.LayerRowDefinitions[i].CurrentOffset = _backgroundScroll.RowOffsets[i] + offsetX * Scale;
+		}
+		if (offsetY == 0)
+		{
+			return;
+		}
+		// The layer moves down. It starts above the screen, so that it fills the screen when it wraps.
+		int height = _background.Rows * BackgroundTileSize;
+		int y = (_backgroundScroll.OffsetY + offsetY * Scale) % height;
+		_background.WrapY = true;
+		_background.OffsetY = y > 0 ? y - height : y;
 	}
 
 	public override void OnUpdate()
 	{
-		if (!_events || !_level.StateFlags.HasFlag(LevelStateFlags.Updating))
+		if (!_events || !_level.StateFlags.HasFlag(LevelStateFlags.Updating) || _finished)
 		{
+			return;
+		}
+		UpdateBackground();
+		if (WFZEnding.For(_level).Finished)
+		{
+			// The Tornado can also take a player who skipped the boss
+			Finish();
 			return;
 		}
 		switch (_state)
@@ -182,6 +283,7 @@ public class WingFortressZoneArea : Area
 				if (CameraY >= EndCameraY)
 				{
 					_state = EventState.End;
+					LockControls();
 				}
 				break;
 			case EventState.End:
@@ -247,23 +349,57 @@ public class WingFortressZoneArea : Area
 	}
 
 	/// <summary>
-	/// The end of the act. The original locks the controls here, and the Tornado (ObjB2, subtype $54) takes the
-	/// player after Robotnik's ship to the Death Egg. This area only waits until the player is on the ground at the
-	/// bottom of the shaft for $40 frames, and then completes the stage.
+	/// LevEvents_WFZ_Routine6: the controls are locked (Control_Locked) until the end of the act. The player falls to
+	/// the bottom of the shaft, and the Tornado (ObjB2, subtype $54) takes the player after Eggman's ship.
+	/// </summary>
+	private void LockControls()
+	{
+		_level.StateFlags &= ~LevelStateFlags.AllowCharacterControl;
+		ICharacter player = _level.Player.Protagonist;
+		if (player != null)
+		{
+			player.Input = new CharacterInputState();
+		}
+	}
+
+	/// <summary>
+	/// Without the Tornado (for example in a map without it), the act ends when the player is at the bottom of the
+	/// shaft and the Tornado does not come, or when the player does not come to the bottom of the shaft.
 	/// </summary>
 	private void UpdateEnd()
 	{
+		if (WFZEnding.For(_level).Started)
+		{
+			return;
+		}
 		ICharacter player = _level.Player.Protagonist;
+		if (++_lockTimer >= EndLockFallbackTicks)
+		{
+			Finish();
+			return;
+		}
 		if (player == null || (player.PositionPrecise.Y - _origin.Y) / Scale < EndPlayerY)
 		{
 			return;
 		}
-		if (++_endTimer < EndTicks)
+		if (++_endTimer >= EndFallbackTicks)
+		{
+			Finish();
+		}
+	}
+
+	/// <summary>ObjB2_Start_DEZ: the original goes to Death Egg Zone at once, without a results screen.</summary>
+	private void Finish()
+	{
+		if (_finished)
 		{
 			return;
 		}
+		_finished = true;
 		_state = EventState.Done;
-		_level.CompleteLevel();
+		_level.StateFlags &= ~LevelStateFlags.UpdateTime;
+		_level.StateFlags |= LevelStateFlags.StageCompleted;
+		_level.FadeOut(LevelState.StageCompleted);
 	}
 
 	private void RestoreBottom()

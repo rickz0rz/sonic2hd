@@ -21,13 +21,15 @@ namespace SONICORCA.OBJECTS.TORNADO;
 /// <item>$52 (start of Wing Fortress Zone): the plane flies right at 1 pixel each frame for $C0 frames and keeps the
 /// player within 16 pixels of its centre. Then it is shot down: it goes down and to the right for $60 frames, drops
 /// the player, and falls. The smoke of the original (ObjC3) is not drawn.</item>
-/// <item>$54 (end of Wing Fortress Zone) and the parts that it makes ($56 to $5C): not supported. The object does
-/// nothing and is not drawn.</item>
+/// <item>$54 (end of Wing Fortress Zone): the plane takes the player from the fortress to Eggman's getaway ship. See
+/// TornadoInstance.WingFortressEnd.cs. The parts that the original makes as other subtypes of ObjB2 are part of
+/// this object or other objects: the grip under the ship ($56), the fire at the ship ($58, a fixed
+/// SONICORCA/OBJECTS/WFZTHRUST) and the rocket under the plane ($5C).</item>
 /// </list>
 /// Tails flies the plane. When the player is Tails alone, Sonic flies it in the original, but the art of the Sonic
 /// pilot is not imported, so the seat is empty.
 /// </summary>
-public class TornadoInstance : Platform
+public partial class TornadoInstance : Platform
 {
 	private const int Scale = 4;
 
@@ -142,7 +144,7 @@ public class TornadoInstance : Platform
 
 	public TornadoInstance() => DesignBounds = new Rectanglei(-0x60 * Scale, -0x10 * Scale, 0x78 * Scale, 0x40 * Scale);
 
-	private bool Supported => _subtype == SkyChaseSubtype || _subtype == WingFortressStartSubtype;
+	private bool Supported => _subtype == SkyChaseSubtype || _subtype == WingFortressStartSubtype || _subtype == WingFortressEndSubtype;
 
 	protected override void OnStart()
 	{
@@ -163,10 +165,21 @@ public class TornadoInstance : Platform
 		}
 		// The player stands on the plane for the whole act
 		LockLifetime = true;
-		CollisionVectors = new[]
+		if (_subtype == WingFortressEndSubtype)
 		{
-			new CollisionVector(this, new Vector2i(-HalfWidth, Top), new Vector2i(HalfWidth, Top), flags: CollisionFlags.Conveyor)
-		};
+			StartWingFortressEnd();
+			return;
+		}
+		SetSolid(true);
+	}
+
+	/// <summary>The solid top of the plane (SolidObject), or no collision.</summary>
+	private void SetSolid(bool solid)
+	{
+		CollisionVectors = solid
+			? new[] { new CollisionVector(this, new Vector2i(-HalfWidth, Top), new Vector2i(HalfWidth, Top), flags: CollisionFlags.Conveyor) }
+			: new CollisionVector[0];
+		RegisterCollisionUpdate();
 	}
 
 	protected override void OnUpdatePrepare()
@@ -193,9 +206,13 @@ public class TornadoInstance : Platform
 		{
 			UpdateSkyChase(player);
 		}
-		else
+		else if (_subtype == WingFortressStartSubtype)
 		{
 			UpdateWingFortressStart(player);
+		}
+		else
+		{
+			UpdateWingFortressEnd(player);
 		}
 	}
 
@@ -367,6 +384,16 @@ public class TornadoInstance : Platform
 			return;
 		}
 		IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
+		if (_subtype == WingFortressEndSubtype)
+		{
+			DrawWingFortressEnd(objectRenderer);
+			return;
+		}
+		DrawPlane(objectRenderer);
+	}
+
+	private void DrawPlane(IObjectRenderer objectRenderer)
+	{
 		// The propeller turns: frames 0 to 3, one frame each (frames 4 to 7 have the seat of the Sonic pilot)
 		_animation.Index = (_tailsAlone ? 4 : 0) + _ticks % 4;
 		objectRenderer.RenderOriginal(_animation);
