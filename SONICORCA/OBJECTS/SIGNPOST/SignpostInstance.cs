@@ -77,6 +77,7 @@ public class SignpostInstance : ActiveObject
 	private int _sparkleIndex;
 	private int _sparkleDelay;
 	private int _targetCameraBottom;
+	private bool _holdingRight;
 
 	[StateVariable]
 	private bool Activated
@@ -104,6 +105,16 @@ public class SignpostInstance : ActiveObject
 	}
 
 	protected override void OnUpdate() => _updater.Update();
+
+	/// <summary>
+	/// Holds right for the protagonist during the run at the end of the act. This runs before the update of the
+	/// characters, after the level reads the controller or a recording.
+	/// </summary>
+	protected override void OnUpdatePrepare()
+	{
+		if (_holdingRight)
+			Level.Player.Protagonist.Input = new CharacterInputState { Throttle = 1.0 };
+	}
 
 	/// <summary>The signpost script. It runs as a coroutine, one step for each frame.</summary>
 	private IEnumerable<UpdateResult> GetUpdates()
@@ -166,6 +177,7 @@ public class SignpostInstance : ActiveObject
 					UpdateCamera();
 					yield return UpdateResult.Next();
 				}
+				_holdingRight = false;
 				Level.Player.RemoveStatusAtEndOfAct();
 				Level.CompleteLevel();
 				_triggeredEndGame = true;
@@ -201,18 +213,18 @@ public class SignpostInstance : ActiveObject
 	}
 
 	/// <summary>
-	/// Locks the controls of the protagonist with right held while it is on the ground. Returns true when the
-	/// protagonist has reached the end of the run.
+	/// Locks the controls of the protagonist with right held when it is on the ground. The lock stays until the end
+	/// of the act. Returns true when the protagonist has reached the end of the run.
 	/// </summary>
 	private bool UpdateOriginalRun()
 	{
 		ICharacter character = Level.Player.Protagonist;
 		if (character.IsDebug)
 			return false;
-		if (!character.IsAirborne)
+		if (!character.IsAirborne && !_holdingRight)
 		{
 			Level.StateFlags &= ~LevelStateFlags.AllowCharacterControl;
-			character.Input = new CharacterInputState { Throttle = 1.0 };
+			_holdingRight = true;
 		}
 		return character.Position.X >= Level.Bounds.Right - OriginalRunEndFromRight;
 	}
