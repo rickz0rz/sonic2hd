@@ -148,6 +148,11 @@ public class EHZBridgeInstance : ActiveObject
 	/// </summary>
 	private void DepressLogs(int logIndex)
 	{
+		if (Level.OriginalPhysics)
+		{
+			DepressLogsOriginal(logIndex);
+			return;
+		}
 		int depression = (int)(Math.Sin(logIndex / (double)_logs * Math.PI) * MaxDepression);
 		for (int i = 0; i < logIndex; ++i)
 		{
@@ -159,6 +164,25 @@ public class EHZBridgeInstance : ActiveObject
 		{
 			int curveDepression = (int)(Math.Sin(Math.PI / 2.0 + (i - logIndex) / (double)(_logs - logIndex - 1) * (Math.PI / 2.0)) * MaxDepression);
 			UpdateLogY(i, Math.Min(curveDepression, depression));
+		}
+	}
+
+	/// <summary>
+	/// Original: moves the logs towards the curve of Obj11_Depress. The depth at <paramref name="logIndex"/> is 2 pixels
+	/// for each log between it and the nearer end of the bridge (Obj11_DepressionOffsets). On each side, the depth falls
+	/// on a quarter sine curve to the ends (byte_FB28).
+	/// </summary>
+	private void DepressLogsOriginal(int logIndex)
+	{
+		int depression = 2 * 4 * Math.Min(logIndex + 1, _logs - logIndex);
+		for (int i = 0; i <= logIndex; ++i)
+		{
+			UpdateLogY(i, (int)(Math.Sin((i + 1) / (double)(logIndex + 1) * (Math.PI / 2.0)) * depression));
+		}
+		int logsAfter = _logs - logIndex - 1;
+		for (int i = logIndex + 1; i < _logs; ++i)
+		{
+			UpdateLogY(i, (int)(Math.Sin((_logs - i) / (double)(logsAfter + 1) * (Math.PI / 2.0)) * depression));
 		}
 	}
 
