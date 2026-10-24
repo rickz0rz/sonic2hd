@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using SonicOrca;
 using SonicOrca.Core;
 using SonicOrca.Core.Objects;
+using SonicOrca.Core.Objects.Base;
 using SonicOrca.Core.Objects.Metadata;
 using SonicOrca.Extensions;
 using SonicOrca.Geometry;
@@ -12,7 +13,9 @@ namespace SONICORCA.OBJECTS.SIGNPOST;
 
 /// <summary>
 /// The signpost at the end of an act. When the protagonist runs past it, it spins, shows sparkles, and stops on the
-/// face of the protagonist. Then the camera moves down and the level completes.
+/// face of the protagonist. Then the camera moves down and the level completes. In the Original physics, the
+/// protagonist then runs right with the controls locked, and the level completes when it reaches the right side of
+/// the screen (Obj0D_Main_State3 in the original).
 /// </summary>
 public class SignpostInstance : ActiveObject
 {
@@ -54,6 +57,18 @@ public class SignpostInstance : ActiveObject
 	private const int CameraBottomBelowSignpost = 340;
 	private const int SparkleDelayTicks = 12;
 	private const int CompleteLevelDelayTicks = 80;
+
+	/// <summary>The width of the area right of the signpost that activates it in the original ($20 px).</summary>
+	private const int OriginalActivationWidth = 0x20 * 4;
+
+	/// <summary>The ticks of the spin in the original: two animations of 61 frames each.</summary>
+	private const int OriginalSpinTicks = 2 * 61;
+
+	/// <summary>
+	/// The distance from the right side of the screen where the run ends in the original: the run ends at
+	/// Camera_Max_X_pos + $128, and the screen is $140 px wide.
+	/// </summary>
+	private const int OriginalRunEndFromRight = (0x140 - 0x128) * 4;
 
 	private Updater _updater;
 	private AnimationInstance _animation;
@@ -97,18 +112,25 @@ public class SignpostInstance : ActiveObject
 		{
 			while (!_activated)
 			{
-				foreach (ICharacter character in Level.ObjectManager.Characters)
+				if (Level.OriginalPhysics)
+					CheckOriginalActivation();
+				else
 				{
-					if (!character.IsSidekick && !character.IsDebug && character.ShouldReactToLevel && character.Position.X >= Position.X && character.LastPosition.X < Position.X)
-						Activate(character);
+					foreach (ICharacter character in Level.ObjectManager.Characters)
+					{
+						if (!character.IsSidekick && !character.IsDebug && character.ShouldReactToLevel && character.Position.X >= Position.X && character.LastPosition.X < Position.X)
+							Activate(character);
+					}
 				}
 				yield return UpdateResult.Next();
 			}
 
-			// Spin through the faces at least MinSpins times, and stop on the face of the protagonist.
+			// Spin through the faces at least MinSpins times (HD) or for OriginalSpinTicks (Original), and stop on
+			// the face of the protagonist.
 			int characterIndex = CharacterIndexRobotnik;
 			int targetCharacterIndex = GetProtagonistCharacterIndex();
-			for (int spins = 0; spins < MinSpins || characterIndex != targetCharacterIndex; ++spins)
+			int spinTicks = 0;
+			for (int spins = 0; !IsSpinDone(spins, spinTicks) || characterIndex != targetCharacterIndex; ++spins)
 			{
 				// Turn to the side. The animation goes to AnimationSide when it ends.
 				++_animation.Index;
@@ -116,19 +138,38 @@ public class SignpostInstance : ActiveObject
 				{
 					UpdateCamera();
 					UpdateSparkles();
+					++spinTicks;
 					yield return UpdateResult.Next();
 				}
 
 				// Turn to the front of the next character. The animation goes to the front animation when it ends.
-				characterIndex = (characterIndex + 1) % CharacterCount;
+				// The original stops on the face of the protagonist at once when the spin time ends.
+				characterIndex = Level.OriginalPhysics && spinTicks >= OriginalSpinTicks
+					? targetCharacterIndex
+					: (characterIndex + 1) % CharacterCount;
 				int animationIndex = GetAnimationIndexFromCharacter(characterIndex);
 				_animation.Index = animationIndex;
 				while (_animation.Index != animationIndex + OffsetFront)
 				{
 					UpdateCamera();
 					UpdateSparkles();
+					++spinTicks;
 					yield return UpdateResult.Next();
 				}
+			}
+			if (Level.OriginalPhysics)
+			{
+				// The protagonist runs right with the controls locked. The level completes when it reaches the right
+				// side of the screen.
+				while (!UpdateOriginalRun())
+				{
+					UpdateCamera();
+					yield return UpdateResult.Next();
+				}
+				Level.Player.RemoveStatusAtEndOfAct();
+				Level.CompleteLevel();
+				_triggeredEndGame = true;
+				yield break;
 			}
 			Rectanglei bounds = Level.Bounds;
 			while (bounds.Bottom != _targetCameraBottom)
@@ -141,6 +182,39 @@ public class SignpostInstance : ActiveObject
 			Level.CompleteLevel();
 			_triggeredEndGame = true;
 		}
+	}
+
+	private bool IsSpinDone(int spins, int spinTicks) => Level.OriginalPhysics ? spinTicks >= OriginalSpinTicks : spins >= MinSpins;
+
+	/// <summary>
+	/// The original activates the signpost when the protagonist is in the $20 px right of the signpost while the
+	/// timer runs.
+	/// </summary>
+	private void CheckOriginalActivation()
+	{
+		ICharacter character = Level.Player.Protagonist;
+		if (character == null || character.IsDebug || !Level.StateFlags.HasFlag(LevelStateFlags.UpdateTime))
+			return;
+		int distance = character.Position.X - Position.X;
+		if (distance >= 0 && distance < OriginalActivationWidth)
+			Activate(character);
+	}
+
+	/// <summary>
+	/// Locks the controls of the protagonist with right held while it is on the ground. Returns true when the
+	/// protagonist has reached the end of the run.
+	/// </summary>
+	private bool UpdateOriginalRun()
+	{
+		ICharacter character = Level.Player.Protagonist;
+		if (character.IsDebug)
+			return false;
+		if (!character.IsAirborne)
+		{
+			Level.StateFlags &= ~LevelStateFlags.AllowCharacterControl;
+			character.Input = new CharacterInputState { Throttle = 1.0 };
+		}
+		return character.Position.X >= Level.Bounds.Right - OriginalRunEndFromRight;
 	}
 
 	/// <summary>Gets the "turn to the front" animation index of a character.</summary>
