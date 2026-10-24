@@ -32,12 +32,22 @@ public class RingInstance : ActiveObject
 	private const double AttractDistance = 256.0;
 	private const double Gravity = 0.375;
 
+	/// <summary>In the Original physics, a scattered ring checks the floor once every this number of ticks.</summary>
+	private const int OriginalFloorCheckInterval = 8;
+
+	/// <summary>The distance up and down from the ring position where the Original physics looks for the floor.</summary>
+	private const int OriginalFloorSensorSize = 96;
+
+	/// <summary>The radius of the ring (8 px).</summary>
+	private const int Radius = 32;
+
 	private bool _scatter;
 	private bool _stationary;
 	private bool _attracted;
 	private AnimationInstance _animation;
 	private Vector2 _velocity;
 	private int _lifeTicks;
+	private int _floorCheckPhase;
 	private ITexture _glowTexture;
 	private PointLightSource _lightSource;
 
@@ -66,6 +76,9 @@ public class RingInstance : ActiveObject
 		if (Scatter)
 		{
 			_stationary = false;
+			// The original checks the floor of each ring on a different frame (the frame counter plus the object
+			// slot). The start velocity is different for each ring, so it gives the phase here.
+			_floorCheckPhase = ((int)Math.Floor(_velocity.X * 4.0) + 3 * (int)Math.Floor(_velocity.Y * 4.0)) & (OriginalFloorCheckInterval - 1);
 		}
 		else
 		{
@@ -135,8 +148,39 @@ public class RingInstance : ActiveObject
 				// The ring spins slower as it gets older.
 				_animation.OverrideDelay = (MaxLifeTicks - _lifeTicks) / 32;
 				--_lifeTicks;
-				UpdateMovement();
+				if (Level.OriginalPhysics)
+					UpdateOriginalMovement();
+				else
+					UpdateMovement();
 			}
+		}
+	}
+
+	/// <summary>
+	/// Moves a scattered ring as Obj37_Main in the original. The ring checks only the floor, only while it falls, only
+	/// once every 8 frames and only when it is on the screen. It goes through walls and ceilings.
+	/// </summary>
+	private void UpdateOriginalMovement()
+	{
+		PositionPrecise = PositionPrecise + _velocity;
+		_velocity.Y += Gravity;
+		if (_velocity.Y < 0.0 || (Level.Ticks + _floorCheckPhase) % OriginalFloorCheckInterval != 0)
+			return;
+		if (!Level.Camera.Bounds.IntersectsWith(new Rectangle(Position.X - Radius, Position.Y - Radius, Radius * 2, Radius * 2)))
+			return;
+		foreach (CollisionInfo collision in CollisionVector.GetCollisions(this, OriginalFloorSensorSize, Radius))
+		{
+			if (collision.Vector.IsWall || collision.Vector.Mode != CollisionMode.Top)
+				continue;
+			// The sensor is larger than the ring, because the ring can go far into the floor in 8 frames. Get the
+			// shift for the radius of the ring. The ring hits the floor only when it is in the floor.
+			double shift = collision.Shift + Math.Cos(collision.Angle) * (OriginalFloorSensorSize - Radius);
+			if (shift >= 0.0)
+				continue;
+			// Align the ring to the floor, and bounce with 75% of the speed.
+			PositionPrecise = new Vector2(PositionPrecise.X, PositionPrecise.Y + shift);
+			_velocity.Y = -(_velocity.Y - _velocity.Y / 4.0);
+			return;
 		}
 	}
 
