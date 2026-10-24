@@ -113,7 +113,10 @@ public class WingFortressZoneArea : Area
 		if (!settings.Seamless)
 		{
 			_level.TileSet = _resourceTree.GetLoadedResource<TileSet>(this, TileSetResourceKey);
-			_level.LoadMap(_resourceTree.GetLoadedResource<LevelMap>(this, MapResourceKey));
+			LevelMap map = _resourceTree.GetLoadedResource<LevelMap>(this, MapResourceKey);
+			// The map is shared: put back the layout changes of the last play
+			LayoutChanges.Reset(map);
+			_level.LoadMap(map);
 			_level.LoadBinding(_resourceTree.GetLoadedResource<LevelBinding>(this, BindingResourceKey));
 		}
 		// The zone has one act. Act 0 shows no act number, and a completed stage ends the zone: act 1 would load an

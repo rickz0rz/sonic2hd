@@ -21,6 +21,16 @@ namespace SonicOrca.Original;
 public sealed record OriginalAct(int Number, string LayoutFile, string ObjectsFile, string RingsFile, string StartFile,
 	Vector2i Offset, int FirstColumn, Vector2i Size, string BumpersFile = null, int Top = 0, int WaterHeight = -1);
 
+/// <summary>
+/// A change to the level layout that the code of the original makes during play, for example a wall that closes a
+/// boss arena. The import writes the changed tiles and collision lines into the map, switched off. The object or
+/// the area that makes the change switches them on with <c>LayoutChanges.Apply</c>.
+/// </summary>
+/// <param name="Name">The name of the change, for example "boss_walls".</param>
+/// <param name="Act">The act of the layout.</param>
+/// <param name="Chunks">The new chunks: the column and the row in the layout of the act, and the chunk number.</param>
+public sealed record LayoutChange(string Name, int Act, IReadOnlyList<(int Column, int Row, int Chunk)> Chunks);
+
 /// <summary>The background layer of an HD map: its name, its height in blocks and its parallax.</summary>
 /// <param name="RowHeight">The height of the parallax row, in HD pixels.</param>
 public sealed record BackgroundLayer(string Name, int Rows, double ParallaxX, double ParallaxY, int RowHeight);
@@ -49,6 +59,9 @@ public sealed record OriginalZone(string Name, string Key, string ChunksFile, st
 	/// itself. The notes do not list them.
 	/// </summary>
 	public IReadOnlyList<int> SkippedObjects { get; init; } = Array.Empty<int>();
+
+	/// <summary>The changes to the layout that the code of the original makes during play.</summary>
+	public IReadOnlyList<LayoutChange> LayoutChanges { get; init; } = Array.Empty<LayoutChange>();
 
 	/// <summary>More level art that the game loads over <see cref="ArtFile"/>, each from its first pattern.</summary>
 	public IReadOnlyList<(string File, int Tile)> MoreArt { get; init; } = Array.Empty<(string, int)>();
@@ -98,7 +111,15 @@ public sealed record OriginalZone(string Name, string Key, string ChunksFile, st
 				},
 				new OriginalSprite("SONICORCA/OBJECTS/CNZSLOTCAGE/BOMB", "art/nemesis/Spikey ball from CNZ slots.nem", "mappings/sprite/objD6_a.asm", 0),
 			},
-			"art/kosinski/CNZ.kos", "mappings/16x16/CNZ.kos", 1023),
+			"art/kosinski/CNZ.kos", "mappings/16x16/CNZ.kos", 1023)
+		{
+			// LevEvents_CNZ2 closes the boss arena with chunk $F9: the right wall at the trigger, the left wall at the lock
+			LayoutChanges = new[]
+			{
+				new LayoutChange("boss_right_wall", 2, new[] { (0x54, 12, 0xF9) }),
+				new LayoutChange("boss_left_wall", 2, new[] { (0x50, 12, 0xF9) }),
+			}
+		},
 		// The HD map of Aquatic Ruin has act 2 at block (704, 4), after act 1. LevelSize: act 1 $28C0 x ($200 to
 		// $600), act 2 ($180 to $710). The level events of act 2 lock the camera at $2A40 for the boss. The
 		// water tops are $410 and $510.
@@ -350,6 +371,15 @@ public sealed record OriginalZone(string Name, string Key, string ChunksFile, st
 			// The patterns of WFZ that are not in the SCZ art (ArtKos_WFZ)
 			MoreArt = new[] { ("art/kosinski/WFZ_Supp.kos", 0x307) },
 			AreaObjects = new[] { "SONICORCA/OBJECTS/CLUCKER/SHOT", "SONICORCA/OBJECTS/WFZBOSS/LASERWALL", "SONICORCA/OBJECTS/WFZBOSS/PLATFORM" },
+			// ObjC2_Bust: the rivet opens the deck into the boss room
+			LayoutChanges = new[]
+			{
+				new LayoutChange("rivet", 1, new[]
+				{
+					(0x50, 8, 0x8A), (0x51, 8, 0x70), (0x52, 8, 0x71), (0x53, 8, 0x72), (0x54, 8, 0x73), (0x55, 8, 0x74),
+					(0x50, 9, 0x6E), (0x51, 9, 0x78), (0x52, 9, 0x79), (0x53, 9, 0x78), (0x54, 9, 0x78), (0x55, 9, 0x7A),
+				}),
+			},
 			// $8B only changes the palette cycle of the fire. The area makes the boss ($C5) when the player reaches it.
 			SkippedObjects = new[] { 0x8B, 0xC5 }
 		},
@@ -603,10 +633,18 @@ public static class LevelImport
 		string tileSet = null;
 		byte[] priorityTexture = null;
 		uint[] palette = SpriteImport.ReadPalette(disassembly, zone.PaletteFile);
+		byte[] art = null;
+		byte[] blockMappings = null;
+		HashSet<int> priorityBlocks = null;
+		HashSet<int> animatedBlocks = null;
+		IReadOnlyList<AnimatedArt> animations = null;
+		var used = new HashSet<int>();
+		var usedAnimated = new HashSet<int>();
+		LevelLayer high = null;
 		if (zone.ArtFile != null)
 		{
 			// The high-priority patterns go on a layer after the front layer, so they cover the characters
-			byte[] art = Kosinski.Decompress(File.ReadAllBytes(Path(zone.ArtFile)));
+			art = Kosinski.Decompress(File.ReadAllBytes(Path(zone.ArtFile)));
 			foreach ((string file, int tile) in zone.MoreArt)
 			{
 				byte[] more = Kosinski.Decompress(File.ReadAllBytes(Path(file)));
@@ -616,56 +654,67 @@ public static class LevelImport
 				}
 				more.CopyTo(art, tile * 32);
 			}
-			byte[] blockMappings = AnimatedArt.AddAnimatedBlocks(disassembly, zone.Name, Kosinski.Decompress(File.ReadAllBytes(Path(zone.BlocksFile))));
-			HashSet<int> priorityBlocks = PriorityTiles.GetPriorityBlocks(blockMappings);
-			IReadOnlyList<AnimatedArt> animations = AnimatedArt.Read(disassembly, zone.Name);
-			HashSet<int> animatedBlocks = PriorityTiles.GetAnimatedBlocks(blockMappings, animations);
-			var used = new HashSet<int>();
-			var usedAnimated = new HashSet<int>();
-			var high = new LevelLayer(map) { Name = "front_high" };
+			blockMappings = AnimatedArt.AddAnimatedBlocks(disassembly, zone.Name, Kosinski.Decompress(File.ReadAllBytes(Path(zone.BlocksFile))));
+			priorityBlocks = PriorityTiles.GetPriorityBlocks(blockMappings);
+			animations = AnimatedArt.Read(disassembly, zone.Name);
+			animatedBlocks = PriorityTiles.GetAnimatedBlocks(blockMappings, animations);
+			high = new LevelLayer(map) { Name = "front_high" };
 			high.Resize(columns, rows);
 			for (int row = 0; row < rows; row++)
 			{
 				for (int column = 0; column < columns; column++)
 				{
-					int block = blocks[column, row] & 0x3FF;
-					if (block != 0 && animatedBlocks.Contains(block))
-					{
-						usedAnimated.Add(block);
-						if (PriorityTiles.HasPatterns(blockMappings, block, priority: false))
-						{
-							front.Tiles[column, row] = PriorityTiles.AnimatedFirstTile + ToTile(blocks[column, row]);
-						}
-					}
-					if (block != 0 && priorityBlocks.Contains(block))
-					{
-						used.Add(block);
-						high.Tiles[column, row] = PriorityTiles.FirstTile + ToTile(blocks[column, row]);
-					}
+					front.Tiles[column, row] = GetFrontTile(blocks[column, row]);
+					high.Tiles[column, row] = GetHighTile(blocks[column, row]);
 				}
 			}
 			layers.Add(high);
+		}
+
+		// The front tile of a block: the HD tile, or the animated tile of a block with animated art
+		int GetFrontTile(ushort entry)
+		{
+			int block = entry & 0x3FF;
+			if (block != 0 && animatedBlocks != null && animatedBlocks.Contains(block))
+			{
+				usedAnimated.Add(block);
+				if (PriorityTiles.HasPatterns(blockMappings, block, priority: false))
+				{
+					return PriorityTiles.AnimatedFirstTile + ToTile(entry);
+				}
+			}
+			return ToTile(entry);
+		}
+
+		// The tile of the priority layer: the high-priority patterns of the block, or nothing
+		int GetHighTile(ushort entry)
+		{
+			int block = entry & 0x3FF;
+			if (block == 0 || priorityBlocks == null || !priorityBlocks.Contains(block))
+			{
+				return 0;
+			}
+			used.Add(block);
+			return PriorityTiles.FirstTile + ToTile(entry);
+		}
+
+		// Path 0 is the primary collision and path 1 the secondary collision, as the layer switches expect
+		map.CollisionPathLayers.Add(FrontLayerIndex);
+		map.CollisionPathLayers.Add(FrontLayerIndex);
+		foreach ((Vector2i a, Vector2i b, uint paths) in GetCollisionLines(blocks, primary, secondary, heights))
+		{
+			map.CollisionVectors.Add(new CollisionVector(a, b, paths));
+		}
+		AddLayoutChanges(zone, map, layers, chunks, layouts, blocks, primary, secondary, heights, GetFrontTile, GetHighTile);
+
+		if (zone.ArtFile != null)
+		{
 			(tileSet, priorityTexture) = PriorityTiles.Create(zone.HdTiles, art, blockMappings, palette, used, usedAnimated, animations, Scale);
 		}
 		foreach (LevelLayer layer in layers)
 		{
 			map.LayerTree.Children.Add(layer);
 			map.Layers.Add(layer);
-		}
-
-		// Path 0 is the primary collision and path 1 the secondary collision, as the layer switches expect
-		map.CollisionPathLayers.Add(FrontLayerIndex);
-		map.CollisionPathLayers.Add(FrontLayerIndex);
-		var primaryLines = TraceCollision(blocks, primary, heights, topBit: 12);
-		var secondaryLines = TraceCollision(blocks, secondary, heights, topBit: 14);
-		var secondarySet = secondaryLines.ToHashSet();
-		foreach ((Vector2i a, Vector2i b) in primaryLines)
-		{
-			map.CollisionVectors.Add(new CollisionVector(a, b, secondarySet.Remove((a, b)) ? 3u : 1u));
-		}
-		foreach ((Vector2i a, Vector2i b) in secondaryLines.Where(secondarySet.Contains))
-		{
-			map.CollisionVectors.Add(new CollisionVector(a, b, 2u));
 		}
 
 		var binding = new LevelBinding();
@@ -871,6 +920,98 @@ public static class LevelImport
 		}
 		return CollisionTracer.Trace(grid, width, height, Scale);
 	}
+
+	/// <summary>The collision lines of both paths: the line, and the paths that use it (1, 2 or both).</summary>
+	private static List<(Vector2i A, Vector2i B, uint Paths)> GetCollisionLines(ushort[,] blocks, byte[] primary, byte[] secondary, byte[] heights)
+	{
+		var primaryLines = TraceCollision(blocks, primary, heights, topBit: 12);
+		var secondaryLines = TraceCollision(blocks, secondary, heights, topBit: 14);
+		var secondarySet = secondaryLines.ToHashSet();
+		var result = new List<(Vector2i, Vector2i, uint)>();
+		foreach ((Vector2i a, Vector2i b) in primaryLines)
+		{
+			result.Add((a, b, secondarySet.Remove((a, b)) ? 3u : 1u));
+		}
+		foreach ((Vector2i a, Vector2i b) in secondaryLines.Where(secondarySet.Contains))
+		{
+			result.Add((a, b, 2u));
+		}
+		return result;
+	}
+
+	/// <summary>
+	/// Adds the layout changes of the zone to the map, switched off. Change N has a hidden layer
+	/// "change_N_name" with the new front tiles and "change_N_name_high" with the new priority tiles, a marker
+	/// "change_N_name" at the top left of each changed chunk, and collision lines with the paths of the change in
+	/// other bits (see <see cref="LayoutChangeBits"/>).
+	/// </summary>
+	private static void AddLayoutChanges(OriginalZone zone, LevelMap map, List<LevelLayer> layers, byte[] chunks, byte[][] layouts,
+		ushort[,] blocks, byte[] primary, byte[] secondary, byte[] heights, Func<ushort, int> getFrontTile, Func<ushort, int> getHighTile)
+	{
+		LevelLayer front = layers[FrontLayerIndex];
+		List<(Vector2i A, Vector2i B, uint Paths)> lines = null;
+		for (int index = 0; index < zone.LayoutChanges.Count; index++)
+		{
+			LayoutChange change = zone.LayoutChanges[index];
+			int actIndex = zone.Acts.ToList().FindIndex(a => a.Number == change.Act);
+			OriginalAct act = zone.Acts[actIndex];
+			byte[] layout = (byte[])layouts[actIndex].Clone();
+			foreach ((int column, int row, int chunk) in change.Chunks)
+			{
+				layout[256 * row + column] = (byte)chunk;
+			}
+			ushort[,] changed = (ushort[,])blocks.Clone();
+			string name = $"change_{index}_{change.Name}";
+			var changeFront = new LevelLayer(map) { Name = name, Visible = false };
+			var changeHigh = new LevelLayer(map) { Name = name + "_high", Visible = false };
+			changeFront.Resize(front.Columns, front.Rows);
+			changeHigh.Resize(front.Columns, front.Rows);
+			foreach ((int column, int row, int _) in change.Chunks)
+			{
+				int left = act.Offset.X / BlockSize + column * BlocksPerChunk;
+				int top = act.Offset.Y / BlockSize + row * BlocksPerChunk;
+				AddMarker(map, front, name, new Vector2i(left, top) * BlockSize * Scale);
+				for (int y = 0; y < BlocksPerChunk; y++)
+				{
+					for (int x = 0; x < BlocksPerChunk; x++)
+					{
+						if (left + x >= front.Columns || top + y >= front.Rows)
+						{
+							continue;
+						}
+						ushort entry = GetBlock(chunks, layout, column * BlocksPerChunk + x, row * BlocksPerChunk + y, background: false);
+						changed[left + x, top + y] = entry;
+						changeFront.Tiles[left + x, top + y] = getFrontTile(entry);
+						changeHigh.Tiles[left + x, top + y] = getHighTile(entry);
+					}
+				}
+			}
+			layers.Add(changeFront);
+			layers.Add(changeHigh);
+
+			// The lines that only the changed layout has are added switched off. The lines that only the original
+			// layout has get a mark, so that the change can switch them off.
+			lines ??= GetCollisionLines(blocks, primary, secondary, heights);
+			var changedLines = GetCollisionLines(changed, primary, secondary, heights);
+			var before = lines.ToHashSet();
+			var after = changedLines.ToHashSet();
+			(int shift, uint removedBit) = LayoutChangeBits(index);
+			foreach (CollisionVector vector in map.CollisionVectors.Where(v => (v.Paths & 3) != 0 && !after.Contains((v.RelativeA, v.RelativeB, v.Paths & 3))))
+			{
+				vector.Paths |= removedBit;
+			}
+			foreach ((Vector2i a, Vector2i b, uint paths) in changedLines.Where(l => !before.Contains(l)))
+			{
+				map.CollisionVectors.Add(new CollisionVector(a, b, paths << shift));
+			}
+		}
+	}
+
+	/// <summary>
+	/// The bits of the collision paths of layout change N: the paths of its new lines, from bit <c>shift</c>, and the
+	/// mark of the lines that it takes away. The engine uses only bits 0 and 1, so these lines are not active.
+	/// </summary>
+	public static (int Shift, uint RemovedBit) LayoutChangeBits(int index) => (2 + index * 3, 1u << (4 + index * 3));
 
 	private static void AddMarker(LevelMap map, LevelLayer layer, string name, Vector2i position)
 	{

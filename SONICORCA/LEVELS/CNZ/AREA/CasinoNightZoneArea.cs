@@ -54,6 +54,7 @@ public class CasinoNightZoneArea : Area
 	private ResourceTree _resourceTree;
 	private Level _level;
 	private BossArena _bossArena;
+	private bool _rightWallDone;
 
 	public CasinoNightZoneArea()
 		: base(AreaDependencies)
@@ -73,13 +74,17 @@ public class CasinoNightZoneArea : Area
 		if (!settings.Seamless)
 		{
 			_level.TileSet = _resourceTree.GetLoadedResource<TileSet>(this, TileSetResourceKey);
-			_level.LoadMap(_resourceTree.GetLoadedResource<LevelMap>(this, MapResourceKey));
+			LevelMap map = _resourceTree.GetLoadedResource<LevelMap>(this, MapResourceKey);
+			// The map is shared: put back the layout changes of the last play
+			LayoutChanges.Reset(map);
+			_level.LoadMap(map);
 			_level.LoadBinding(_resourceTree.GetLoadedResource<LevelBinding>(this, BindingResourceKey));
 		}
 		_level.LevelMusic = LevelMusicResourceKey;
 		int act = settings.Act == 2 ? 2 : 1;
 		_level.CurrentAct = act;
 		_bossArena = null;
+		_rightWallDone = false;
 		if (_level.TryGetMarker($"bounds_{act}_lt", out LevelMarker leftTop) && _level.TryGetMarker($"bounds_{act}_rb", out LevelMarker rightBottom))
 		{
 			_level.SetStartPosition("startpos_stk_" + act);
@@ -100,9 +105,25 @@ public class CasinoNightZoneArea : Area
 
 	public override void OnUpdate()
 	{
-		if (_level.StateFlags.HasFlag(LevelStateFlags.Updating))
+		if (!_level.StateFlags.HasFlag(LevelStateFlags.Updating) || _bossArena == null)
 		{
-			_bossArena?.Update();
+			return;
+		}
+		_bossArena.Update();
+		// The walls of the boss arena (LevEvents_CNZ2): the right wall at the trigger, the left wall at the lock.
+		// The boss opens the right wall again when it flees.
+		if (_bossArena.Triggered && !_rightWallDone)
+		{
+			_rightWallDone = true;
+			LayoutChanges.Apply(_level, "boss_right_wall");
+		}
+		if (_bossArena.Locked)
+		{
+			LayoutChanges.Apply(_level, "boss_left_wall");
+		}
+		if (_bossArena.Boss?.Fleeing == true)
+		{
+			LayoutChanges.Undo(_level, "boss_right_wall");
 		}
 	}
 }

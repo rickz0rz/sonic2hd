@@ -82,6 +82,9 @@ public sealed class BossArena
 	/// <summary>True when the camera has passed the trigger X: the boss events have started.</summary>
 	public bool Triggered => _state > 0;
 
+	/// <summary>True when the arena is locked.</summary>
+	public bool Locked => _state > 1;
+
 	/// <summary>The original camera X: the left edge of a 320 pixel screen at the centre of the HD camera.</summary>
 	private int CameraX => (int)((_level.Camera.Bounds.X + _level.Camera.Bounds.Width / 2 - _origin.X) / Scale) - OriginalScreenWidth / 2;
 

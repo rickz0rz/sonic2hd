@@ -68,6 +68,22 @@ public sealed class LevelImportLateZonesTests
 	}
 
 	[Fact]
+	public void Wfz_TheRivetChange_IsInTheMap_SwitchedOff()
+	{
+		LevelMap map = Wfz.Value.Map;
+		(int shift, uint removedBit) = LevelImport.LayoutChangeBits(0);
+
+		// A hidden layer for the front tiles and one for the priority tiles, and a marker for each of the 12 chunks
+		LevelLayer front = Assert.Single(map.Layers, l => l.Name == "change_0_rivet");
+		Assert.False(front.Visible);
+		Assert.Contains(map.Layers, l => l.Name == "change_0_rivet_high" && !l.Visible);
+		Assert.Equal(12, map.Markers.Count(m => m.Name == "change_0_rivet"));
+		// The rivet opens a hole in the deck: 8 lines go away and 27 lines come
+		Assert.Equal(8, map.CollisionVectors.Count(v => (v.Paths & removedBit) != 0));
+		Assert.Equal(27, map.CollisionVectors.Count(v => (v.Paths & 3) == 0 && ((v.Paths >> shift) & 3) != 0));
+	}
+
+	[Fact]
 	public void Dez_HasTheRobot_Eggman_AndTheDoors()
 	{
 		ImportedLevel level = Dez.Value;

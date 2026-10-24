@@ -107,6 +107,10 @@ internal class LevelMapResourceType : ResourceType
 		{
 			levelLayer.MiniMapColour = miniMapColour;
 		}
+		if (node.TryGetAttributeValue("visible", out value) && bool.TryParse(value, out bool visible))
+		{
+			levelLayer.Visible = visible;
+		}
 		levelLayer.LayerRowDefinitions.AddRange(from x in node.SelectNodes("rowdefinitions/rowdefinition").OfType<XmlNode>()
 												select GetRowDefinitionFromXmlNode(x));
 		XmlNode lightingNode = node.SelectSingleNode("lighting");
