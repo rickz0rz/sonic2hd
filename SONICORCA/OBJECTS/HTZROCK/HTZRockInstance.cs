@@ -10,8 +10,8 @@ using SonicOrca.Graphics;
 namespace SONICORCA.OBJECTS.HTZROCK;
 
 /// <summary>
-/// The breakable rock from Hill Top Zone. A character in a spinball that hits its top or bottom breaks it. The rock
-/// then throws out rock particles and gives score.
+/// The breakable rock from Hill Top Zone. A character in a spinball that hits its top breaks it. In HD physics, a hit
+/// on the bottom also breaks it. The rock then throws out rock particles and gives score.
 /// </summary>
 public class HTZRockInstance : ActiveObject
 {
@@ -39,9 +39,11 @@ public class HTZRockInstance : ActiveObject
 	{
 		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"), AnimationRock);
 		CollisionVectors = CollisionVector.FromRectangle(this, new Rectanglei(-96, -64, 192, 128));
-		// Vector 1 is the top and vector 3 is the bottom of the rock.
+		// Vector 1 is the top and vector 3 is the bottom of the rock. The original (Obj32) breaks only when a rolling
+		// character stands on the top.
 		CollisionVectors[1].Id = BreakableCollisionId;
-		CollisionVectors[3].Id = BreakableCollisionId;
+		if (!Level.OriginalPhysics)
+			CollisionVectors[3].Id = BreakableCollisionId;
 		Priority = -256;
 	}
 
