@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -32,7 +33,21 @@ internal class AreaResourceType : ResourceType
 		}
 		Area area = (Area)Activator.CreateInstance(type);
 		area.Resource = e.Resource;
-		e.PushDependencies(area.Dependencies.Select(x => e.GetAbsolutePath(x)));
+		e.PushDependencies(area.Dependencies.Select(x => e.GetAbsolutePath(x)).Where(key => !IsMissingMusic(e.ResourceTree, key)));
 		return area;
+	}
+
+	/// <summary>
+	/// True for music that is not in the resources. The demo data has no music for some zones. The level then plays
+	/// without music, and a mod can add it.
+	/// </summary>
+	private static bool IsMissingMusic(ResourceTree tree, string key)
+	{
+		if (!key.StartsWith("SONICORCA/MUSIC/", StringComparison.OrdinalIgnoreCase) || tree[key]?.Resource != null)
+		{
+			return false;
+		}
+		Trace.WriteLine("Music " + key + " is not in the resources. The level plays without it.");
+		return true;
 	}
 }

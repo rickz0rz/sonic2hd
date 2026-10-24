@@ -2,29 +2,31 @@ using System.Collections.Generic;
 using System.Linq;
 using SonicOrca;
 using SonicOrca.Core;
+using SonicOrca.Geometry;
 using SonicOrca.Resources;
 
 namespace SONICORCA.LEVELS.CNZ.AREA;
 
 /// <summary>
-/// The area for Casino Night Zone. It loads the tile set, the map and the binding.
-/// The level bounds are the bounds of the map.
+/// The area for Casino Night Zone. It loads the tile set, the map and the binding. The game data has the tiles of
+/// both acts, but no collision, no objects and no music. A map from "s2hd-data import-level cnz" adds the collision,
+/// the objects and the markers for the start positions and the act bounds. Without the markers, the level bounds are
+/// the bounds of the map.
 /// </summary>
 public class CasinoNightZoneArea : Area
 {
 	private const string TileSetResourceKey = "//TILESET";
 	private const string MapResourceKey = "//MAP";
 	private const string BindingResourceKey = "//BINDING";
-	/// <summary>
-	/// Not used. This area does not set the level music and does not load this resource.
-	/// </summary>
-	private const string LevelMusicResourceKey = "SONICORCA/MUSIC/LEVELS/CNZ/COOPERATIVE";
+	/// <summary>The game data has no music for this zone. A mod can add it.</summary>
+	private const string LevelMusicResourceKey = "SONICORCA/MUSIC/LEVELS/CNZ";
 
 	public static IReadOnlyList<string> AreaDependencies = new string[]
 	{
 		TileSetResourceKey,
 		MapResourceKey,
-		BindingResourceKey
+		BindingResourceKey,
+		LevelMusicResourceKey
 	}.ToArray();
 
 	private SonicOrcaGameContext _gameContext;
@@ -51,6 +53,19 @@ public class CasinoNightZoneArea : Area
 			_level.LoadMap(_resourceTree.GetLoadedResource<LevelMap>(this, MapResourceKey));
 			_level.LoadBinding(_resourceTree.GetLoadedResource<LevelBinding>(this, BindingResourceKey));
 		}
-		_level.Bounds = _level.Map.Bounds;
+		_level.LevelMusic = LevelMusicResourceKey;
+		int act = settings.Act == 2 ? 2 : 1;
+		_level.CurrentAct = act;
+		if (_level.TryGetMarker($"bounds_{act}_lt", out LevelMarker leftTop) && _level.TryGetMarker($"bounds_{act}_rb", out LevelMarker rightBottom))
+		{
+			_level.SetStartPosition("startpos_stk_" + act);
+			_level.Bounds = Rectanglei.FromLTRB(leftTop.Position.X, leftTop.Position.Y, rightBottom.Position.X, rightBottom.Position.Y);
+		}
+		else
+		{
+			_level.Bounds = _level.Map.Bounds;
+		}
+		_level.RingsPerfectTarget = _level.ObjectManager.ObjectEntryTable.GetRingCountInRegion(_level.Bounds);
+		settings.StartPath = 0;
 	}
 }

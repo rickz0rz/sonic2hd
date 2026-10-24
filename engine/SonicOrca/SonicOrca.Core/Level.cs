@@ -366,7 +366,11 @@ public class Level : IDisposable
 			_cameraLockedSeamless = false;
 		}
 		StartTitleCard(PrepareSettings.Seamless);
-		_soundManager.PlayMusic(LevelMusic);
+		// A zone without music in the resources plays without music (see AreaResourceType)
+		if (!string.IsNullOrEmpty(LevelMusic) && _gameContext.ResourceTree[LevelMusic]?.Resource != null)
+		{
+			_soundManager.PlayMusic(LevelMusic);
+		}
 		Time = ((_player.StarpostIndex != -1) ? _player.StarpostTime : 0);
 		_hud.ShowMiliseconds = PrepareSettings.TimeTrial;
 		ClassicDebugMode = PrepareSettings.Debugging;
