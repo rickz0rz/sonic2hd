@@ -47,7 +47,8 @@ public class CoconutsInstance : Badnik
 	private StateType _state;
 	private int _stateDuration;
 	private int _throwWaitDuration;
-	private int _climbDataIndex;
+	/// <summary>The current step of the climb pattern. The first climb uses step 0, as in the original.</summary>
+	private int _climbDataIndex = -1;
 	private bool _facingRight;
 
 	public CoconutsInstance() => DesignBounds = new Rectanglei(-96, -100, 192, 200);
