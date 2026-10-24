@@ -129,6 +129,14 @@ static int ImportLevel(string zoneName, string disassembly, string folder)
 	Directory.CreateDirectory(output);
 	new LevelMapWriter(level.Map).Save(Path.Combine(output, "MAP.map.xml"));
 	new LevelBindingWriter(level.Binding).Save(Path.Combine(output, "BINDING.binding.xml"));
+	// The tiles in front of the characters: a new tile set that adds them to the HD tiles
+	if (level.TileSet != null)
+	{
+		string tileSetFolder = Path.Combine(output, "TILESET");
+		Directory.CreateDirectory(tileSetFolder);
+		File.WriteAllText(Path.Combine(tileSetFolder, "_.tileset.xml"), level.TileSet);
+		File.WriteAllBytes(Path.Combine(tileSetFolder, "PRIORITY.png"), level.PriorityTexture);
+	}
 	// The art of the objects that the game data does not have
 	string KeyFolder(string key) => Path.Combine(new[] { folder }.Concat(key.Split('/')).ToArray());
 	foreach (ImportedSprite sprite in level.Sprites)
@@ -137,6 +145,12 @@ static int ImportLevel(string zoneName, string disassembly, string folder)
 		Directory.CreateDirectory(spriteFolder);
 		File.WriteAllBytes(Path.Combine(spriteFolder, "TEXTURE.png"), sprite.Texture);
 		File.WriteAllText(Path.Combine(spriteFolder, "ANIGROUP.anigroup.xml"), sprite.AnimationGroup);
+	}
+	foreach ((string key, byte[] texture) in level.Textures ?? new Dictionary<string, byte[]>())
+	{
+		string file = KeyFolder(key) + ".png";
+		Directory.CreateDirectory(Path.GetDirectoryName(file));
+		File.WriteAllBytes(file, texture);
 	}
 	// A resource that names the code of each new object: in its folder when it has art, else next to the folder
 	foreach ((string key, string codeNamespace) in level.NewObjects)

@@ -84,7 +84,11 @@ public static class ObjectPlacements
 	/// Converts one object of the original game. The original type selects the SonicOrca object and the subtype
 	/// selects its behaviour. Returns null for an object type that has no SonicOrca object.
 	/// </summary>
-	public static ObjectPlacement ConvertOriginalObjectPlacement(OriginalObjectPlacement originalPlacement)
+	/// <param name="priorityLayer">
+	/// True when the map has a layer for the high-priority tiles after the layer of the objects. A layer switch then
+	/// also moves a character to that layer (in front of the tiles) or back, as the original sets the sprite priority.
+	/// </param>
+	public static ObjectPlacement ConvertOriginalObjectPlacement(OriginalObjectPlacement originalPlacement, bool priorityLayer = false)
 	{
 		string key = null;
 		object behaviour = null;
@@ -96,18 +100,49 @@ public static class ObjectPlacements
 				{
 					key = "SONICORCA/OBJECTS/LAYERSWITCH";
 					int[] layerSwitchSizes = new int[4] { 256, 512, 1024, 2048 };
+					int sideA = (originalPlacement.SubType & 0x10) != 0 ? 1 : 0;
+					int sideB = (originalPlacement.SubType & 8) != 0 ? 1 : 0;
+					if (priorityLayer)
+					{
+						// Bit 6 gives the sprite priority on the left (or upper) side, bit 5 on the right (or lower)
+						// side. A flipped switch changes only the priority.
+						int layerA = (originalPlacement.SubType & 0x40) != 0 ? 1 : 0;
+						int layerB = (originalPlacement.SubType & 0x20) != 0 ? 1 : 0;
+						behaviour = (originalPlacement.SubType & 4) == 0
+							? new
+							{
+								AllowAirborne = (originalPlacement.SubType & 0x80) == 0,
+								Height = layerSwitchSizes[originalPlacement.SubType & 3],
+								Left = sideA,
+								Right = sideB,
+								LeftLayer = layerA,
+								RightLayer = layerB,
+								LayerOnly = originalPlacement.FlipX
+							}
+							: new
+							{
+								AllowAirborne = (originalPlacement.SubType & 0x80) == 0,
+								Width = layerSwitchSizes[originalPlacement.SubType & 3],
+								Above = sideA,
+								Below = sideB,
+								AboveLayer = layerA,
+								BelowLayer = layerB,
+								LayerOnly = originalPlacement.FlipX
+							};
+						break;
+					}
 					behaviour = (((originalPlacement.SubType & 4) == 0) ? (new
 					{
 						AllowAirborne = ((originalPlacement.SubType & 0x80) == 0),
 						Height = layerSwitchSizes[originalPlacement.SubType & 3],
-						Left = (((originalPlacement.SubType & 0x10) != 0) ? 1 : 0),
-						Right = (((originalPlacement.SubType & 8) != 0) ? 1 : 0)
+						Left = sideA,
+						Right = sideB
 					}) : (new
 					{
 						AllowAirborne = ((originalPlacement.SubType & 0x80) == 0),
 						Width = layerSwitchSizes[originalPlacement.SubType & 3],
-						Above = (((originalPlacement.SubType & 0x10) != 0) ? 1 : 0),
-						Below = (((originalPlacement.SubType & 8) != 0) ? 1 : 0)
+						Above = sideA,
+						Below = sideB
 					}));
 					break;
 				}
@@ -413,6 +448,13 @@ public static class ObjectPlacements
 				{
 					Distance = originalPlacement.SubType * 4,
 					StartAtBottom = originalPlacement.FlipX
+				};
+				break;
+			case 214:
+				key = "SONICORCA/OBJECTS/CNZSLOTCAGE";
+				behaviour = new
+				{
+					SlotMachine = originalPlacement.SubType != 0
 				};
 				break;
 			case 215:

@@ -152,11 +152,15 @@ these steps:
   convert yet, for example the slot machines.
 - It converts the art of the new CNZ objects (for example the bumpers, the flippers, the elevators and Crawl) from
   the original sprites, at four times the size, as the CNZ tiles are.
+- It adds the bumpers that are part of the landscape, and the reels of the slot machines.
+- It adds a layer for the parts of the blocks that the original draws in front of the characters. The layer
+  switches move a character in front of this layer or behind it, as the original sets the sprite priority.
 
 On a flipper or a spring launcher, the jump button controls the object. Press jump to flip a flipper. Hold jump to
 pull back a launcher, then let go to launch.
 
-The zone has no music, because the demo data has none for it. A mod can add `SONICORCA/MUSIC/LEVELS/CNZ`. The other
+The zone has no music, because the demo data has none for it. The data also has no bumper, flipper or slot machine
+sounds, so these objects play the nearest sound that the data has. A mod can add `SONICORCA/MUSIC/LEVELS/CNZ`. The other
 zones without music (ARZ, MCZ, OOZ and others) also load now, without music.
 
 ### Entering a special stage
