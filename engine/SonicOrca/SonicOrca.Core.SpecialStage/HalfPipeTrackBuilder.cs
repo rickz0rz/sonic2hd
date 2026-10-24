@@ -165,7 +165,7 @@ public static class HalfPipeTrackBuilder
 			foreach (HalfPipeObjectEntry entry in data.Objects)
 			{
 				int frame = next + Math.Max(0, entry.Distance - 1);
-				track.Objects.Add(new HalfPipeObject(entry.Kind, frame * NodesPerTrackFrame + NodesPerTrackFrame / 2, ToRadians(entry.Angle)));
+				track.Objects.Add(new HalfPipeObject(entry.Kind, frame * NodesPerTrackFrame + NodesPerTrackFrame / 2, entry.Angle));
 			}
 			switch (data.Marker)
 			{
@@ -245,11 +245,4 @@ public static class HalfPipeTrackBuilder
 		FrameKind.Rise or FrameKind.Drop => RiseOrDropFrames,
 		_ => 4,
 	};
-
-	/// <summary>Converts an angle in original units ($40 = bottom, up toward the left) to radians from the bottom.</summary>
-	public static double ToRadians(int originalAngle)
-	{
-		int fromBottom = (sbyte)(byte)(0x40 - originalAngle);
-		return fromBottom * Math.PI / 128.0;
-	}
 }

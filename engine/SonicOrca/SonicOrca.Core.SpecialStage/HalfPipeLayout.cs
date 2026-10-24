@@ -11,7 +11,8 @@ public enum HalfPipeObjectKind
 }
 
 /// <summary>
-/// An object on the surface of the half-pipe. <see cref="Angle"/> is in radians from the bottom of the pipe:
+/// An object on the surface of the half-pipe. <see cref="OriginalAngle"/> uses the units of the original game ($40 =
+/// bottom, up toward the left). <see cref="Angle"/> is the same angle in radians from the bottom of the pipe:
 /// negative to the left, positive to the right.
 /// </summary>
 public sealed class HalfPipeObject
@@ -20,7 +21,9 @@ public sealed class HalfPipeObject
 
 	public int TrackNode { get; }
 
-	public double Angle { get; }
+	public int OriginalAngle { get; }
+
+	public double Angle => HalfPipePlayer.ToRadiansFromBottom(OriginalAngle);
 
 	/// <summary>True after the player collected the ring or hit the bomb.</summary>
 	public bool Used { get; set; }
@@ -28,11 +31,11 @@ public sealed class HalfPipeObject
 	/// <summary>The ticks since the object was used, for the sparkle or the explosion.</summary>
 	public int UsedTicks { get; set; }
 
-	public HalfPipeObject(HalfPipeObjectKind kind, int trackNode, double angle)
+	public HalfPipeObject(HalfPipeObjectKind kind, int trackNode, int originalAngle)
 	{
 		Kind = kind;
 		TrackNode = trackNode;
-		Angle = angle;
+		OriginalAngle = originalAngle & 0xFF;
 	}
 }
 
