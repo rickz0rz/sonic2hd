@@ -110,16 +110,16 @@ public class MTZBossInstance : BossObject
 	private const int CloneFrameTicks = 4;
 
 	/// <summary>The scripts of Ani_obj53 that the ship uses: 1 is the jet, 3 to 7 are the faces of Eggman.</summary>
-	private static readonly AnimationScript.Script[] Scripts =
+	private static readonly byte[][] Scripts =
 	{
-		new AnimationScript.Script(0xF, new[] { ShipFrame }),
-		new AnimationScript.Script(1, new[] { 0, 1 }),
-		new AnimationScript.Script(3, new[] { 5 }),
-		new AnimationScript.Script(7, new[] { 0xC, 0xD }),
-		new AnimationScript.Script(7, new[] { 0xE, 0xF, 0xE, 0xF, 0xE, 0xF, 0xE, 0xF }, FaceNormal),
-		new AnimationScript.Script(7, new[] { 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10 }, FaceNormal),
-		new AnimationScript.Script(1, new[] { BurstFrame }),
-		new AnimationScript.Script(7, new[] { 0x11 })
+		new byte[] { 0xF, ShipFrame, 0xFF },
+		new byte[] { 1, 0, 1, 0xFF },
+		new byte[] { 3, 5, 0xFF },
+		new byte[] { 7, 0xC, 0xD, 0xFF },
+		new byte[] { 7, 0xE, 0xF, 0xE, 0xF, 0xE, 0xF, 0xE, 0xF, 0xFD, FaceNormal },
+		new byte[] { 7, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0xFD, FaceNormal },
+		new byte[] { 1, BurstFrame, 0xFF },
+		new byte[] { 7, 0x11, 0xFF }
 	};
 
 	private const int FaceNormal = 3;
@@ -130,9 +130,9 @@ public class MTZBossInstance : BossObject
 
 	private const int FaceDefeated = 7;
 
-	private readonly AnimationScript _face = new AnimationScript(Scripts) { Animation = FaceNormal, Frame = 0xC };
+	private readonly AnimateSpriteScript _face = new AnimateSpriteScript(Scripts) { Animation = FaceNormal, Frame = 0xC };
 
-	private readonly AnimationScript _jet = new AnimationScript(Scripts) { Animation = 1 };
+	private readonly AnimateSpriteScript _jet = new AnimateSpriteScript(Scripts) { Animation = 1 };
 
 	private readonly Orb[] _orbs = new Orb[OrbCount];
 

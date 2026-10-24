@@ -38,7 +38,7 @@ public class WFZBeltPlatformInstance : Platform
 
 	private const int FoldedFrame = 2;
 
-	private readonly SpriteAnimator _animator = new SpriteAnimator(
+	private readonly AnimateSpriteScript _animator = new AnimateSpriteScript(
 		new byte[] { 3, 2, 1, 0, 0xFA, 0 },
 		new byte[] { 1, 0, 1, 2, 0xFA });
 
@@ -103,7 +103,7 @@ public class WFZBeltPlatformInstance : Platform
 		switch (_secondary)
 		{
 			case 0:
-				if (_animator.Step() == SpriteAnimator.Result.NextSecondaryRoutine)
+				if (_animator.Step() == AnimateSpriteScript.NextSecondaryRoutine)
 				{
 					_secondary = 1;
 					CollisionVectors = new[] { new CollisionVector(this, new Vector2i(-HalfWidth, -TopHeight), new Vector2i(HalfWidth, -TopHeight)) };
@@ -120,7 +120,7 @@ public class WFZBeltPlatformInstance : Platform
 				PositionPrecise += new Vector2(0.0, _down ? Speed : -Speed);
 				break;
 			case 2:
-				if (_animator.Step() == SpriteAnimator.Result.NextSecondaryRoutine)
+				if (_animator.Step() == AnimateSpriteScript.NextSecondaryRoutine)
 				{
 					_secondary = 3;
 				}

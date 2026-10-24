@@ -16,9 +16,9 @@ public class MTZLavaBubbleInstance : ActiveObject
 
 	private const int EmptyFrame = 6;
 
-	private readonly AnimationScript _script = new AnimationScript(
-		new AnimationScript.Script(0xB, new[] { 0, 1, 2, 3, 4, 5 }, 1),
-		new AnimationScript.Script(0x7F, new[] { EmptyFrame }, 0));
+	private readonly AnimateSpriteScript _script = new AnimateSpriteScript(
+		new byte[] { 0xB, 0, 1, 2, 3, 4, 5, 0xFD, 1 },
+		new byte[] { 0x7F, EmptyFrame, 0xFD, 0 });
 
 	private AnimationInstance _animation;
 

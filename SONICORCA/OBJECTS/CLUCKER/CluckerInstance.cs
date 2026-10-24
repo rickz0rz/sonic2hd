@@ -43,7 +43,7 @@ public class CluckerInstance : Badnik
 
 	private const int RecoilScript = 2;
 
-	private readonly SpriteAnimator _animator = new SpriteAnimator(
+	private readonly AnimateSpriteScript _animator = new AnimateSpriteScript(
 		// Ani_objAE_a: rise out of the base
 		new byte[] { 1, 0, 1, 2, 3, 4, 5, 6, 7, 0xFC },
 		// Ani_objAE_b: push out the gun
@@ -82,7 +82,7 @@ public class CluckerInstance : Badnik
 	{
 		base.OnStart();
 		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath(CluckerType.AnimationGroupResourceKey));
-		_animator.Reset(HiddenFrame);
+		_animator.Clear(HiddenFrame);
 		// The Clucker cannot be touched until its gun is out (collision_flags 0)
 		CollisionRectangles = new CollisionRectangle[0];
 	}
@@ -102,9 +102,9 @@ public class CluckerInstance : Badnik
 				break;
 			}
 			case State.Rise:
-				if (_animator.Step() == SpriteAnimator.Result.NextRoutine)
+				if (_animator.Step() == AnimateSpriteScript.NextRoutine)
 				{
-					_animator.Reset(ArmFrame);
+					_animator.Clear(ArmFrame);
 					_animator.Animation = ArmScript;
 					CollisionRectangles = new CollisionRectangle[]
 					{
@@ -114,7 +114,7 @@ public class CluckerInstance : Badnik
 				}
 				break;
 			case State.Arm:
-				if (_animator.Step() == SpriteAnimator.Result.NextRoutine)
+				if (_animator.Step() == AnimateSpriteScript.NextRoutine)
 				{
 					_state = State.Pause;
 					_timer = 0;
@@ -126,13 +126,13 @@ public class CluckerInstance : Badnik
 					_timer--;
 					break;
 				}
-				_animator.Reset(FireFrame);
+				_animator.Clear(FireFrame);
 				_animator.Animation = RecoilScript;
 				Fire();
 				_state = State.Recoil;
 				break;
 			case State.Recoil:
-				if (_animator.Step() == SpriteAnimator.Result.NextRoutine)
+				if (_animator.Step() == AnimateSpriteScript.NextRoutine)
 				{
 					_state = State.Pause;
 					_timer = FireDelay;

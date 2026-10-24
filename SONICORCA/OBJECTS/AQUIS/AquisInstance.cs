@@ -52,15 +52,15 @@ public class AquisInstance : Badnik
 	private const int BulletSpeedY = 0x200;
 
 	/// <summary>The scripts of Ani_obj50 that the object uses: 0 is the body, 2 the bullet, 3 the wing.</summary>
-	private static readonly AnimationScript.Script[] Scripts =
+	private static readonly byte[][] Scripts =
 	{
-		new AnimationScript.Script(0xE, new[] { 0 }),
-		new AnimationScript.Script(5, new[] { 3, 4, 3, 4, 3, 4 }),
-		new AnimationScript.Script(3, new[] { 5, 6, 7, 6 }),
-		new AnimationScript.Script(3, new[] { 1, 2 })
+		new byte[] { 0xE, 0, 0xFF },
+		new byte[] { 5, 3, 4, 3, 4, 3, 4, 0xFF },
+		new byte[] { 3, 5, 6, 7, 6, 0xFF },
+		new byte[] { 3, 1, 2, 0xFF }
 	};
 
-	private readonly AnimationScript _wingScript = new AnimationScript(Scripts) { Animation = 3, Frame = 1 };
+	private readonly AnimateSpriteScript _wingScript = new AnimateSpriteScript(Scripts) { Animation = 3, Frame = 1 };
 
 	private AnimationInstance _animation;
 
@@ -201,7 +201,7 @@ public class AquisInstance : Badnik
 	{
 		private const int TouchRadius = 4 * Scale;
 
-		private readonly AnimationScript _script = new AnimationScript(Scripts) { Animation = 2, Frame = 5 };
+		private readonly AnimateSpriteScript _script = new AnimateSpriteScript(Scripts) { Animation = 2, Frame = 5 };
 
 		private AnimationInstance _animation;
 

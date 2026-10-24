@@ -44,16 +44,16 @@ public class OctusInstance : Badnik
 	private const int TouchHeight = 8 * Scale;
 
 	/// <summary>The scripts of Ani_obj4A: 0 waits, 1 swims, 2 is the bullet, 3 crouches, 4 starts the jump.</summary>
-	private static readonly AnimationScript.Script[] Scripts =
+	private static readonly byte[][] Scripts =
 	{
-		new AnimationScript.Script(0xF, new[] { 1, 0 }),
-		new AnimationScript.Script(3, new[] { 1, 2, 3 }),
-		new AnimationScript.Script(2, new[] { 5, 6 }),
-		new AnimationScript.Script(0xF, new[] { 4 }),
-		new AnimationScript.Script(7, new[] { 0, 1 }, 1)
+		new byte[] { 0xF, 1, 0, 0xFF },
+		new byte[] { 3, 1, 2, 3, 0xFF },
+		new byte[] { 2, 5, 6, 0xFF },
+		new byte[] { 0xF, 4, 0xFF },
+		new byte[] { 7, 0, 1, 0xFD, 1 }
 	};
 
-	private readonly AnimationScript _script = new AnimationScript(Scripts);
+	private readonly AnimateSpriteScript _script = new AnimateSpriteScript(Scripts);
 
 	private AnimationInstance _animation;
 
@@ -209,7 +209,7 @@ public class OctusInstance : Badnik
 
 		private const int TouchRadius = 4 * Scale;
 
-		private readonly AnimationScript _script = new AnimationScript(Scripts) { Animation = 2 };
+		private readonly AnimateSpriteScript _script = new AnimateSpriteScript(Scripts) { Animation = 2 };
 
 		private AnimationInstance _animation;
 

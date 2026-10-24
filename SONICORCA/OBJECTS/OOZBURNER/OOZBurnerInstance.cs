@@ -55,7 +55,7 @@ public class OOZBurnerInstance : Platform
 
 	private const int LaunchInertia = 0x800;
 
-	private readonly AnimationScript _flameScript = new AnimationScript(new AnimationScript.Script(2, new[] { 2, 0, 2, 0, 2, 0, 1 }));
+	private readonly AnimateSpriteScript _flameScript = new AnimateSpriteScript(new byte[] { 2, 2, 0, 2, 0, 2, 0, 1, 0xFF });
 
 	private readonly List<ICharacter> _held = new List<ICharacter>();
 

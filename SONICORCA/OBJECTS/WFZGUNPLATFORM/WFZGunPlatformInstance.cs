@@ -29,7 +29,7 @@ public class WFZGunPlatformInstance : ActiveObject
 
 	private const int CloseScript = 1;
 
-	private readonly SpriteAnimator _animator = new SpriteAnimator(
+	private readonly AnimateSpriteScript _animator = new AnimateSpriteScript(
 		new byte[] { 5, 0, 1, 2, 3, 0xFC },
 		new byte[] { 5, 3, 2, 1, 0, 0xFC });
 
@@ -77,7 +77,7 @@ public class WFZGunPlatformInstance : ActiveObject
 				}
 				break;
 			case State.Open:
-				if (_animator.Step() == SpriteAnimator.Result.NextRoutine)
+				if (_animator.Step() == AnimateSpriteScript.NextRoutine)
 				{
 					_state = State.Out;
 				}
@@ -94,7 +94,7 @@ public class WFZGunPlatformInstance : ActiveObject
 				SetSolid(_animator.Frame == 3 || _animator.Frame == 4);
 				break;
 			case State.Close:
-				if (_animator.Step() == SpriteAnimator.Result.NextRoutine)
+				if (_animator.Step() == AnimateSpriteScript.NextRoutine)
 				{
 					_state = State.Wait;
 				}

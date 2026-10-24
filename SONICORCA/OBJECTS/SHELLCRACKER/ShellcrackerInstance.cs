@@ -45,12 +45,12 @@ public class ShellcrackerInstance : Badnik
 
 	private const int BodyFrame = 3;
 
-	private static readonly AnimationScript.Script[] Scripts =
+	private static readonly byte[][] Scripts =
 	{
-		new AnimationScript.Script(0xE, new[] { 0, 1, 2 })
+		new byte[] { 0xE, 0, 1, 2, 0xFF }
 	};
 
-	private readonly AnimationScript _script = new AnimationScript(Scripts);
+	private readonly AnimateSpriteScript _script = new AnimateSpriteScript(Scripts);
 
 	private AnimationInstance _animation;
 

@@ -2,7 +2,9 @@ namespace SonicOrca.Core;
 
 /// <summary>
 /// Plays the animation scripts of a Sonic 2 object byte for byte, as AnimateSprite and AnimateSprite_Checked do. A
-/// script is the frame duration, the mapping frames, and an end flag ($FA to $FF) with its argument. Call
+/// script is the dc.b list of the original: the frame duration, the mapping frames, and an end flag ($FA to $FF) with
+/// its argument. $FF starts the script again, $FE goes back, and $FD changes to another script. $FC and $FA tell the
+/// object to go to its next routine or secondary routine, and $FB tells it to reset its secondary routine. Call
 /// <see cref="Step"/> once for each frame, where the original calls the subroutine. Step returns the end flag that the
 /// script reached, or 0. The caller does what the flag does to the routine counters of its object.
 /// </summary>
@@ -42,6 +44,22 @@ public sealed class AnimateSpriteScript
 
 	/// <summary>anim_frame_duration.</summary>
 	public int Timer { get; private set; }
+
+	/// <summary>
+	/// Clears the animation state as many objects do with "clr.l mapping_frame": the frame, the script position and
+	/// the script number. The next step starts script 0.
+	/// </summary>
+	public void Clear(int frame = 0)
+	{
+		Frame = frame;
+		Animation = 0;
+		_previous = 0;
+		Index = 0;
+		Timer = 0;
+	}
+
+	/// <summary>Goes back to the first frame of the script (anim_frame = 0), but keeps the timer.</summary>
+	public void Rewind() => Index = 0;
 
 	public int Step()
 	{

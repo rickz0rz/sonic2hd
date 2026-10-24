@@ -45,17 +45,17 @@ public class SlicerInstance : Badnik
 	/// <summary>The pincers start at these x offsets (for a Slicer that faces left).</summary>
 	private static readonly int[] PincerOffsets = { 6, -0x10 };
 
-	private static readonly AnimationScript.Script[] Scripts =
+	private static readonly byte[][] Scripts =
 	{
-		new AnimationScript.Script(0x13, new[] { 0, 2 })
+		new byte[] { 0x13, 0, 2, 0xFF }
 	};
 
-	private static readonly AnimationScript.Script[] PincerScripts =
+	private static readonly byte[][] PincerScripts =
 	{
-		new AnimationScript.Script(3, new[] { 5, 6, 7, 8 })
+		new byte[] { 3, 5, 6, 7, 8, 0xFF }
 	};
 
-	private readonly AnimationScript _script = new AnimationScript(Scripts);
+	private readonly AnimateSpriteScript _script = new AnimateSpriteScript(Scripts);
 
 	private AnimationInstance _animation;
 
@@ -192,7 +192,7 @@ public class SlicerInstance : Badnik
 
 		private const int TouchRadius = 0xC * Scale;
 
-		private readonly AnimationScript _script = new AnimationScript(PincerScripts);
+		private readonly AnimateSpriteScript _script = new AnimateSpriteScript(PincerScripts);
 
 		private SlicerInstance _slicer;
 

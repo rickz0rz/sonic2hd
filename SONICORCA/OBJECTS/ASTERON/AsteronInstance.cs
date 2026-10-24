@@ -45,12 +45,12 @@ public class AsteronInstance : Badnik
 		(-8, -4, -3, -1, 3, false)
 	};
 
-	private static readonly AnimationScript.Script[] Scripts =
+	private static readonly byte[][] Scripts =
 	{
-		new AnimationScript.Script(1, new[] { 0, 1 })
+		new byte[] { 1, 0, 1, 0xFF }
 	};
 
-	private readonly AnimationScript _script = new AnimationScript(Scripts);
+	private readonly AnimateSpriteScript _script = new AnimateSpriteScript(Scripts);
 
 	private AnimationInstance _animation;
 

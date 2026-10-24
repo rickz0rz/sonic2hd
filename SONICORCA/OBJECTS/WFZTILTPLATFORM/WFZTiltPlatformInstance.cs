@@ -50,7 +50,7 @@ public class WFZTiltPlatformInstance : ActiveObject
 
 	private const int VerticalFrame = 2;
 
-	private readonly SpriteAnimator _animator = new SpriteAnimator(
+	private readonly AnimateSpriteScript _animator = new AnimateSpriteScript(
 		new byte[] { 3, 1, 2, 0xFD, 1, 0 },
 		new byte[] { 0x3F, 2, 0xFD, 2 },
 		new byte[] { 3, 2, 1, 0, 0xFA, 0 },
@@ -140,7 +140,7 @@ public class WFZTiltPlatformInstance : ActiveObject
 				}
 				break;
 			case 2:
-				if (_animator.Step() == SpriteAnimator.Result.NextSecondaryRoutine)
+				if (_animator.Step() == AnimateSpriteScript.NextSecondaryRoutine)
 				{
 					_secondary = 3;
 				}
@@ -165,7 +165,7 @@ public class WFZTiltPlatformInstance : ActiveObject
 				{
 					_secondary = 2;
 					_timer = SpinTicks;
-					_animator.Reset(_animator.Frame);
+					_animator.Clear(_animator.Frame);
 					_animator.Animation = SpinScript;
 					DropCharacters();
 				}
@@ -207,7 +207,7 @@ public class WFZTiltPlatformInstance : ActiveObject
 				}
 				break;
 			case 2:
-				if (_animator.Step() == SpriteAnimator.Result.NextSecondaryRoutine)
+				if (_animator.Step() == AnimateSpriteScript.NextSecondaryRoutine)
 				{
 					_secondary = 3;
 				}
@@ -237,7 +237,7 @@ public class WFZTiltPlatformInstance : ActiveObject
 				}
 				break;
 			case 2:
-				if (_animator.Step() == SpriteAnimator.Result.NextSecondaryRoutine)
+				if (_animator.Step() == AnimateSpriteScript.NextSecondaryRoutine)
 				{
 					_secondary = 3;
 				}
