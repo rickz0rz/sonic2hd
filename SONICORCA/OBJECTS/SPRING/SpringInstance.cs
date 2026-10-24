@@ -1,6 +1,7 @@
 using System;
 using SonicOrca.Core;
 using SonicOrca.Core.Collision;
+using SonicOrca.Core.Objects;
 using SonicOrca.Core.Objects.Base;
 using SonicOrca.Core.Objects.Metadata;
 using SonicOrca.Extensions;
@@ -11,7 +12,8 @@ namespace SONICORCA.OBJECTS.SPRING;
 
 /// <summary>
 /// A spring. When a character touches the spring side, the spring bounces the character in its direction with its
-/// strength. A spring with a strength of 52 or more uses the strong spring sprite.
+/// strength. A spring with a strength of 52 or more uses the strong spring sprite. A horizontal spring launches only a
+/// character on the ground, and also a character on the ground just in front of it.
 /// </summary>
 public class SpringInstance : ActiveObject
 {
@@ -31,11 +33,21 @@ public class SpringInstance : ActiveObject
 
 	private const int MinSlopeLockTicks = 16;
 
+	/// <summary>
+	/// The area in front of a horizontal spring where it launches a character on the ground without a touch
+	/// (loc_18BC6 in the original): $28 px in front and $18 px up and down.
+	/// </summary>
+	private const int ProximityDistance = 0x28 * 4;
+	private const int ProximityHalfHeight = 0x18 * 4;
+
 	private SpringDirection _direction = SpringDirection.Right;
 	private int _strength = 40;
 	private AnimationInstance _animation;
 	private int _bounceAnimationIndex;
 	private Vector2 _bounceVelocity;
+	private int? _twirlTurns;
+	private int _path = -1;
+	private bool _clearOtherVelocity;
 
 	[StateVariable]
 	private SpringDirection Direction
@@ -49,6 +61,36 @@ public class SpringInstance : ActiveObject
 	{
 		get => _strength;
 		set => _strength = value;
+	}
+
+	/// <summary>
+	/// The number of somersaults of a launched character (subtype bit 0 in the original). The default is one
+	/// somersault for an up spring and none for the other springs.
+	/// </summary>
+	[StateVariable]
+	private int TwirlTurns
+	{
+		get => _twirlTurns ?? (_direction == SpringDirection.Up ? 1 : 0);
+		set => _twirlTurns = value;
+	}
+
+	/// <summary>The collision path that the spring sets on the character (subtype bits 2-3), or -1 to keep it.</summary>
+	[StateVariable]
+	private int Path
+	{
+		get => _path;
+		set => _path = value;
+	}
+
+	/// <summary>
+	/// Whether the spring sets the velocity of the other axis to 0 (subtype bit 7). An up or down spring then
+	/// clears the x velocity.
+	/// </summary>
+	[StateVariable]
+	private bool ClearOtherVelocity
+	{
+		get => _clearOtherVelocity;
+		set => _clearOtherVelocity = value;
 	}
 
 	public SpringInstance() => DesignBounds = new Rectanglei(-101, -104, 202, 208);
@@ -128,31 +170,66 @@ public class SpringInstance : ActiveObject
 		Priority = -256;
 	}
 
+	private bool IsHorizontal => _direction == SpringDirection.Left || _direction == SpringDirection.Right;
+
+	protected override void OnUpdate()
+	{
+		if (!IsHorizontal || _animation.Index == _bounceAnimationIndex)
+			return;
+		// A horizontal spring also launches a character on the ground in front of it, when the character does not
+		// move toward the spring.
+		int direction = Math.Sign(_bounceVelocity.X);
+		foreach (ICharacter character in Level.ObjectManager.Characters)
+		{
+			if (character.IsDebug || !character.ShouldReactToLevel || character.IsObjectControlled || character.IsAirborne)
+				continue;
+			if (character.GroundVelocity * direction < 0.0)
+				continue;
+			int distance = (character.Position.X - Position.X) * direction;
+			int height = character.Position.Y - Position.Y;
+			if (distance < 0 || distance >= ProximityDistance || height < -ProximityHalfHeight || height >= ProximityHalfHeight)
+				continue;
+			Launch((Character)character);
+		}
+	}
+
 	protected override void OnCollision(CollisionEvent e)
 	{
 		if (e.Id != SpringCollisionId || e.ActiveObject.Type.Classification != ObjectClassification.Character)
 			return;
 		Character character = (Character)e.ActiveObject;
+		// A horizontal spring launches only a character that pushes it on the ground.
+		if (IsHorizontal && character.IsAirborne)
+			return;
+		Launch(character);
+		e.MaintainVelocity = true;
+	}
+
+	private void Launch(Character character)
+	{
+		int twirlTurns = TwirlTurns;
 		if (_direction == SpringDirection.Up || _direction == SpringDirection.UpRight || _direction == SpringDirection.UpLeft)
 		{
 			character.LeaveGround();
 			character.IsAirborne = true;
 			character.IsSpinball = false;
-			if (_direction == SpringDirection.Up)
-			{
-				// An up spring makes the character do one somersault.
-				character.TumbleAngle = 0.0;
-				character.TumbleTurns = 1;
-				character.GroundVelocity = 1.0;
-			}
-			else
+			if (twirlTurns == 0)
 				character.Animation.Index = CharacterAnimationSpringLaunch;
+		}
+		if (twirlTurns != 0 && character.IsAirborne)
+		{
+			// The character does somersaults.
+			character.TumbleAngle = 0.0;
+			character.TumbleTurns = twirlTurns;
+			character.GroundVelocity = 1.0;
 		}
 		if (character.IsAirborne)
 		{
-			// Keep the velocity of the character on an axis where the spring has no push.
-			double velocityX = _bounceVelocity.X == 0.0 ? character.Velocity.X : _bounceVelocity.X;
-			double velocityY = _bounceVelocity.Y == 0.0 ? character.Velocity.Y : _bounceVelocity.Y;
+			// Keep the velocity of the character on an axis where the spring has no push, unless the spring clears it.
+			double otherX = _clearOtherVelocity ? 0.0 : character.Velocity.X;
+			double otherY = _clearOtherVelocity ? 0.0 : character.Velocity.Y;
+			double velocityX = _bounceVelocity.X == 0.0 ? otherX : _bounceVelocity.X;
+			double velocityY = _bounceVelocity.Y == 0.0 ? otherY : _bounceVelocity.Y;
 			character.Velocity = new Vector2(velocityX, velocityY);
 			character.IsHurt = false;
 		}
@@ -163,8 +240,9 @@ public class SpringInstance : ActiveObject
 			character.SlopeLockTicks = Math.Max(MinSlopeLockTicks, character.SlopeLockTicks);
 			character.IsPushing = false;
 		}
+		if (_path >= 0)
+			character.Path = _path;
 		_animation.Index = _bounceAnimationIndex;
-		e.MaintainVelocity = true;
 		Level.SoundManager.PlaySound(this, Type.GetAbsolutePath(SpringType.SoundResourceKey));
 	}
 

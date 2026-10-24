@@ -11,6 +11,9 @@ public class Player
 {
 	private const int RingsForLife = 100;
 
+	/// <summary>The ring count of the last extra life. The original gives lives only at 100 and 200 rings.</summary>
+	private const int LastRingsForLife = 200;
+
 	private const int ScoreForLife = 50000;
 
 	private const int MaxLives = 999;
@@ -49,6 +52,12 @@ public class Player
 	public Vector2i StarpostPosition { get; set; }
 
 	public int StarpostTime { get; set; }
+
+	/// <summary>The collision path of the protagonist at the last star post (top_solid_bit in Obj79_SaveData).</summary>
+	public int StarpostPath { get; set; }
+
+	/// <summary>The layer index (the priority) of the protagonist at the last star post, or -1 if it is not known.</summary>
+	public int StarpostLayerIndex { get; set; } = -1;
 
 	public ICharacter Protagonist { get; set; }
 
@@ -118,7 +127,11 @@ public class Player
 		CurrentRings = Math.Min(CurrentRings + count, MaxRings);
 		if (CurrentRings >= TargetRingCountForNextLife)
 		{
-			TargetRingCountForNextLife += RingsForLife;
+			// As Extra_life_flags in the original: one life at 100 rings and one at 200 rings. Losing the rings
+			// resets the target.
+			TargetRingCountForNextLife = TargetRingCountForNextLife < LastRingsForLife
+				? TargetRingCountForNextLife + RingsForLife
+				: int.MaxValue;
 			GainLives();
 		}
 	}
@@ -148,7 +161,8 @@ public class Player
 	public int AwardChainedScore()
 	{
 		// Each object in a chain gives more points. From the 16th object, each object gives the big chain score.
-		int points = (_scoreChainIndex >= BigChainSize) ? BigChainScore : ChainScores[Math.Min(_scoreChainIndex, ChainScores.Length - 1)];
+		// The index of the 16th object is 15.
+		int points = (_scoreChainIndex >= BigChainSize - 1) ? BigChainScore : ChainScores[Math.Min(_scoreChainIndex, ChainScores.Length - 1)];
 		_scoreChainIndex++;
 		GainScore(points);
 		return points;
@@ -212,5 +226,7 @@ public class Player
 		StarpostIndex = index;
 		StarpostPosition = position;
 		StarpostTime = _level.Time;
+		StarpostPath = Protagonist.Path;
+		StarpostLayerIndex = _level.Map.Layers.IndexOf(Protagonist.Layer);
 	}
 }

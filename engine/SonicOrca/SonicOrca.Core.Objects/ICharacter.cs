@@ -87,6 +87,10 @@ public interface ICharacter : IActiveObject
 
 	bool IsInvincible { get; set; }
 
+	/// <summary>
+	/// The move lock (move_lock in Sonic 2). While it is not 0, the ground movement ignores left and right input. It
+	/// counts down by 1 in each tick on the ground and keeps its value in the air. A value of N locks N ground ticks.
+	/// </summary>
 	int SlopeLockTicks { get; set; }
 
 	bool IsPushing { get; set; }
@@ -118,6 +122,13 @@ public interface ICharacter : IActiveObject
 	CollisionMode Mode { get; set; }
 
 	bool CanBeHurt { get; }
+
+	/// <summary>
+	/// True when the character can collect rings. After a hit, Touch_Rings ignores all rings while the invulnerability
+	/// is 90 ticks or more. The invulnerability stays at 120 during the hurt flight and starts again at 120 when the
+	/// character lands, so this is false during the flight and for 30 ticks after the landing.
+	/// </summary>
+	bool CanCollectRings { get; }
 
 	void Hurt(int direction, PlayerDeathCause cause = PlayerDeathCause.Hurt);
 
