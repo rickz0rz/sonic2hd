@@ -402,9 +402,11 @@ public class RexonInstance : ActiveObject
 		{
 			base.OnStart();
 			_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath(RexonType.AnimationGroupResourceKey), AnimationProjectile);
+			// The original box (size $18) is 8 by 8 pixels.
+			int size = Level.OriginalPhysics ? 32 : 50;
 			CollisionRectangles = new CollisionRectangle[]
 			{
-				new CollisionRectangle(this, 0, -25, -25, 50, 50)
+				new CollisionRectangle(this, 0, -size / 2, -size / 2, size, size)
 			};
 			Priority += 32;
 		}
