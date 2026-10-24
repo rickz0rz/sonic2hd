@@ -3140,12 +3140,25 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 				box.Y += NormalCollisionRadius.Y - SpinballCollisionRadius.Y;
 			}
 			cameraProperties.Box = box;
-			cameraProperties.MaxVelocity = new Vector2(cameraProperties.MaxVelocity.X, (Velocity.Y <= 6.0) ? 24.0 : 64.0);
+			cameraProperties.MaxVelocity = new Vector2(cameraProperties.MaxVelocity.X, GetGroundCameraMaxVelocityY(cameraProperties));
 		}
 		if (IsDebug)
 		{
 			cameraProperties.MaxVelocity = new Vector2(Math.Max(64.0, Math.Abs(Velocity.X)), Math.Max(64.0, Math.Abs(Velocity.Y)));
 		}
+	}
+
+	/// <summary>
+	/// ScrollVerti on the ground: the camera moves 2 px per frame (8) while the look offset is not 0, 16 px (64) when
+	/// the ground speed is $800 (32) or more, and 6 px (24) otherwise.
+	/// </summary>
+	private double GetGroundCameraMaxVelocityY(CameraProperties cameraProperties)
+	{
+		if (cameraProperties.Offset.Y != 0.0)
+		{
+			return 8.0;
+		}
+		return (Math.Abs(GroundVelocity) >= 32.0) ? 64.0 : 24.0;
 	}
 
 	private void UpdateDebugState()
