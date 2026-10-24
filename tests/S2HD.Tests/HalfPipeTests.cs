@@ -73,53 +73,134 @@ public sealed class HalfPipeTests
 		}
 	}
 
+	// The player tests use the values of the original from the Sonic 2 disassembly (bin/special-stage-spec.md)
+
 	[Fact]
-	public void Player_LeapsToTheOtherEdge_WhenRunningOffTheSide()
+	public void Player_Accelerates_By60PerFrame_UpToAbout600()
 	{
 		var player = new HalfPipePlayer();
-		bool leaped = false;
-		for (int tick = 0; tick < 600 && !leaped; tick++)
-		{
-			player.Update(1.0, jumpPressed: false);
-			leaped = player.IsLeaping;
-		}
-		Assert.True(leaped, "Holding right did not reach the edge of the pipe.");
 
-		while (player.IsLeaping)
-		{
-			player.Update(0.0, jumpPressed: false);
-		}
+		// At the bottom the slope does not pull, so the first frame adds exactly $60
+		player.Update(left: true, right: false, jumpPressed: false);
+		Assert.Equal(0x60, player.Inertia);
 
-		Assert.True(player.Angle < 0.0, $"The player landed at {player.Angle} rad, not on the left side.");
-		Assert.Equal(0.0, player.Height);
+		// The slope pulls back while the player climbs, but holding LEFT still runs round the whole pipe
+		int laps = 0;
+		int previous = player.Angle;
+		for (int frame = 0; frame < 600; frame++)
+		{
+			player.Update(left: true, right: false, jumpPressed: false);
+			// The clamp to $600 comes before the slope pull, which can add up to $50 downhill, as in the original
+			Assert.InRange(player.Inertia, 0, 0x600 + 0x50);
+			if (player.Angle < previous)
+			{
+				laps++;
+			}
+			previous = player.Angle;
+		}
+		Assert.True(laps > 0, "Holding LEFT did not run round the pipe.");
+		Assert.True(player.OnGround);
 	}
 
 	[Fact]
-	public void Player_Jumps_AndLandsAgain()
+	public void Player_StaysOnTheWall_For30Frames_AfterThePadIsReleased()
+	{
+		var player = new HalfPipePlayer();
+		// Climb the left wall, then let go
+		while (player.Angle < 0x6C)
+		{
+			player.Update(left: true, right: false, jumpPressed: false);
+		}
+		for (int frame = 0; frame < 20; frame++)
+		{
+			player.Update(left: false, right: false, jumpPressed: false);
+		}
+		int stopped = player.Angle;
+		for (int frame = 20; frame < 29; frame++)
+		{
+			player.Update(left: false, right: false, jumpPressed: false);
+		}
+		Assert.Equal(stopped, player.Angle);
+
+		// Then the slope pulls the player back down
+		for (int frame = 0; frame < 60; frame++)
+		{
+			player.Update(left: false, right: false, jumpPressed: false);
+		}
+		Assert.True(player.Angle < stopped, $"The player did not slide down from angle {stopped}: now {player.Angle}.");
+	}
+
+	[Fact]
+	public void Player_JumpFromTheBottom_LandsAfterAbout46Frames()
 	{
 		var player = new HalfPipePlayer();
 
-		Assert.True(player.Update(0.0, jumpPressed: true));
-		Assert.True(player.Height > 0.0);
-		for (int tick = 0; tick < 200 && player.IsJumping; tick++)
+		Assert.True(player.Update(left: false, right: false, jumpPressed: true));
+		int frames = 0;
+		while (player.InAir && frames < 200)
 		{
-			player.Update(0.0, jumpPressed: false);
+			player.Update(left: false, right: false, jumpPressed: false);
+			frames++;
 		}
 
+		Assert.InRange(frames, 40, 52);
+		Assert.True(player.OnGround);
+		Assert.InRange(player.Angle, HalfPipePlayer.BottomAngle - 2, HalfPipePlayer.BottomAngle + 2);
+	}
+
+	[Fact]
+	public void Player_FallsFromTheTop_WhenTooSlow_AndLandsOnTheLowerHalf()
+	{
+		var player = new HalfPipePlayer();
+		// Run up the left wall at full speed to the upper half, then let go
+		while (player.Angle < 0x98)
+		{
+			player.Update(left: true, right: false, jumpPressed: false);
+		}
+		bool fell = false;
+		for (int frame = 0; frame < 60 && !fell; frame++)
+		{
+			player.Update(left: false, right: false, jumpPressed: false);
+			fell = player.InAir;
+		}
+		Assert.True(fell, "The player did not fall from the top of the pipe.");
 		Assert.False(player.IsJumping);
-		Assert.Equal(0.0, player.Height);
+
+		for (int frame = 0; frame < 120 && player.InAir; frame++)
+		{
+			player.Update(left: false, right: false, jumpPressed: false);
+		}
+		Assert.True(player.OnGround);
+		Assert.InRange(player.Angle, 0x00, 0x80);
 	}
 
 	[Fact]
-	public void Player_CannotMoveOrJump_JustAfterABomb()
+	public void Player_AfterABomb_SpinsFor32Frames_ThenFlashesFor30Frames()
 	{
 		var player = new HalfPipePlayer();
-		player.Hurt();
 
-		bool jumped = player.Update(1.0, jumpPressed: true);
+		Assert.True(player.Hurt());
+		for (int frame = 1; frame < 32; frame++)
+		{
+			player.Update(left: true, right: false, jumpPressed: true);
+			Assert.True(player.IsHurt, $"Frame {frame}: the hurt animation ended early.");
+		}
+		Assert.Equal(HalfPipePlayer.BottomAngle, player.Angle);
+		player.Update(left: false, right: false, jumpPressed: false);
 
-		Assert.False(jumped);
-		Assert.Equal(0.0, player.Angle);
-		Assert.True(player.IsHurt);
+		Assert.False(player.IsHurt);
+		Assert.Equal(HalfPipePlayer.FlashFrames, player.FlashFramesLeft);
+		Assert.False(player.Hurt());
+	}
+
+	[Theory]
+	[InlineData(110, 0, 0x00)]
+	[InlineData(0, 110, 0x40)]
+	[InlineData(-110, 0, 0x80)]
+	[InlineData(0, -110, 0xC0)]
+	[InlineData(50, 50, 0x20)]
+	public void JumpAngle_UsesTheOctantApproximation(int x, int y, int expected)
+	{
+		Assert.Equal(expected, HalfPipePlayer.GetAngle(x, y));
 	}
 }

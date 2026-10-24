@@ -98,11 +98,14 @@ public class HalfPipeSpecialStageScreen : Screen
 	/// <summary>A bomb takes this number of rings, or all of the rings when the player has fewer.</summary>
 	private const int BombRingLoss = 10;
 
-	/// <summary>The player touches an object when the angles are nearer than this, in radians.</summary>
-	private const double TouchAngle = 0.22;
+	// The player touches a ring or a bomb when the angles differ by less than this, in original angle units
+	// (s2disasm: loc_35036 and the bomb code before Obj61_TestCollision)
+	private const int RingTouchAngle = 10;
 
-	/// <summary>The player is above an object when the jump height is more than this.</summary>
-	private const double TouchHeight = 0.9;
+	private const int BombTouchAngle = 8;
+
+	/// <summary>Converts pixels in the pipe of the original (radius $6E) to track units (radius 4).</summary>
+	private const double PixelsToUnits = PipeRadius / HalfPipePlayer.Radius;
 
 	/// <summary>The ticks that the result message shows before the stage closes.</summary>
 	private const int ResultTicks = 180;
@@ -328,10 +331,13 @@ public class HalfPipeSpecialStageScreen : Screen
 	{
 		Controller current = _gameContext.Current[0];
 		Controller pressed = _gameContext.Pressed[0];
-		if (_player.Update(current.DirectionLeft.X, pressed.Action1))
+		bool left = current.DirectionLeft.X < -0.5;
+		bool right = current.DirectionLeft.X > 0.5;
+		if (_player.Update(left, right, pressed.Action1))
 		{
 			_gameContext.Audio.PlaySound(_jumpSound);
 		}
+		// The ball while jumping. A fall from the top keeps the running animation.
 		int animation = _player.IsJumping ? 1 : 0;
 		if (_sonicAnimation.Index != animation)
 		{
@@ -346,25 +352,26 @@ public class HalfPipeSpecialStageScreen : Screen
 		int playerNode = PlayerTrackNode;
 		foreach (HalfPipeObject item in _objects)
 		{
-			// The track moves one node each two ticks, so a window of two nodes sees each object once
-			if (item.Used || item.TrackNode < playerNode - 1 || item.TrackNode > playerNode)
+			// Only a player on the ground who is not hurt can touch objects. The window of three nodes is about the
+			// 2.5 frames during which an object of the original can collide.
+			if (item.Used || !_player.OnGround || _player.IsHurt || Math.Abs(item.TrackNode - playerNode) > 1)
 			{
 				continue;
 			}
-			if (Math.Abs(item.Angle - _player.Angle) > TouchAngle || _player.Height > TouchHeight)
+			int window = item.Kind == HalfPipeObjectKind.Ring ? RingTouchAngle : BombTouchAngle;
+			if (((_player.Angle - item.OriginalAngle + window) & 0xFF) >= 2 * window)
 			{
 				continue;
 			}
+			item.Used = true;
 			if (item.Kind == HalfPipeObjectKind.Ring)
 			{
-				item.Used = true;
 				_rings++;
 				_gameContext.Audio.PlaySound(_ringSound);
 			}
-			else if (!_player.IsHurt)
+			else if (_player.Hurt())
 			{
-				item.Used = true;
-				_player.Hurt();
+				// A flashing player still makes the bomb explode, but takes no damage
 				int lost = Math.Min(_rings, BombRingLoss);
 				_rings -= lost;
 				if (lost > 0)
@@ -570,26 +577,36 @@ public class HalfPipeSpecialStageScreen : Screen
 	private void AddPlayerQuads(List<TexturedQuad> quads)
 	{
 		Matrix4 transform = GetNodeTransform(PlayerTrackNode);
-		if (_player.IsJumping)
+		(double x, double y) = _player.Position;
+		double distance = Math.Sqrt(x * x + y * y);
+		double angle = HalfPipePlayer.ToRadiansFromBottom(_player.Angle);
+		if (_player.InAir)
 		{
+			// The shadow falls on the wall below the player
+			double shadowAngle = Math.Asin(Math.Clamp(x / HalfPipePlayer.Radius, -1.0, 1.0));
 			double shadowHeight = ShadowWidth * _shadowTexture.Height / _shadowTexture.Width;
-			quads.Add(CreateSprite(transform, _player.Angle, 0.0, ShadowWidth, shadowHeight, _shadowTexture, new Rectanglei(0, 0, _shadowTexture.Width, _shadowTexture.Height)));
+			quads.Add(CreateSprite(transform, shadowAngle, 0.0, ShadowWidth, shadowHeight, _shadowTexture, new Rectanglei(0, 0, _shadowTexture.Width, _shadowTexture.Height)));
 		}
-		// The player flashes while bombs cannot hurt him
-		if (_player.IsHurt && _ticks / 4 % 2 == 0)
+		// The player shows on alternate frames while flashing after a bomb
+		if (_player.FlashFramesLeft > 0 && _ticks % 2 == 0)
 		{
 			return;
 		}
 		Rectanglei source = _sonicAnimation.CurrentFrame.Source;
 		double width = SonicHeight * source.Width / source.Height;
-		quads.Add(CreateSprite(transform, _player.Angle, _player.Height, width, SonicHeight, _sonicAnimation.CurrentTexture, source));
+		// In the air the player is nearer to the centre than the surface
+		double height = Math.Max(0.0, (HalfPipePlayer.Radius - distance) * PixelsToUnits);
+		// The hurt animation turns the sprite once
+		double spin = _player.IsHurt ? _player.HurtProgress * 2.0 * Math.PI : 0.0;
+		quads.Add(CreateSprite(transform, angle, height, width, SonicHeight, _sonicAnimation.CurrentTexture, source, spin));
 	}
 
 	/// <summary>
 	/// Makes an upright sprite that stands on the pipe surface at an angle from the bottom, and faces along the track.
 	/// The sprite leans with the surface, so that its bottom edge is on the surface and its top points to the centre.
 	/// </summary>
-	private static TexturedQuad CreateSprite(Matrix4 transform, double angle, double height, double width, double spriteHeight, ITexture texture, Rectanglei source)
+	private static TexturedQuad CreateSprite(Matrix4 transform, double angle, double height, double width, double spriteHeight,
+		ITexture texture, Rectanglei source, double spin = 0.0)
 	{
 		// Theta is the angle of the cross section: 0 at the left edge, pi / 2 at the bottom, pi at the right edge
 		double theta = Math.PI / 2.0 + angle;
@@ -597,6 +614,15 @@ public class HalfPipeSpecialStageScreen : Screen
 		Vector3 up = new Vector3(Math.Cos(theta), Math.Sin(theta), 0.0);
 		Vector3 right = new Vector3(Math.Sin(theta), -Math.Cos(theta), 0.0);
 		Vector3 bottomCentre = surface + up * (SurfaceGap + height);
+		if (spin != 0.0)
+		{
+			// Turn the sprite in its own plane, about its centre
+			Vector3 centre = bottomCentre + up * (spriteHeight / 2.0);
+			Vector3 turnedUp = up * Math.Cos(spin) + right * Math.Sin(spin);
+			right = right * Math.Cos(spin) - up * Math.Sin(spin);
+			up = turnedUp;
+			bottomCentre = centre - up * (spriteHeight / 2.0);
+		}
 		Vector3 halfWidth = right * (width / 2.0);
 		Vector3 top = up * spriteHeight;
 		double u0 = source.X / (double)texture.Width;
