@@ -129,7 +129,7 @@ resources only name the class to use.
 | `--demo` | Plays the Emerald Hill attract demo |
 | `--nologos` | Skips the disclaimer and the logo screens |
 | `--credits`, `--options` | Opens the credits or the options screen |
-| `--halfpipe` | Opens the 3D special stage prototype. The camera moves along the track without a player. The minus and equals keys change the field of view, and Escape closes it |
+| `--halfpipe` | Opens the 3D special stage (in development). Left and right move Sonic around the pipe, and an action button jumps. Collect enough rings for each of the three checkpoints, and avoid the bombs. Escape closes it |
 
 On macOS, pass options to the executable in the app bundle, for example
 `publish/S2HD.app/Contents/MacOS/S2HD --level cpz`.
