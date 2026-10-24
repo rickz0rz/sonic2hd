@@ -324,6 +324,14 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 
 	private double _spindashExtraSpeed;
 
+	/// <summary>The charge of a spindash in Original mode (spindash_counter): $200 for each press, $800 at most.</summary>
+	private int _spindashCounter;
+
+	/// <summary>
+	/// The number of ticks that the camera still lags after a spindash in Original mode (Horiz_scroll_delay_val).
+	/// </summary>
+	private int _spindashCameraLag;
+
 	private Vector2 _intersection;
 
 	private int _dyingTicks;
@@ -518,6 +526,23 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	public int MovingDirection => Math.Sign(Input.HorizontalDirection);
 
 	public CharacterLookDirection LookDirection { get; set; }
+
+	/// <summary>
+	/// True when the character ducks. In Original mode the character ducks only when it stands still (Sonic_Duck runs
+	/// only when the ground speed is 0) or charges a spindash. A moving character that holds down can still start a
+	/// roll.
+	/// </summary>
+	private bool IsDucking
+	{
+		get
+		{
+			if (LookDirection != CharacterLookDirection.Ducking)
+			{
+				return false;
+			}
+			return !Level.OriginalPhysics || GroundVelocity == 0.0 || IsCharging;
+		}
+	}
 
 	public int LookDelay { get; set; }
 
@@ -1087,7 +1112,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 				{
 					Animation.Index = (int)CharacterAnimation.Lookup;
 				}
-				else if (LookDirection == CharacterLookDirection.Ducking)
+				else if (IsDucking)
 				{
 					Animation.Index = (int)CharacterAnimation.Duck;
 				}
@@ -2563,7 +2588,17 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			return;
 		}
 		LookDirection = CharacterLookDirection.Normal;
-		if (!IsAirborne && !IsSpinball && _balanceDirection == CharacterBalanceDirection.None)
+		if (Level.OriginalPhysics && IsCharging && !IsAirborne)
+		{
+			// Sonic_UpdateSpindash keeps the charge while down is held, also with left or right, and ignores left and
+			// right.
+			if (Input.VerticalDirection >= 0.5)
+			{
+				LookDirection = CharacterLookDirection.Ducking;
+			}
+			Input.Throttle = 0.0;
+		}
+		else if (!IsAirborne && !IsSpinball && _balanceDirection == CharacterBalanceDirection.None)
 		{
 			// Look up or duck when the vertical input is stronger than the horizontal input.
 			double throttle = Input.Throttle;
@@ -2923,30 +2958,65 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 
 	private void UpdateSpindash()
 	{
+		bool original = Level.OriginalPhysics;
 		if (IsCharging)
 		{
 			LookDelay = DefaultLookDelay;
-			_spindashExtraSpeed *= 31.0 / 32.0;
+			if (original)
+			{
+				_spindashCounter -= _spindashCounter >> 5;
+			}
+			else
+			{
+				_spindashExtraSpeed *= 31.0 / 32.0;
+			}
 			if (Input.ABC == CharacterInputButtonState.Pressed)
 			{
-				_spindashExtraSpeed = Math.Min(_spindashExtraSpeed + 4.0, 16.0);
+				if (original)
+				{
+					_spindashCounter = Math.Min(_spindashCounter + 0x200, 0x800);
+				}
+				else
+				{
+					_spindashExtraSpeed = Math.Min(_spindashExtraSpeed + 4.0, 16.0);
+				}
 				Level.SoundManager.PlaySound(this, "SONICORCA/SOUND/SPINDASH/CHARGE");
 			}
 			if (LookDirection != CharacterLookDirection.Ducking)
 			{
 				IsCharging = false;
-				GroundVelocity = (SpindashBaseSpeed + _spindashExtraSpeed) * Facing;
+				// SpindashSpeeds: $800 plus $80 for each $100 of the charge. HD mode uses the charge as it is.
+				double speed = original ? SpindashBaseSpeed + 2.0 * (_spindashCounter >> 8) : SpindashBaseSpeed + _spindashExtraSpeed;
+				GroundVelocity = speed * Facing;
 				CharacterEvents |= CharacterEvent.SpindashLaunch;
-				CameraProperties.Delay = new Vector2i(16, CameraProperties.Delay.Y);
+				if (original)
+				{
+					_spindashCameraLag = GetSpindashCameraLag(speed);
+				}
+				else
+				{
+					CameraProperties.Delay = new Vector2i(16, CameraProperties.Delay.Y);
+				}
 				Level.SoundManager.PlaySound(this, "SONICORCA/SOUND/SPINDASH/RELEASE");
 			}
 		}
-		else if (!IsSpinball && Mode != CollisionMode.Air && LookDirection == CharacterLookDirection.Ducking && Input.ABC == CharacterInputButtonState.Pressed)
+		else if (!IsSpinball && Mode != CollisionMode.Air && IsDucking && Input.ABC == CharacterInputButtonState.Pressed)
 		{
 			IsCharging = true;
 			_spindashExtraSpeed = 0.0;
+			_spindashCounter = 0;
 			Level.SoundManager.PlaySound(this, "SONICORCA/SOUND/SPINDASH/CHARGE");
 		}
+	}
+
+	/// <summary>
+	/// Sonic_UpdateSpindash: the camera lags for 32 frames at the lowest spindash speed ($800) and for 2 frames less
+	/// for each $100 more. ScrollHoriz then reads old positions of the character, see <see cref="SetCameraTracking"/>.
+	/// </summary>
+	private static int GetSpindashCameraLag(double speed)
+	{
+		int originalSpeed = (int)Math.Round(speed * 64.0);
+		return (0x2000 - ((2 * (originalSpeed - 0x800)) & 0x1F00)) >> 8;
 	}
 
 	private void UpdateSpinning()
@@ -3252,11 +3322,18 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			LookDirection = CharacterLookDirection.Normal;
 		}
 		Vector2 offset = CameraProperties.Offset;
-		switch (LookDirection)
+		CharacterLookDirection lookDirection = LookDirection;
+		if (lookDirection == CharacterLookDirection.Ducking && !IsDucking)
+		{
+			lookDirection = CharacterLookDirection.Normal;
+		}
+		// Sonic_Lookup moves the camera up to $C8 (104 px above the normal position). HD mode stops at 86 px.
+		double lookUpLimit = Level.OriginalPhysics ? -416.0 : -344.0;
+		switch (lookDirection)
 		{
 			case CharacterLookDirection.Up:
 				LookDelay = Math.Max(0, LookDelay - 1);
-				offset.Y = ((LookDelay == 0) ? Math.Max(-344.0, offset.Y - 8.0) : MathX.ChangeSpeed(offset.Y, -8.0));
+				offset.Y = ((LookDelay == 0) ? Math.Max(lookUpLimit, offset.Y - 8.0) : MathX.ChangeSpeed(offset.Y, -8.0));
 				break;
 			case CharacterLookDirection.Normal:
 				LookDelay = DefaultLookDelay;
@@ -3388,9 +3465,29 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		}
 	}
 
+	/// <summary>
+	/// Sets how the camera follows the character. The camera keeps the character between 16 px left of the screen
+	/// centre and the centre. On the ground the character stays 16 px above the centre in Original mode, as with the
+	/// Camera_Y_pos_bias of $60 on the 224 px screen of the original. HD mode uses 4 px. In the air the character can
+	/// move from 48 px above the centre to 16 px below it, as in ScrollVerti.
+	/// After a spindash in Original mode, the camera reads the positions of the character from old ticks, as
+	/// ScrollHoriz reads the position buffer: in each tick the position is one tick newer and the buffer index is
+	/// one tick older. The camera keeps the positions from before the release for about half of the lag, and then
+	/// catches up at up to 16 px per frame.
+	/// </summary>
 	private void SetCameraTracking()
 	{
 		CameraProperties cameraProperties = CameraProperties;
+		cameraProperties.TrackX = null;
+		if (_spindashCameraLag > 0)
+		{
+			CharacterHistoryItem item = _history[_spindashCameraLag - 1];
+			if (item != null)
+			{
+				cameraProperties.TrackX = item.Position.X;
+			}
+			_spindashCameraLag--;
+		}
 		cameraProperties.MaxVelocity = new Vector2(64.0, cameraProperties.MaxVelocity.Y);
 		if (IsAirborne)
 		{
@@ -3399,7 +3496,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		}
 		else
 		{
-			Rectangle box = new Rectangle(-64.0, -16.0, 64.0, 0.0);
+			Rectangle box = new Rectangle(-64.0, Level.OriginalPhysics ? -64.0 : -16.0, 64.0, 0.0);
 			if (IsSpinball)
 			{
 				box.Y += NormalCollisionRadius.Y - SpinballCollisionRadius.Y;
