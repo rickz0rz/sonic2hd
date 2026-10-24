@@ -75,8 +75,10 @@ internal class RootGameState : IGameState, IDisposable
 			}
 			if (_cmdLineArgs.HasOption("halfpipe"))
 			{
-				// Test mode for the 3D special stage, which the demo does not use yet
-				ChangeGameState(new ScreenGameState(_gameContext, new HalfPipeSpecialStageScreen(_gameContext)));
+				// Test mode for the 3D special stage, which the demo does not use yet. "--halfpipe 3" plays stage 3.
+				string[] values = _cmdLineArgs.GetOptionValues("halfpipe");
+				int stage = values.Length > 0 && int.TryParse(values[0], out int number) ? Math.Clamp(number, 1, HalfPipeLayout.StageCount) - 1 : 0;
+				ChangeGameState(new ScreenGameState(_gameContext, new HalfPipeSpecialStageScreen(_gameContext, stage)));
 				foreach (UpdateResult updateResult in _currentGameState.Update())
 					yield return updateResult;
 			}

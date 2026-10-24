@@ -125,7 +125,7 @@ public static class Nemesis
 
 	private static void ReadInternal(Stream input, Stream output, CodeTreeNode codeTree, ushort numTiles, int xorOutput)
 	{
-		BitReader bitReader = new BitReader(input, 1);
+		BitReader bitReader = new BitReader(input, 1, highestBitFirst: true);
 		BitWriter bitWriter = new BitWriter(output, 1);
 		int totalBits = numTiles << TileBitsShift;
 		int bitsWritten = 0;

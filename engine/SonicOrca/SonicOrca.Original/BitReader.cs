@@ -4,7 +4,8 @@ using System.IO;
 namespace SonicOrca.Original;
 
 /// <summary>
-/// Reads single bits from a stream. It reads little-endian blocks of 1 to 4 bytes and gives the bits from the lowest bit up.
+/// Reads single bits from a stream. It reads little-endian blocks of 1 to 4 bytes. By default it gives the bits of
+/// a block from the lowest bit up (Kosinski). With highestBitFirst, it gives them from the highest bit down (Nemesis).
 /// </summary>
 internal class BitReader
 {
@@ -14,33 +15,35 @@ internal class BitReader
 
 	private int _data;
 
+	private readonly bool _highestBitFirst;
+
 	private int _bitIndex;
 
-	public BitReader(Stream stream, int blockSize)
+	public BitReader(Stream stream, int blockSize, bool highestBitFirst = false)
 	{
 		_stream = stream;
 		_blockSize = blockSize;
+		_highestBitFirst = highestBitFirst;
 		ReadBlock();
 	}
 
-	// The value shifts only when the bit is 1. Thus a 0 bit does not add a binary digit to the result.
-	// This is possibly a bug in the original code.
+	/// <summary>Reads a number of <paramref name="count"/> bits, the first bit as the highest bit of the result.</summary>
 	public int ReadBits(int count)
 	{
+		// The decompiled code shifted only for 1 bits, so it lost the 0 bits. Nemesis was the only user.
 		int value = 0;
 		while (count-- > 0)
 		{
-			if (ReadBit())
-			{
-				value = (value << 1) | 1;
-			}
+			value = (value << 1) | (ReadBit() ? 1 : 0);
 		}
 		return value;
 	}
 
 	public bool ReadBit()
 	{
-		bool result = (_data & (1 << _bitIndex++)) != 0;
+		int bit = _highestBitFirst ? _blockSize * 8 - 1 - _bitIndex : _bitIndex;
+		_bitIndex++;
+		bool result = (_data & (1 << bit)) != 0;
 		if (_bitIndex >= _blockSize * 8)
 		{
 			ReadBlock();
