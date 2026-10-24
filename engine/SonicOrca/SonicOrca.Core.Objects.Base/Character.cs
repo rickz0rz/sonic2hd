@@ -364,9 +364,11 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	public const int SidekickOffscreenTime = 300;
 
 	/// <summary>
-	/// The number of ticks that the sidekick stays behind the protagonist. The sidekick follows this history item.
+	/// The history item of the protagonist that the sidekick follows. TailsCPU_Normal follows the position of Sonic
+	/// 16 frames before. The sidekick updates before the protagonist, and a character records its history at the start
+	/// of its update, so History[0] is the state after the tick before the last. Item 14 is then 16 ticks old.
 	/// </summary>
-	private const int SidekickHistoryDelay = 17;
+	private const int SidekickHistoryDelay = 14;
 
 	private bool _humanControlled;
 
@@ -3777,36 +3779,38 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		}
 	}
 
+	/// <summary>
+	/// TailsCPU_Normal: the sidekick copies the input of the protagonist from 16 ticks before, and goes left or right
+	/// when the protagonist was 64 (16 px) or more away. It jumps from time to time when it pushes a wall that the
+	/// protagonist did not push, or when the protagonist was much higher.
+	/// </summary>
 	private CharacterInputState GetAutoInputNormal(ICharacter protagonist, CharacterHistoryItem protagonistHistory)
 	{
-		// Start from the input of the protagonist some ticks ago.
-		CharacterInputState input = new CharacterInputState(protagonistHistory.Input);
-		IsFacingLeft = protagonistHistory.State.HasFlag(CharacterState.Left);
+		// A history item holds the input of the tick after its state, so the input comes from the next older item.
+		CharacterHistoryItem inputHistory = protagonist.History[SidekickHistoryDelay + 1] ?? protagonistHistory;
+		CharacterInputState input = new CharacterInputState(inputHistory.Input);
+		if (IsPushing && !protagonistHistory.State.HasFlag(CharacterState.Pushing))
+		{
+			// TailsCPU_Normal_FilterAction_Part2
+			TryAutoJump(input);
+			return input;
+		}
 		int deltaX = protagonistHistory.Position.X - Position.X;
 		if (deltaX == 0)
 		{
 			IsFacingLeft = protagonistHistory.State.HasFlag(CharacterState.Left);
 		}
-		else if (deltaX > 192)
+		else
 		{
-			if (deltaX >= 64)
+			int direction = Math.Sign(deltaX);
+			if (Math.Abs(deltaX) >= 64)
 			{
-				input.HorizontalDirection = 1;
+				input.HorizontalDirection = direction;
 			}
-			if (GroundVelocity != 0.0 && IsFacingRight)
+			// Move 1 px towards the protagonist when the sidekick moves and faces that way.
+			if (GroundVelocity != 0.0 && Facing == direction)
 			{
-				Move(4, 0);
-			}
-		}
-		else if (deltaX < 128)
-		{
-			if (deltaX <= -64)
-			{
-				input.HorizontalDirection = -1;
-			}
-			if (GroundVelocity != 0.0 && !IsFacingRight)
-			{
-				Move(-4, 0);
+				Move(4 * direction, 0);
 			}
 		}
 		if (_autoSidekickJumping)
@@ -3819,36 +3823,29 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			}
 			_autoSidekickJumping = false;
 		}
-		if (Level.Ticks % 256 == 0 && deltaX >= 256)
+		// Far from the protagonist, check the jump only once in 256 ticks.
+		if (Level.Ticks % 256 != 0 && Math.Abs(deltaX) >= 256)
 		{
 			return input;
 		}
+		// Jump only when the protagonist was 128 (32 px) or more higher.
 		int deltaY = protagonistHistory.Position.Y - Position.Y;
-		if (deltaY >= 0)
-		{
-			if (protagonist.IsPushing)
-			{
-				input.HorizontalDirection = Math.Sign(deltaX);
-			}
-			return input;
-		}
 		if (deltaY > -128)
 		{
-			if (protagonist.IsPushing && IsPushing && _pushDirection != protagonist.Facing && LookDirection != CharacterLookDirection.Ducking)
-			{
-				input.A = CharacterInputButtonState.Pressed;
-				_autoSidekickJumping = true;
-				return input;
-			}
 			return input;
 		}
-		// The protagonist is much higher. Jump from time to time.
+		TryAutoJump(input);
+		return input;
+	}
+
+	/// <summary>Presses jump once in 64 ticks, when the sidekick does not duck.</summary>
+	private void TryAutoJump(CharacterInputState input)
+	{
 		if (Level.Ticks % 64 == 0 && LookDirection != CharacterLookDirection.Ducking)
 		{
 			input.A = CharacterInputButtonState.Pressed;
 			_autoSidekickJumping = true;
 		}
-		return input;
 	}
 
 	private CharacterInputState GetAutoInputSpindash(ICharacter protagonist)
