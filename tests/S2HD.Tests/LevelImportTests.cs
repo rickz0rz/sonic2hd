@@ -58,8 +58,22 @@ public sealed class LevelImportTests
 		Assert.True(level.Binding.ObjectPlacements.Count(p => p.Key == "SONICORCA/OBJECTS/RING") > 100);
 		Assert.Contains(level.Binding.ObjectPlacements, p => p.Key == "SONICORCA/OBJECTS/STARPOST");
 		Assert.Contains(level.Binding.ObjectPlacements, p => p.Key == "SONICORCA/OBJECTS/SIGNPOST");
-		// The CNZ objects that SonicOrca does not have yet are listed, for example the round bumpers ($44)
-		Assert.Contains(level.Notes, note => note.StartsWith("Object type $44"));
+		// The CNZ objects that SonicOrca does not have yet are listed, for example the flippers ($86)
+		Assert.Contains(level.Notes, note => note.StartsWith("Object type $86"));
+	}
+
+	[Fact]
+	public void Cnz_HasTheBumpers_WithTheirArtAndTheirObjectResource()
+	{
+		ImportedLevel level = Cnz.Value;
+
+		Assert.Equal(117, level.Binding.ObjectPlacements.Count(p => p.Key == "SONICORCA/OBJECTS/CNZBUMPER"));
+		ImportedSprite bumper = Assert.Single(level.Sprites, s => s.ObjectKey == "SONICORCA/OBJECTS/CNZBUMPER");
+		// A PNG file, and two frames: the bumper and the squashed bumper
+		Assert.Equal(new byte[] { 0x89, (byte)'P', (byte)'N', (byte)'G' }, bumper.Texture.Take(4));
+		Assert.Equal(2, bumper.AnimationGroup.Split("<animation>").Length - 1);
+		Assert.Equal("SONICORCA.OBJECTS.CNZBUMPER", level.NewObjects["SONICORCA/OBJECTS/CNZBUMPER"]);
+		Assert.Equal("SONICORCA.OBJECTS.INVISIBLEBLOCK", level.NewObjects["SONICORCA/OBJECTS/INVISIBLEBLOCK"]);
 	}
 
 	[Fact]

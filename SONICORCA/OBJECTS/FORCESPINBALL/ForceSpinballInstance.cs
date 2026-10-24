@@ -8,20 +8,25 @@ using SonicOrca.Graphics;
 namespace SONICORCA.OBJECTS.FORCESPINBALL;
 
 /// <summary>
-/// An invisible vertical marker. When a character crosses it, the marker turns the forced spinball state of the
-/// character on or off, as set by the direction.
+/// An invisible marker line. When a character crosses it, the marker turns the forced spinball state of the
+/// character on or off, as set by the direction. The line is vertical, or horizontal as Obj84 of Sonic 2 can be.
 /// </summary>
 public class ForceSpinballInstance : ActiveObject
 {
-	/// <summary>The half size of the square area in which the marker has an effect.</summary>
-	private const int Radius = 64;
+	/// <summary>The half length of the line. The HD levels use the default.</summary>
+	[StateVariable]
+	private int _radius = 64;
+
+	/// <summary>True for a horizontal line, which a character crosses down or up.</summary>
+	[StateVariable]
+	private bool _horizontal;
 
 	/// <summary>The last side (-1 is left, 1 is right) of the marker that each character was on.</summary>
 	private readonly Dictionary<ICharacter, int> _characterTrace = new Dictionary<ICharacter, int>();
 
 	/// <summary>
-	/// 1: a character that crosses to the right is forced into a spinball, and a character that crosses to the left
-	/// is released. 3: the opposite. 0 and 2: the marker has no effect.
+	/// 1: a character that crosses to the right (or down) is forced into a spinball, and a character that crosses to
+	/// the left (or up) is released. 3: the opposite. 0 and 2: the marker has no effect.
 	/// </summary>
 	[StateVariable]
 	private int _direction = 1;
@@ -36,10 +41,12 @@ public class ForceSpinballInstance : ActiveObject
 	{
 		if (character.IsDebug || _direction == 0 || _direction == 2)
 			return;
-		int side = character.Position.X < Position.X ? -1 : 1;
+		int across = _horizontal ? character.Position.Y - Position.Y : character.Position.X - Position.X;
+		int along = _horizontal ? character.Position.X - Position.X : character.Position.Y - Position.Y;
+		int side = across < 0 ? -1 : 1;
 		if (_characterTrace.ContainsKey(character) && _characterTrace[character] != side)
 		{
-			if (character.Position.Y >= Position.Y - Radius && character.Position.Y < Position.Y + Radius)
+			if (along >= -_radius && along < _radius)
 				character.ForceSpinball = side != -1 ? _direction == 1 : _direction == 3;
 		}
 		_characterTrace[character] = side;
@@ -49,6 +56,7 @@ public class ForceSpinballInstance : ActiveObject
 	{
 		if (!viewOptions.ShowObjectCollision && !Level.StateFlags.HasFlag(LevelStateFlags.Editing))
 			return;
-		renderer.Get2dRenderer().RenderRectangle(Colours.White, new Rectangle(-64.0, -64.0, 128.0, 128.0), 1.0);
+		Rectangle line = _horizontal ? new Rectangle(-_radius, -2.0, _radius * 2, 4.0) : new Rectangle(-2.0, -_radius, 4.0, _radius * 2);
+		renderer.Get2dRenderer().RenderRectangle(Colours.White, line, 1.0);
 	}
 }
