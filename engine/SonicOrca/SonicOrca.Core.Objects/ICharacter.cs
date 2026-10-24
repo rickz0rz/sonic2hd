@@ -123,6 +123,13 @@ public interface ICharacter : IActiveObject
 
 	bool CanBeHurt { get; }
 
+	/// <summary>
+	/// True when the character can collect rings. After a hit, Touch_Rings ignores all rings while the invulnerability
+	/// is 90 ticks or more. The invulnerability stays at 120 during the hurt flight and starts again at 120 when the
+	/// character lands, so this is false during the flight and for 30 ticks after the landing.
+	/// </summary>
+	bool CanCollectRings { get; }
+
 	void Hurt(int direction, PlayerDeathCause cause = PlayerDeathCause.Hurt);
 
 	void Kill(PlayerDeathCause cause);

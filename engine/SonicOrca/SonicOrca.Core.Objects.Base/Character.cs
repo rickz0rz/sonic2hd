@@ -275,6 +275,9 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	/// <summary>The move lock after a character falls off a wall or a ceiling ($1E in Sonic_SlopeRepel).</summary>
 	private const int SlopeRepelLockTicks = 30;
 
+	/// <summary>A character cannot collect rings while its invulnerability is this value or more ($5A in Touch_Rings).</summary>
+	private const int RingCollectInvulnerabilityTicks = 90;
+
 	/// <summary>True when the slope repel detaches the character in this tick.</summary>
 	private bool _slopeRepelled;
 
@@ -561,6 +564,12 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			return true;
 		}
 	}
+
+	/// <summary>
+	/// False while the hurt invulnerability is 90 ticks or more, as in Touch_Rings. The hurt flight does not count
+	/// down, so a hurt character cannot collect rings until 30 ticks after it lands.
+	/// </summary>
+	public bool CanCollectRings => InvulnerabilityTicks < RingCollectInvulnerabilityTicks;
 
 	protected string InvincibilityGroupResourceKey { get; set; }
 
