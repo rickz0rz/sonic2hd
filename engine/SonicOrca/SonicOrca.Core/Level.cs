@@ -155,6 +155,12 @@ public class Level : IDisposable
 
 	public bool SeamlessAct { get; set; }
 
+	/// <summary>
+	/// True from the first update of a boss until the level starts again, as Current_Boss_ID in the original. In
+	/// Original physics the characters cannot leave the screen on the right during a boss fight.
+	/// </summary>
+	public bool BossFight { get; set; }
+
 	public double NightMode { get; set; }
 
 	/// <summary>
@@ -350,6 +356,7 @@ public class Level : IDisposable
 		_fadeTransition.Clear();
 		StateFlags = 0;
 		Ticks = 0;
+		BossFight = false;
 		_intervals.Clear();
 		InitialiseEarthquake();
 		FinishOnCompleteLevel = true;

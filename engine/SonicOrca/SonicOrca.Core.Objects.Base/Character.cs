@@ -3243,6 +3243,10 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			CharacterEvents &= ~CharacterEvent.DoubleJump;
 		}
 		Velocity = new Vector2(Math.Sign(Velocity.X) * Math.Min(Math.Abs(Velocity.X), MaximumVelocity), Math.Sign(Velocity.Y) * Math.Min(Math.Abs(Velocity.Y), MaximumVelocity));
+		if (Level.OriginalPhysics)
+		{
+			ApplyLevelSideBoundsOriginal();
+		}
 		bool hasRightCollision = _collisionEvents[(int)CollisionMode.Right] != null;
 		bool hasLeftCollision = _collisionEvents[(int)CollisionMode.Left] != null;
 		// A pushing character does not move vertically, unless it pushes a mobile vector.
@@ -3432,7 +3436,32 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		return speed;
 	}
 
-	private void ApplyLevelBounds()
+	/// <summary>
+	/// Sonic_LevelBound: tests the position after the move of this tick. The left limit is 16 px right of the left
+	/// edge of the camera range. The right limit is 24 px left of the right edge in a boss fight, and 40 px right of
+	/// the right edge otherwise, so the character can run out of the screen at the end of an act. A character at a
+	/// limit stops there: the horizontal velocity and the ground speed become 0.
+	/// </summary>
+	private void ApplyLevelSideBoundsOriginal()
+	{
+		const int LeftMargin = 64;
+		const int BossRightMargin = 96;
+		const int RightOverhang = 160;
+		Rectanglei bounds = Level.Bounds;
+		double left = bounds.X + LeftMargin;
+		double right = Level.BossFight ? bounds.Right - BossRightMargin : bounds.Right + RightOverhang;
+		double nextX = PositionPrecise.X + Velocity.X;
+		if (nextX >= left && nextX < right)
+		{
+			return;
+		}
+		PositionPrecise = new Vector2((nextX < left) ? left : right, PositionPrecise.Y);
+		Velocity = new Vector2(0.0, Velocity.Y);
+		GroundVelocity = 0.0;
+	}
+
+	/// <summary>HD mode: the centre of the character stays 9 px from the sides of the camera range.</summary>
+	private void ApplyLevelSideBoundsHD()
 	{
 		if (Position.X - LevelBoundsMargin < Level.Bounds.X)
 		{
@@ -3445,6 +3474,15 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			PositionPrecise = new Vector2(Level.Bounds.Right - 1 - LevelBoundsMargin, PositionPrecise.Y);
 			Velocity = new Vector2(0.0, Velocity.Y);
 			GroundVelocity = MathX.Clamp(0.0, GroundVelocity, 1.0);
+		}
+	}
+
+	private void ApplyLevelBounds()
+	{
+		// Original mode tests the side limits in UpdatePosition, see ApplyLevelSideBoundsOriginal.
+		if (!Level.OriginalPhysics || IsDebug)
+		{
+			ApplyLevelSideBoundsHD();
 		}
 		if (IsDebug)
 		{

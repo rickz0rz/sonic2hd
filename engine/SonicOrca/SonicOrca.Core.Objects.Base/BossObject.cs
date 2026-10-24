@@ -57,6 +57,7 @@ public class BossObject : Enemy
 	protected override void OnUpdate()
 	{
 		base.OnUpdate();
+		Level.BossFight = true;
 		if (InvincibilityTimer > 0)
 		{
 			InvincibilityTimer--;
@@ -80,9 +81,14 @@ public class BossObject : Enemy
 		base.OnCollision(e);
 	}
 
+	/// <summary>
+	/// The boss takes a hit. The character bounces back. In Original physics, Touch_Enemy_Part2 reverses the velocity
+	/// and keeps the ground speed, also on the ground. Thus a character on the ground continues in the next tick. HD
+	/// physics reverses the ground speed of a character on the ground.
+	/// </summary>
 	protected virtual void Hit(ICharacter character)
 	{
-		if (character.IsAirborne)
+		if (character.IsAirborne || Level.OriginalPhysics)
 		{
 			character.Velocity *= -1.0;
 		}
