@@ -344,8 +344,29 @@ public static class ObjectPlacements
 					Type = originalPlacement.SubType
 				};
 				break;
+			case 68:
+				key = "SONICORCA/OBJECTS/CNZBUMPER";
+				break;
+			case 116:
+				// Half width ((subtype & $F0) + $10) / 2, half height ((subtype & $F) + 1) * 8
+				key = "SONICORCA/OBJECTS/INVISIBLEBLOCK";
+				behaviour = new
+				{
+					Width = ((originalPlacement.SubType & 0xF0) + 0x10) * 4,
+					Height = ((originalPlacement.SubType & 0xF) + 1) * 16 * 4
+				};
+				break;
 			case 132:
+				// Pinball mode: bit 2 makes the line horizontal, bits 0-1 give the half length $20 to $100, and a
+				// flipped marker releases a character that crosses to the right (or down) instead
 				key = "SONICORCA/OBJECTS/FORCESPINBALL";
+				// The names are the state fields of ForceSpinballInstance
+				behaviour = new
+				{
+					_direction = originalPlacement.FlipX ? 3 : 1,
+					_radius = (0x20 << (originalPlacement.SubType & 3)) * 4,
+					_horizontal = (originalPlacement.SubType & 4) != 0
+				};
 				break;
 			case 146:
 				key = "SONICORCA/OBJECTS/SPIKER";

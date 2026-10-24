@@ -22,8 +22,11 @@ public sealed record OriginalAct(int Number, string LayoutFile, string ObjectsFi
 /// <param name="Key">The resource key of the zone, for example "SONICORCA/LEVELS/CNZ".</param>
 /// <param name="SecondaryCollisionFile">The collision index of the second path, or null when the zone has one path.</param>
 /// <param name="MapSize">The size of the front layer, in blocks (16 original pixels).</param>
+/// <param name="PaletteFile">The zone palette, for the sprites of its objects.</param>
+/// <param name="Sprites">The art of the objects that the game data does not have.</param>
 public sealed record OriginalZone(string Name, string Key, string ChunksFile, string PrimaryCollisionFile,
-	string SecondaryCollisionFile, IReadOnlyList<OriginalAct> Acts, Vector2i MapSize)
+	string SecondaryCollisionFile, IReadOnlyList<OriginalAct> Acts, Vector2i MapSize, string PaletteFile,
+	IReadOnlyList<OriginalSprite> Sprites)
 {
 	/// <summary>The zones that the importer knows.</summary>
 	public static IReadOnlyDictionary<string, OriginalZone> All { get; } = new Dictionary<string, OriginalZone>(StringComparer.OrdinalIgnoreCase)
@@ -39,12 +42,19 @@ public sealed record OriginalZone(string Name, string Key, string ChunksFile, st
 				new OriginalAct(2, "level/layout/CNZ_2.kos", "level/objects/CNZ_2.bin", "level/rings/CNZ_2.bin", "startpos/CNZ_2.bin",
 					new Vector2i(85 * 128, 2 * 128), 85 * 8, new Vector2i(0x2A80 + 320, 0x720 + 224)),
 			},
-			new Vector2i(1400, 144)),
+			new Vector2i(1400, 144), "art/palettes/CNZ.bin",
+			new[]
+			{
+				new OriginalSprite("SONICORCA/OBJECTS/CNZBUMPER", "art/nemesis/Round bumper from CNZ.nem", "mappings/sprite/obj44.asm", 2),
+			}),
 	};
 }
 
 /// <summary>The result of a level import: the map, the binding, and notes about what was not imported.</summary>
-public sealed record ImportedLevel(LevelMap Map, LevelBinding Binding, IReadOnlyList<string> Notes);
+/// <param name="Sprites">The art of the objects that the game data does not have.</param>
+/// <param name="NewObjects">The objects that the binding uses and that the game data does not have: the resource key and the namespace of the code.</param>
+public sealed record ImportedLevel(LevelMap Map, LevelBinding Binding, IReadOnlyList<string> Notes,
+	IReadOnlyList<ImportedSprite> Sprites, IReadOnlyDictionary<string, string> NewObjects);
 
 /// <summary>
 /// Makes the map and the binding of a SonicOrca level from a zone of the original game. The tiles are the blocks of
@@ -76,6 +86,16 @@ public static class LevelImport
 	private const int FrontLayerIndex = 1;
 
 	private const string RingResourceKey = "SONICORCA/OBJECTS/RING";
+
+	/// <summary>
+	/// The objects of this repository that the game data does not have. A level that uses them needs a resource
+	/// that names the code: "#use" and the namespace.
+	/// </summary>
+	public static IReadOnlyDictionary<string, string> RepositoryObjects { get; } = new Dictionary<string, string>
+	{
+		["SONICORCA/OBJECTS/CNZBUMPER"] = "SONICORCA.OBJECTS.CNZBUMPER",
+		["SONICORCA/OBJECTS/INVISIBLEBLOCK"] = "SONICORCA.OBJECTS.INVISIBLEBLOCK",
+	};
 
 	public static ImportedLevel Import(OriginalZone zone, string disassembly)
 	{
@@ -189,7 +209,11 @@ public static class LevelImport
 		{
 			notes.Add($"Object type ${pair.Key:X2}: {pair.Value} not imported, because SonicOrca has no object for it.");
 		}
-		return new ImportedLevel(map, binding, notes);
+		uint[] palette = SpriteImport.ReadPalette(disassembly, zone.PaletteFile);
+		var sprites = zone.Sprites.Select(sprite => SpriteImport.Import(sprite, disassembly, palette, Scale)).ToList();
+		var newObjects = binding.ObjectPlacements.Select(p => p.Key).Distinct().Where(RepositoryObjects.ContainsKey)
+			.ToDictionary(key => key, key => RepositoryObjects[key]);
+		return new ImportedLevel(map, binding, notes, sprites, newObjects);
 	}
 
 	/// <summary>The chunk entry of a block of an act layout, or 0 outside the layout.</summary>
