@@ -180,7 +180,7 @@ public class SpringInstance : ActiveObject
 
 	protected override void OnUpdate()
 	{
-		if (!IsHorizontal || _animation.Index == _bounceAnimationIndex)
+		if (!Level.OriginalPhysics || !IsHorizontal || _animation.Index == _bounceAnimationIndex)
 			return;
 		// A horizontal spring also launches a character on the ground in front of it, when the character does not
 		// move toward the spring.
@@ -204,8 +204,8 @@ public class SpringInstance : ActiveObject
 		if (e.Id != SpringCollisionId || e.ActiveObject.Type.Classification != ObjectClassification.Character)
 			return;
 		Character character = (Character)e.ActiveObject;
-		// A horizontal spring launches only a character that pushes it on the ground.
-		if (IsHorizontal && character.IsAirborne)
+		// In the Original physics, a horizontal spring launches only a character that pushes it on the ground.
+		if (Level.OriginalPhysics && IsHorizontal && character.IsAirborne)
 			return;
 		if (Level.OriginalPhysics && IsDiagonalUp && !IsOnDiagonalLaunchArea(character, e))
 			return;

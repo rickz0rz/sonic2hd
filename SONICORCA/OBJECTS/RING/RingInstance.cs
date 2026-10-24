@@ -29,6 +29,9 @@ public class RingInstance : ActiveObject
 	/// <summary>The number of ticks that a scattered ring stays.</summary>
 	private const int MaxLifeTicks = byte.MaxValue;
 
+	/// <summary>In the HD physics, a scattered ring can be collected only when its life ticks go below this value.</summary>
+	private const int HDCollectableLifeTicks = 175;
+
 	private const double AttractDistance = 256.0;
 	private const double Gravity = 0.375;
 
@@ -226,8 +229,11 @@ public class RingInstance : ActiveObject
 			return;
 		ICharacter character = (ICharacter)e.ActiveObject;
 		// The original blocks placed and scattered rings in the first 30 frames of the invulnerability after a hit
-		// (Touch_Rings: invulnerable_time >= 90)
-		if (!character.CanCollectRings)
+		// (Touch_Rings: invulnerable_time >= 90). HD blocks only a new scattered ring.
+		bool canCollect = Level.OriginalPhysics
+			? character.CanCollectRings
+			: _stationary || _attracted || _lifeTicks < HDCollectableLifeTicks;
+		if (!canCollect)
 			return;
 		Collect(character.Player);
 	}

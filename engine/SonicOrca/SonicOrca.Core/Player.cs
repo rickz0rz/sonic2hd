@@ -138,8 +138,8 @@ public class Player
 		if (CurrentRings >= TargetRingCountForNextLife)
 		{
 			// As Extra_life_flags in the original: one life at 100 rings and one at 200 rings. Losing the rings
-			// resets the target.
-			TargetRingCountForNextLife = TargetRingCountForNextLife < LastRingsForLife
+			// resets the target. HD gives a life at each 100 rings.
+			TargetRingCountForNextLife = !_level.OriginalPhysics || TargetRingCountForNextLife < LastRingsForLife
 				? TargetRingCountForNextLife + RingsForLife
 				: int.MaxValue;
 			GainLives();

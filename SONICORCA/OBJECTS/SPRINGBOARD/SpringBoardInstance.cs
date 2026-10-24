@@ -31,6 +31,9 @@ public class SpringBoardInstance : ActiveObject
 	/// <summary>The launch y velocity without the boost of the launch table (-$400 in the original).</summary>
 	private const double LaunchVelocity = -16.0;
 
+	/// <summary>The launch y velocity of every character in the HD physics.</summary>
+	private const double HDLaunchVelocity = -32.0;
+
 	/// <summary>The minimum x speed for the x boost of the launch table ($400 in the original).</summary>
 	private const double BoostMinSpeedX = 16.0;
 
@@ -123,14 +126,16 @@ public class SpringBoardInstance : ActiveObject
 			case StateLaunch:
 				foreach (ICharacter standingCharacter in GetStandingCharacters())
 				{
-					// The boost grows toward the raised end. When the character runs at $400 or faster, the boost
-					// also pushes it toward the raised end.
+					// In the Original physics, the boost grows toward the raised end. When the character runs at $400
+					// or faster, the boost also pushes it toward the raised end. The HD physics launches every
+					// character with HDLaunchVelocity.
 					int boost = GetLaunchBoost(standingCharacter);
 					double velocityX = standingCharacter.Velocity.X;
-					if (System.Math.Abs(velocityX) >= BoostMinSpeedX)
+					if (Level.OriginalPhysics && System.Math.Abs(velocityX) >= BoostMinSpeedX)
 						velocityX += _flipX ? -4 * boost : 4 * boost;
+					double velocityY = Level.OriginalPhysics ? LaunchVelocity - 4 * boost : HDLaunchVelocity;
 					standingCharacter.LeaveGround();
-					standingCharacter.Velocity = new Vector2(velocityX, LaunchVelocity - 4 * boost);
+					standingCharacter.Velocity = new Vector2(velocityX, velocityY);
 					standingCharacter.TumbleAngle = 0.0;
 					standingCharacter.TumbleTurns = 1;
 				}

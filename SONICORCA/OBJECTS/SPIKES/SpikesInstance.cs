@@ -20,10 +20,15 @@ public class SpikesInstance : ActiveObject
 	private const int SpikeCollisionId = 1;
 
 	/// <summary>
-	/// The number of ticks between two movements of moving spikes: 4 ticks of movement and 60 ticks of wait. One
-	/// cycle (out and back) is 128 ticks, as in the original game.
+	/// The number of ticks between two movements of moving spikes in the Original physics: 4 ticks of movement and 60
+	/// ticks of wait. One cycle (out and back) is 128 ticks, as in the original game.
 	/// </summary>
-	private const int MovementInterval = 64;
+	private const int OriginalMovementInterval = 64;
+
+	/// <summary>The number of ticks between two movements of moving spikes in the HD physics.</summary>
+	private const int HDMovementInterval = 60;
+
+	private int MovementInterval => Level.OriginalPhysics ? OriginalMovementInterval : HDMovementInterval;
 
 	/// <summary>The size of one spike group.</summary>
 	private const int GroupSize = 128;
