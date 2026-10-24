@@ -29,9 +29,6 @@ public class RingInstance : ActiveObject
 	/// <summary>The number of ticks that a scattered ring stays.</summary>
 	private const int MaxLifeTicks = byte.MaxValue;
 
-	/// <summary>A scattered ring can be collected only when its life ticks go below this value.</summary>
-	private const int CollectableLifeTicks = 175;
-
 	private const double AttractDistance = 256.0;
 	private const double Gravity = 0.375;
 
@@ -184,12 +181,9 @@ public class RingInstance : ActiveObject
 		if (e.ActiveObject.Type.Classification != ObjectClassification.Character)
 			return;
 		ICharacter character = (ICharacter)e.ActiveObject;
-		if (!_stationary && !_attracted && _lifeTicks >= CollectableLifeTicks)
-			return;
-		// The original blocks rings in the first 30 frames after a hit (Touch_Rings: invulnerable_time >= 90).
-		// The character has no public member for its invulnerability time, so this blocks rings while the hit
-		// throws the character back.
-		if (character.IsHurt)
+		// The original blocks placed and scattered rings in the first 30 frames of the invulnerability after a hit
+		// (Touch_Rings: invulnerable_time >= 90)
+		if (!character.CanCollectRings)
 			return;
 		Collect(character.Player);
 	}
