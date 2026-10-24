@@ -52,7 +52,12 @@ internal static class TestPaths
 	}
 
 	/// <summary>Golden screenshots. Git ignores this folder, because the images come from the game files.</summary>
-	public static string GoldenDirectory => Path.Combine(RepoRoot, "tests", "golden");
+	/// <summary>
+	/// The golden screenshots: tests/golden, or tests/golden-hd when S2HD_PHYSICS=hd makes the game play with the HD
+	/// physics. The game reads the same variable.
+	/// </summary>
+	public static string GoldenDirectory => Path.Combine(RepoRoot, "tests",
+		string.Equals(Environment.GetEnvironmentVariable("S2HD_PHYSICS"), "hd", StringComparison.OrdinalIgnoreCase) ? "golden-hd" : "golden");
 
 	private static string FindRepoRoot()
 	{

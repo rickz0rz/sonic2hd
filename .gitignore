@@ -12,3 +12,4 @@ publish/
 
 # Golden screenshots for the regression test (made from the game files, so not committed)
 /tests/golden/
+/tests/golden-hd/
