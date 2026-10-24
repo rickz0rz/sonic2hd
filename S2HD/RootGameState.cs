@@ -75,10 +75,13 @@ internal class RootGameState : IGameState, IDisposable
 			}
 			if (_cmdLineArgs.HasOption("halfpipe"))
 			{
-				// Test mode for the 3D special stage, which the demo does not use yet. "--halfpipe 3" plays stage 3.
+				// Test mode for the 3D special stage. "--halfpipe 3" plays stage 3. Tails plays too, unless --sidekick
+				// names a different sidekick, for example "--sidekick none".
 				string[] values = _cmdLineArgs.GetOptionValues("halfpipe");
 				int stage = values.Length > 0 && int.TryParse(values[0], out int number) ? Math.Clamp(number, 1, HalfPipeLayout.StageCount) - 1 : 0;
-				ChangeGameState(new ScreenGameState(_gameContext, new HalfPipeSpecialStageScreen(_gameContext, stage)));
+				string[] sidekick = _cmdLineArgs.GetOptionValues("sidekick");
+				bool withTails = sidekick.Length == 0 || GetCharacterType(sidekick[0]) == CharacterType.Tails;
+				ChangeGameState(new ScreenGameState(_gameContext, new HalfPipeSpecialStageScreen(_gameContext, stage, withTails)));
 				foreach (UpdateResult updateResult in _currentGameState.Update())
 					yield return updateResult;
 			}

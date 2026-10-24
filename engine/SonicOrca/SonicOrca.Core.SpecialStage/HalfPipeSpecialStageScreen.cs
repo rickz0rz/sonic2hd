@@ -15,7 +15,8 @@ namespace SonicOrca.Core.SpecialStage;
 /// <summary>
 /// The 3D half-pipe special stage. The player runs along a track that the segment layout makes, moves around the
 /// pipe with left and right, and jumps with an action button. Rings count toward the goal of each checkpoint, and
-/// bombs take rings away. Start it with --halfpipe. Escape closes it. The minus and equals keys change the field
+/// bombs take rings away. Tails can follow Sonic under computer control, or under the control of the second pad.
+/// Start it with --halfpipe. Escape closes it. The minus and equals keys change the field
 /// of view.
 /// </summary>
 public class HalfPipeSpecialStageScreen : Screen
@@ -60,6 +61,14 @@ public class HalfPipeSpecialStageScreen : Screen
 	private const string ShadowResourceKey = "SONICORCA/SPECIALSTAGE/SHADOW";
 
 	private const string RingsLabelResourceKey = "SONICORCA/SPECIALSTAGE/RINGS";
+
+	private const string TailsAnimationResourceKey = "SONICORCA/SPECIALSTAGE/TAILSANIM";
+
+	private const string SonicLabelResourceKey = "SONICORCA/SPECIALSTAGE/SONICHUD";
+
+	private const string TailsLabelResourceKey = "SONICORCA/SPECIALSTAGE/TAILSHUD";
+
+	private const string TotalLabelResourceKey = "SONICORCA/SPECIALSTAGE/TOTAL";
 
 	private const string RingSoundResourceKey = "SONICORCA/SOUND/RING";
 
@@ -110,7 +119,7 @@ public class HalfPipeSpecialStageScreen : Screen
 	private const int BombTouchAngle = 8;
 
 	/// <summary>Converts pixels in the pipe of the original (radius $6E) to track units (radius 4).</summary>
-	private const double PixelsToUnits = PipeRadius / HalfPipePlayer.Radius;
+	private const double PixelsToUnits = PipeRadius / HalfPipePlayer.InnerRadius;
 
 	/// <summary>The track nodes ahead of the player where the emerald appears: depth $36 at 4 depth units per track frame.</summary>
 	private const int EmeraldAppearOffset = 0x36 * HalfPipeTrackBuilder.NodesPerTrackFrame / 4;
@@ -144,6 +153,12 @@ public class HalfPipeSpecialStageScreen : Screen
 	// Sprite sizes in track units. The pipe radius is 4.
 	private const double SonicHeight = 2.4;
 
+	/// <summary>Tails is smaller than Sonic, as in the art (227 against 264 pixels).</summary>
+	private const double TailsHeight = SonicHeight * 227.0 / 264.0;
+
+	/// <summary>A player in the outer lane shows this far behind a player in the inner lane, nearer to the camera.</summary>
+	private const double OuterLaneDepth = 3.0;
+
 	private const double RingSize = 1.1;
 
 	private const double BombSize = 1.2;
@@ -163,6 +178,17 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	private readonly HalfPipePlayer _player = new HalfPipePlayer();
 
+	/// <summary>Tails, or null when Sonic plays alone.</summary>
+	private readonly HalfPipePlayer _tails;
+
+	private readonly HalfPipeTailsCpu _tailsCpu = new HalfPipeTailsCpu();
+
+	/// <summary>
+	/// The lanes of the players (SS_Swap_Positions_Flag). When false, Sonic is in the inner lane and Tails in the outer
+	/// lane. A jump changes it. A bomb that hurts a player puts that player in the outer lane.
+	/// </summary>
+	private bool _lanesSwapped;
+
 	private readonly int _stage;
 
 	private Font _font;
@@ -178,6 +204,14 @@ public class HalfPipeSpecialStageScreen : Screen
 	private ITexture _ringsLabelTexture;
 
 	private AnimationInstance _sonicAnimation;
+
+	private AnimationInstance _tailsAnimation;
+
+	private ITexture _sonicLabelTexture;
+
+	private ITexture _tailsLabelTexture;
+
+	private ITexture _totalLabelTexture;
 
 	private AnimationInstance _ringAnimation;
 
@@ -240,7 +274,10 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	private List<HalfPipeCheckpoint> _checkpoints;
 
+	/// <summary>The rings of Sonic. Tails has separate rings, and the goals use the total.</summary>
 	private int _rings;
+
+	private int _tailsRings;
 
 	private const double PipeRadius = 4.0;
 
@@ -253,16 +290,24 @@ public class HalfPipeSpecialStageScreen : Screen
 	private Vector3 _cameraTarget;
 
 	/// <param name="stage">The special stage number, from 0 to 6. It selects the ring quotas.</param>
-	public HalfPipeSpecialStageScreen(SonicOrcaGameContext gameContext, int stage = 0)
+	/// <param name="withTails">True to play with Tails. The ring quotas are then those of Sonic and Tails.</param>
+	public HalfPipeSpecialStageScreen(SonicOrcaGameContext gameContext, int stage = 0, bool withTails = false)
 	{
 		_stage = stage;
+		if (withTails)
+		{
+			_tails = new HalfPipePlayer(outerLane: true);
+		}
 		_gameContext = gameContext;
 		_graphicsContext = _gameContext.Window.GraphicsContext;
 		_resourceSession = new ResourceSession(gameContext.ResourceTree);
 	}
 
-	/// <summary>The rings that the player has.</summary>
-	public int Rings => _rings;
+	/// <summary>The rings that the players have together.</summary>
+	public int Rings => _rings + _tailsRings;
+
+	/// <summary>True when Tails plays with Sonic.</summary>
+	public bool WithTails => _tails != null;
 
 	/// <summary>True when the player won the emerald.</summary>
 	public bool Cleared => _flow?.EmeraldWon ?? false;
@@ -288,6 +333,13 @@ public class HalfPipeSpecialStageScreen : Screen
 		foreach (string key in keys)
 		{
 			_resourceSession.PushDependency(key);
+		}
+		if (_tails != null)
+		{
+			foreach (string key in new[] { TailsAnimationResourceKey, SonicLabelResourceKey, TailsLabelResourceKey, TotalLabelResourceKey })
+			{
+				_resourceSession.PushDependency(key);
+			}
 		}
 		// The original layouts are not in the game data. A mod can add them (see tools/s2hd-data).
 		string stageKey = StageResourceKeyPrefix + (_stage + 1);
@@ -323,6 +375,13 @@ public class HalfPipeSpecialStageScreen : Screen
 		_tallySound = tree.GetLoadedResource<Sample>(TallySoundResourceKey);
 		_tallyEndSound = tree.GetLoadedResource<Sample>(TallyEndSoundResourceKey);
 		_emeraldJingle = tree.GetLoadedResource<Sample>(EmeraldMusicResourceKey);
+		if (_tails != null)
+		{
+			_tailsAnimation = new AnimationInstance(tree, TailsAnimationResourceKey);
+			_sonicLabelTexture = tree.GetLoadedResource<ITexture>(SonicLabelResourceKey);
+			_tailsLabelTexture = tree.GetLoadedResource<ITexture>(TailsLabelResourceKey);
+			_totalLabelTexture = tree.GetLoadedResource<ITexture>(TotalLabelResourceKey);
+		}
 	}
 
 	public override void Initialise()
@@ -331,7 +390,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		_objectShader = OrcaShader.CreateFromFile(_graphicsContext, "shaders/halfpipe/object.shader");
 		_vertexBuffer = _graphicsContext.CreateVertexBuffer(3, 2);
 		_projectionMatrix = Matrix4.Perspective(MathX.ToRadians(_fov), 16.0 / 9.0, 1.0, 1024.0);
-		_track = HalfPipeTrackBuilder.Build(_stageData ?? HalfPipeLayout.CreateGenerated(), HalfPipeLayout.GetRingQuotas(_stage, duo: false));
+		_track = HalfPipeTrackBuilder.Build(_stageData ?? HalfPipeLayout.CreateGenerated(), HalfPipeLayout.GetRingQuotas(_stage, duo: _tails != null));
 		_objects = _track.Objects;
 		_checkpoints = _track.Checkpoints;
 		_flow = new HalfPipeStageFlow(_track);
@@ -392,67 +451,143 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	private void UpdatePlayer()
 	{
-		Controller current = _gameContext.Current[0];
-		Controller pressed = _gameContext.Pressed[0];
 		// From the emerald on, only START has an effect
 		bool masked = _flow.InputMasked;
-		bool left = !masked && current.DirectionLeft.X < -0.5;
-		bool right = !masked && current.DirectionLeft.X > 0.5;
-		if (_player.Update(left, right, !masked && pressed.Action1))
+		HalfPipeInput sonicInput = ReadInput(0, masked, out _);
+		// Sonic records the input for Tails first, so Tails does what Sonic did 16 frames before
+		_tailsCpu.Record(sonicInput);
+		_player.OuterLane = _lanesSwapped;
+		if (_player.Update(sonicInput.Left, sonicInput.Right, sonicInput.JumpPressed))
 		{
-			_gameContext.Audio.PlaySound(_jumpSound);
+			OnJump();
 		}
-		// The ball while jumping. A fall from the top keeps the running animation.
-		int animation = _player.IsJumping ? 1 : 0;
-		if (_sonicAnimation.Index != animation)
+		Animate(_player, _sonicAnimation);
+		if (_tails == null)
 		{
-			_sonicAnimation.Index = animation;
+			return;
 		}
-		_sonicAnimation.Animate();
+		HalfPipeInput pad2 = ReadInput(1, masked, out bool pad2Held);
+		// The computer controls Tails only on the ground. In the air, Tails uses only the second pad.
+		HalfPipeInput tailsInput = _tails.OnGround && !_tails.IsHurt ? _tailsCpu.GetGroundInput(pad2, pad2Held) : pad2;
+		_tails.OuterLane = !_lanesSwapped;
+		if (_tails.Update(tailsInput.Left, tailsInput.Right, tailsInput.JumpPressed))
+		{
+			OnJump();
+		}
+		Animate(_tails, _tailsAnimation);
 	}
 
-	/// <summary>Collects the rings and hits the bombs that the player touches.</summary>
+	/// <param name="held">True while a direction or a jump button is held.</param>
+	private HalfPipeInput ReadInput(int pad, bool masked, out bool held)
+	{
+		Controller current = _gameContext.Current[pad];
+		Controller pressed = _gameContext.Pressed[pad];
+		held = !masked && (current.DirectionLeft.Length > 0.5 || current.Action1 || current.Action2 || current.Action3);
+		return masked ? default : new HalfPipeInput(current.DirectionLeft.X < -0.5, current.DirectionLeft.X > 0.5, pressed.Action1);
+	}
+
+	private void OnJump()
+	{
+		_gameContext.Audio.PlaySound(_jumpSound);
+		// With two players, each jump changes the lanes
+		if (_tails != null)
+		{
+			_lanesSwapped = !_lanesSwapped;
+		}
+	}
+
+	private static void Animate(HalfPipePlayer player, AnimationInstance animation)
+	{
+		// The ball while jumping. A fall from the top keeps the running animation.
+		int index = player.IsJumping ? 1 : 0;
+		if (animation.Index != index)
+		{
+			animation.Index = index;
+		}
+		animation.Animate();
+	}
+
+	/// <summary>Collects the rings and hits the bombs that the players touch.</summary>
 	private void UpdateObjects()
 	{
 		int playerNode = PlayerTrackNode;
 		foreach (HalfPipeObject item in _objects)
 		{
-			// Only a player on the ground who is not hurt can touch objects. The window of three nodes is about the
-			// 2.5 frames during which an object of the original can collide.
-			if (item.Used || !_player.OnGround || _player.IsHurt || Math.Abs(item.TrackNode - playerNode) > 1)
+			// The window of three nodes is about the 2.5 frames during which an object of the original can collide
+			if (item.Used || Math.Abs(item.TrackNode - playerNode) > 1)
 			{
 				continue;
 			}
-			int window = item.Kind == HalfPipeObjectKind.Ring ? RingTouchAngle : BombTouchAngle;
-			if (((_player.Angle - item.OriginalAngle + window) & 0xFF) >= 2 * window)
+			// The original tests the player in the inner lane first, so that player gets an object that both touch
+			if (_tails != null && _tails.Radius < _player.Radius)
 			{
-				continue;
-			}
-			item.Used = true;
-			if (item.Kind == HalfPipeObjectKind.Ring)
-			{
-				_rings++;
-				_ringsCollected++;
-				_gameContext.Audio.PlaySound(_ringSound);
-				continue;
-			}
-			_gameContext.Audio.PlaySound(_bombSound);
-			if (_player.Hurt())
-			{
-				// A flashing player still makes the bomb explode, but takes no damage
-				int lost = Math.Min(_rings, BombRingLoss);
-				_rings -= lost;
-				if (lost > 0)
+				if (!Touch(item, _tails))
 				{
-					_gameContext.Audio.PlaySound(_ringLossSound);
+					Touch(item, _player);
 				}
+			}
+			else if (!Touch(item, _player) && _tails != null)
+			{
+				Touch(item, _tails);
 			}
 		}
 	}
 
+	/// <summary>Collects the ring or hits the bomb when the player touches it. Returns true when the player touched it.</summary>
+	private bool Touch(HalfPipeObject item, HalfPipePlayer player)
+	{
+		// Only a player on the ground who is not hurt can touch objects
+		if (!player.OnGround || player.IsHurt)
+		{
+			return false;
+		}
+		int window = item.Kind == HalfPipeObjectKind.Ring ? RingTouchAngle : BombTouchAngle;
+		if (((player.Angle - item.OriginalAngle + window) & 0xFF) >= 2 * window)
+		{
+			return false;
+		}
+		item.Used = true;
+		bool isTails = player == _tails;
+		if (item.Kind == HalfPipeObjectKind.Ring)
+		{
+			if (isTails)
+			{
+				_tailsRings++;
+			}
+			else
+			{
+				_rings++;
+			}
+			_ringsCollected++;
+			_gameContext.Audio.PlaySound(_ringSound);
+			return true;
+		}
+		_gameContext.Audio.PlaySound(_bombSound);
+		if (player.Hurt())
+		{
+			// A flashing player still makes the bomb explode, but takes no damage. The hurt player moves to the
+			// outer lane, and loses only its own rings.
+			_lanesSwapped = !isTails;
+			int lost = Math.Min(isTails ? _tailsRings : _rings, BombRingLoss);
+			if (isTails)
+			{
+				_tailsRings -= lost;
+			}
+			else
+			{
+				_rings -= lost;
+			}
+			if (lost > 0)
+			{
+				_gameContext.Audio.PlaySound(_ringLossSound);
+			}
+		}
+		return true;
+	}
+
 	private void UpdateFlow()
 	{
-		foreach (HalfPipeFlowEvent flowEvent in _flow.Update(PlayerTrackNode, _rings, EmeraldAppearOffset))
+		foreach (HalfPipeFlowEvent flowEvent in _flow.Update(PlayerTrackNode, Rings, EmeraldAppearOffset))
 		{
 			switch (flowEvent)
 			{
@@ -479,7 +614,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		}
 		if (_flow.Finished)
 		{
-			_results = new HalfPipeResults(_rings, _flow.EmeraldWon, _ringsCollected, _track.RingCount);
+			_results = new HalfPipeResults(Rings, _flow.EmeraldWon, _ringsCollected, _track.RingCount);
 		}
 	}
 
@@ -604,7 +739,11 @@ public class HalfPipeSpecialStageScreen : Screen
 		List<TexturedQuad> quads = new List<TexturedQuad>();
 		AddPipeQuads(quads);
 		AddObjectQuads(quads);
-		AddPlayerQuads(quads);
+		AddPlayerQuads(quads, _player, _sonicAnimation, SonicHeight);
+		if (_tails != null)
+		{
+			AddPlayerQuads(quads, _tails, _tailsAnimation, TailsHeight);
+		}
 		AddEmeraldQuad(quads);
 
 		// Draw the quads from back to front. Group the quads that use the same texture into one draw call.
@@ -747,31 +886,34 @@ public class HalfPipeSpecialStageScreen : Screen
 			new Rectanglei(0, 0, _emeraldTexture.Width, _emeraldTexture.Height)));
 	}
 
-	private void AddPlayerQuads(List<TexturedQuad> quads)
+	private void AddPlayerQuads(List<TexturedQuad> quads, HalfPipePlayer player, AnimationInstance animation, double spriteHeight)
 	{
 		Matrix4 transform = GetNodeTransform(PlayerTrackNode);
-		(double x, double y) = _player.Position;
+		(double x, double y) = player.Position;
 		double distance = Math.Sqrt(x * x + y * y);
-		double angle = HalfPipePlayer.ToRadiansFromBottom(_player.Angle);
-		if (_player.InAir)
+		double angle = HalfPipePlayer.ToRadiansFromBottom(player.Angle);
+		// The outer lane is nearer to the camera, a little behind the inner lane
+		double lane = (player.Radius - HalfPipePlayer.InnerRadius) / (double)(HalfPipePlayer.OuterRadius - HalfPipePlayer.InnerRadius);
+		double depth = -lane * OuterLaneDepth;
+		if (player.InAir)
 		{
 			// The shadow falls on the wall below the player
-			double shadowAngle = Math.Asin(Math.Clamp(x / HalfPipePlayer.Radius, -1.0, 1.0));
+			double shadowAngle = Math.Asin(Math.Clamp(x / player.Radius, -1.0, 1.0));
 			double shadowHeight = ShadowWidth * _shadowTexture.Height / _shadowTexture.Width;
-			quads.Add(CreateSprite(transform, shadowAngle, 0.0, ShadowWidth, shadowHeight, _shadowTexture, new Rectanglei(0, 0, _shadowTexture.Width, _shadowTexture.Height)));
+			quads.Add(CreateSprite(transform, shadowAngle, 0.0, ShadowWidth, shadowHeight, _shadowTexture, new Rectanglei(0, 0, _shadowTexture.Width, _shadowTexture.Height), depth: depth));
 		}
 		// The player shows on alternate frames while flashing after a bomb
-		if (_player.FlashFramesLeft > 0 && _ticks % 2 == 0)
+		if (player.FlashFramesLeft > 0 && _ticks % 2 == 0)
 		{
 			return;
 		}
-		Rectanglei source = _sonicAnimation.CurrentFrame.Source;
-		double width = SonicHeight * source.Width / source.Height;
+		Rectanglei source = animation.CurrentFrame.Source;
+		double width = spriteHeight * source.Width / source.Height;
 		// In the air the player is nearer to the centre than the surface
-		double height = Math.Max(0.0, (HalfPipePlayer.Radius - distance) * PixelsToUnits);
+		double height = Math.Max(0.0, (player.Radius - distance) * PixelsToUnits);
 		// The hurt animation turns the sprite once
-		double spin = _player.IsHurt ? _player.HurtProgress * 2.0 * Math.PI : 0.0;
-		quads.Add(CreateSprite(transform, angle, height, width, SonicHeight, _sonicAnimation.CurrentTexture, source, spin));
+		double spin = player.IsHurt ? player.HurtProgress * 2.0 * Math.PI : 0.0;
+		quads.Add(CreateSprite(transform, angle, height, width, spriteHeight, animation.CurrentTexture, source, spin, depth));
 	}
 
 	/// <summary>
@@ -779,14 +921,15 @@ public class HalfPipeSpecialStageScreen : Screen
 	/// The sprite leans with the surface, so that its bottom edge is on the surface and its top points to the centre.
 	/// </summary>
 	private static TexturedQuad CreateSprite(Matrix4 transform, double angle, double height, double width, double spriteHeight,
-		ITexture texture, Rectanglei source, double spin = 0.0)
+		ITexture texture, Rectanglei source, double spin = 0.0, double depth = 0.0)
 	{
 		// Theta is the angle of the cross section: 0 at the left edge, pi / 2 at the bottom, pi at the right edge
 		double theta = Math.PI / 2.0 + angle;
 		Vector3 surface = new Vector3(-Math.Cos(theta) * PipeRadius, -Math.Sin(theta) * PipeRadius, 0.0);
 		Vector3 up = new Vector3(Math.Cos(theta), Math.Sin(theta), 0.0);
 		Vector3 right = new Vector3(Math.Sin(theta), -Math.Cos(theta), 0.0);
-		Vector3 bottomCentre = surface + up * (SurfaceGap + height);
+		// Depth moves the sprite along the track: a negative depth is nearer to the camera
+		Vector3 bottomCentre = surface + up * (SurfaceGap + height) + new Vector3(0.0, 0.0, depth);
 		if (spin != 0.0)
 		{
 			// Turn the sprite in its own plane, about its centre
@@ -842,13 +985,33 @@ public class HalfPipeSpecialStageScreen : Screen
 			DrawResults(renderer.GetFontRenderer());
 			return;
 		}
-		g.RenderTexture(_ringsLabelTexture, new Rectangle(48.0, 40.0, _ringsLabelTexture.Width, _ringsLabelTexture.Height));
-		g.Deactivate();
-		IFontRenderer fontRenderer = renderer.GetFontRenderer();
-		fontRenderer.RenderString(_rings.ToString(), new Rectangle(260.0, 48.0, 0.0, 0.0), FontAlignment.Left, _font, 0);
+		IFontRenderer fontRenderer;
+		double counterY = 160.0;
+		if (_tails == null)
+		{
+			g.RenderTexture(_ringsLabelTexture, new Rectangle(48.0, 40.0, _ringsLabelTexture.Width, _ringsLabelTexture.Height));
+			g.Deactivate();
+			fontRenderer = renderer.GetFontRenderer();
+			fontRenderer.RenderString(_rings.ToString(), new Rectangle(260.0, 48.0, 0.0, 0.0), FontAlignment.Left, _font, 0);
+		}
+		else
+		{
+			// As in the original: the rings of Sonic on the left, the total in the centre, the rings of Tails on the right
+			g.RenderTexture(_sonicLabelTexture, new Rectangle(48.0, 40.0, _sonicLabelTexture.Width, _sonicLabelTexture.Height));
+			g.RenderTexture(_totalLabelTexture, new Rectangle(960.0 - _totalLabelTexture.Width / 2.0, 24.0, _totalLabelTexture.Width, _totalLabelTexture.Height));
+			double tailsX = 1920.0 - 48.0 - _tailsLabelTexture.Width;
+			g.RenderTexture(_tailsLabelTexture, new Rectangle(tailsX, 40.0, _tailsLabelTexture.Width, _tailsLabelTexture.Height));
+			g.Deactivate();
+			fontRenderer = renderer.GetFontRenderer();
+			fontRenderer.RenderString(_rings.ToString(), new Rectangle(48.0 + _sonicLabelTexture.Width / 2.0, 96.0, 0.0, 0.0), FontAlignment.MiddleX, _font, 0);
+			// The total goes inside the box of the label
+			fontRenderer.RenderString(Rings.ToString(), new Rectangle(960.0, 24.0 + _totalLabelTexture.Height / 2.0 - 16.0, 0.0, 0.0), FontAlignment.MiddleX, _font, 0);
+			fontRenderer.RenderString(_tailsRings.ToString(), new Rectangle(tailsX + _tailsLabelTexture.Width / 2.0, 96.0, 0.0, 0.0), FontAlignment.MiddleX, _font, 0);
+			counterY = 220.0;
+		}
 		if (_flow.Counter != null)
 		{
-			fontRenderer.RenderString(_flow.Counter, new Rectangle(960.0, 160.0, 0.0, 0.0), FontAlignment.MiddleX, _font, 0);
+			fontRenderer.RenderString(_flow.Counter, new Rectangle(960.0, counterY, 0.0, 0.0), FontAlignment.MiddleX, _font, 0);
 		}
 		if (_flow.Message != null)
 		{
@@ -865,7 +1028,15 @@ public class HalfPipeSpecialStageScreen : Screen
 		}
 		string title = _results.EmeraldWon ? "CHAOS EMERALD" : "SPECIAL STAGE";
 		fontRenderer.RenderString(title, new Rectangle(960.0, 240.0, 0.0, 0.0), FontAlignment.MiddleX, _font, 0);
-		Line("SONIC RINGS", _results.Rings, 400.0);
+		if (_tails == null)
+		{
+			Line("SONIC RINGS", _results.Rings, 400.0);
+		}
+		else
+		{
+			Line("SONIC RINGS", _rings, 360.0);
+			Line("TAILS RINGS", _tailsRings, 420.0);
+		}
 		Line("RING BONUS", _results.RingBonus, 500.0);
 		Line("GEMS BONUS", _results.GemsBonus, 580.0);
 		if (_results.PerfectBonus > 0 || _results.Total >= HalfPipeResults.PerfectBonusPoints)
