@@ -1737,6 +1737,42 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		return velocityX;
 	}
 
+	/// <summary>
+	/// Moves the character down onto the floor under its centre when the floor is no more than the given distance
+	/// below its feet. The level uses it at the start of a level and at a star post. The start positions of the
+	/// original are for a character with a height radius of 19 px (76 units). A shorter character starts in the air
+	/// and falls when the level starts.
+	/// </summary>
+	public void PlaceOnFloor(int maximumDistance)
+	{
+		double x = PositionPrecise.X;
+		double feetY = PositionPrecise.Y + CollisionRadius.Y;
+		Rectanglei searchArea = new Rectanglei((int)Math.Floor(x) - 1, (int)Math.Floor(feetY) - 1, 3, maximumDistance + 3);
+		double? floorY = null;
+		foreach (CollisionVector vector in Level.CollisionTable.GetPossibleCollisionIntersections(searchArea, CheckLandscapeCollision, CheckObjectCollision))
+		{
+			if (vector.Mode != CollisionMode.Top || !CanCollideWithVector(vector) || CheckIgnoreFlag(vector))
+			{
+				continue;
+			}
+			Vector2i a = vector.AbsoluteA;
+			Vector2i b = vector.AbsoluteB;
+			if (a.X == b.X || x < Math.Min(a.X, b.X) || x > Math.Max(a.X, b.X))
+			{
+				continue;
+			}
+			double y = a.Y + (double)(b.Y - a.Y) * (x - a.X) / (b.X - a.X);
+			if (y >= feetY && y <= feetY + maximumDistance && (floorY == null || y < floorY))
+			{
+				floorY = y;
+			}
+		}
+		if (floorY.HasValue)
+		{
+			PositionPrecise = new Vector2(x, floorY.Value - CollisionRadius.Y);
+		}
+	}
+
 	public void LeaveGround()
 	{
 		if (GroundVector != null)

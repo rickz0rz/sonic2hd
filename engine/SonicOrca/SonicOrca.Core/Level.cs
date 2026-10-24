@@ -29,6 +29,9 @@ public class Level : IDisposable
 
 	private const int FadeDuration = 60;
 
+	/// <summary>The largest distance from the feet of a character at the start down to the floor that it starts on.</summary>
+	private const int StartFloorDistance = 32;
+
 	private const double ScreenWidth = 1920.0;
 
 	private const double ScreenHeight = 1080.0;
@@ -480,12 +483,11 @@ public class Level : IDisposable
 
 	private void SetupCharacters(ICharacter protagonist, ICharacter sidekick, int startPath)
 	{
-		_camera.ObjectToTrack = (ActiveObject)protagonist;
-		_camera.CentreObjectToTrack();
 		protagonist.Player = Player;
 		protagonist.Path = startPath;
 		Player.Protagonist = protagonist;
 		Player.ProtagonistGamepadIndex = 0;
+		PlaceOnFloor(protagonist);
 		if (sidekick != null)
 		{
 			sidekick.Player = Player;
@@ -493,6 +495,22 @@ public class Level : IDisposable
 			sidekick.Path = startPath;
 			Player.Sidekick = sidekick;
 			Player.SidekickGamepadIndex = 1;
+			PlaceOnFloor(sidekick);
+		}
+		_camera.ObjectToTrack = (ActiveObject)protagonist;
+		_camera.CentreObjectToTrack();
+	}
+
+	/// <summary>
+	/// Puts a character on the floor under its start position. The start positions and the star post positions are
+	/// for the height of the original Sonic. A shorter character would start in the air and fall when the level
+	/// starts.
+	/// </summary>
+	private static void PlaceOnFloor(ICharacter character)
+	{
+		if (character is Character placedCharacter)
+		{
+			placedCharacter.PlaceOnFloor(StartFloorDistance);
 		}
 	}
 
