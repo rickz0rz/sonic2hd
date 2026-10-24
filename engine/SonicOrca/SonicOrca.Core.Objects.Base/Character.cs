@@ -272,6 +272,18 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	/// </summary>
 	private const int HurtInvulnerabilityTicks = 120;
 
+	/// <summary>The move lock after a character falls off a wall or a ceiling ($1E in Sonic_SlopeRepel).</summary>
+	private const int SlopeRepelLockTicks = 30;
+
+	/// <summary>The ground speed after a turn past 0 ($80 in Sonic_TurnLeft and Sonic_BrakeRollingRight).</summary>
+	private const double TurnaroundSpeed = 2.0;
+
+	/// <summary>A character cannot collect rings while its invulnerability is this value or more ($5A in Touch_Rings).</summary>
+	private const int RingCollectInvulnerabilityTicks = 90;
+
+	/// <summary>True when the slope repel detaches the character in this tick.</summary>
+	private bool _slopeRepelled;
+
 	/// <summary>
 	/// The number of ticks of the death animation before the character is dead.
 	/// </summary>
@@ -358,9 +370,11 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	public const int SidekickOffscreenTime = 300;
 
 	/// <summary>
-	/// The number of ticks that the sidekick stays behind the protagonist. The sidekick follows this history item.
+	/// The history item of the protagonist that the sidekick follows. TailsCPU_Normal follows the position of Sonic
+	/// 16 frames before. The sidekick updates before the protagonist, and a character records its history at the start
+	/// of its update, so History[0] is the state after the tick before the last. Item 14 is then 16 ticks old.
 	/// </summary>
-	private const int SidekickHistoryDelay = 17;
+	private const int SidekickHistoryDelay = 14;
 
 	private bool _humanControlled;
 
@@ -553,6 +567,12 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			return true;
 		}
 	}
+
+	/// <summary>
+	/// False while the hurt invulnerability is 90 ticks or more, as in Touch_Rings. The hurt flight does not count
+	/// down, so a hurt character cannot collect rings until 30 ticks after it lands.
+	/// </summary>
+	public bool CanCollectRings => InvulnerabilityTicks < RingCollectInvulnerabilityTicks;
 
 	protected string InvincibilityGroupResourceKey { get; set; }
 
@@ -868,6 +888,10 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		}
 	}
 
+	/// <summary>
+	/// The pinball mode of Sonic 2 (pinball_mode). While it is set, the character rolls and cannot stop rolling or
+	/// jump from a roll on the ground. When the flag is set, a character that does not roll starts to roll at once.
+	/// </summary>
 	public bool ForceSpinball
 	{
 		get
@@ -877,6 +901,11 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		set
 		{
 			StateFlags = (value ? (StateFlags | CharacterState.ForceSpinball) : (StateFlags & ~CharacterState.ForceSpinball));
+			if (value && !IsSpinball)
+			{
+				IsSpinball = true;
+				Level.SoundManager.PlaySound(this, "SONICORCA/SOUND/SPINBALL");
+			}
 		}
 	}
 
@@ -1512,9 +1541,10 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		}
 		else
 		{
+			bool wasHurt = IsHurt;
 			IsAirborne = false;
 			IsJumping = false;
-			if (Level.Ticks - LastTickOnGround > KeepSpinballAirborneTolerance)
+			if (Level.Ticks - LastTickOnGround > KeepSpinballAirborneTolerance && !ForceSpinball)
 			{
 				IsSpinball = false;
 			}
@@ -1535,6 +1565,13 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 					GroundVelocity = ((Math.Abs(Velocity.X) > Math.Abs(Velocity.Y)) ? (Velocity.X * GroundVector.FlipX) : (Velocity.X * Math.Cos(GroundAngle) + Velocity.Y * Math.Sin(GroundAngle)));
 					Velocity = new Vector2(GroundVelocity * Math.Cos(GroundAngle), GroundVelocity * Math.Sin(GroundAngle));
 				}
+			}
+			if (wasHurt)
+			{
+				// Sonic_HurtStop: the character stops when it lands, and the invulnerability starts again.
+				GroundVelocity = 0.0;
+				Velocity = default;
+				InvulnerabilityTicks = HurtInvulnerabilityTicks;
 			}
 		}
 		Player.ResetScoreChain();
@@ -2510,7 +2547,8 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		UpdateLooking();
 		UpdatePushing();
 		UpdateWaterLogic();
-		if (InvulnerabilityTicks > 0)
+		// The invulnerability does not count down while the character flies back from a hit (Obj01_Hurt).
+		if (InvulnerabilityTicks > 0 && !IsHurt)
 		{
 			InvulnerabilityTicks--;
 		}
@@ -2581,7 +2619,8 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		}
 		if (IsHurt)
 		{
-			Gravity = 0.75;
+			// Obj01_Hurt_Normal: gravity is $30, or $10 under water.
+			Gravity = IsUnderwater ? 0.25 : 0.75;
 			Acceleration = 0.0;
 			Deceleration = 0.0;
 		}
@@ -2590,14 +2629,10 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			Acceleration = 0.0;
 			Deceleration = 0.0;
 		}
-		if (SlopeLockTicks != 0)
+		if (SlopeLockTicks != 0 && Mode != CollisionMode.Air)
 		{
-			if (Mode == CollisionMode.Air)
-			{
-				SlopeLockTicks = 0;
-				return;
-			}
-			SlopeLockTicks--;
+			// move_lock: the ground movement ignores left and right. Friction still applies when no direction is held.
+			Acceleration = 0.0;
 			Deceleration = 0.0;
 		}
 	}
@@ -2613,7 +2648,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 				Facing = MovingDirection;
 			}
 			velocity.Y = ChangeSpeed(velocity.Y, 1, 64.0, Gravity, Gravity, 0.0);
-			if (velocity.Y < 0.0 && velocity.Y > 0.0 - JumpReleaseForce)
+			if (velocity.Y < 0.0 && velocity.Y > 0.0 - JumpReleaseForce && !IsHurt)
 			{
 				velocity.X *= 31.0 / 32.0;
 			}
@@ -2625,8 +2660,8 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			{
 				ApplySlopeFriction();
 			}
-			GroundVelocity = ChangeSpeed(GroundVelocity, MovingDirection, TopSpeed, Acceleration, Deceleration, Friction);
-			if (MovingDirection * GroundVelocity > 0.0)
+			GroundVelocity = ChangeSpeed(GroundVelocity, MovingDirection, TopSpeed, Acceleration, Deceleration, Friction, TurnaroundSpeed);
+			if (MovingDirection * GroundVelocity > 0.0 && SlopeLockTicks == 0)
 			{
 				Facing = MovingDirection;
 			}
@@ -2727,18 +2762,19 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		{
 			return;
 		}
-		if (GroundVector != null && GroundVector.Flags.HasFlag(CollisionFlags.ForceRoll))
+		if (ForceSpinball || (GroundVector != null && GroundVector.Flags.HasFlag(CollisionFlags.ForceRoll)))
 		{
 			UpdateSpinningForced();
 		}
 		else if (IsSpinball)
 		{
-			if (Math.Abs(GroundVelocity) < 2.0)
+			// Sonic_CheckRollStop: the roll stops only when the ground speed is 0.
+			if (GroundVelocity == 0.0)
 			{
 				IsSpinball = false;
 			}
 		}
-		else if ((LookDirection == CharacterLookDirection.Ducking || CharacterEvents.HasFlag(CharacterEvent.SpindashLaunch)) && Math.Abs(GroundVelocity) > 4.0)
+		else if ((LookDirection == CharacterLookDirection.Ducking || CharacterEvents.HasFlag(CharacterEvent.SpindashLaunch)) && Math.Abs(GroundVelocity) >= 2.0)
 		{
 			IsSpinball = true;
 			if (CharacterEvents.HasFlag(CharacterEvent.SpindashLaunch))
@@ -2752,6 +2788,10 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		}
 	}
 
+	/// <summary>
+	/// Keeps a character in pinball mode, or on a forced roll vector, rolling. As Sonic_KeepRolling does, a roll
+	/// that stops gets a push of $400 (16) in the facing direction.
+	/// </summary>
 	private void UpdateSpinningForced()
 	{
 		if (!IsSpinball)
@@ -2759,14 +2799,9 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			IsSpinball = true;
 			Level.SoundManager.PlaySound(this, "SONICORCA/SOUND/SPINBALL");
 		}
-		if (Math.Abs(GroundVelocity) < 2.0 && !ShouldFallOffGround())
+		if (GroundVelocity == 0.0)
 		{
-			int direction = Math.Sign(GroundVelocity);
-			if (direction == 0)
-			{
-				direction = Facing;
-			}
-			GroundVelocity = 16 * direction;
+			GroundVelocity = 16 * Facing;
 		}
 	}
 
@@ -2818,7 +2853,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 					Level.SoundManager.PlaySound(this, "SONICORCA/SOUND/JUMP");
 				}
 			}
-			else if (GroundVector != null && !GroundVector.Flags.HasFlag(CollisionFlags.PreventJump))
+			else if (GroundVector != null && !GroundVector.Flags.HasFlag(CollisionFlags.PreventJump) && !(ForceSpinball && IsSpinball))
 			{
 				Jumped = true;
 				IsJumping = true;
@@ -2834,24 +2869,33 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		}
 	}
 
+	/// <summary>
+	/// Sonic_SlopeRepel: the move lock counts down only on the ground. When there is no lock, a character on a wall or
+	/// a ceiling that moves slower than $280 (10) falls off and gets a move lock of 30 ticks. The ground speed becomes
+	/// 0 after the move, so the character falls with the velocity of this tick.
+	/// </summary>
 	private void UpdateFalling()
 	{
-		if (Mode != CollisionMode.Top && Mode != CollisionMode.Air && !(Math.Abs(GroundVelocity) >= 10.0))
+		if (Mode == CollisionMode.Air)
 		{
-			if ((GroundVector == null || !GroundVector.Flags.HasFlag(CollisionFlags.DontFall)) && ShouldFallOffGround())
-			{
-				CharacterEvents |= CharacterEvent.Fall;
-			}
-			else if (SlopeLockTicks == 0)
-			{
-				SlopeLockTicks = 32;
-			}
+			return;
 		}
-	}
-
-	private bool ShouldFallOffGround()
-	{
-		return Math.Cos(GroundAngle) <= 0.0001;
+		if (SlopeLockTicks != 0)
+		{
+			SlopeLockTicks--;
+			return;
+		}
+		if (Mode == CollisionMode.Top || Math.Abs(GroundVelocity) >= 10.0)
+		{
+			return;
+		}
+		if (GroundVector != null && GroundVector.Flags.HasFlag(CollisionFlags.DontFall))
+		{
+			return;
+		}
+		_slopeRepelled = true;
+		CharacterEvents |= CharacterEvent.Fall;
+		SlopeLockTicks = SlopeRepelLockTicks;
 	}
 
 	private void UpdatePosition()
@@ -2875,6 +2919,11 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			{
 				LeaveGround();
 				CharacterEvents &= ~CharacterEvent.Fall;
+			}
+			if (_slopeRepelled)
+			{
+				GroundVelocity = 0.0;
+				_slopeRepelled = false;
 			}
 		}
 		if (CharacterEvents.HasFlag(CharacterEvent.BarrierAttack))
@@ -3018,9 +3067,10 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 
 	/// <summary>
 	/// Changes a speed towards the limit in the given direction, and then applies friction.
-	/// When the speed is against the direction, the speed changes by the deceleration.
+	/// When the speed is against the direction, the speed changes by the deceleration. If the deceleration takes the
+	/// speed past 0, the speed becomes the turnaround speed in the new direction.
 	/// </summary>
-	private static double ChangeSpeed(double speed, int direction, double limit, double acceleration, double deceleration, double friction)
+	private static double ChangeSpeed(double speed, int direction, double limit, double acceleration, double deceleration, double friction, double turnaroundSpeed = 0.0)
 	{
 		if (direction != 0)
 		{
@@ -3028,6 +3078,10 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			if (headroom > limit)
 			{
 				speed += deceleration * direction;
+				if (speed * direction > 0.0 && turnaroundSpeed > 0.0)
+				{
+					speed = turnaroundSpeed * direction;
+				}
 			}
 			else if (headroom > acceleration)
 			{
@@ -3106,12 +3160,25 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 				box.Y += NormalCollisionRadius.Y - SpinballCollisionRadius.Y;
 			}
 			cameraProperties.Box = box;
-			cameraProperties.MaxVelocity = new Vector2(cameraProperties.MaxVelocity.X, (Velocity.Y <= 6.0) ? 24.0 : 64.0);
+			cameraProperties.MaxVelocity = new Vector2(cameraProperties.MaxVelocity.X, GetGroundCameraMaxVelocityY(cameraProperties));
 		}
 		if (IsDebug)
 		{
 			cameraProperties.MaxVelocity = new Vector2(Math.Max(64.0, Math.Abs(Velocity.X)), Math.Max(64.0, Math.Abs(Velocity.Y)));
 		}
+	}
+
+	/// <summary>
+	/// ScrollVerti on the ground: the camera moves 2 px per frame (8) while the look offset is not 0, 16 px (64) when
+	/// the ground speed is $800 (32) or more, and 6 px (24) otherwise.
+	/// </summary>
+	private double GetGroundCameraMaxVelocityY(CameraProperties cameraProperties)
+	{
+		if (cameraProperties.Offset.Y != 0.0)
+		{
+			return 8.0;
+		}
+		return (Math.Abs(GroundVelocity) >= 32.0) ? 64.0 : 24.0;
 	}
 
 	private void UpdateDebugState()
@@ -3680,6 +3747,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 					{
 						Velocity = default;
 						GroundVelocity = 0.0;
+						SlopeLockTicks = 0;
 						Path = protagonist.Path;
 						Layer = protagonist.Layer;
 						Mode = CollisionMode.Air;
@@ -3703,7 +3771,8 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 						UpdateNormal();
 						break;
 					}
-					if (SlopeLockTicks > 0)
+					// TailsCPU_Normal starts the panic spindash when the move lock is set and the sidekick has stopped.
+					if (SlopeLockTicks > 0 && GroundVelocity == 0.0)
 					{
 						_autoSidekickState = AutoSidekickState.Spindash;
 						goto case AutoSidekickState.Spindash;
@@ -3728,36 +3797,38 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		}
 	}
 
+	/// <summary>
+	/// TailsCPU_Normal: the sidekick copies the input of the protagonist from 16 ticks before, and goes left or right
+	/// when the protagonist was 64 (16 px) or more away. It jumps from time to time when it pushes a wall that the
+	/// protagonist did not push, or when the protagonist was much higher.
+	/// </summary>
 	private CharacterInputState GetAutoInputNormal(ICharacter protagonist, CharacterHistoryItem protagonistHistory)
 	{
-		// Start from the input of the protagonist some ticks ago.
-		CharacterInputState input = new CharacterInputState(protagonistHistory.Input);
-		IsFacingLeft = protagonistHistory.State.HasFlag(CharacterState.Left);
+		// A history item holds the input of the tick after its state, so the input comes from the next older item.
+		CharacterHistoryItem inputHistory = protagonist.History[SidekickHistoryDelay + 1] ?? protagonistHistory;
+		CharacterInputState input = new CharacterInputState(inputHistory.Input);
+		if (IsPushing && !protagonistHistory.State.HasFlag(CharacterState.Pushing))
+		{
+			// TailsCPU_Normal_FilterAction_Part2
+			TryAutoJump(input);
+			return input;
+		}
 		int deltaX = protagonistHistory.Position.X - Position.X;
 		if (deltaX == 0)
 		{
 			IsFacingLeft = protagonistHistory.State.HasFlag(CharacterState.Left);
 		}
-		else if (deltaX > 192)
+		else
 		{
-			if (deltaX >= 64)
+			int direction = Math.Sign(deltaX);
+			if (Math.Abs(deltaX) >= 64)
 			{
-				input.HorizontalDirection = 1;
+				input.HorizontalDirection = direction;
 			}
-			if (GroundVelocity != 0.0 && IsFacingRight)
+			// Move 1 px towards the protagonist when the sidekick moves and faces that way.
+			if (GroundVelocity != 0.0 && Facing == direction)
 			{
-				Move(4, 0);
-			}
-		}
-		else if (deltaX < 128)
-		{
-			if (deltaX <= -64)
-			{
-				input.HorizontalDirection = -1;
-			}
-			if (GroundVelocity != 0.0 && !IsFacingRight)
-			{
-				Move(-4, 0);
+				Move(4 * direction, 0);
 			}
 		}
 		if (_autoSidekickJumping)
@@ -3770,36 +3841,29 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			}
 			_autoSidekickJumping = false;
 		}
-		if (Level.Ticks % 256 == 0 && deltaX >= 256)
+		// Far from the protagonist, check the jump only once in 256 ticks.
+		if (Level.Ticks % 256 != 0 && Math.Abs(deltaX) >= 256)
 		{
 			return input;
 		}
+		// Jump only when the protagonist was 128 (32 px) or more higher.
 		int deltaY = protagonistHistory.Position.Y - Position.Y;
-		if (deltaY >= 0)
-		{
-			if (protagonist.IsPushing)
-			{
-				input.HorizontalDirection = Math.Sign(deltaX);
-			}
-			return input;
-		}
 		if (deltaY > -128)
 		{
-			if (protagonist.IsPushing && IsPushing && _pushDirection != protagonist.Facing && LookDirection != CharacterLookDirection.Ducking)
-			{
-				input.A = CharacterInputButtonState.Pressed;
-				_autoSidekickJumping = true;
-				return input;
-			}
 			return input;
 		}
-		// The protagonist is much higher. Jump from time to time.
+		TryAutoJump(input);
+		return input;
+	}
+
+	/// <summary>Presses jump once in 64 ticks, when the sidekick does not duck.</summary>
+	private void TryAutoJump(CharacterInputState input)
+	{
 		if (Level.Ticks % 64 == 0 && LookDirection != CharacterLookDirection.Ducking)
 		{
 			input.A = CharacterInputButtonState.Pressed;
 			_autoSidekickJumping = true;
 		}
-		return input;
 	}
 
 	private CharacterInputState GetAutoInputSpindash(ICharacter protagonist)
@@ -3921,9 +3985,12 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 
 	private void LeaveWater()
 	{
-		if (IsAirborne && Velocity.Y < 0.0)
+		// Obj01_OutWater doubles the vertical speed, unless the character is hurt, and limits it to -$1000 (-64).
+		// On the ground the next tick computes the velocity from the ground speed again, so only the air matters.
+		if (IsAirborne)
 		{
-			Velocity = new Vector2(Velocity.X, Math.Max(Velocity.Y * 2.0, -48.0));
+			double velocityY = IsHurt ? Velocity.Y : Velocity.Y * 2.0;
+			Velocity = new Vector2(Velocity.X, Math.Max(velocityY, -64.0));
 		}
 		if (IsAirborne && !IsObjectControlled && !IsDying)
 		{

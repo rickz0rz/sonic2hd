@@ -29,9 +29,6 @@ public class RingInstance : ActiveObject
 	/// <summary>The number of ticks that a scattered ring stays.</summary>
 	private const int MaxLifeTicks = byte.MaxValue;
 
-	/// <summary>A scattered ring can be collected only when its life ticks go below this value.</summary>
-	private const int CollectableLifeTicks = 175;
-
 	private const double AttractDistance = 256.0;
 	private const double Gravity = 0.375;
 
@@ -184,7 +181,9 @@ public class RingInstance : ActiveObject
 		if (e.ActiveObject.Type.Classification != ObjectClassification.Character)
 			return;
 		ICharacter character = (ICharacter)e.ActiveObject;
-		if (!_stationary && !_attracted && _lifeTicks >= CollectableLifeTicks)
+		// The original blocks placed and scattered rings in the first 30 frames of the invulnerability after a hit
+		// (Touch_Rings: invulnerable_time >= 90)
+		if (!character.CanCollectRings)
 			return;
 		Collect(character.Player);
 	}
@@ -193,8 +192,10 @@ public class RingInstance : ActiveObject
 	{
 		player.GainRings();
 		CreateSparkles();
-		++Level.RingsCollected;
-		if (Level.RingsCollected == Level.RingsPerfectTarget)
+		// Only placed rings count for the perfect bonus, as Perfect_rings_left in the original.
+		if (!_scatter)
+			++Level.RingsCollected;
+		if (!_scatter && Level.RingsCollected == Level.RingsPerfectTarget)
 			Level.SoundManager.PlaySound(this, Type.GetAbsolutePath(RingType.PerfectSoundResourceKey));
 		else
 			Level.SoundManager.PlaySound(this, Type.GetAbsolutePath(RingType.CollectSoundResourceKey));
