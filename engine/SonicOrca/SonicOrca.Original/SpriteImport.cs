@@ -20,13 +20,23 @@ public readonly record struct SpritePiece(int X, int Y, int Width, int Height, i
 
 /// <summary>The sprites of an object of the original game: its art, its mappings and its palette lines.</summary>
 /// <param name="ObjectKey">The SonicOrca object, for example "SONICORCA/OBJECTS/CNZBUMPER".</param>
-/// <param name="ArtFile">The Nemesis art file in the disassembly.</param>
-/// <param name="MappingsFile">The sprite mappings file (assembly source) in the disassembly.</param>
+/// <param name="ArtFile">The art file in the disassembly: Nemesis, or Kosinski for a .kos file (the level art).</param>
+/// <param name="MappingsFile">
+/// The sprite mappings file (assembly source) in the disassembly, or "file#label" for mappings inside a larger
+/// source file, for example "s2.asm#Obj8D_MapUnc_36CF0".
+/// </param>
 /// <param name="PaletteLines">
 /// The palette line of make_art_tile for the object, then the other lines that the object changes to, if any.
 /// </param>
 public sealed record OriginalSprite(string ObjectKey, string ArtFile, string MappingsFile, IReadOnlyList<int> PaletteLines)
 {
+	/// <summary>
+	/// Frames whose pieces the object also needs one by one, for example the fragments of a platform that breaks.
+	/// After the normal frames, the group has one animation for each piece of these frames, in order. Each piece
+	/// keeps its position in the frame.
+	/// </summary>
+	public IReadOnlyList<int> SplitFrames { get; init; } = Array.Empty<int>();
+
 	public OriginalSprite(string objectKey, string artFile, string mappingsFile, int paletteLine)
 		: this(objectKey, artFile, mappingsFile, new[] { paletteLine })
 	{
@@ -49,9 +59,12 @@ public static class SpriteImport
 	private const int BytesPerTile = 32;
 
 	/// <summary>Reads the frames of a mappings file of s2disasm (mappingsTable, spriteHeader and spritePiece macros).</summary>
-	public static List<List<SpritePiece>> ParseMappings(string source)
+	/// <param name="tableLabel">The label of the table to read, when the source has more than one table, or null.</param>
+	public static List<List<SpritePiece>> ParseMappings(string source, string tableLabel = null)
 	{
 		var order = new List<string>();
+		// With a table label, read only the entries that follow that label
+		bool inTable = tableLabel == null;
 		var frames = new Dictionary<string, List<SpritePiece>>(StringComparer.Ordinal);
 		List<SpritePiece> current = null;
 		foreach (string rawLine in source.Split('\n'))
@@ -61,10 +74,17 @@ public static class SpriteImport
 			{
 				continue;
 			}
-			Match entry = Regex.Match(line, @"^mappingsTableEntry\.w\s+(\w+)");
+			if (tableLabel != null && Regex.IsMatch(line, @"^\w+:"))
+			{
+				inTable = line.StartsWith(tableLabel + ":", StringComparison.Ordinal);
+			}
+			Match entry = Regex.Match(line, @"^(?:\w+:\s*)?mappingsTableEntry\.w\s+(\w+)");
 			if (entry.Success)
 			{
-				order.Add(entry.Groups[1].Value);
+				if (inTable)
+				{
+					order.Add(entry.Groups[1].Value);
+				}
 				continue;
 			}
 			Match header = Regex.Match(line, @"^(\w+):\s*spriteHeader");
@@ -112,14 +132,25 @@ public static class SpriteImport
 
 	public static ImportedSprite Import(OriginalSprite sprite, string disassembly, uint[] palette, int scale)
 	{
-		byte[] art = Nemesis.Decompress(File.ReadAllBytes(Path.Combine(disassembly, sprite.ArtFile)));
-		List<List<SpritePiece>> frames = ParseMappings(File.ReadAllText(Path.Combine(disassembly, sprite.MappingsFile)));
+		byte[] packed = File.ReadAllBytes(Path.Combine(disassembly, sprite.ArtFile));
+		byte[] art = sprite.ArtFile.EndsWith(".kos", StringComparison.OrdinalIgnoreCase) ? Kosinski.Decompress(packed) : Nemesis.Decompress(packed);
+		string[] mappings = sprite.MappingsFile.Split('#');
+		List<List<SpritePiece>> frames = ParseMappings(File.ReadAllText(Path.Combine(disassembly, mappings[0])), mappings.Length > 1 ? mappings[1] : null);
 		int variants = sprite.PaletteLines.Count;
-		var images = sprite.PaletteLines.SelectMany(line => frames.Select(frame => Render(frame, art, palette, line))).ToList();
-		int rowWidth = Math.Max(1, images.Take(frames.Count).Sum(i => i.Width));
+		// One row of the texture for each palette line, and one more for the pieces of the split frames
+		var rows = new List<List<(uint[] Pixels, int Width, int Height, int OriginX, int OriginY)>>();
+		foreach (int line in sprite.PaletteLines)
+		{
+			rows.Add(frames.Select(frame => Render(frame, art, palette, line)).ToList());
+		}
+		if (sprite.SplitFrames.Count > 0)
+		{
+			rows.Add(sprite.SplitFrames.SelectMany(f => frames[f]).Select(piece => Render(new List<SpritePiece> { piece }, art, palette, sprite.PaletteLines[0])).ToList());
+		}
+		var images = rows.SelectMany(row => row).ToList();
 		int rowHeight = Math.Max(1, images.Max(i => i.Height));
-		int width = rowWidth * scale;
-		int height = rowHeight * variants * scale;
+		int width = Math.Max(1, rows.Max(row => row.Sum(i => i.Width))) * scale;
+		int height = rowHeight * rows.Count * scale;
 		var pixels = new byte[width * height * 4];
 		var anigroup = new StringBuilder();
 		anigroup.AppendLine("<?xml version=\"1.0\"?>");
@@ -128,35 +159,35 @@ public static class SpriteImport
 		anigroup.AppendLine("    <texture>//TEXTURE</texture>");
 		anigroup.AppendLine("  </textures>");
 		anigroup.AppendLine("  <animations>");
-		int left = 0;
-		for (int f = 0; f < images.Count; f++)
+		int f = 0;
+		for (int r = 0; r < rows.Count; r++)
 		{
-			(uint[] image, int w, int h, int originX, int originY) = images[f];
-			int top = f / frames.Count * rowHeight;
-			if (f % frames.Count == 0)
+			int left = 0;
+			int top = r * rowHeight;
+			foreach ((uint[] image, int w, int h, int originX, int originY) in rows[r])
 			{
-				left = 0;
-			}
-			for (int y = 0; y < h * scale; y++)
-			{
-				for (int x = 0; x < w * scale; x++)
+				for (int y = 0; y < h * scale; y++)
 				{
-					uint colour = image[(y / scale) * w + x / scale];
-					int offset = ((top * scale + y) * width + left * scale + x) * 4;
-					pixels[offset] = (byte)(colour >> 24);
-					pixels[offset + 1] = (byte)(colour >> 16);
-					pixels[offset + 2] = (byte)(colour >> 8);
-					pixels[offset + 3] = (byte)colour;
+					for (int x = 0; x < w * scale; x++)
+					{
+						uint colour = image[(y / scale) * w + x / scale];
+						int offset = ((top * scale + y) * width + left * scale + x) * 4;
+						pixels[offset] = (byte)(colour >> 24);
+						pixels[offset + 1] = (byte)(colour >> 16);
+						pixels[offset + 2] = (byte)(colour >> 8);
+						pixels[offset + 3] = (byte)colour;
+					}
 				}
+				// A frame is drawn with its centre at the object position plus the offset
+				int offsetX = (originX * 2 + w) * scale / 2;
+				int offsetY = (originY * 2 + h) * scale / 2;
+				anigroup.AppendLine($"    <!-- frame {f} -->");
+				anigroup.AppendLine("    <animation>");
+				anigroup.AppendLine($"      <frame x=\"{left * scale}\" y=\"{top * scale}\" w=\"{Math.Max(1, w * scale)}\" h=\"{Math.Max(1, h * scale)}\" offset_x=\"{offsetX}\" offset_y=\"{offsetY}\" />");
+				anigroup.AppendLine("    </animation>");
+				left += w;
+				f++;
 			}
-			// A frame is drawn with its centre at the object position plus the offset
-			int offsetX = (originX * 2 + w) * scale / 2;
-			int offsetY = (originY * 2 + h) * scale / 2;
-			anigroup.AppendLine($"    <!-- frame {f} -->");
-			anigroup.AppendLine("    <animation>");
-			anigroup.AppendLine($"      <frame x=\"{left * scale}\" y=\"{top * scale}\" w=\"{Math.Max(1, w * scale)}\" h=\"{Math.Max(1, h * scale)}\" offset_x=\"{offsetX}\" offset_y=\"{offsetY}\" />");
-			anigroup.AppendLine("    </animation>");
-			left += w;
 		}
 		anigroup.AppendLine("  </animations>");
 		anigroup.AppendLine("</anigroup>");

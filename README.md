@@ -134,34 +134,39 @@ The tests use the disassembly when they find it next to the checkout or at `S2DI
 
 ### Level imports
 
-The demo data has the tiles of Casino Night, but no collision, no objects and no music. The import command makes
-the map and the objects of the zone from the same local copy of the disassembly:
+The demo data has the tiles of Casino Night (CNZ) and Aquatic Ruin (ARZ), but no collision, no objects and no
+music. The import command makes the rest of a zone from a local copy of the Sonic 2 disassembly. Only the importer
+is in this repository. The zone data that it makes comes from the original game, so keep it local.
 
 ```sh
+git clone https://github.com/sonicretro/s2disasm.git ../s2disasm
 dotnet run --project tools/s2hd-data -- import-level cnz ../s2disasm cnz
 dotnet run --project tools/s2hd-data -- pack cnz cnz.dat --base data/sonicorca.dat
+dotnet run --project tools/s2hd-data -- import-level arz ../s2disasm arz
+dotnet run --project tools/s2hd-data -- pack arz arz.dat --base data/sonicorca.dat
 ```
 
-Put `cnz.dat` in a `mods` folder, then start the zone with `--level cnz` or `--level cnz --act 2`. The import does
-these steps:
+Put the `.dat` files in a `mods` folder. They can be there together. Then start a zone with `--level cnz` or
+`--level arz`, and add `--act 2` for the second act. Import again after an update of this repository. The import
+does these steps:
 
 - It copies the blocks of both acts into the HD map, at the positions that the HD map uses.
 - It traces the collision of both paths from the height maps of the original.
-- It adds the start positions and the act bounds as map markers.
-- It converts the rings and the objects that SonicOrca has. The command lists the object types that it cannot
-  convert yet, for example the slot machines.
-- It converts the art of the new CNZ objects (for example the bumpers, the flippers, the elevators and Crawl) from
-  the original sprites, at four times the size, as the CNZ tiles are.
-- It adds the bumpers that are part of the landscape, and the reels of the slot machines.
+- It adds the start positions, the act bounds and the water levels as map markers.
+- It converts the rings and the objects. The command lists the object types that it cannot convert yet.
+- It converts the art of the new objects from the original sprites and level art, at four times the size, as the
+  HD tiles of these zones are.
 - It adds a layer for the parts of the blocks that the original draws in front of the characters. The layer
   switches move a character in front of this layer or behind it, as the original sets the sprite priority.
+- In CNZ, it also adds the bumpers that are part of the landscape, and the reels of the slot machines.
 
-On a flipper or a spring launcher, the jump button controls the object. Press jump to flip a flipper. Hold jump to
-pull back a launcher, then let go to launch.
+On a flipper or a spring launcher in CNZ, the jump button controls the object. Press jump to flip a flipper. Hold
+jump to pull back a launcher, then let go to launch.
 
-The zone has no music, because the demo data has none for it. The data also has no bumper, flipper or slot machine
-sounds, so these objects play the nearest sound that the data has. A mod can add `SONICORCA/MUSIC/LEVELS/CNZ`. The other
-zones without music (ARZ, MCZ, OOZ and others) also load now, without music.
+These zones have no music, because the demo data has none for them. A mod can add `SONICORCA/MUSIC/LEVELS/CNZ` or
+`SONICORCA/MUSIC/LEVELS/ARZ`. The data also has no sounds for some objects, for example the bumpers and the arrow
+shooters, so these objects play the nearest sound that the data has or no sound. The other zones without music (MCZ,
+OOZ and others) also load, without music. The ARZ boss is not in the import yet.
 
 ### Entering a special stage
 

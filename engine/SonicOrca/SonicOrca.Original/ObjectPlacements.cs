@@ -88,7 +88,8 @@ public static class ObjectPlacements
 	/// True when the map has a layer for the high-priority tiles after the layer of the objects. A layer switch then
 	/// also moves a character to that layer (in front of the tiles) or back, as the original sets the sprite priority.
 	/// </param>
-	public static ObjectPlacement ConvertOriginalObjectPlacement(OriginalObjectPlacement originalPlacement, bool priorityLayer = false)
+	/// <param name="zone">The zone (for example "ARZ"), for objects that the original draws differently in each zone.</param>
+	public static ObjectPlacement ConvertOriginalObjectPlacement(OriginalObjectPlacement originalPlacement, bool priorityLayer = false, string zone = null)
 	{
 		string key = null;
 		object behaviour = null;
@@ -167,6 +168,71 @@ public static class ObjectPlacements
 					Direction = (originalPlacement.FlipX ? "left" : "right")
 				};
 				position.Y += 152;
+				break;
+			case 24 when zone == "ARZ":
+				// Aquatic Ruin draws this platform from its level art. The object reads the subtype itself.
+				key = "SONICORCA/OBJECTS/ARZPLATFORM";
+				behaviour = new
+				{
+					Subtype = (int)originalPlacement.SubType
+				};
+				break;
+			case 21 when zone == "ARZ":
+				key = "SONICORCA/OBJECTS/ARZSWINGPLATFORM";
+				behaviour = new
+				{
+					Links = originalPlacement.SubType & 0xF,
+					FallOff = (originalPlacement.SubType & 0x80) != 0,
+					FlipX = originalPlacement.FlipX
+				};
+				break;
+			case 31 when zone == "ARZ":
+				key = "SONICORCA/OBJECTS/ARZCOLLAPSEPLATFORM";
+				break;
+			case 34:
+				key = "SONICORCA/OBJECTS/ARZARROWSHOOTER";
+				behaviour = new
+				{
+					FlipX = originalPlacement.FlipX
+				};
+				break;
+			case 35:
+				key = "SONICORCA/OBJECTS/ARZFALLINGPILLAR";
+				break;
+			case 36 when (originalPlacement.SubType & 0x80) != 0:
+				// Only the bubble generators (bit 7) are in the levels
+				key = "SONICORCA/OBJECTS/ARZBUBBLES";
+				behaviour = new
+				{
+					Cycle = originalPlacement.SubType & 0x7F
+				};
+				break;
+			case 43:
+				key = "SONICORCA/OBJECTS/ARZRISINGPILLAR";
+				break;
+			case 44:
+				key = "SONICORCA/OBJECTS/ARZLEAVES";
+				behaviour = new
+				{
+					Size = (int)originalPlacement.SubType
+				};
+				break;
+			case 130:
+				key = "SONICORCA/OBJECTS/ARZPILLAR";
+				behaviour = new
+				{
+					Subtype = (int)originalPlacement.SubType
+				};
+				break;
+			case 131:
+				// The first of the three rotating platforms. The importer adds the other two (arms 1 and 2).
+				key = "SONICORCA/OBJECTS/ARZROTATINGPLATFORM";
+				behaviour = new
+				{
+					Arm = 0,
+					Speed = (sbyte)(originalPlacement.SubType & 0xF0) << 3,
+					StartAngle = (originalPlacement.FlipX ? 0x40 : 0) | (originalPlacement.FlipY ? 0x80 : 0)
+				};
 				break;
 			case 24:
 				key = "SONICORCA/OBJECTS/EHZPLATFORM";
@@ -318,9 +384,10 @@ public static class ObjectPlacements
 				key = "SONICORCA/OBJECTS/SPRINGBOARD";
 				if (originalPlacement.FlipX)
 				{
+					// The name is the state property of SpringBoardInstance
 					behaviour = new
 					{
-						flipX = true
+						FlipX = true
 					};
 				}
 				break;
@@ -485,6 +552,25 @@ public static class ObjectPlacements
 					_direction = originalPlacement.FlipX ? 3 : 1,
 					_radius = (0x20 << (originalPlacement.SubType & 3)) * 4,
 					_horizontal = (originalPlacement.SubType & 4) != 0
+				};
+				break;
+			case 140:
+				key = "SONICORCA/OBJECTS/WHISP";
+				break;
+			case 141:
+			case 142:
+				// $8D waits in a wall, $8E walks from the start. Both run the same code in the original.
+				key = "SONICORCA/OBJECTS/GROUNDER";
+				behaviour = new
+				{
+					InWall = originalPlacement.Type == 141
+				};
+				break;
+			case 145:
+				key = "SONICORCA/OBJECTS/CHOPCHOP";
+				behaviour = new
+				{
+					StartRight = originalPlacement.FlipX
 				};
 				break;
 			case 146:
