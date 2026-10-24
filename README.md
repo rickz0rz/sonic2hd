@@ -119,6 +119,21 @@ Without `--base`, `pack` writes all resources of the folder. That file can repla
 The behavior of levels and objects is C# code in `SONICORCA/`, not data. The `AREA.area.cs` and `.object.cs`
 resources only name the class to use.
 
+## Command-line options
+
+| Option | Effect |
+|---|---|
+| `--level <zone> [--act <n>]` | Starts a level directly, for example `--level htz --act 2` |
+| `--protagonist <name>`, `--sidekick <name>` | Chooses the characters for `--level` (`sonic`, `tails`, `knuckles`) |
+| `--debug` | Starts the level with debug mode on |
+| `--demo` | Plays the Emerald Hill attract demo |
+| `--nologos` | Skips the disclaimer and the logo screens |
+| `--credits`, `--options` | Opens the credits or the options screen |
+| `--halfpipe` | Opens the 3D special stage prototype. The camera moves along the track without a player. The minus and equals keys change the field of view, and Escape closes it |
+
+On macOS, pass options to the executable in the app bundle, for example
+`publish/S2HD.app/Contents/MacOS/S2HD --level cpz`.
+
 ## Logs and settings
 
 `sonicorca.log` and `sonicorca.cfg` live in `Documents\SonicOrca` on Windows and

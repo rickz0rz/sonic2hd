@@ -14,8 +14,9 @@ namespace SonicOrca.Core.SpecialStage;
 
 /// <summary>
 /// A test screen for a 3D half-pipe special stage. The camera moves along a track that the segment layout makes.
+/// Start it with --halfpipe. Escape closes it. The minus and equals keys change the field of view.
 /// </summary>
-internal class HalfPipeSpecialStageScreen : Screen
+public class HalfPipeSpecialStageScreen : Screen
 {
 	private enum SegmentGeometry
 	{
@@ -80,6 +81,8 @@ internal class HalfPipeSpecialStageScreen : Screen
 	private const int ScancodeMinus = 45;
 
 	private const int ScancodeEquals = 46;
+
+	private const int ScancodeEscape = 41;
 
 	/// <summary>The number of track nodes in front of and behind the current node that are drawn.</summary>
 	private const int DrawDistance = 128;
@@ -313,6 +316,11 @@ internal class HalfPipeSpecialStageScreen : Screen
 	public override void Update()
 	{
 		KeyboardState keyboard = _gameContext.Input.Pressed.Keyboard;
+		if (keyboard[ScancodeEscape])
+		{
+			Finish();
+			return;
+		}
 		if (keyboard[ScancodeEquals])
 		{
 			_fov++;
@@ -332,6 +340,21 @@ internal class HalfPipeSpecialStageScreen : Screen
 		}
 		UpdateCamera();
 		_ticks++;
+	}
+
+	public override void Unload()
+	{
+		_musicInstance?.Stop();
+		_musicInstance?.Dispose();
+		_musicInstance = null;
+		_resourceSession.Dispose();
+	}
+
+	public override void Deinitialise()
+	{
+		_vertexBuffer?.Dispose();
+		_pipeShader?.Dispose();
+		_objectShader?.Dispose();
 	}
 
 	private void UpdateCamera()
