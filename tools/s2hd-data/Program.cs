@@ -129,19 +129,21 @@ static int ImportLevel(string zoneName, string disassembly, string folder)
 	Directory.CreateDirectory(output);
 	new LevelMapWriter(level.Map).Save(Path.Combine(output, "MAP.map.xml"));
 	new LevelBindingWriter(level.Binding).Save(Path.Combine(output, "BINDING.binding.xml"));
-	// The objects that the game data does not have: a resource that names the code, and the art when it has art
+	// The art of the objects that the game data does not have
+	string KeyFolder(string key) => Path.Combine(new[] { folder }.Concat(key.Split('/')).ToArray());
+	foreach (ImportedSprite sprite in level.Sprites)
+	{
+		string spriteFolder = KeyFolder(sprite.ObjectKey);
+		Directory.CreateDirectory(spriteFolder);
+		File.WriteAllBytes(Path.Combine(spriteFolder, "TEXTURE.png"), sprite.Texture);
+		File.WriteAllText(Path.Combine(spriteFolder, "ANIGROUP.anigroup.xml"), sprite.AnimationGroup);
+	}
+	// A resource that names the code of each new object: in its folder when it has art, else next to the folder
 	foreach ((string key, string codeNamespace) in level.NewObjects)
 	{
-		ImportedSprite sprite = level.Sprites.FirstOrDefault(s => s.ObjectKey == key);
-		string objectFolder = Path.Combine(new[] { folder }.Concat(key.Split('/')).ToArray());
-		string resourceFile = sprite != null ? Path.Combine(objectFolder, "_.object.cs") : objectFolder + ".object.cs";
+		string resourceFile = Directory.Exists(KeyFolder(key)) ? Path.Combine(KeyFolder(key), "_.object.cs") : KeyFolder(key) + ".object.cs";
 		Directory.CreateDirectory(Path.GetDirectoryName(resourceFile));
 		File.WriteAllText(resourceFile, "#use " + codeNamespace);
-		if (sprite != null)
-		{
-			File.WriteAllBytes(Path.Combine(objectFolder, "TEXTURE.png"), sprite.Texture);
-			File.WriteAllText(Path.Combine(objectFolder, "ANIGROUP.anigroup.xml"), sprite.AnimationGroup);
-		}
 	}
 	Console.WriteLine($"Wrote {zone.Name} to {output}: {level.Map.CollisionVectors.Count} collision lines, {level.Binding.ObjectPlacements.Count} objects.");
 	foreach (string note in level.Notes)
