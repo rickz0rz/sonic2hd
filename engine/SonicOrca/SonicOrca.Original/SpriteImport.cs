@@ -18,12 +18,20 @@ namespace SonicOrca.Original;
 /// <param name="Palette">The palette line to add to the palette line of the object.</param>
 public readonly record struct SpritePiece(int X, int Y, int Width, int Height, int Tile, bool FlipX, bool FlipY, int Palette);
 
-/// <summary>The sprites of an object of the original game: its art, its mappings and its palette line.</summary>
+/// <summary>The sprites of an object of the original game: its art, its mappings and its palette lines.</summary>
 /// <param name="ObjectKey">The SonicOrca object, for example "SONICORCA/OBJECTS/CNZBUMPER".</param>
 /// <param name="ArtFile">The Nemesis art file in the disassembly.</param>
 /// <param name="MappingsFile">The sprite mappings file (assembly source) in the disassembly.</param>
-/// <param name="PaletteLine">The palette line of make_art_tile for the object.</param>
-public sealed record OriginalSprite(string ObjectKey, string ArtFile, string MappingsFile, int PaletteLine);
+/// <param name="PaletteLines">
+/// The palette line of make_art_tile for the object, then the other lines that the object changes to, if any.
+/// </param>
+public sealed record OriginalSprite(string ObjectKey, string ArtFile, string MappingsFile, IReadOnlyList<int> PaletteLines)
+{
+	public OriginalSprite(string objectKey, string artFile, string mappingsFile, int paletteLine)
+		: this(objectKey, artFile, mappingsFile, new[] { paletteLine })
+	{
+	}
+}
 
 /// <summary>The files of an imported sprite: a texture with all frames in one row, and an animation group with one animation for each frame.</summary>
 public sealed record ImportedSprite(string ObjectKey, byte[] Texture, string AnimationGroup);
@@ -31,7 +39,8 @@ public sealed record ImportedSprite(string ObjectKey, byte[] Texture, string Ani
 /// <summary>
 /// Converts the sprites of an object of the original game into a texture at four times the size, and an animation
 /// group. Animation N of the group shows mapping frame N, so the object code can follow the animation scripts of the
-/// original.
+/// original. An object with more than one palette line has the frames again for each line: animation
+/// <c>line * frames + N</c>.
 /// </summary>
 public static class SpriteImport
 {
@@ -105,9 +114,12 @@ public static class SpriteImport
 	{
 		byte[] art = Nemesis.Decompress(File.ReadAllBytes(Path.Combine(disassembly, sprite.ArtFile)));
 		List<List<SpritePiece>> frames = ParseMappings(File.ReadAllText(Path.Combine(disassembly, sprite.MappingsFile)));
-		var images = frames.Select(frame => Render(frame, art, palette, sprite.PaletteLine)).ToList();
-		int width = Math.Max(1, images.Sum(i => i.Width)) * scale;
-		int height = Math.Max(1, images.Max(i => i.Height)) * scale;
+		int variants = sprite.PaletteLines.Count;
+		var images = sprite.PaletteLines.SelectMany(line => frames.Select(frame => Render(frame, art, palette, line))).ToList();
+		int rowWidth = Math.Max(1, images.Take(frames.Count).Sum(i => i.Width));
+		int rowHeight = Math.Max(1, images.Max(i => i.Height));
+		int width = rowWidth * scale;
+		int height = rowHeight * variants * scale;
 		var pixels = new byte[width * height * 4];
 		var anigroup = new StringBuilder();
 		anigroup.AppendLine("<?xml version=\"1.0\"?>");
@@ -120,12 +132,17 @@ public static class SpriteImport
 		for (int f = 0; f < images.Count; f++)
 		{
 			(uint[] image, int w, int h, int originX, int originY) = images[f];
+			int top = f / frames.Count * rowHeight;
+			if (f % frames.Count == 0)
+			{
+				left = 0;
+			}
 			for (int y = 0; y < h * scale; y++)
 			{
 				for (int x = 0; x < w * scale; x++)
 				{
 					uint colour = image[(y / scale) * w + x / scale];
-					int offset = (y * width + left * scale + x) * 4;
+					int offset = ((top * scale + y) * width + left * scale + x) * 4;
 					pixels[offset] = (byte)(colour >> 24);
 					pixels[offset + 1] = (byte)(colour >> 16);
 					pixels[offset + 2] = (byte)(colour >> 8);
@@ -137,7 +154,7 @@ public static class SpriteImport
 			int offsetY = (originY * 2 + h) * scale / 2;
 			anigroup.AppendLine($"    <!-- frame {f} -->");
 			anigroup.AppendLine("    <animation>");
-			anigroup.AppendLine($"      <frame x=\"{left * scale}\" y=\"0\" w=\"{Math.Max(1, w * scale)}\" h=\"{Math.Max(1, h * scale)}\" offset_x=\"{offsetX}\" offset_y=\"{offsetY}\" />");
+			anigroup.AppendLine($"      <frame x=\"{left * scale}\" y=\"{top * scale}\" w=\"{Math.Max(1, w * scale)}\" h=\"{Math.Max(1, h * scale)}\" offset_x=\"{offsetX}\" offset_y=\"{offsetY}\" />");
 			anigroup.AppendLine("    </animation>");
 			left += w;
 		}

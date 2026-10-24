@@ -46,6 +46,9 @@ public sealed record OriginalZone(string Name, string Key, string ChunksFile, st
 			new[]
 			{
 				new OriginalSprite("SONICORCA/OBJECTS/CNZBUMPER", "art/nemesis/Round bumper from CNZ.nem", "mappings/sprite/obj44.asm", 2),
+				new OriginalSprite("SONICORCA/OBJECTS/CNZHEXBUMPER", "art/nemesis/Hexagonal bumper from CNZ.nem", "mappings/sprite/objD7.asm", 2),
+				// Each hit on a bonus block moves it to the next palette line: 2, 1, then 0
+				new OriginalSprite("SONICORCA/OBJECTS/CNZBONUSBLOCK", "art/nemesis/Drop target from CNZ.nem", "mappings/sprite/objD8.asm", new[] { 2, 1, 0 }),
 			}),
 	};
 }
@@ -95,6 +98,8 @@ public static class LevelImport
 	{
 		["SONICORCA/OBJECTS/CNZBUMPER"] = "SONICORCA.OBJECTS.CNZBUMPER",
 		["SONICORCA/OBJECTS/INVISIBLEBLOCK"] = "SONICORCA.OBJECTS.INVISIBLEBLOCK",
+		["SONICORCA/OBJECTS/CNZHEXBUMPER"] = "SONICORCA.OBJECTS.CNZHEXBUMPER",
+		["SONICORCA/OBJECTS/CNZBONUSBLOCK"] = "SONICORCA.OBJECTS.CNZBONUSBLOCK",
 	};
 
 	public static ImportedLevel Import(OriginalZone zone, string disassembly)
