@@ -310,6 +310,7 @@ public sealed record OriginalZone(string Name, string Key, string ChunksFile, st
 				new OriginalSprite("SONICORCA/OBJECTS/TORNADO/PILOT2", "art/uncompressed/Tails's art.bin", "mappings/sprite/objB2_a.asm", 0) { ArtTile = 0x2A0 - 0xC },
 				new OriginalSprite("SONICORCA/OBJECTS/TORNADO/PILOT3", "art/uncompressed/Tails's art.bin", "mappings/sprite/objB2_a.asm", 0) { ArtTile = 0x2A0 - 0x12 },
 				new OriginalSprite("SONICORCA/OBJECTS/TORNADO/PILOT4", "art/uncompressed/Tails's art.bin", "mappings/sprite/objB2_a.asm", 0) { ArtTile = 0x2A0 - 0x18 },
+				new OriginalSprite("SONICORCA/OBJECTS/TORNADO/THRUSTER", "art/nemesis/Rocket thruster for Tornado.nem", "mappings/sprite/objB2_b.asm", 0),
 				new OriginalSprite("SONICORCA/OBJECTS/PROPELLER", "art/nemesis/Vertical spinning blades in WFZ.nem", "mappings/sprite/objB4.asm", 1),
 				new OriginalSprite("SONICORCA/OBJECTS/PROPELLER/HORIZONTAL", "art/nemesis/Horizontal spinning blades in WFZ.nem", "mappings/sprite/objB5.asm", 1),
 				// The bomb blinks between palette lines 1 and 0
@@ -339,6 +340,7 @@ public sealed record OriginalZone(string Name, string Key, string ChunksFile, st
 				new OriginalSprite("SONICORCA/OBJECTS/TORNADO/PILOT2", "art/uncompressed/Tails's art.bin", "mappings/sprite/objB2_a.asm", 0) { ArtTile = 0x2A0 - 0xC },
 				new OriginalSprite("SONICORCA/OBJECTS/TORNADO/PILOT3", "art/uncompressed/Tails's art.bin", "mappings/sprite/objB2_a.asm", 0) { ArtTile = 0x2A0 - 0x12 },
 				new OriginalSprite("SONICORCA/OBJECTS/TORNADO/PILOT4", "art/uncompressed/Tails's art.bin", "mappings/sprite/objB2_a.asm", 0) { ArtTile = 0x2A0 - 0x18 },
+				new OriginalSprite("SONICORCA/OBJECTS/TORNADO/THRUSTER", "art/nemesis/Rocket thruster for Tornado.nem", "mappings/sprite/objB2_b.asm", 0),
 				new OriginalSprite("SONICORCA/OBJECTS/PROPELLER", "art/nemesis/Vertical spinning blades in WFZ.nem", "mappings/sprite/objB4.asm", 1),
 				new OriginalSprite("SONICORCA/OBJECTS/PROPELLER/HORIZONTAL", "art/nemesis/Horizontal spinning blades in WFZ.nem", "mappings/sprite/objB5.asm", 1),
 				new OriginalSprite("SONICORCA/OBJECTS/WFZPLATFORM", "art/nemesis/Moving platform from WFZ.nem", "mappings/sprite/obj19.asm", 1),

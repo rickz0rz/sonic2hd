@@ -407,7 +407,7 @@ public static class ObjectPlacements
 				behaviour = new { Fast = originalPlacement.FlipY };
 				break;
 			case 178:
-				// $50: Sky Chase Zone, $52: start of Wing Fortress Zone, $54: end of Wing Fortress Zone (not supported)
+				// $50: Sky Chase Zone, $52: start of Wing Fortress Zone, $54: end of Wing Fortress Zone
 				key = "SONICORCA/OBJECTS/TORNADO";
 				behaviour = new { Subtype = (int)originalPlacement.SubType };
 				break;
