@@ -434,7 +434,7 @@ internal class UserInterface
 		int levelNumber = 1;
 		foreach (LevelInfo level in Levels.LevelList)
 		{
-			if (!level.Unreleased)
+			if (Levels.IsAvailable(level, _gameContext.ResourceTree))
 			{
 				for (int act = 1; act <= level.Acts; ++act)
 				{

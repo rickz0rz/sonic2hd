@@ -124,6 +124,10 @@ public class LevelMapWriter
 		{
 			xmlWriter.WriteAttributeString("minimap_colour", layer.MiniMapColour.ToHexString());
 		}
+		if (!layer.Visible)
+		{
+			xmlWriter.WriteAttributeString("visible", "false");
+		}
 		if (layer.LayerRowDefinitions.Count > 0)
 		{
 			xmlWriter.WriteStartElement("rowdefinitions");

@@ -131,6 +131,6 @@ public class WhispInstance : Badnik
 	{
 		// The wings flap: frames 0 and 1, 2 frames each. The art faces left.
 		_animation.Index = (_ticks / FrameTicks) % 2;
-		renderer.GetObjectRenderer().Render(_animation, _facingRight);
+		renderer.GetObjectRenderer().RenderOriginal(_animation, _facingRight);
 	}
 }

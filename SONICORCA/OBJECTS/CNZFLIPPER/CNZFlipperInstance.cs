@@ -300,6 +300,6 @@ public class CNZFlipperInstance : ActiveObject
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 	{
 		_animation.Index = Frame;
-		renderer.GetObjectRenderer().Render(_animation, _flipX && !_sideways);
+		renderer.GetObjectRenderer().RenderOriginal(_animation, _flipX && !_sideways);
 	}
 }

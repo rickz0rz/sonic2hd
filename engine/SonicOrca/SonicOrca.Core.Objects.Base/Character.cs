@@ -958,6 +958,11 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 				Animation.Index = (int)CharacterAnimation.Grabbed;
 				Animation.Animate();
 			}
+			else if (SpecialState == CharacterSpecialState.Hanging)
+			{
+				Animation.Index = (int)CharacterAnimation.Hanging;
+				Animation.Animate();
+			}
 			else
 			{
 				AnimationNormalState();

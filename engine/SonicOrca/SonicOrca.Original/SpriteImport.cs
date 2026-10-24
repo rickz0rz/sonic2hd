@@ -20,7 +20,9 @@ public readonly record struct SpritePiece(int X, int Y, int Width, int Height, i
 
 /// <summary>The sprites of an object of the original game: its art, its mappings and its palette lines.</summary>
 /// <param name="ObjectKey">The SonicOrca object, for example "SONICORCA/OBJECTS/CNZBUMPER".</param>
-/// <param name="ArtFile">The art file in the disassembly: Nemesis, or Kosinski for a .kos file (the level art).</param>
+/// <param name="ArtFile">
+/// The art file in the disassembly: Nemesis, Kosinski for a .kos file (the level art), or uncompressed for a .bin file.
+/// </param>
 /// <param name="MappingsFile">
 /// The sprite mappings file (assembly source) in the disassembly, or "file#label" for mappings inside a larger
 /// source file, for example "s2.asm#Obj8D_MapUnc_36CF0".
@@ -36,6 +38,24 @@ public sealed record OriginalSprite(string ObjectKey, string ArtFile, string Map
 	/// keeps its position in the frame.
 	/// </summary>
 	public IReadOnlyList<int> SplitFrames { get; init; } = Array.Empty<int>();
+
+	/// <summary>
+	/// More art files that the mappings use, each at its first tile from the start of <see cref="ArtFile"/>. For
+	/// example, a boss has its own art and the art of Eggman's ship, which the original loads at other VRAM addresses.
+	/// </summary>
+	public IReadOnlyList<(string File, int Tile)> MoreArt { get; init; } = Array.Empty<(string, int)>();
+
+	/// <summary>
+	/// The tile of the mappings at which <see cref="ArtFile"/> starts. It is negative when the mappings start inside
+	/// the art.
+	/// </summary>
+	public int ArtTile { get; init; }
+
+	/// <summary>
+	/// Palette lines that the object changes, with the palette file for each line. For example, the level events
+	/// load a boss palette into line 1 before the boss comes.
+	/// </summary>
+	public IReadOnlyDictionary<int, string> PaletteOverrides { get; init; } = new Dictionary<int, string>();
 
 	public OriginalSprite(string objectKey, string artFile, string mappingsFile, int paletteLine)
 		: this(objectKey, artFile, mappingsFile, new[] { paletteLine })
@@ -117,8 +137,16 @@ public static class SpriteImport
 	{
 		byte[] data = File.ReadAllBytes(Path.Combine(disassembly, "art/palettes/SonicAndTails.bin"))
 			.Concat(File.ReadAllBytes(Path.Combine(disassembly, zonePaletteFile))).ToArray();
-		var palette = new uint[64];
-		for (int i = 0; i < palette.Length && i * 2 + 1 < data.Length; i++)
+		uint[] palette = new uint[64];
+		ReadColours(data).AsSpan(0, Math.Min(64, data.Length / 2)).CopyTo(palette);
+		return palette;
+	}
+
+	/// <summary>Converts Mega Drive colours (0BGR) to RGBA colours.</summary>
+	private static uint[] ReadColours(byte[] data)
+	{
+		var palette = new uint[data.Length / 2];
+		for (int i = 0; i < palette.Length; i++)
 		{
 			int colour = (data[i * 2] << 8) | data[i * 2 + 1];
 			// Each channel has 3 bits, in bits 1 to 3 of its nibble
@@ -130,10 +158,45 @@ public static class SpriteImport
 		return palette;
 	}
 
+	/// <summary>Reads Nemesis art, Kosinski art (.kos) or uncompressed art (.bin).</summary>
+	private static byte[] ReadArt(string disassembly, string file)
+	{
+		byte[] data = File.ReadAllBytes(Path.Combine(disassembly, file));
+		if (file.EndsWith(".kos", StringComparison.OrdinalIgnoreCase))
+		{
+			return Kosinski.Decompress(data);
+		}
+		return file.EndsWith(".bin", StringComparison.OrdinalIgnoreCase) ? data : Nemesis.Decompress(data);
+	}
+
 	public static ImportedSprite Import(OriginalSprite sprite, string disassembly, uint[] palette, int scale)
 	{
-		byte[] packed = File.ReadAllBytes(Path.Combine(disassembly, sprite.ArtFile));
-		byte[] art = sprite.ArtFile.EndsWith(".kos", StringComparison.OrdinalIgnoreCase) ? Kosinski.Decompress(packed) : Nemesis.Decompress(packed);
+		byte[] art = Array.Empty<byte>();
+		foreach ((string file, int artTile) in sprite.MoreArt.Prepend((sprite.ArtFile, sprite.ArtTile)))
+		{
+			byte[] more = ReadArt(disassembly, file);
+			int tile = artTile;
+			if (tile < 0)
+			{
+				// The mappings start after the start of the art: the object points into the middle of the art
+				more = more.AsSpan(Math.Min(more.Length, -tile * BytesPerTile)).ToArray();
+				tile = 0;
+			}
+			if (art.Length < (tile * BytesPerTile) + more.Length)
+			{
+				Array.Resize(ref art, (tile * BytesPerTile) + more.Length);
+			}
+			more.CopyTo(art, tile * BytesPerTile);
+		}
+		if (sprite.PaletteOverrides.Count > 0)
+		{
+			palette = (uint[])palette.Clone();
+			foreach ((int line, string file) in sprite.PaletteOverrides)
+			{
+				uint[] colours = ReadColours(File.ReadAllBytes(Path.Combine(disassembly, file)));
+				Array.Copy(colours, 0, palette, line * 16, Math.Min(16, colours.Length));
+			}
+		}
 		string[] mappings = sprite.MappingsFile.Split('#');
 		List<List<SpritePiece>> frames = ParseMappings(File.ReadAllText(Path.Combine(disassembly, mappings[0])), mappings.Length > 1 ? mappings[1] : null);
 		int variants = sprite.PaletteLines.Count;

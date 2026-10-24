@@ -134,39 +134,46 @@ The tests use the disassembly when they find it next to the checkout or at `S2DI
 
 ### Level imports
 
-The demo data has the tiles of Casino Night (CNZ) and Aquatic Ruin (ARZ), but no collision, no objects and no
-music. The import command makes the rest of a zone from a local copy of the Sonic 2 disassembly. Only the importer
-is in this repository. The zone data that it makes comes from the original game, so keep it local.
+The demo data has the tiles of Aquatic Ruin (ARZ), Casino Night (CNZ), Mystic Cave (MCZ), Oil Ocean (OOZ),
+Metropolis (MTZ), Sky Chase (SCZ), Wing Fortress (WFZ) and Death Egg (DEZ), but no collision, no objects and no
+music. The import command makes the rest of a zone from a local copy of the Sonic 2
+disassembly. Only the importer is in this repository. The zone data that it makes comes from the original game, so
+keep it local.
 
 ```sh
 git clone https://github.com/sonicretro/s2disasm.git ../s2disasm
 dotnet run --project tools/s2hd-data -- import-level cnz ../s2disasm cnz
 dotnet run --project tools/s2hd-data -- pack cnz cnz.dat --base data/sonicorca.dat
-dotnet run --project tools/s2hd-data -- import-level arz ../s2disasm arz
-dotnet run --project tools/s2hd-data -- pack arz arz.dat --base data/sonicorca.dat
 ```
 
-Put the `.dat` files in a `mods` folder. They can be there together. Then start a zone with `--level cnz` or
-`--level arz`, and add `--act 2` for the second act. Import again after an update of this repository. The import
-does these steps:
+Do the same for `arz`, `mcz`, `ooz`, `mtz`, `scz`, `wfz` and `dez`. Put the `.dat` files in a `mods` folder. They
+can be there together. Then start a zone with `--level cnz` (or one of the other names), and add `--act 2` for the
+second act (MTZ also has `--act 3`). Import again after
+an update of this repository. The import does these steps:
 
 - It copies the blocks of both acts into the HD map, at the positions that the HD map uses.
 - It traces the collision of both paths from the height maps of the original.
-- It adds the start positions, the act bounds and the water levels as map markers.
+- It adds the start positions, the origins and bounds of the acts, and the water levels as map markers.
 - It converts the rings and the objects. The command lists the object types that it cannot convert yet.
-- It converts the art of the new objects from the original sprites and level art, at four times the size, as the
-  HD tiles of these zones are.
+- It converts the art of the new objects and the bosses from the original sprites and level art, at four times the
+  size, as the HD tiles of these zones are.
 - It adds a layer for the parts of the blocks that the original draws in front of the characters. The layer
   switches move a character in front of this layer or behind it, as the original sets the sprite priority.
+- It makes animated tiles from the animated level art of the original, for example the oil of OOZ and the
+  flipping panels of CNZ. The HD tiles do not have this art.
 - In CNZ, it also adds the bumpers that are part of the landscape, and the reels of the slot machines.
 
 On a flipper or a spring launcher in CNZ, the jump button controls the object. Press jump to flip a flipper. Hold
 jump to pull back a launcher, then let go to launch.
 
-These zones have no music, because the demo data has none for them. A mod can add `SONICORCA/MUSIC/LEVELS/CNZ` or
-`SONICORCA/MUSIC/LEVELS/ARZ`. The data also has no sounds for some objects, for example the bumpers and the arrow
-shooters, so these objects play the nearest sound that the data has or no sound. The other zones without music (MCZ,
-OOZ and others) also load, without music. The ARZ boss is not in the import yet.
+The last act of each zone ends with the boss of the original. The camera locks into the arena at the positions of
+the original level events. The HD screen is wider than the original screen, so the arena shows 80 more pixels on each
+side. In OOZ, the area adds the oil: a character sinks slowly into it and can jump out.
+
+These zones have no music, because the demo data has none for them. A mod can add the music that each area names,
+for example `SONICORCA/MUSIC/LEVELS/CNZ` or `SONICORCA/MUSIC/LEVELS/OOZ`. The data also has no sounds for some
+objects, for example the bumpers, the arrow shooters and the lasers of the OOZ boss. These objects play the nearest
+sound that the data has, or no sound.
 
 ### Entering a special stage
 
