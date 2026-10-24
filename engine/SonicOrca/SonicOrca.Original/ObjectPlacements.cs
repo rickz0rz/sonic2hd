@@ -147,6 +147,49 @@ public static class ObjectPlacements
 					}));
 					break;
 				}
+			case 6 when zone == "MTZ" && (originalPlacement.SubType & 0x80) != 0:
+				key = "SONICORCA/OBJECTS/MTZCYLINDER";
+				break;
+			case 28 when zone == "MTZ":
+				key = "SONICORCA/OBJECTS/MTZSCENERY";
+				behaviour = new { Subtype = (int)originalPlacement.SubType, FlipX = originalPlacement.FlipX, FlipY = originalPlacement.FlipY };
+				break;
+			case 45 when zone == "MTZ":
+				key = "SONICORCA/OBJECTS/MTZDOOR";
+				behaviour = new { FlipX = originalPlacement.FlipX };
+				break;
+			case 49 when zone == "MTZ":
+				key = "SONICORCA/OBJECTS/MTZLAVA";
+				behaviour = new { Subtype = (int)originalPlacement.SubType };
+				break;
+			case 66:
+				key = "SONICORCA/OBJECTS/MTZSTEAMSPRING";
+				behaviour = new { Subtype = (int)originalPlacement.SubType };
+				break;
+			case 71:
+				// Subtype bits 0 to 3 give the trigger. Bit 6 sets bit 7 of the trigger in place of bit 0.
+				key = "SONICORCA/OBJECTS/MTZBUTTON";
+				behaviour = new { Trigger = originalPlacement.SubType & 0xF, HighBit = (originalPlacement.SubType & 0x40) != 0 };
+				break;
+			case 108:
+				key = "SONICORCA/OBJECTS/MTZPULLEYPLATFORM";
+				behaviour = new { Subtype = (int)originalPlacement.SubType, FlipX = originalPlacement.FlipX };
+				break;
+			case 109:
+				key = "SONICORCA/OBJECTS/MTZFLOORSPIKE";
+				behaviour = new { Phase = (int)originalPlacement.SubType };
+				break;
+			case 110:
+				key = "SONICORCA/OBJECTS/MTZMACHINE";
+				behaviour = new { Subtype = (int)originalPlacement.SubType };
+				break;
+			case 112:
+				key = "SONICORCA/OBJECTS/MTZCOG";
+				behaviour = new { FlipX = originalPlacement.FlipX };
+				break;
+			case 113 when zone == "MTZ":
+				key = "SONICORCA/OBJECTS/MTZLAVABUBBLE";
+				break;
 			case 11:
 				key = "SONICORCA/OBJECTS/CPZTRAPDOOR";
 				behaviour = new
@@ -175,6 +218,297 @@ public static class ObjectPlacements
 				behaviour = new
 				{
 					Subtype = (int)originalPlacement.SubType
+				};
+				break;
+			case 21 when zone == "MCZ":
+				key = "SONICORCA/OBJECTS/MCZSWINGPLATFORM";
+				behaviour = new
+				{
+					Links = originalPlacement.SubType & 0xF,
+					Kind = ((originalPlacement.SubType >> 4) & 7) switch { 1 => "Left", 3 => "Right", 4 => "Trap", _ => "Full" },
+					FlipX = originalPlacement.FlipX
+				};
+				break;
+			case 31 when zone == "MCZ":
+				key = "SONICORCA/OBJECTS/MCZCOLLAPSEPLATFORM";
+				behaviour = new { FlipX = originalPlacement.FlipX };
+				break;
+			case 42:
+				key = "SONICORCA/OBJECTS/MCZSTOMPER";
+				break;
+			case 118:
+				key = "SONICORCA/OBJECTS/MCZSLIDINGSPIKES";
+				behaviour = new { FlipX = originalPlacement.FlipX };
+				break;
+			case 122 when zone == "MCZ":
+				key = "SONICORCA/OBJECTS/MCZSIDESTEPPLATFORM";
+				behaviour = new { StartRight = originalPlacement.SubType == 0x12 };
+				break;
+			case 158:
+				key = "SONICORCA/OBJECTS/CRAWLTON";
+				break;
+			case 159:
+				key = "SONICORCA/OBJECTS/SHELLCRACKER";
+				behaviour = new { FlipX = originalPlacement.FlipX };
+				break;
+			case 161:
+				key = "SONICORCA/OBJECTS/SLICER";
+				behaviour = new { FlipX = originalPlacement.FlipX };
+				break;
+			case 164:
+				key = "SONICORCA/OBJECTS/ASTERON";
+				break;
+			case 163:
+				key = "SONICORCA/OBJECTS/FLASHER";
+				break;
+			case 21 when zone == "OOZ":
+				// The fallen platform stops at y $720 of the act. FloatDepth is that line measured from the pivot.
+				key = "SONICORCA/OBJECTS/OOZSWINGPLATFORM";
+				behaviour = new
+				{
+					Links = originalPlacement.SubType & 0xF,
+					FallOff = (originalPlacement.SubType & 0x80) != 0,
+					FlipX = originalPlacement.FlipX,
+					FloatDepth = (0x720 - originalPlacement.Position.Y) * 4
+				};
+				break;
+			case 45 when zone == "DEZ":
+				key = "SONICORCA/OBJECTS/DEZDOOR";
+				behaviour = new { FlipX = originalPlacement.FlipX, Frame = (int)originalPlacement.SubType };
+				break;
+			case 198 when zone == "DEZ" && originalPlacement.SubType == 0xA6:
+				key = "SONICORCA/OBJECTS/DEZEGGMAN";
+				break;
+			case 199 when zone == "DEZ":
+				// Death Egg Zone starts at the origin of the map, so the origin of the robot is 0
+				key = "SONICORCA/OBJECTS/DEATHEGGROBOT";
+				behaviour = new { OriginX = 0, OriginY = 0 };
+				break;
+			case 25 when zone == "WFZ":
+				key = "SONICORCA/OBJECTS/WFZPLATFORM";
+				behaviour = new { Subtype = (int)originalPlacement.SubType, FlipX = originalPlacement.FlipX };
+				break;
+			case 45 when zone == "WFZ":
+				key = "SONICORCA/OBJECTS/WFZBARRIER";
+				behaviour = new { Frame = (int)originalPlacement.SubType, FlipX = originalPlacement.FlipX };
+				break;
+			case 128 when zone == "WFZ":
+				key = "SONICORCA/OBJECTS/WFZHOOK";
+				behaviour = new { ShortTravel = (originalPlacement.SubType & 0xF) != 0, StartDown = (originalPlacement.SubType & 0x70) != 0 };
+				break;
+			case 192:
+				key = "SONICORCA/OBJECTS/WFZLAUNCHER";
+				behaviour = new { Distance = (int)originalPlacement.SubType, FlipX = originalPlacement.FlipX };
+				break;
+			case 193:
+				key = "SONICORCA/OBJECTS/WFZPLATING";
+				behaviour = new { Seconds = (int)originalPlacement.SubType };
+				break;
+			case 194:
+				key = "SONICORCA/OBJECTS/WFZRIVET";
+				break;
+			case 217:
+				key = "SONICORCA/OBJECTS/WFZGRAB";
+				break;
+			case 25 when zone == "OOZ":
+				key = "SONICORCA/OBJECTS/OOZPLATFORM";
+				behaviour = new { Subtype = (int)originalPlacement.SubType, FlipX = originalPlacement.FlipX };
+				break;
+			case 28 when zone == "OOZ" && originalPlacement.SubType >= 0x0A && originalPlacement.SubType <= 0x14:
+				// Falling oil: $A to $F are narrow streams, $10 to $14 wide streams
+				key = "SONICORCA/OBJECTS/OOZSCENERY";
+				behaviour = new { Subtype = (int)originalPlacement.SubType, FlipX = originalPlacement.FlipX };
+				break;
+			case 31 when zone == "OOZ":
+				key = "SONICORCA/OBJECTS/OOZCOLLAPSEPLATFORM";
+				behaviour = new { FlipX = originalPlacement.FlipX };
+				break;
+			case 51:
+				key = "SONICORCA/OBJECTS/OOZBURNER";
+				behaviour = new { WaitForPlayer = originalPlacement.SubType != 0 };
+				break;
+			case 61:
+				key = "SONICORCA/OBJECTS/OOZLAUNCHERBLOCK";
+				behaviour = new { Horizontal = originalPlacement.SubType != 0 };
+				break;
+			case 63:
+				key = "SONICORCA/OBJECTS/OOZFAN";
+				behaviour = new
+				{
+					Vertical = (originalPlacement.SubType & 0x80) != 0,
+					Reverse = (originalPlacement.SubType & 1) != 0,
+					AlwaysOn = (originalPlacement.SubType & 2) != 0,
+					FlipX = originalPlacement.FlipX
+				};
+				break;
+			case 72:
+				key = "SONICORCA/OBJECTS/OOZLAUNCHBALL";
+				behaviour = new { Subtype = (int)originalPlacement.SubType, FlipX = originalPlacement.FlipX };
+				break;
+			case 74:
+				key = "SONICORCA/OBJECTS/OCTUS";
+				behaviour = new { FlipX = originalPlacement.FlipX };
+				break;
+			case 80:
+				key = "SONICORCA/OBJECTS/AQUIS";
+				break;
+			case 173:
+				// The base of a Clucker: a solid block
+				key = "SONICORCA/OBJECTS/CLUCKER/BASE";
+				behaviour = new { FlipX = originalPlacement.FlipX };
+				break;
+			case 174:
+				key = "SONICORCA/OBJECTS/CLUCKER";
+				behaviour = new { FlipX = originalPlacement.FlipX };
+				break;
+			case 182:
+				// Bits 1 and 2 give the kind of tilting platform, bits 4 to 7 the time
+				key = "SONICORCA/OBJECTS/WFZTILTPLATFORM";
+				behaviour = new
+				{
+					Kind = new[] { "Timed", "Spin", "Stand", "Vertical" }[(originalPlacement.SubType >> 1) & 3],
+					Time = originalPlacement.SubType & 0xF0
+				};
+				break;
+			case 184:
+				key = "SONICORCA/OBJECTS/WFZTURRET";
+				break;
+			case 185:
+				key = "SONICORCA/OBJECTS/WFZLASER";
+				break;
+			case 186:
+				key = "SONICORCA/OBJECTS/WFZWHEEL";
+				break;
+			case 188:
+				key = "SONICORCA/OBJECTS/WFZTHRUST";
+				break;
+			case 189:
+				// Subtype $80 moves the platforms down, $7E up. A flipped object moves them for longer.
+				key = "SONICORCA/OBJECTS/WFZBELTPLATFORM";
+				behaviour = new
+				{
+					Down = originalPlacement.SubType == 0x80,
+					Long = originalPlacement.FlipX
+				};
+				break;
+			case 190:
+				key = "SONICORCA/OBJECTS/WFZGUNPLATFORM";
+				behaviour = new { Time = originalPlacement.SubType & 0xF0 };
+				break;
+			case 153:
+				key = "SONICORCA/OBJECTS/NEBULA";
+				break;
+			case 154:
+				key = "SONICORCA/OBJECTS/TURTLOID";
+				break;
+			case 172:
+				// A Balkiry flipped vertically flies at $500 in place of $300
+				key = "SONICORCA/OBJECTS/BALKIRY";
+				behaviour = new { Fast = originalPlacement.FlipY };
+				break;
+			case 178:
+				// $50: Sky Chase Zone, $52: start of Wing Fortress Zone, $54: end of Wing Fortress Zone (not supported)
+				key = "SONICORCA/OBJECTS/TORNADO";
+				behaviour = new { Subtype = (int)originalPlacement.SubType };
+				break;
+			case 179:
+				// Subtypes $5E, $60 and $62: big, middle and small
+				key = "SONICORCA/OBJECTS/SCZCLOUD";
+				behaviour = new { Kind = (originalPlacement.SubType - 0x5E) / 2 };
+				break;
+			case 180:
+				// A vertical propeller flipped vertically does not hurt
+				key = "SONICORCA/OBJECTS/PROPELLER";
+				behaviour = new { Horizontal = false, Harmless = originalPlacement.FlipY };
+				break;
+			case 181:
+				// Subtype $66 (Wing Fortress Zone) lifts the players, $68 (Sky Chase Zone) only turns
+				key = "SONICORCA/OBJECTS/PROPELLER";
+				behaviour = new { Horizontal = true, Lift = originalPlacement.SubType == 0x66 };
+				break;
+			case 67:
+				key = "SONICORCA/OBJECTS/OOZSPIKEBALL";
+				behaviour = new { Subtype = (int)originalPlacement.SubType };
+				break;
+			case 69:
+				key = "SONICORCA/OBJECTS/OOZSPRING";
+				behaviour = new { Subtype = (int)originalPlacement.SubType, FlipX = originalPlacement.FlipX };
+				break;
+			case 100 when zone == "MTZ":
+				key = "SONICORCA/OBJECTS/MTZSTOMPER";
+				behaviour = new { Subtype = (int)originalPlacement.SubType, FlipX = originalPlacement.FlipX, FlipY = originalPlacement.FlipY };
+				break;
+			case 101 when zone == "MTZ":
+				key = "SONICORCA/OBJECTS/MTZLONGPLATFORM";
+				behaviour = new { Subtype = (int)originalPlacement.SubType, FlipX = originalPlacement.FlipX, OriginalX = originalPlacement.Position.X };
+				break;
+			case 102 when zone == "MTZ":
+				key = "SONICORCA/OBJECTS/MTZSPRINGWALL";
+				behaviour = new { Subtype = (int)originalPlacement.SubType, FlipX = originalPlacement.FlipX };
+				break;
+			case 103 when zone == "MTZ":
+				key = "SONICORCA/OBJECTS/MTZSPINTUBE";
+				behaviour = new
+				{
+					Subtype = (int)originalPlacement.SubType,
+					FlipX = originalPlacement.FlipX,
+					OriginalX = originalPlacement.Position.X,
+					OriginalY = originalPlacement.Position.Y
+				};
+				break;
+			case 104 when zone == "MTZ":
+				key = "SONICORCA/OBJECTS/MTZSPIKEBLOCK";
+				behaviour = new { Subtype = (int)originalPlacement.SubType };
+				break;
+			case 105 when zone == "MTZ":
+				key = "SONICORCA/OBJECTS/MTZNUT";
+				behaviour = new { Subtype = (int)originalPlacement.SubType };
+				break;
+			case 106 when zone == "MTZ":
+				key = "SONICORCA/OBJECTS/MTZPLATFORM";
+				behaviour = new { Subtype = (int)originalPlacement.SubType, FlipX = originalPlacement.FlipX };
+				break;
+			case 107 when zone == "MTZ":
+				key = "SONICORCA/OBJECTS/MTZBLOCK";
+				behaviour = new { Subtype = (int)originalPlacement.SubType, FlipX = originalPlacement.FlipX };
+				break;
+			case 106 when zone == "MCZ":
+				key = "SONICORCA/OBJECTS/MCZPLATFORM";
+				behaviour = new { Subtype = (int)originalPlacement.SubType, FlipX = originalPlacement.FlipX };
+				break;
+			case 117:
+				key = "SONICORCA/OBJECTS/MCZSPIKEBALLCHAIN";
+				behaviour = new
+				{
+					Links = originalPlacement.SubType & 0xF,
+					Speed = (sbyte)(originalPlacement.SubType & 0xF0) << 3,
+					StartAngle = (originalPlacement.FlipX ? 0x40 : 0) | (originalPlacement.FlipY ? 0x80 : 0)
+				};
+				break;
+			case 119:
+				key = "SONICORCA/OBJECTS/MCZBRIDGE";
+				behaviour = new { Trigger = originalPlacement.SubType & 0xF };
+				break;
+			case 127:
+				key = "SONICORCA/OBJECTS/MCZVINESWITCH";
+				behaviour = new { Trigger = originalPlacement.SubType & 0xF };
+				break;
+			case 128 when zone == "MCZ":
+				key = "SONICORCA/OBJECTS/MCZVINE";
+				behaviour = new
+				{
+					IsSwitch = (originalPlacement.SubType & 0x80) != 0,
+					StartDown = (originalPlacement.SubType & 0x70) != 0,
+					Trigger = originalPlacement.SubType & 0xF
+				};
+				break;
+			case 129:
+				key = "SONICORCA/OBJECTS/MCZDRAWBRIDGE";
+				behaviour = new
+				{
+					Trigger = originalPlacement.SubType & 0xF,
+					FlipX = originalPlacement.FlipX,
+					FlipY = originalPlacement.FlipY
 				};
 				break;
 			case 21 when zone == "ARZ":

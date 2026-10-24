@@ -142,7 +142,7 @@ public sealed class LevelImportTests
 				int tile = high.Tiles[x, y] & 0xFFF;
 				if (tile != 0)
 				{
-					Assert.Equal(PriorityTiles.FirstTile + (level.Map.Layers[1].Tiles[x, y] & 0xFFF), tile);
+					Assert.Equal(PriorityTiles.FirstTile + (level.Map.Layers[1].Tiles[x, y] & 0xFFF) % PriorityTiles.AnimatedFirstTile, tile);
 				}
 			}
 		}

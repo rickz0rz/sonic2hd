@@ -240,7 +240,7 @@ public class GrounderInstance : Badnik
 		IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
 		// The art faces left
 		_animation.Index = _frame;
-		objectRenderer.Render(_animation, _facingRight);
+		objectRenderer.RenderOriginal(_animation, _facingRight);
 		// The bricks draw in front of the Grounder
 		foreach (Debris debris in _debris)
 		{

@@ -142,6 +142,12 @@ public class Level : IDisposable
 
 	public double NightMode { get; set; }
 
+	/// <summary>
+	/// The colour behind all the layers. The original game shows the backdrop colour of the palette where the
+	/// background has no pattern. Transparent (the default) shows black.
+	/// </summary>
+	public Colour BackdropColour { get; set; }
+
 	public bool FinishOnCompleteLevel { get; set; }
 
 	public TileSet TileSet { get; set; }

@@ -33,7 +33,7 @@ internal class AreaResourceType : ResourceType
 		}
 		Area area = (Area)Activator.CreateInstance(type);
 		area.Resource = e.Resource;
-		e.PushDependencies(area.Dependencies.Select(x => e.GetAbsolutePath(x)).Where(key => !IsMissingMusic(e.ResourceTree, key)));
+		e.PushDependencies(area.Dependencies.Select(x => e.GetAbsolutePath(x)).Where(key => !IsMissingMusic(e.ResourceTree, key) && !IsMissingModObject(e.ResourceTree, key)));
 		return area;
 	}
 
@@ -48,6 +48,20 @@ internal class AreaResourceType : ResourceType
 			return false;
 		}
 		Trace.WriteLine("Music " + key + " is not in the resources. The level plays without it.");
+		return true;
+	}
+
+	/// <summary>
+	/// True for an object that is not in the resources. Only a mod from "s2hd-data import-level" has the bosses of
+	/// some zones. The area then does not use the object.
+	/// </summary>
+	private static bool IsMissingModObject(ResourceTree tree, string key)
+	{
+		if (!key.StartsWith("SONICORCA/OBJECTS/", StringComparison.OrdinalIgnoreCase) || tree[key]?.Resource != null)
+		{
+			return false;
+		}
+		Trace.WriteLine("Object " + key + " is not in the resources. The level plays without it.");
 		return true;
 	}
 }

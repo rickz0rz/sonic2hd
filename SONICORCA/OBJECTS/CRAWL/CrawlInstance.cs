@@ -163,6 +163,6 @@ public class CrawlInstance : Badnik
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 	{
 		_animation.Index = _frame;
-		renderer.GetObjectRenderer().Render(_animation, _facingRight);
+		renderer.GetObjectRenderer().RenderOriginal(_animation, _facingRight);
 	}
 }

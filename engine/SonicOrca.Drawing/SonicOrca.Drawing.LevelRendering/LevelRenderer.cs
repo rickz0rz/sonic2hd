@@ -209,6 +209,10 @@ public class LevelRenderer : ILevelRenderer, IDisposable
 		I2dRenderer i2dRenderer = renderer.Get2dRenderer();
 		Matrix4 modelMatrix = i2dRenderer.ModelMatrix;
 		i2dRenderer.ModelMatrix = Matrix4.Identity;
+		if (_level.BackdropColour.Alpha != 0)
+		{
+			i2dRenderer.RenderQuad(_level.BackdropColour, viewport.Destination);
+		}
 		ITileRenderer tileRenderer = renderer.GetTileRenderer();
 		tileRenderer.ClipRectangle = viewport.Destination;
 		tileRenderer.ModelMatrix = Matrix4.Identity;

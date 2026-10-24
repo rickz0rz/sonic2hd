@@ -21,6 +21,9 @@ public class CasinoNightZoneArea : Area
 	private const string BindingResourceKey = "//BINDING";
 	/// <summary>The game data has no music for this zone. A mod can add it.</summary>
 	private const string LevelMusicResourceKey = "SONICORCA/MUSIC/LEVELS/CNZ";
+	private const string BossMusicResourceKey = "SONICORCA/MUSIC/BOSS/S2";
+	/// <summary>Only a mod from "s2hd-data import-level cnz" has the boss.</summary>
+	private const string BossObjectResourceKey = "SONICORCA/OBJECTS/CNZBOSS";
 
 	/// <summary>
 	/// The animals that destroyed badniks set free. The original has a bear and Flicky. The game data has no bear, so
@@ -38,12 +41,19 @@ public class CasinoNightZoneArea : Area
 		TileSetResourceKey,
 		MapResourceKey,
 		BindingResourceKey,
-		LevelMusicResourceKey
+		LevelMusicResourceKey,
+		BossMusicResourceKey,
+		BossObjectResourceKey
 	}.Concat(AnimalResourceKeys).ToArray();
+
+	/// <summary>The boss events of act 2 (LevEvents_CNZ2) and the start position of the boss (Obj51).</summary>
+	private static readonly BossArenaSettings BossArenaSettings = new BossArenaSettings(0x27C0, 0x62E, 0x2890, 0x2860, 0x28E0, 0x4E0,
+		new Vector2i(0x2A46, 0x654), 0x2B20);
 
 	private SonicOrcaGameContext _gameContext;
 	private ResourceTree _resourceTree;
 	private Level _level;
+	private BossArena _bossArena;
 
 	public CasinoNightZoneArea()
 		: base(AreaDependencies)
@@ -69,10 +79,16 @@ public class CasinoNightZoneArea : Area
 		_level.LevelMusic = LevelMusicResourceKey;
 		int act = settings.Act == 2 ? 2 : 1;
 		_level.CurrentAct = act;
+		_bossArena = null;
 		if (_level.TryGetMarker($"bounds_{act}_lt", out LevelMarker leftTop) && _level.TryGetMarker($"bounds_{act}_rb", out LevelMarker rightBottom))
 		{
 			_level.SetStartPosition("startpos_stk_" + act);
 			_level.Bounds = Rectanglei.FromLTRB(leftTop.Position.X, leftTop.Position.Y, rightBottom.Position.X, rightBottom.Position.Y);
+			if (act == 2 && _level.TryGetMarker("origin_2", out LevelMarker origin))
+			{
+				_bossArena = new BossArena(_level, origin.Position, BossArenaSettings, this.GetAbsolutePath(BossObjectResourceKey),
+					this.GetAbsolutePath(BossMusicResourceKey), this.GetAbsolutePath(LevelMusicResourceKey));
+			}
 		}
 		else
 		{
@@ -80,5 +96,13 @@ public class CasinoNightZoneArea : Area
 		}
 		_level.RingsPerfectTarget = _level.ObjectManager.ObjectEntryTable.GetRingCountInRegion(_level.Bounds);
 		settings.StartPath = 0;
+	}
+
+	public override void OnUpdate()
+	{
+		if (_level.StateFlags.HasFlag(LevelStateFlags.Updating))
+		{
+			_bossArena?.Update();
+		}
 	}
 }

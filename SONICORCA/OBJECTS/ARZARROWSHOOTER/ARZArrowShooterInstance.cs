@@ -155,11 +155,11 @@ public class ARZArrowShooterInstance : ActiveObject
 			frame = _modeTicks <= 8 ? 3 : _modeTicks <= 25 ? 4 : _modeTicks <= 33 ? 3 : IdleFrame;
 		}
 		_animation.Index = frame;
-		objectRenderer.Render(_animation, _flipX);
+		objectRenderer.RenderOriginal(_animation, _flipX);
 		_animation.Index = ArrowFrame;
 		foreach (Arrow arrow in _arrows)
 		{
-			objectRenderer.Render(_animation, arrow.Position - PositionPrecise, _flipX);
+			objectRenderer.RenderOriginal(_animation, arrow.Position - PositionPrecise, _flipX);
 		}
 	}
 }

@@ -289,7 +289,8 @@
 	  
 
 		transform.w = waveTexel.w;
-		transform.xyz = transform.xyz*(1.0-waveTexel.g) + waveTexel.g*vec3(255.0/255.0, 162.0/255.0, 223.0/255.0);
+		// The surface of the waves has the light colour of the water (pink in CPZ)
+		transform.xyz = transform.xyz*(1.0-waveTexel.g) + waveTexel.g*InputLightColour.xyz;
 		transform.xyz = transform.xyz*(1.0-waveTexel.r)+ waveTexel.r*vec3(1,1,1);
 
 		//transform.w=1;

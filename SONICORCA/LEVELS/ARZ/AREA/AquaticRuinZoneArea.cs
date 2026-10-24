@@ -21,6 +21,9 @@ public class AquaticRuinZoneArea : Area
 	private const string MapResourceKey = "//MAP";
 	private const string BindingResourceKey = "//BINDING";
 	private const string LevelMusicResourceKey = "SONICORCA/MUSIC/LEVELS/ARZ";
+	private const string BossMusicResourceKey = "SONICORCA/MUSIC/BOSS/S2";
+	/// <summary>Only a mod from "s2hd-data import-level arz" has the boss.</summary>
+	private const string BossObjectResourceKey = "SONICORCA/OBJECTS/ARZBOSS";
 
 	/// <summary>
 	/// The top of the act 1 water area, in level units.
@@ -49,12 +52,19 @@ public class AquaticRuinZoneArea : Area
 		TileSetResourceKey,
 		MapResourceKey,
 		BindingResourceKey,
-		LevelMusicResourceKey
+		LevelMusicResourceKey,
+		BossMusicResourceKey,
+		BossObjectResourceKey
 	}.Concat(AnimalResourceKeys).ToArray();
+
+	/// <summary>The boss events of act 2 (LevEvents_ARZ2) and the start position of the boss (Obj89).</summary>
+	private static readonly BossArenaSettings BossArenaSettings = new BossArenaSettings(0x2810, 0x400, 0x2A40, 0x2A40, 0x2A40, 0x3F8,
+		new Vector2i(0x2AE0, 0x388), 0x2C00, SpawnOnLock: true);
 
 	private SonicOrcaGameContext _gameContext;
 	private ResourceTree _resourceTree;
 	private Level _level;
+	private BossArena _bossArena;
 
 	public AquaticRuinZoneArea()
 		: base(AreaDependencies)
@@ -80,11 +90,19 @@ public class AquaticRuinZoneArea : Area
 		}
 		int act = settings.Act == 2 ? 2 : 1;
 		_level.CurrentAct = act;
+		_bossArena = null;
 		if (_level.TryGetMarker($"bounds_{act}_lt", out LevelMarker leftTop) && _level.TryGetMarker($"bounds_{act}_rb", out LevelMarker rightBottom))
 		{
 			// A map from "s2hd-data import-level arz": the start, the bounds and the water of each act
 			_level.SetStartPosition("startpos_stk_" + act);
 			_level.Bounds = Rectanglei.FromLTRB(leftTop.Position.X, leftTop.Position.Y, rightBottom.Position.X, rightBottom.Position.Y);
+			// The backdrop colour of the original palette (line 2, colour 0)
+			_level.BackdropColour = new Colour(255, 0, 36, 0);
+			if (act == 2 && _level.TryGetMarker("origin_2", out LevelMarker origin))
+			{
+				_bossArena = new BossArena(_level, origin.Position, BossArenaSettings, this.GetAbsolutePath(BossObjectResourceKey),
+					this.GetAbsolutePath(BossMusicResourceKey), this.GetAbsolutePath(LevelMusicResourceKey));
+			}
 			if (_level.TryGetMarker("water_" + act, out LevelMarker water))
 			{
 				_level.WaterManager.Enabled = true;
@@ -128,5 +146,13 @@ public class AquaticRuinZoneArea : Area
 	private void SeamlessPrepareAct2()
 	{
 		ExtendSeamlessLevelBounds(_level, _level.Map.Bounds);
+	}
+
+	public override void OnUpdate()
+	{
+		if (_level.StateFlags.HasFlag(LevelStateFlags.Updating))
+		{
+			_bossArena?.Update();
+		}
 	}
 }

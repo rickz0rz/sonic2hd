@@ -176,6 +176,6 @@ public class ChopChopInstance : Badnik
 	{
 		// Not animated while it swims. Frames 0 and 1, 5 frames each, while it waits and charges. The art faces left.
 		_animation.Index = _animationTicks < 0 ? 0 : (_animationTicks / FrameTicks) % 2;
-		renderer.GetObjectRenderer().Render(_animation, _facingRight);
+		renderer.GetObjectRenderer().RenderOriginal(_animation, _facingRight);
 	}
 }
