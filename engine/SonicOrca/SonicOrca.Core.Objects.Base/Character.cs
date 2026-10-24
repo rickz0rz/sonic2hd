@@ -1527,6 +1527,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		}
 		else
 		{
+			bool wasHurt = IsHurt;
 			IsAirborne = false;
 			IsJumping = false;
 			if (Level.Ticks - LastTickOnGround > KeepSpinballAirborneTolerance && !ForceSpinball)
@@ -1550,6 +1551,13 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 					GroundVelocity = ((Math.Abs(Velocity.X) > Math.Abs(Velocity.Y)) ? (Velocity.X * GroundVector.FlipX) : (Velocity.X * Math.Cos(GroundAngle) + Velocity.Y * Math.Sin(GroundAngle)));
 					Velocity = new Vector2(GroundVelocity * Math.Cos(GroundAngle), GroundVelocity * Math.Sin(GroundAngle));
 				}
+			}
+			if (wasHurt)
+			{
+				// Sonic_HurtStop: the character stops when it lands, and the invulnerability starts again.
+				GroundVelocity = 0.0;
+				Velocity = default;
+				InvulnerabilityTicks = HurtInvulnerabilityTicks;
 			}
 		}
 		Player.ResetScoreChain();
@@ -2525,7 +2533,8 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		UpdateLooking();
 		UpdatePushing();
 		UpdateWaterLogic();
-		if (InvulnerabilityTicks > 0)
+		// The invulnerability does not count down while the character flies back from a hit (Obj01_Hurt).
+		if (InvulnerabilityTicks > 0 && !IsHurt)
 		{
 			InvulnerabilityTicks--;
 		}
@@ -2596,7 +2605,8 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		}
 		if (IsHurt)
 		{
-			Gravity = 0.75;
+			// Obj01_Hurt_Normal: gravity is $30, or $10 under water.
+			Gravity = IsUnderwater ? 0.25 : 0.75;
 			Acceleration = 0.0;
 			Deceleration = 0.0;
 		}
@@ -2624,7 +2634,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 				Facing = MovingDirection;
 			}
 			velocity.Y = ChangeSpeed(velocity.Y, 1, 64.0, Gravity, Gravity, 0.0);
-			if (velocity.Y < 0.0 && velocity.Y > 0.0 - JumpReleaseForce)
+			if (velocity.Y < 0.0 && velocity.Y > 0.0 - JumpReleaseForce && !IsHurt)
 			{
 				velocity.X *= 31.0 / 32.0;
 			}
