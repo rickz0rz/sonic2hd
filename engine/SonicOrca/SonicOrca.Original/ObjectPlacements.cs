@@ -356,6 +356,16 @@ public static class ObjectPlacements
 					Height = ((originalPlacement.SubType & 0xF) + 1) * 16 * 4
 				};
 				break;
+			case 114:
+				// Conveyor belt: the half width is (subtype & $7F) * 16 in a byte, so it wraps like the original
+				key = "SONICORCA/OBJECTS/CNZCONVEYOR";
+				behaviour = new
+				{
+					HalfWidth = (((originalPlacement.SubType & 0x7F) << 4) & 0xFF) * 4,
+					Height = ((originalPlacement.SubType & 0x80) != 0 ? 0x70 : 0x30) * 4,
+					Left = originalPlacement.FlipX
+				};
+				break;
 			case 133:
 				// Spring launcher: subtype 0 is vertical, others diagonal. Bit 7 launches along the ground.
 				key = "SONICORCA/OBJECTS/CNZLAUNCHER";
@@ -372,6 +382,37 @@ public static class ObjectPlacements
 				{
 					Sideways = originalPlacement.SubType != 0,
 					FlipX = originalPlacement.FlipX
+				};
+				break;
+			case 200:
+				key = "SONICORCA/OBJECTS/CRAWL";
+				behaviour = new
+				{
+					FacingRight = originalPlacement.FlipX
+				};
+				break;
+			case 210:
+				key = "SONICORCA/OBJECTS/CNZFLASHINGBLOCK";
+				behaviour = new
+				{
+					Delay = (int)originalPlacement.SubType,
+					FlipX = originalPlacement.FlipX
+				};
+				break;
+			case 212:
+				key = "SONICORCA/OBJECTS/CNZBIGBLOCK";
+				behaviour = new
+				{
+					Vertical = originalPlacement.SubType != 0,
+					StartOnOtherSide = originalPlacement.SubType != 0 ? originalPlacement.FlipY : originalPlacement.FlipX
+				};
+				break;
+			case 213:
+				key = "SONICORCA/OBJECTS/CNZELEVATOR";
+				behaviour = new
+				{
+					Distance = originalPlacement.SubType * 4,
+					StartAtBottom = originalPlacement.FlipX
 				};
 				break;
 			case 215:

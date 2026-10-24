@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using SonicOrca;
 using SonicOrca.Core;
+using SonicOrca.Extensions;
 using SonicOrca.Geometry;
 using SonicOrca.Resources;
 
@@ -21,13 +22,24 @@ public class CasinoNightZoneArea : Area
 	/// <summary>The game data has no music for this zone. A mod can add it.</summary>
 	private const string LevelMusicResourceKey = "SONICORCA/MUSIC/LEVELS/CNZ";
 
+	/// <summary>
+	/// The animals that destroyed badniks set free. The original has a bear and Flicky. The game data has no bear, so
+	/// Pocky takes its place.
+	/// </summary>
+	private static IReadOnlyList<string> AnimalResourceKeys = new string[]
+	{
+		"SONICORCA/OBJECTS/FLICKY",
+		"SONICORCA/OBJECTS/POCKY"
+	};
+
+	// AnimalResourceKeys must stay above AreaDependencies, because static fields are set in the order of the source.
 	public static IReadOnlyList<string> AreaDependencies = new string[]
 	{
 		TileSetResourceKey,
 		MapResourceKey,
 		BindingResourceKey,
 		LevelMusicResourceKey
-	}.ToArray();
+	}.Concat(AnimalResourceKeys).ToArray();
 
 	private SonicOrcaGameContext _gameContext;
 	private ResourceTree _resourceTree;
@@ -47,6 +59,7 @@ public class CasinoNightZoneArea : Area
 		_level.ShowAsZone = true;
 		_level.ShowAsAct = true;
 		_level.Scheme = LevelScheme.S2;
+		_level.AnimalResourceKeys = AnimalResourceKeys.Select(x => this.GetAbsolutePath(x)).ToArray();
 		if (!settings.Seamless)
 		{
 			_level.TileSet = _resourceTree.GetLoadedResource<TileSet>(this, TileSetResourceKey);

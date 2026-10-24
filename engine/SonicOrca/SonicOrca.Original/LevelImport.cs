@@ -52,6 +52,10 @@ public sealed record OriginalZone(string Name, string Key, string ChunksFile, st
 				new OriginalSprite("SONICORCA/OBJECTS/CNZFLIPPER", "art/nemesis/Flippers.nem", "mappings/sprite/obj86.asm", 2),
 				new OriginalSprite("SONICORCA/OBJECTS/CNZLAUNCHER", "art/nemesis/Vertical impulse spring.nem", "mappings/sprite/obj85_a.asm", 0),
 				new OriginalSprite("SONICORCA/OBJECTS/CNZLAUNCHER/DIAGONAL", "art/nemesis/Diagonal impulse spring from CNZ.nem", "mappings/sprite/obj85_b.asm", 0),
+				new OriginalSprite("SONICORCA/OBJECTS/CRAWL", "art/nemesis/Bouncer badnik from CNZ.nem", "mappings/sprite/objC8.asm", 0),
+				new OriginalSprite("SONICORCA/OBJECTS/CNZBIGBLOCK", "art/nemesis/Moving block from CNZ and CPZ.nem", "mappings/sprite/objD4.asm", 2),
+				new OriginalSprite("SONICORCA/OBJECTS/CNZELEVATOR", "art/nemesis/CNZ elevator.nem", "mappings/sprite/objD5.asm", 2),
+				new OriginalSprite("SONICORCA/OBJECTS/CNZFLASHINGBLOCK", "art/nemesis/Caterpiller platforms from CNZ.nem", "mappings/sprite/objD2.asm", 2),
 			}),
 	};
 }
@@ -105,6 +109,11 @@ public static class LevelImport
 		["SONICORCA/OBJECTS/CNZBONUSBLOCK"] = "SONICORCA.OBJECTS.CNZBONUSBLOCK",
 		["SONICORCA/OBJECTS/CNZFLIPPER"] = "SONICORCA.OBJECTS.CNZFLIPPER",
 		["SONICORCA/OBJECTS/CNZLAUNCHER"] = "SONICORCA.OBJECTS.CNZLAUNCHER",
+		["SONICORCA/OBJECTS/CNZCONVEYOR"] = "SONICORCA.OBJECTS.CNZCONVEYOR",
+		["SONICORCA/OBJECTS/CRAWL"] = "SONICORCA.OBJECTS.CRAWL",
+		["SONICORCA/OBJECTS/CNZBIGBLOCK"] = "SONICORCA.OBJECTS.CNZBIGBLOCK",
+		["SONICORCA/OBJECTS/CNZELEVATOR"] = "SONICORCA.OBJECTS.CNZELEVATOR",
+		["SONICORCA/OBJECTS/CNZFLASHINGBLOCK"] = "SONICORCA.OBJECTS.CNZFLASHINGBLOCK",
 	};
 
 	public static ImportedLevel Import(OriginalZone zone, string disassembly)
