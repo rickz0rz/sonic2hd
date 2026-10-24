@@ -210,26 +210,34 @@ On macOS, pass options to the executable in the app bundle, for example
 ### Recording an attract demo
 
 The title screen plays a demo when nobody presses a button. Each zone can have a demo: the input recording
-`SONICORCA/RECORDINGS/<ZONE>` of act 1 with Sonic alone. The game data has the Emerald Hill demo. The demos of all
-the zones that can be played (with their import, for the imported zones) play in turn.
+`SONICORCA/RECORDINGS/<ZONE>` of act 1 with Sonic and Tails. The demos of all the zones that can be played (with
+their import, for the imported zones) play in turn, as in the original. A demo shows the title card and 1640 frames
+of play (about 27 seconds), as in the original.
 
-1. Record a play of act 1 with Sonic alone. A demo shows the first 30 seconds of the level.
+The original game has demos of EHZ, CPZ, ARZ and CNZ. The import command converts them into recordings. The HD maps
+of these zones have the layout of the original, so the demos take their original routes.
+
+```sh
+dotnet run --project tools/s2hd-data -- import-demos ../s2disasm demos
+dotnet run --project tools/s2hd-data -- pack demos demos.dat
+```
+
+Put `demos.dat` in the `mods` folder. The ARZ and CNZ demos also need the imports of these zones.
+
+To record a demo of your own:
+
+1. Record a play of act 1:
 
    ```sh
-   publish/S2HD.app/Contents/MacOS/S2HD --nologos --level arz --sidekick none --record arz.rec
+   publish/S2HD.app/Contents/MacOS/S2HD --nologos --level mcz --record mcz.rec
    ```
 
-2. Check it: `--level arz --sidekick none --playback arz.rec` plays the same level again. While a recording plays or
-   records, the random numbers of the level start from the same seed, so the play is the same each time.
-3. Put the file in a mod folder at `SONICORCA/RECORDINGS/ARZ.rec`, pack it, and put the `.dat` file in the `mods`
-   folder:
+2. Check it: `--level mcz --playback mcz.rec` plays the same level again. While a recording plays or records, the
+   random numbers of the level start from the same seed, so the play is the same each time.
+3. Put the file in a mod folder at `SONICORCA/RECORDINGS/MCZ.rec`, then pack the folder as above.
 
-   ```sh
-   dotnet run --project tools/s2hd-data -- pack demos demos.dat
-   ```
-
-A recording for EHZ in a mod takes the place of the demo of the game data. A recording plays the input only, so a
-change to the physics or to the objects can make an old recording take another route. Record it again then.
+A recording plays the input only, so a change to the physics or to the objects can make a recording take another
+route. Record it again then.
 
 ## Logs and settings
 

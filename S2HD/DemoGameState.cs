@@ -11,16 +11,20 @@ namespace S2HD;
 
 /// <summary>
 /// Plays a recorded demo when the title screen waits. Each zone can have a demo: an input recording at
-/// SONICORCA/RECORDINGS/&lt;ZONE&gt; of act 1 with Sonic alone (record it with "--level &lt;zone&gt; --sidekick none
-/// --record file.rec"). The demos of the available zones play in turn. A demo stops after its time is over, at the end
+/// SONICORCA/RECORDINGS/&lt;ZONE&gt; of act 1 with Sonic and Tails (record it with "--level &lt;zone&gt; --record file.rec",
+/// or convert the demos of the original with "s2hd-data import-demos"). The demos of the available zones play in turn,
+/// as the original plays its demos (DemoLevels). A demo stops after its time is over, at the end
 /// of its recording, or when the player presses Enter or Start.
 /// </summary>
 internal class DemoGameState : IGameState, IDisposable
 {
 	/// <summary>SDL scancode of the Enter key.</summary>
 	private const int EnterScancode = 40;
-	/// <summary>The longest demo in level ticks (30 seconds at 60 ticks each second).</summary>
-	private const int MaxDemoLength = 1800;
+	/// <summary>
+	/// The longest demo in level ticks: the title card (120 ticks), then 1640 ticks of play as in the original
+	/// (Demo_Time_left).
+	/// </summary>
+	private const int MaxDemoLength = 120 + 1640;
 
 	/// <summary>The size of one frame in an input recording (see PlayRecorder).</summary>
 	private const int RecordingEntrySize = 40;
@@ -89,7 +93,8 @@ internal class DemoGameState : IGameState, IDisposable
 			LevelNumber = 1,
 			Lives = 3,
 			ProtagonistCharacter = CharacterType.Sonic,
-			SidekickCharacter = CharacterType.Null,
+			// The demos of the original play with Tails, who follows Sonic
+			SidekickCharacter = CharacterType.Tails,
 			RecordedPlayReadData = demoData
 		});
 		bool finishingDemo = false;
