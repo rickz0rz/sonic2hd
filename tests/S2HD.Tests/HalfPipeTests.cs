@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using SonicOrca.Core.SpecialStage;
+using SonicOrca.Original;
 using Xunit;
 
 namespace S2HD.Tests;
@@ -8,48 +9,67 @@ namespace S2HD.Tests;
 /// <summary>The rules of the half-pipe special stage, without the game window.</summary>
 public sealed class HalfPipeTests
 {
-	// The track of the prototype: 92 segments of 28 track nodes
-	private const int SegmentCount = 92;
-
-	private const int NodesPerSegment = 28;
-
 	[Theory]
-	[InlineData(0, 30, 70, 130)]
-	[InlineData(4, 50, 90, 160)]
-	[InlineData(6, 100, 150, 190)]
-	public void Checkpoints_UseTheSonic2SoloQuotas(int stage, int first, int second, int third)
+	[InlineData(0, false, 30, 70, 130)]
+	[InlineData(4, false, 50, 90, 160)]
+	[InlineData(6, false, 100, 150, 190)]
+	// Values from SpecialStage_RingReq_Team in the Sonic 2 disassembly
+	[InlineData(0, true, 40, 80, 140)]
+	[InlineData(3, true, 40, 100, 150)]
+	[InlineData(6, true, 100, 190, 210)]
+	public void RingQuotas_MatchSonic2(int stage, bool duo, int first, int second, int third)
 	{
-		var (_, checkpoints) = HalfPipeLayout.Create(SegmentCount, NodesPerSegment, stage, duo: false);
-
-		Assert.Equal(new[] { first, second, third }, checkpoints.Select(c => c.RingGoal));
+		Assert.Equal(new[] { first, second, third }, HalfPipeLayout.GetRingQuotas(stage, duo));
 	}
 
-	// Values from SpecialStage_RingReq_Team in the Sonic 2 disassembly
-	[Theory]
-	[InlineData(0, 40, 80, 140)]
-	[InlineData(3, 40, 100, 150)]
-	[InlineData(6, 100, 190, 210)]
-	public void Checkpoints_UseTheDuoQuotas(int stage, int first, int second, int third)
+	[Fact]
+	public void TrackBuilder_UsesTheOriginalSegmentLengths()
 	{
-		var (_, checkpoints) = HalfPipeLayout.Create(SegmentCount, NodesPerSegment, stage, duo: true);
+		var stage = new HalfPipeStageData();
+		foreach (HalfPipeSegmentType type in Enum.GetValues<HalfPipeSegmentType>())
+		{
+			stage.Segments.Add(new HalfPipeSegment { Type = type });
+		}
 
-		Assert.Equal(new[] { first, second, third }, checkpoints.Select(c => c.RingGoal));
+		HalfPipeTrack track = HalfPipeTrackBuilder.Build(stage, new[] { 1, 2, 3 });
+
+		// 24 + 24 + 12 + 16 + 11 track frames of 5 nodes each
+		Assert.Equal((24 + 24 + 12 + 16 + 11) * 5, track.Nodes.Count);
 	}
 
 	[Theory]
 	[InlineData(false)]
 	[InlineData(true)]
-	public void EveryStage_HasEnoughRingsBeforeEachCheckpoint(bool duo)
+	public void GeneratedStage_HasEnoughRingsBeforeEachRingTest(bool duo)
 	{
 		for (int stage = 0; stage < HalfPipeLayout.StageCount; stage++)
 		{
-			var (objects, checkpoints) = HalfPipeLayout.Create(SegmentCount, NodesPerSegment, stage, duo);
-			foreach (HalfPipeCheckpoint checkpoint in checkpoints)
-			{
-				int rings = objects.Count(o => o.Kind == HalfPipeObjectKind.Ring && o.TrackNode < checkpoint.TrackNode);
-				Assert.True(rings >= checkpoint.RingGoal,
-					$"Stage {stage + 1}: {rings} rings before the checkpoint at node {checkpoint.TrackNode}, but the goal is {checkpoint.RingGoal}.");
-			}
+			HalfPipeTrack track = HalfPipeTrackBuilder.Build(HalfPipeLayout.CreateGenerated(), HalfPipeLayout.GetRingQuotas(stage, duo));
+			AssertEnoughRings(track, $"Generated stage, quotas of stage {stage + 1}");
+		}
+	}
+
+	[Fact]
+	public void OriginalStages_HaveThreeRingTests_WithEnoughRingsBeforeEach()
+	{
+		var stages = SpecialStageLayouts.ReadFromDisassembly(SpecialStageImportTests.FindDisassembly());
+		for (int stage = 0; stage < stages.Count; stage++)
+		{
+			HalfPipeTrack track = HalfPipeTrackBuilder.Build(stages[stage], HalfPipeLayout.GetRingQuotas(stage, duo: false));
+			Assert.Equal(3, track.Checkpoints.Count);
+			Assert.True(track.EmeraldNode > track.Checkpoints[1].TrackNode, $"Stage {stage + 1}: the emerald comes before checkpoint 2.");
+			AssertEnoughRings(track, $"Original stage {stage + 1}");
+		}
+	}
+
+	private static void AssertEnoughRings(HalfPipeTrack track, string name)
+	{
+		Assert.Equal(3, track.Checkpoints.Count);
+		foreach (HalfPipeCheckpoint checkpoint in track.Checkpoints)
+		{
+			int rings = track.Objects.Count(o => o.Kind == HalfPipeObjectKind.Ring && o.TrackNode < checkpoint.TrackNode);
+			Assert.True(rings >= checkpoint.RingGoal,
+				$"{name}: {rings} rings before the ring test at node {checkpoint.TrackNode}, but the goal is {checkpoint.RingGoal}.");
 		}
 	}
 

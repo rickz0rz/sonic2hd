@@ -116,6 +116,22 @@ the `[general]` section of `sonicorca.cfg`.
 
 Without `--base`, `pack` writes all resources of the folder. That file can replace `data/sonicorca.dat`.
 
+### Special stage layouts
+
+The demo data has no special stage layouts, so `--halfpipe` plays a generated layout. The import command converts
+the original Sonic 2 layouts from a local copy of the [Sonic 2 disassembly](https://github.com/sonicretro/s2disasm)
+into a mod:
+
+```sh
+git clone https://github.com/sonicretro/s2disasm.git ../s2disasm
+dotnet run --project tools/s2hd-data -- import-special-stages ../s2disasm special-stages
+dotnet run --project tools/s2hd-data -- pack special-stages special-stages.dat --base data/sonicorca.dat
+```
+
+Put `special-stages.dat` in a `mods` folder. The 7 stages then have the original track segments, rings, bombs,
+checkpoints and emerald. The layouts are data from the original game, so do not commit them to this repository.
+The tests use the disassembly when they find it next to the checkout or at `S2DISASM_DIR`.
+
 The behavior of levels and objects is C# code in `SONICORCA/`, not data. The `AREA.area.cs` and `.object.cs`
 resources only name the class to use.
 
@@ -129,7 +145,7 @@ resources only name the class to use.
 | `--demo` | Plays the Emerald Hill attract demo |
 | `--nologos` | Skips the disclaimer and the logo screens |
 | `--credits`, `--options` | Opens the credits or the options screen |
-| `--halfpipe` | Opens the 3D special stage (in development). Left and right move Sonic around the pipe, and an action button jumps. Collect enough rings for each of the three checkpoints, and avoid the bombs. Escape closes it |
+| `--halfpipe [1-7]` | Opens a 3D special stage (in development). Left and right move Sonic around the pipe, and an action button jumps. Collect enough rings for each of the three checkpoints, and avoid the bombs. Escape closes it |
 
 On macOS, pass options to the executable in the app bundle, for example
 `publish/S2HD.app/Contents/MacOS/S2HD --level cpz`.

@@ -40,10 +40,8 @@ public sealed class HalfPipeObject
 public readonly record struct HalfPipeCheckpoint(int TrackNode, int RingGoal);
 
 /// <summary>
-/// Makes the objects and the checkpoints of a half-pipe stage. As in Sonic 2, a stage has three sections, and the
-/// checkpoint at the end of each section needs a total number of rings. The objects repeat a fixed list of
-/// patterns, one for each segment, so the stage is the same each time. The original layouts are not in the game
-/// data. A data file or the level editor can replace these patterns later.
+/// The ring quotas of the Sonic 2 special stages, and a generated stage for when the original layouts are not
+/// installed. As in Sonic 2, a stage has two checkpoints and then the emerald, and each needs a total number of rings.
 /// </summary>
 public static class HalfPipeLayout
 {
@@ -51,15 +49,10 @@ public static class HalfPipeLayout
 
 	public const int CheckpointCount = 3;
 
-	private const double Degree = Math.PI / 180.0;
-
-	/// <summary>The number of segments at the start without objects, so the player can get ready.</summary>
-	private const int EmptySegmentsAtStart = 2;
-
 	/// <summary>
-	/// The total rings needed at checkpoints 1, 2 and 3 of each Sonic 2 special stage, for one character. The
-	/// ring counts continue from one section to the next. From SpecialStage_RingReq_Alone in the Sonic 2
-	/// disassembly (s2disasm), which also has an unused fourth value for each stage.
+	/// The total rings needed at checkpoints 1, 2 and at the emerald of each Sonic 2 special stage, for one
+	/// character. The ring counts continue from one section to the next. From SpecialStage_RingReq_Alone in the
+	/// Sonic 2 disassembly (s2disasm), which also has an unused fourth value for each stage.
 	/// </summary>
 	private static readonly int[,] SoloRingQuotas =
 	{
@@ -86,99 +79,115 @@ public static class HalfPipeLayout
 		{ 100, 190, 210 },
 	};
 
-	private delegate void Pattern(List<HalfPipeObject> objects, int firstNode, int nodeCount);
+	// Original angle units: $40 is the bottom of the pipe, and the angle goes up toward the left
+	private const int Bottom = 0x40;
 
-	private static readonly Pattern[] Patterns =
-	{
-		CentreLine,
-		RowAcross,
-		SweepRight,
-		CentreLineWithBombs,
-		SweepLeft,
-		BombsWithGaps,
-	};
+	private const int Step = 0x0C;
 
-	/// <param name="stage">The special stage number, from 0 to 6. It selects the ring quotas.</param>
+	/// <param name="stage">The special stage number, from 0 to 6.</param>
 	/// <param name="duo">True when Sonic and Tails play together, which needs more rings in some stages.</param>
-	public static (List<HalfPipeObject> Objects, List<HalfPipeCheckpoint> Checkpoints) Create(
-		int segmentCount, int nodesPerSegment, int stage, bool duo)
+	public static int[] GetRingQuotas(int stage, bool duo)
 	{
 		if (stage < 0 || stage >= StageCount)
 		{
 			throw new ArgumentOutOfRangeException(nameof(stage));
 		}
-		var objects = new List<HalfPipeObject>();
-		for (int segment = EmptySegmentsAtStart; segment < segmentCount; segment++)
-		{
-			Patterns[segment % Patterns.Length](objects, segment * nodesPerSegment, nodesPerSegment);
-		}
-
-		var checkpoints = new List<HalfPipeCheckpoint>();
-		int totalNodes = segmentCount * nodesPerSegment;
 		int[,] quotas = duo ? DuoRingQuotas : SoloRingQuotas;
-		for (int i = 0; i < CheckpointCount; i++)
-		{
-			int node = totalNodes * (i + 1) / CheckpointCount - 1;
-			checkpoints.Add(new HalfPipeCheckpoint(node, quotas[stage, i]));
-		}
-		return (objects, checkpoints);
+		return new[] { quotas[stage, 0], quotas[stage, 1], quotas[stage, 2] };
 	}
 
-	private static void CentreLine(List<HalfPipeObject> objects, int firstNode, int nodeCount)
+	/// <summary>
+	/// Makes a stage in the style of the originals: straights with turns between them, groups of rings and bombs,
+	/// and the markers in the original order. It has enough rings for the quotas of every stage.
+	/// </summary>
+	public static HalfPipeStageData CreateGenerated()
 	{
-		for (int node = 4; node < nodeCount - 4; node += 3)
+		var stage = new HalfPipeStageData();
+		HalfPipeSegmentType[] block =
 		{
-			objects.Add(new HalfPipeObject(HalfPipeObjectKind.Ring, firstNode + node, 0.0));
-		}
-	}
-
-	private static void RowAcross(List<HalfPipeObject> objects, int firstNode, int nodeCount)
-	{
-		foreach (int node in new[] { nodeCount / 3, 2 * nodeCount / 3 })
+			HalfPipeSegmentType.Straight, HalfPipeSegmentType.Straight, HalfPipeSegmentType.StraightThenTurn,
+			HalfPipeSegmentType.TurnThenStraight, HalfPipeSegmentType.Straight, HalfPipeSegmentType.StraightThenTurn,
+			HalfPipeSegmentType.TurnThenRise, HalfPipeSegmentType.TurnThenStraight,
+		};
+		var markers = new Dictionary<int, HalfPipeMarker>
 		{
-			for (int i = -2; i <= 2; i++)
+			[13] = HalfPipeMarker.RingsToGo, [15] = HalfPipeMarker.Checkpoint,
+			[29] = HalfPipeMarker.RingsToGo, [31] = HalfPipeMarker.Checkpoint,
+			[45] = HalfPipeMarker.RingsToGo, [47] = HalfPipeMarker.Emerald,
+		};
+		const int SegmentCount = 52;
+		for (int i = 0; i < SegmentCount; i++)
+		{
+			HalfPipeSegmentType type = block[i % block.Length];
+			stage.Segments.Add(new HalfPipeSegment
 			{
-				objects.Add(new HalfPipeObject(HalfPipeObjectKind.Ring, firstNode + node, i * 20 * Degree));
-			}
+				Type = type,
+				// Turn the other way in every second block
+				Flip = i / block.Length % 2 == 1,
+				Objects = i < 1 ? new List<HalfPipeObjectEntry>() : CreateGroup(i, HalfPipeTrackBuilder.GetLength(block[(i + 1) % block.Length])),
+				Marker = markers.TryGetValue(i, out HalfPipeMarker marker) ? marker : HalfPipeMarker.None,
+			});
 		}
+		return stage;
 	}
 
-	private static void SweepRight(List<HalfPipeObject> objects, int firstNode, int nodeCount)
+	/// <summary>Makes the objects of one group. They reach the player during the next segment.</summary>
+	private static List<HalfPipeObjectEntry> CreateGroup(int segment, int nextLength)
 	{
-		for (int i = 0; i < 8; i++)
+		var group = new List<HalfPipeObjectEntry>();
+		void Ring(int distance, int angle) => group.Add(new HalfPipeObjectEntry(HalfPipeObjectKind.Ring, distance, angle & 0xFF));
+		void Bomb(int distance, int angle) => group.Add(new HalfPipeObjectEntry(HalfPipeObjectKind.Bomb, distance, angle & 0xFF));
+		int length = Math.Min(nextLength, 14);
+		switch (segment % 5)
 		{
-			objects.Add(new HalfPipeObject(HalfPipeObjectKind.Ring, firstNode + 4 + i * 3, (-50 + i * 14) * Degree));
+			case 0:
+				// A line along the bottom
+				for (int d = 1; d < length; d += 2)
+				{
+					Ring(d, Bottom);
+				}
+				break;
+			case 1:
+				// A sweep from the right side to the left side
+				for (int d = 1, i = 0; d < length; d += 2, i++)
+				{
+					Ring(d, Bottom - 3 * Step + i * Step);
+				}
+				break;
+			case 2:
+				// Two lines, left and right of a line of bombs
+				for (int d = 2; d < length; d += 3)
+				{
+					Ring(d, Bottom - 2 * Step);
+					Ring(d, Bottom + 2 * Step);
+					Bomb(d, Bottom);
+				}
+				break;
+			case 3:
+				// A sweep from the left side to the right side
+				for (int d = 1, i = 0; d < length; d += 2, i++)
+				{
+					Ring(d, Bottom + 3 * Step - i * Step);
+				}
+				break;
+			default:
+				// Rows across the pipe, with a gap of bombs
+				foreach (int d in new[] { 2, length / 2 + 2 })
+				{
+					for (int i = -2; i <= 2; i++)
+					{
+						if (i == 0)
+						{
+							Bomb(d, Bottom);
+						}
+						else
+						{
+							Ring(d, Bottom + i * Step);
+						}
+					}
+				}
+				break;
 		}
-	}
-
-	private static void SweepLeft(List<HalfPipeObject> objects, int firstNode, int nodeCount)
-	{
-		for (int i = 0; i < 8; i++)
-		{
-			objects.Add(new HalfPipeObject(HalfPipeObjectKind.Ring, firstNode + 4 + i * 3, (50 - i * 14) * Degree));
-		}
-	}
-
-	private static void CentreLineWithBombs(List<HalfPipeObject> objects, int firstNode, int nodeCount)
-	{
-		for (int node = 4; node < nodeCount - 4; node += 3)
-		{
-			objects.Add(new HalfPipeObject(HalfPipeObjectKind.Ring, firstNode + node, 0.0));
-		}
-		objects.Add(new HalfPipeObject(HalfPipeObjectKind.Bomb, firstNode + nodeCount / 2, -35 * Degree));
-		objects.Add(new HalfPipeObject(HalfPipeObjectKind.Bomb, firstNode + nodeCount / 2, 35 * Degree));
-	}
-
-	private static void BombsWithGaps(List<HalfPipeObject> objects, int firstNode, int nodeCount)
-	{
-		// A row of bombs with a gap on the left, then a row with a gap on the right. Rings show the way.
-		int first = nodeCount / 3;
-		int second = 2 * nodeCount / 3;
-		for (int i = -2; i <= 2; i++)
-		{
-			double angle = i * 20 * Degree;
-			objects.Add(new HalfPipeObject(i == -2 ? HalfPipeObjectKind.Ring : HalfPipeObjectKind.Bomb, firstNode + first, angle));
-			objects.Add(new HalfPipeObject(i == 2 ? HalfPipeObjectKind.Ring : HalfPipeObjectKind.Bomb, firstNode + second, angle));
-		}
+		return group;
 	}
 }

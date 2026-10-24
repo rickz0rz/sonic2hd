@@ -20,36 +20,6 @@ namespace SonicOrca.Core.SpecialStage;
 /// </summary>
 public class HalfPipeSpecialStageScreen : Screen
 {
-	private enum SegmentGeometry
-	{
-		Straight,
-		Drop,
-		Rise,
-		TurnLeft,
-		TurnRight
-	}
-
-	/// <summary>
-	/// A point on the track. The angle has the yaw in X and the pitch in Y, in radians.
-	/// </summary>
-	private struct TrackNode
-	{
-		public Vector3 Position { get; set; }
-
-		public Vector2 Angle { get; set; }
-
-		public TrackNode(Vector3 position, Vector2 angle)
-		{
-			Position = position;
-			Angle = angle;
-		}
-
-		public override string ToString()
-		{
-			return $"{Position}, {MathX.ToDegrees(Angle.X):0} DEG, {MathX.ToDegrees(Angle.Y):0} DEG";
-		}
-	}
-
 	/// <summary>
 	/// A quad with four corners, four texture coordinates and a texture.
 	/// </summary>
@@ -111,14 +81,19 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	private const int ScancodeEscape = 41;
 
-	/// <summary>The number of track nodes in front of and behind the current node that are drawn.</summary>
-	private const int DrawDistance = 128;
+	/// <summary>The stage layouts, one for each stage: SONICORCA/SPECIALSTAGE/STAGE1 to STAGE7.</summary>
+	private const string StageResourceKeyPrefix = "SONICORCA/SPECIALSTAGE/STAGE";
+
+	/// <summary>The number of track nodes in front of the current node that are drawn. A node is one track unit.</summary>
+	private const int DrawDistanceAhead = 240;
+
+	private const int DrawDistanceBehind = 16;
 
 	/// <summary>The number of track nodes in front of the camera that objects are drawn.</summary>
-	private const int ObjectDrawDistance = 90;
+	private const int ObjectDrawDistance = 180;
 
 	/// <summary>The number of track nodes between the camera and the player.</summary>
-	private const int PlayerLead = 4;
+	private const int PlayerLead = 8;
 
 	/// <summary>A bomb takes this number of rings, or all of the rings when the player has fewer.</summary>
 	private const int BombRingLoss = 10;
@@ -200,6 +175,10 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	private int _currentTrackNode;
 
+	private HalfPipeStageData _stageData;
+
+	private HalfPipeTrack _track;
+
 	private List<HalfPipeObject> _objects;
 
 	private List<HalfPipeCheckpoint> _checkpoints;
@@ -212,117 +191,9 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	private int _resultTicks;
 
-	private SegmentGeometry[] _layout = new SegmentGeometry[92]
-	{
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.TurnRight,
-		SegmentGeometry.TurnRight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.TurnRight,
-		SegmentGeometry.TurnRight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.TurnRight,
-		SegmentGeometry.TurnRight,
-		SegmentGeometry.Rise,
-		SegmentGeometry.TurnRight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.TurnRight,
-		SegmentGeometry.Drop,
-		SegmentGeometry.TurnLeft,
-		SegmentGeometry.TurnRight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.TurnRight,
-		SegmentGeometry.TurnRight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.TurnRight,
-		SegmentGeometry.TurnRight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.TurnLeft,
-		SegmentGeometry.TurnRight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.TurnRight,
-		SegmentGeometry.TurnRight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.TurnLeft,
-		SegmentGeometry.TurnRight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.Straight,
-		SegmentGeometry.TurnRight,
-		SegmentGeometry.Rise
-	};
-
 	private const double PipeRadius = 4.0;
 
 	private const int NumPointsWide = 32;
-
-	private const int PointsPerSegment = 28;
-
-	private const int PointLength = 2;
-
-	/// <summary>The yaw change at each track node of a turn segment. A segment turns by 90 degrees.</summary>
-	private const double TurnDegreesPerPoint = 90.0 / PointsPerSegment;
-
-	/// <summary>The pitch change at each track node of a rise or drop segment.</summary>
-	private const double PitchDegreesPerPoint = 180.0 / PointsPerSegment;
-
-	private List<TrackNode> _trackNodes = new List<TrackNode>();
 
 	private int _ticks;
 
@@ -345,7 +216,10 @@ public class HalfPipeSpecialStageScreen : Screen
 	/// <summary>True when the player reached the goal of every checkpoint.</summary>
 	public bool Cleared => _state == StageState.Cleared;
 
-	private int PlayerTrackNode => Math.Min(_currentTrackNode + PlayerLead, _trackNodes.Count - 1);
+	private int PlayerTrackNode => Math.Min(_currentTrackNode + PlayerLead, _track.Nodes.Count - 1);
+
+	/// <summary>True when the stage uses an imported original layout, not the generated one.</summary>
+	public bool UsesOriginalLayout { get; private set; }
 
 	public override async Task LoadAsync(ScreenLoadingProgress progress, CancellationToken ct = default)
 	{
@@ -359,8 +233,20 @@ public class HalfPipeSpecialStageScreen : Screen
 		{
 			_resourceSession.PushDependency(key);
 		}
+		// The original layouts are not in the game data. A mod can add them (see tools/s2hd-data).
+		string stageKey = StageResourceKeyPrefix + (_stage + 1);
+		bool hasStage = _gameContext.ResourceTree[stageKey]?.Resource != null;
+		if (hasStage)
+		{
+			_resourceSession.PushDependency(stageKey);
+		}
 		await _resourceSession.LoadAsync(ct);
 		ResourceTree tree = _gameContext.ResourceTree;
+		if (hasStage)
+		{
+			_stageData = HalfPipeStageData.FromXml(tree.GetLoadedResource<XmlLoadedResource>(stageKey).XmlDocument);
+			UsesOriginalLayout = true;
+		}
 		_font = tree.GetLoadedResource<Font>(FontResourceKey);
 		_backgroundTexture = tree.GetLoadedResource<ITexture>(BackgroundResourceKey);
 		_floorTexture = tree.GetLoadedResource<ITexture>(FloorResourceKey);
@@ -383,50 +269,9 @@ public class HalfPipeSpecialStageScreen : Screen
 		_objectShader = OrcaShader.CreateFromFile(_graphicsContext, "shaders/halfpipe/object.shader");
 		_vertexBuffer = _graphicsContext.CreateVertexBuffer(3, 2);
 		_projectionMatrix = Matrix4.Perspective(MathX.ToRadians(_fov), 16.0 / 9.0, 1.0, 1024.0);
-		CreateTrackNodes();
-		(_objects, _checkpoints) = HalfPipeLayout.Create(_layout.Length, PointsPerSegment, _stage, duo: false);
-	}
-
-	private void CreateTrackNodes()
-	{
-		double yaw = 0.0;
-		Vector3 position = default;
-		foreach (SegmentGeometry segmentGeometry in _layout)
-		{
-			// Each segment starts level. A rise or a drop turns the pitch through a half circle.
-			double pitch = MathX.ToRadians(90.0);
-			for (int j = 0; j < PointsPerSegment; j++)
-			{
-				switch (segmentGeometry)
-				{
-					case SegmentGeometry.TurnLeft:
-						yaw -= MathX.ToRadians(TurnDegreesPerPoint);
-						break;
-					case SegmentGeometry.TurnRight:
-						yaw += MathX.ToRadians(TurnDegreesPerPoint);
-						break;
-					case SegmentGeometry.Rise:
-						pitch += MathX.ToRadians(PitchDegreesPerPoint);
-						break;
-					case SegmentGeometry.Drop:
-						pitch -= MathX.ToRadians(PitchDegreesPerPoint);
-						break;
-				}
-				Vector3 nextPosition = position + new Vector3(Math.Sin(yaw), 0.0 - Math.Cos(pitch), Math.Cos(yaw)) * 2.0;
-				// Keep the camera pitch in the range -90 to 90 degrees.
-				double cameraPitch = pitch - MathX.ToRadians(90.0);
-				if (cameraPitch > MathX.ToRadians(90.0))
-				{
-					cameraPitch = MathX.ToRadians(180.0) - cameraPitch;
-				}
-				else if (cameraPitch < MathX.ToRadians(-90.0))
-				{
-					cameraPitch = MathX.ToRadians(-180.0) - cameraPitch;
-				}
-				_trackNodes.Add(new TrackNode(nextPosition, new Vector2(yaw, cameraPitch)));
-				position = nextPosition;
-			}
-		}
+		_track = HalfPipeTrackBuilder.Build(_stageData ?? HalfPipeLayout.CreateGenerated(), HalfPipeLayout.GetRingQuotas(_stage, duo: false));
+		_objects = _track.Objects;
+		_checkpoints = _track.Checkpoints;
 	}
 
 	public override void Update()
@@ -454,8 +299,8 @@ public class HalfPipeSpecialStageScreen : Screen
 		if (_state == StageState.Playing)
 		{
 			UpdatePlayer();
-			// The track moves one node each two ticks, until the player reaches the end
-			if (_ticks % 2 == 0 && PlayerTrackNode < _trackNodes.Count - 1)
+			// The track moves one node each tick (a track frame each 5 ticks), until the player reaches the end
+			if (PlayerTrackNode < _track.Nodes.Count - 1)
 			{
 				_currentTrackNode++;
 			}
@@ -565,20 +410,9 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	private void UpdateCamera()
 	{
-		// The track moves one node each two ticks. Interpolate between the current node and the next node.
-		int nextIndex = Math.Min(_trackNodes.Count - 1, _currentTrackNode + 1);
-		double progress = _ticks % 2 / 2.0;
-		TrackNode currentNode = _trackNodes[_currentTrackNode];
-		TrackNode nextNode = _trackNodes[nextIndex];
-		Vector3 currentPosition = currentNode.Position + new Vector3(0.0, -2.0, 0.0);
-		Vector2 currentAngle = currentNode.Angle;
-		Vector3 nextPosition = nextNode.Position + new Vector3(0.0, -2.0, 0.0);
-		Vector2 nextAngle = nextNode.Angle;
-		Vector3 camera = currentPosition + (nextPosition - currentPosition) * progress;
-		Vector2 angle = new Vector2(currentAngle.X + (nextAngle.X - currentAngle.X) * progress, currentAngle.Y + (nextAngle.Y - currentAngle.Y) * progress);
-		Vector3 direction = new Vector3(Math.Sin(angle.X), Math.Sin(angle.Y), Math.Cos(angle.X));
-		_camera = camera;
-		_cameraTarget = _camera + direction;
+		HalfPipeTrackNode node = _track.Nodes[_currentTrackNode];
+		_camera = node.Position + new Vector3(0.0, -2.0, 0.0);
+		_cameraTarget = _camera + new Vector3(Math.Sin(node.Yaw), Math.Sin(node.Pitch), Math.Cos(node.Yaw));
 	}
 
 	public override void Draw(Renderer renderer)
@@ -644,7 +478,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		program.SetUniform("ProjectionMatrix", _projectionMatrix);
 		program.SetUniform("ModelViewMatrix", _modelViewMatrix);
 		program.SetUniform("InputTexture", 0);
-		program.SetUniform("InputLightSource", _trackNodes[_currentTrackNode].Position);
+		program.SetUniform("InputLightSource", _track.Nodes[_currentTrackNode].Position);
 		int firstQuad = 0;
 		foreach (Tuple<int, ITexture> batch in batches)
 		{
@@ -657,18 +491,18 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	private Matrix4 GetNodeTransform(int trackNode)
 	{
-		TrackNode node = _trackNodes[trackNode];
-		return Matrix4.Identity.RotateY(node.Angle.X).Translate(node.Position);
+		HalfPipeTrackNode node = _track.Nodes[trackNode];
+		return Matrix4.Identity.RotateY(node.Yaw).Translate(node.Position);
 	}
 
 	private void AddPipeQuads(List<TexturedQuad> quads)
 	{
 		double textureScale = 8.0 / _floorTexture.Width;
 		// The number of track nodes that one repeat of the floor texture covers.
-		int textureRepeatNodes = (int)(_floorTexture.Height * textureScale / 2.0);
+		int textureRepeatNodes = (int)(_floorTexture.Height * textureScale / HalfPipeTrackBuilder.NodeSpacing);
 		Vector3[] previousSection = null;
-		int first = Math.Max(0, _currentTrackNode - DrawDistance);
-		int last = Math.Min(_trackNodes.Count - 1, _currentTrackNode + DrawDistance);
+		int first = Math.Max(0, _currentTrackNode - DrawDistanceBehind);
+		int last = Math.Min(_track.Nodes.Count - 1, _currentTrackNode + DrawDistanceAhead);
 		for (int i = first; i <= last; i++)
 		{
 			Matrix4 transform = GetNodeTransform(i);
@@ -701,7 +535,7 @@ public class HalfPipeSpecialStageScreen : Screen
 	private void AddObjectQuads(List<TexturedQuad> quads)
 	{
 		int first = _currentTrackNode;
-		int last = Math.Min(_trackNodes.Count - 1, _currentTrackNode + ObjectDrawDistance);
+		int last = Math.Min(_track.Nodes.Count - 1, _currentTrackNode + ObjectDrawDistance);
 		foreach (HalfPipeObject item in _objects)
 		{
 			if (item.TrackNode < first || item.TrackNode > last)

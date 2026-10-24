@@ -2,14 +2,18 @@
 //   dotnet run --project tools/s2hd-data -- list   <file.dat>
 //   dotnet run --project tools/s2hd-data -- unpack <file.dat> <folder>
 //   dotnet run --project tools/s2hd-data -- pack   <folder> <file.dat> [--base <original.dat>]
+//   dotnet run --project tools/s2hd-data -- import-special-stages <s2disasm folder> <folder>
 // unpack writes each resource as a normal file (.png, .ogg, .map.xml and so on) that you can edit. pack makes a
 // .dat file from such a folder. With --base, pack writes only the resources that are new or changed compared to
-// the original, which gives a small file for the game's mods folder.
+// the original, which gives a small file for the game's mods folder. import-special-stages converts the special
+// stage layouts of the original game from a Sonic 2 disassembly (github.com/sonicretro/s2disasm) into that folder.
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using SonicOrca.Core.SpecialStage;
 using SonicOrca.HelperLibraries.Png;
+using SonicOrca.Original;
 using SonicOrca.Resources;
 
 ResourceType.RegisterTypesFrom(typeof(PngResourceType).Assembly);
@@ -22,6 +26,7 @@ try
 		["unpack", string file, string folder] => Unpack(file, folder),
 		["pack", string folder, string file] => Pack(folder, file, null),
 		["pack", string folder, string file, "--base", string baseFile] => Pack(folder, file, baseFile),
+		["import-special-stages", string disassembly, string folder] => ImportSpecialStages(disassembly, folder),
 		_ => Usage(),
 	};
 }
@@ -83,6 +88,25 @@ static int Pack(string folder, string file, string baseFile)
 	return 0;
 }
 
+static int ImportSpecialStages(string disassembly, string folder)
+{
+	if (!File.Exists(Path.Combine(disassembly, SpecialStageLayouts.LayoutsFile)) || !File.Exists(Path.Combine(disassembly, SpecialStageLayouts.ObjectsFile)))
+	{
+		Console.Error.WriteLine($"Error: The folder {disassembly} does not contain the special stage data of s2disasm.");
+		return 1;
+	}
+	List<HalfPipeStageData> stages = SpecialStageLayouts.ReadFromDisassembly(disassembly);
+	string output = Path.Combine(folder, "SONICORCA", "SPECIALSTAGE");
+	Directory.CreateDirectory(output);
+	for (int i = 0; i < stages.Count; i++)
+	{
+		using var writer = new StreamWriter(Path.Combine(output, $"STAGE{i + 1}.xml"));
+		stages[i].WriteXml(writer);
+	}
+	Console.WriteLine($"Wrote {stages.Count} special stages to {output}.");
+	return 0;
+}
+
 static ResourceTree Scan(string file)
 {
 	if (!File.Exists(file))
@@ -99,6 +123,7 @@ static int Usage()
 		  s2hd-data list   <file.dat>
 		  s2hd-data unpack <file.dat> <folder>
 		  s2hd-data pack   <folder> <file.dat> [--base <original.dat>]
+		  s2hd-data import-special-stages <s2disasm folder> <folder>
 		""");
 	return 2;
 }
