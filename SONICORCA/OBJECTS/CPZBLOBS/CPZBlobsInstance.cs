@@ -166,6 +166,9 @@ public class CPZBlobsInstance : ActiveObject
 		/// <summary>The height above the bottom pipe of the top splash in the straight arrangement.</summary>
 		private const int TopSplashHeight = 224;
 
+		/// <summary>The size of the square around a blob that starts the splashes at the pipe ends.</summary>
+		private const int SplashTriggerSize = 32;
+
 		private const int SplashStartOffsetY = 112;
 		private const int SplashEndOffsetY = 120;
 		private const int BottomWaitDurationHD = 72;
@@ -217,9 +220,11 @@ public class CPZBlobsInstance : ActiveObject
 			_animationBottomSplashEnd = new AnimationInstance(Host._animationGroup, AnimationBottomSplashEnd);
 			_animationBottomOverflow = new AnimationInstance(Host._animationGroup, AnimationBottomOverflow);
 			Priority = -128;
+			// The original box (size $B) is 16 by 16 pixels. The HD box is half that size.
+			int size = Level.OriginalPhysics ? 64 : SplashTriggerSize;
 			CollisionRectangles = new CollisionRectangle[1]
 			{
-				new CollisionRectangle(this, 0, -16, -16, 32, 32)
+				new CollisionRectangle(this, 0, -size / 2, -size / 2, size, size)
 			};
 		}
 
@@ -457,7 +462,8 @@ public class CPZBlobsInstance : ActiveObject
 		/// <summary>Starts the splash animations when an arc blob touches one of the pipe ends.</summary>
 		private void ArcPrepareTriggers()
 		{
-			Rectanglei bounds = CollisionRectangles[0].AbsoluteBounds;
+			// The splashes use the size of the HD box in both modes, so that they start at the same places.
+			Rectanglei bounds = new Rectanglei(Position.X - SplashTriggerSize / 2, Position.Y - SplashTriggerSize / 2, SplashTriggerSize, SplashTriggerSize);
 			Rectangle downPipeArea = Rectangle.FromLTRB(_downX - bounds.Width * 0.5, _originalY - bounds.Height, _downX + bounds.Width * 0.5, _originalY + bounds.Height * 0.5);
 			Rectangle upPipeArea = Rectangle.FromLTRB(_upX - bounds.Width * 0.5, _originalY - bounds.Height, _upX + bounds.Width * 0.5, _originalY + bounds.Height * 0.5);
 			if (bounds.IntersectsWith((Rectanglei)upPipeArea) && !_leftToRight)
