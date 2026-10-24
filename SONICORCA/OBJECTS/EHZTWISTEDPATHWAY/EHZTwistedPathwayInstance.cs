@@ -13,8 +13,11 @@ namespace SONICORCA.OBJECTS.EHZTWISTEDPATHWAY;
 /// </summary>
 public class EHZTwistedPathwayInstance : ActiveObject
 {
-	/// <summary>The minimum ground speed that a character must have to stay on the pathway.</summary>
-	private const double MinimumGroundSpeed = 20.0;
+	/// <summary>
+	/// The minimum ground speed that a character must have to stay on the pathway. The original (loc_215C0) needs an
+	/// inertia of $600, which is 24 units. HD uses 20 units.
+	/// </summary>
+	private double MinimumGroundSpeed => Level.OriginalPhysics ? 24.0 : 20.0;
 
 	/// <summary>The distance past each end of the pathway at which a linked character is released.</summary>
 	private const int ExitMargin = 44;
