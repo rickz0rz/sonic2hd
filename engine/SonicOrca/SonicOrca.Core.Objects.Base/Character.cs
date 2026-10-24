@@ -244,6 +244,12 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 
 	private const string DefaultInvincibilityResourceKey = "SONICORCA/OBJECTS/INVINCIBILITY/ANIGROUP";
 
+	/// <summary>
+	/// The limit of each velocity component, in both modes. The original has no limit on the fall speed, but the
+	/// collision here tests the collision box after the move and does not sweep. The box is 112 to 120 units high, so
+	/// a faster character could go through a floor in one tick. 96 (24 px per frame, $1800) is 1.5 times the largest
+	/// speed of the HD gravity, and a fall of the original seldom gets near it.
+	/// </summary>
 	private const int MaximumVelocity = 96;
 
 	/// <summary>
@@ -280,6 +286,16 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 
 	/// <summary>A character cannot collect rings while its invulnerability is this value or more ($5A in Touch_Rings).</summary>
 	private const int RingCollectInvulnerabilityTicks = 90;
+
+	/// <summary>The speed values that set the top speed, the acceleration and the deceleration in Original mode.</summary>
+	private enum OriginalSpeedValues
+	{
+		Normal,
+		Underwater,
+		SpeedShoes
+	}
+
+	private OriginalSpeedValues _originalSpeedValues;
 
 	/// <summary>True when the slope repel detaches the character in this tick.</summary>
 	private bool _slopeRepelled;
@@ -473,6 +489,15 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			return 0.0;
 		}
 	}
+
+	/// <summary>
+	/// The ground angle as the angle byte of Sonic 2: 256 steps for a full turn, 0 for a flat floor, $40 for a wall
+	/// on the right side of the character and $80 for a ceiling.
+	/// </summary>
+	private int GroundAngleByte => (int)Math.Round(GroundAngle * 128.0 / Math.PI) & 0xFF;
+
+	/// <summary>True when the ground angle is from $60 to $9F: the character is on a ceiling or near it.</summary>
+	private bool IsOnCeilingAngle => ((GroundAngleByte + 0x60) & 0xFF) >= 0xC0;
 
 	public double DistanceFromLedge { get; set; }
 
@@ -861,7 +886,18 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		}
 		set
 		{
+			bool hadSpeedShoes = HasSpeedShoes;
 			StateFlags = (value ? (StateFlags | CharacterState.SpeedShoes) : (StateFlags & ~CharacterState.SpeedShoes));
+			// The speed shoes set the speed values of Original mode when they start and when they end, also under
+			// water.
+			if (value)
+			{
+				_originalSpeedValues = OriginalSpeedValues.SpeedShoes;
+			}
+			else if (hadSpeedShoes)
+			{
+				_originalSpeedValues = OriginalSpeedValues.Normal;
+			}
 		}
 	}
 
@@ -1562,7 +1598,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 				}
 				else
 				{
-					GroundVelocity = ((Math.Abs(Velocity.X) > Math.Abs(Velocity.Y)) ? (Velocity.X * GroundVector.FlipX) : (Velocity.X * Math.Cos(GroundAngle) + Velocity.Y * Math.Sin(GroundAngle)));
+					GroundVelocity = GetLandingGroundVelocity();
 					Velocity = new Vector2(GroundVelocity * Math.Cos(GroundAngle), GroundVelocity * Math.Sin(GroundAngle));
 				}
 			}
@@ -1575,6 +1611,45 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			}
 		}
 		Player.ResetScoreChain();
+	}
+
+	/// <summary>
+	/// The ground speed when the character lands. When the character moves more sideways than vertically, the ground
+	/// speed is the horizontal velocity. Otherwise HD mode uses the projection of the velocity on the ground. Original
+	/// mode follows Sonic_DoLevelCollision: when the character moves mostly down, a flat floor (angle within $0F) gives
+	/// the horizontal velocity, a slope ($10 to $1F) gives half the vertical velocity, and a steep slope ($20 to $3F)
+	/// gives the vertical velocity, limited to $FC0 (63). The sign comes from the angle. When the character moves
+	/// mostly up into a steep ceiling, the ground speed is the vertical velocity with the sign from the angle.
+	/// </summary>
+	private double GetLandingGroundVelocity()
+	{
+		double velocityX = Velocity.X;
+		double velocityY = Velocity.Y;
+		double projection = velocityX * Math.Cos(GroundAngle) + velocityY * Math.Sin(GroundAngle);
+		if (Math.Abs(velocityX) > Math.Abs(velocityY))
+		{
+			return velocityX * GroundVector.FlipX;
+		}
+		if (!Level.OriginalPhysics)
+		{
+			return projection;
+		}
+		int angle = GroundAngleByte;
+		int sign = (angle >= 0x80) ? -1 : 1;
+		bool steep = ((angle + 0x20) & 0x40) != 0;
+		if (velocityY < 0.0)
+		{
+			return steep ? velocityY * sign : projection;
+		}
+		if (steep)
+		{
+			return Math.Min(velocityY, 63.0) * sign;
+		}
+		if (((angle + 0x10) & 0x20) != 0)
+		{
+			return velocityY / 2.0 * sign;
+		}
+		return velocityX;
 	}
 
 	public void LeaveGround()
@@ -2425,6 +2500,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		SlopeLockTicks = 0;
 		LookDirection = CharacterLookDirection.Normal;
 		BreathTicks = MaximumBreath;
+		_originalSpeedValues = OriginalSpeedValues.Normal;
 		CollisionRadius = NormalCollisionRadius;
 		CheckCollision = true;
 		CheckLandscapeCollision = true;
@@ -2576,17 +2652,20 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	{
 		Acceleration = 0.1875;
 		Deceleration = 2.0;
-		Friction = Acceleration;
 		TopSpeed = 24.0;
+		if (Level.OriginalPhysics)
+		{
+			SetOriginalSpeedValues();
+		}
+		else if (HasSpeedShoes)
+		{
+			Acceleration = 0.375;
+			TopSpeed = 48.0;
+		}
+		Friction = Acceleration;
 		JumpForce = 26.0;
 		JumpReleaseForce = 16.0;
 		Gravity = 0.875;
-		if (HasSpeedShoes)
-		{
-			Acceleration = 0.375;
-			Friction = 0.375;
-			TopSpeed = 48.0;
-		}
 		if (Mode == CollisionMode.Air)
 		{
 			if (IsRollJumping)
@@ -2601,7 +2680,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		else if (IsSpinball)
 		{
 			Acceleration = 0.0;
-			Deceleration = 0.5;
+			Deceleration = GetRollDeceleration();
 			Friction /= 2.0;
 		}
 		else if (MovingDirection != 0)
@@ -2610,10 +2689,14 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		}
 		if (IsUnderwater)
 		{
-			Acceleration *= 0.5;
-			Deceleration *= 0.5;
-			Friction *= 0.5;
-			TopSpeed *= 0.5;
+			if (!Level.OriginalPhysics)
+			{
+				// In Original mode, SetOriginalSpeedValues gives the speed values under water.
+				Acceleration *= 0.5;
+				Deceleration *= 0.5;
+				Friction *= 0.5;
+				TopSpeed *= 0.5;
+			}
 			JumpForce *= 2205.0 / 4095.0;
 			JumpReleaseForce *= 0.5;
 			Gravity = 0.25;
@@ -2653,20 +2736,64 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		}
 	}
 
+	/// <summary>
+	/// Original mode: the top speed, the acceleration and the deceleration of the last event that set them, as the
+	/// speed values of Sonic 2 (Sonic_top_speed). Sonic_Water sets $300, 6 and $40 when the character goes into the
+	/// water and $600, $C and $80 when it comes out, also with speed shoes (a bug of the original). The speed shoes set
+	/// $C00, $18 and $80, also under water, and the normal values when they end.
+	/// </summary>
+	private void SetOriginalSpeedValues()
+	{
+		switch (_originalSpeedValues)
+		{
+			case OriginalSpeedValues.Underwater:
+				TopSpeed = 12.0;
+				Acceleration = 0.09375;
+				Deceleration = 1.0;
+				break;
+			case OriginalSpeedValues.SpeedShoes:
+				TopSpeed = 48.0;
+				Acceleration = 0.375;
+				Deceleration = 2.0;
+				break;
+		}
+	}
+
+	/// <summary>
+	/// The deceleration of a roll when the player holds the other direction. HD mode uses $20 (0.5), and half under
+	/// water. Sonic_RollSpeed uses $20 also under water. Tails_RollSpeed uses a quarter of the deceleration of Tails, so
+	/// the value is half under water. Only Tails can fly, so CanFly identifies Tails here.
+	/// </summary>
+	private double GetRollDeceleration()
+	{
+		if (Level.OriginalPhysics && CanFly)
+		{
+			return Deceleration / 4.0;
+		}
+		return 0.5;
+	}
+
 	private void UpdateMovement()
 	{
 		if (Mode == CollisionMode.Air)
 		{
 			Vector2 velocity = Velocity;
-			if (MovingDirection != 0)
+			if (Level.OriginalPhysics)
 			{
-				velocity.X = ChangeSpeed(velocity.X, MovingDirection, TopSpeed, Acceleration, Acceleration, 0.0);
-				Facing = MovingDirection;
+				UpdateAirMovementOriginal(ref velocity);
 			}
-			velocity.Y = ChangeSpeed(velocity.Y, 1, 64.0, Gravity, Gravity, 0.0);
-			if (velocity.Y < 0.0 && velocity.Y > 0.0 - JumpReleaseForce && !(IsHurt && Level.OriginalPhysics))
+			else
 			{
-				velocity.X *= 31.0 / 32.0;
+				if (MovingDirection != 0)
+				{
+					velocity.X = ChangeSpeed(velocity.X, MovingDirection, TopSpeed, Acceleration, Acceleration, 0.0);
+					Facing = MovingDirection;
+				}
+				velocity.Y = ChangeSpeed(velocity.Y, 1, 64.0, Gravity, Gravity, 0.0);
+				if (velocity.Y < 0.0 && velocity.Y > 0.0 - JumpReleaseForce)
+				{
+					velocity.X *= 31.0 / 32.0;
+				}
 			}
 			Velocity = velocity;
 		}
@@ -2683,6 +2810,46 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			}
 			UpdateBraking();
 		}
+	}
+
+	/// <summary>
+	/// The air movement of Original mode, in the order of Obj01_MdAir.
+	/// <list type="bullet">
+	/// <item>Sonic_UpVelCap: when the character did not jump, the upward speed is limited to $FC0 (63), except in
+	/// pinball mode.</item>
+	/// <item>Sonic_ChgJumpDir: a held direction adds the air acceleration. The speed is then limited to the top speed,
+	/// even when the character was faster. After a roll jump, the direction has no effect.</item>
+	/// <item>Sonic_JumpPeakDecelerate: the air drag applies when the vertical velocity is from -$400 (-16) to 0, also
+	/// under water.</item>
+	/// <item>ObjectMoveAndFall: the gravity has no limit. UpdatePosition keeps a limit for the collision.</item>
+	/// </list>
+	/// A hurt character only falls (Obj01_Hurt_Normal).
+	/// </summary>
+	private void UpdateAirMovementOriginal(ref Vector2 velocity)
+	{
+		if (IsHurt)
+		{
+			velocity.Y += Gravity;
+			return;
+		}
+		if (!Jumped && !ForceSpinball && velocity.Y < -63.0)
+		{
+			velocity.Y = -63.0;
+		}
+		if (MovingDirection != 0 && !IsRollJumping)
+		{
+			velocity.X += Acceleration * MovingDirection;
+			if (velocity.X * MovingDirection > TopSpeed)
+			{
+				velocity.X = TopSpeed * MovingDirection;
+			}
+			Facing = MovingDirection;
+		}
+		if (velocity.Y < 0.0 && velocity.Y >= -16.0)
+		{
+			velocity.X *= 31.0 / 32.0;
+		}
+		velocity.Y += Gravity;
 	}
 
 	private void UpdateBraking()
@@ -2727,16 +2894,26 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		{
 			return;
 		}
+		bool original = Level.OriginalPhysics;
+		// Sonic_SlopeResist and Sonic_RollRepel do nothing on a ceiling (angles $60 to $9F).
+		if (original && IsOnCeilingAngle)
+		{
+			return;
+		}
 		double slopeFactor = 0.0 - Math.Sin(GroundAngle);
 		if (IsSpinball)
 		{
-			// A rolling character speeds up downhill more than it slows down uphill.
-			slopeFactor = (!(GroundVelocity * slopeFactor > 0.0)) ? (slopeFactor * 1.25) : (slopeFactor * 0.2873);
+			// A rolling character speeds up downhill ($50, 1.25) more than it slows down uphill. Sonic_RollRepel uses
+			// a quarter of $50 uphill ($14, 0.3125). HD mode uses 0.2873.
+			double uphillFactor = original ? 0.3125 : 0.2873;
+			slopeFactor = (!(GroundVelocity * slopeFactor > 0.0)) ? (slopeFactor * 1.25) : (slopeFactor * uphillFactor);
 		}
 		else
 		{
 			slopeFactor *= 0.5;
-			if (GroundVelocity == 0.0 && Math.Abs(slopeFactor) <= 0.05)
+			// Sonic_SlopeResist does nothing when the character stands still, so it can stand on any slope. HD mode
+			// pushes a character that stands on a slope of more than about 5.7 degrees.
+			if (GroundVelocity == 0.0 && (original || Math.Abs(slopeFactor) <= 0.05))
 			{
 				return;
 			}
@@ -2951,7 +3128,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		if (Mode != CollisionMode.Air)
 		{
 			GroundVelocity = Math.Sign(GroundVelocity) * Math.Min(Math.Abs(GroundVelocity), MaximumVelocity);
-			Velocity = new Vector2(MathX.Clamp(-64.0, GroundVelocity * Math.Cos(GroundAngle), 64.0), MathX.Clamp(-64.0, GroundVelocity * Math.Sin(GroundAngle), 64.0));
+			Velocity = GetGroundVelocityVector();
 			AddPlatformVelocity();
 			if (CharacterEvents.HasFlag(CharacterEvent.Jump))
 			{
@@ -3017,6 +3194,26 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			moveY = Velocity.Y;
 		}
 		PositionPrecise += new Vector2(Velocity.X, moveY);
+	}
+
+	/// <summary>
+	/// The velocity from the ground speed. HD mode limits each component to 64. The original limits only the
+	/// horizontal velocity of a roll, to $1000 (64) in Sonic_SetRollSpeeds. In both modes UpdatePosition then limits
+	/// each component to <see cref="MaximumVelocity"/>.
+	/// </summary>
+	private Vector2 GetGroundVelocityVector()
+	{
+		double velocityX = GroundVelocity * Math.Cos(GroundAngle);
+		double velocityY = GroundVelocity * Math.Sin(GroundAngle);
+		if (!Level.OriginalPhysics)
+		{
+			return new Vector2(MathX.Clamp(-64.0, velocityX, 64.0), MathX.Clamp(-64.0, velocityY, 64.0));
+		}
+		if (IsSpinball)
+		{
+			velocityX = MathX.Clamp(-64.0, velocityX, 64.0);
+		}
+		return new Vector2(velocityX, velocityY);
 	}
 
 	private void UpdateBalance()
@@ -4028,6 +4225,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 
 	private void EnterWater()
 	{
+		_originalSpeedValues = OriginalSpeedValues.Underwater;
 		Velocity = new Vector2(Velocity.X / 2.0, Velocity.Y / 4.0);
 		if (IsAirborne && !IsObjectControlled)
 		{
@@ -4038,6 +4236,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 
 	private void LeaveWater()
 	{
+		_originalSpeedValues = OriginalSpeedValues.Normal;
 		// Obj01_OutWater doubles the vertical speed, unless the character is hurt, and limits it to -$1000 (-64).
 		// On the ground the next tick computes the velocity from the ground speed again, so only the air matters.
 		// HD mode doubles only an upward speed, also when the character is hurt, and limits it to -48.
