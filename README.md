@@ -132,6 +132,28 @@ Put `special-stages.dat` in a `mods` folder. The 7 stages then have the original
 checkpoints and emerald. The layouts are data from the original game, so do not commit them to this repository.
 The tests use the disassembly when they find it next to the checkout or at `S2DISASM_DIR`.
 
+### Level imports
+
+The demo data has the tiles of Casino Night, but no collision, no objects and no music. The import command makes
+the map and the objects of the zone from the same local copy of the disassembly:
+
+```sh
+dotnet run --project tools/s2hd-data -- import-level cnz ../s2disasm cnz
+dotnet run --project tools/s2hd-data -- pack cnz cnz.dat --base data/sonicorca.dat
+```
+
+Put `cnz.dat` in a `mods` folder, then start the zone with `--level cnz` or `--level cnz --act 2`. The import does
+these steps:
+
+- It copies the blocks of both acts into the HD map, at the positions that the HD map uses.
+- It traces the collision of both paths from the height maps of the original.
+- It adds the start positions and the act bounds as map markers.
+- It converts the rings and the objects that SonicOrca has. The command lists the object types that it cannot
+  convert yet, for example the bumpers and the flippers.
+
+The zone has no music, because the demo data has none for it. A mod can add `SONICORCA/MUSIC/LEVELS/CNZ`. The other
+zones without music (ARZ, MCZ, OOZ and others) also load now, without music.
+
 ### Entering a special stage
 
 Touch a star post with 50 rings or more and fewer than 7 emeralds. A circle of stars then appears above the star

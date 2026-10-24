@@ -3,14 +3,18 @@
 //   dotnet run --project tools/s2hd-data -- unpack <file.dat> <folder>
 //   dotnet run --project tools/s2hd-data -- pack   <folder> <file.dat> [--base <original.dat>]
 //   dotnet run --project tools/s2hd-data -- import-special-stages <s2disasm folder> <folder>
+//   dotnet run --project tools/s2hd-data -- import-level <zone> <s2disasm folder> <folder>
 // unpack writes each resource as a normal file (.png, .ogg, .map.xml and so on) that you can edit. pack makes a
 // .dat file from such a folder. With --base, pack writes only the resources that are new or changed compared to
 // the original, which gives a small file for the game's mods folder. import-special-stages converts the special
 // stage layouts of the original game from a Sonic 2 disassembly (github.com/sonicretro/s2disasm) into that folder.
+// import-level makes the map (with collision) and the object binding of a zone, for example CNZ, from the same
+// disassembly.
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using SonicOrca.Core;
 using SonicOrca.Core.SpecialStage;
 using SonicOrca.HelperLibraries.Png;
 using SonicOrca.Original;
@@ -27,6 +31,7 @@ try
 		["pack", string folder, string file] => Pack(folder, file, null),
 		["pack", string folder, string file, "--base", string baseFile] => Pack(folder, file, baseFile),
 		["import-special-stages", string disassembly, string folder] => ImportSpecialStages(disassembly, folder),
+		["import-level", string zone, string disassembly, string folder] => ImportLevel(zone, disassembly, folder),
 		_ => Usage(),
 	};
 }
@@ -107,6 +112,31 @@ static int ImportSpecialStages(string disassembly, string folder)
 	return 0;
 }
 
+static int ImportLevel(string zoneName, string disassembly, string folder)
+{
+	if (!OriginalZone.All.TryGetValue(zoneName, out OriginalZone zone))
+	{
+		Console.Error.WriteLine($"Error: The zone {zoneName} is not known. Known zones: {string.Join(", ", OriginalZone.All.Keys)}.");
+		return 1;
+	}
+	if (!File.Exists(Path.Combine(disassembly, zone.ChunksFile)))
+	{
+		Console.Error.WriteLine($"Error: The folder {disassembly} does not contain the level data of s2disasm.");
+		return 1;
+	}
+	ImportedLevel level = LevelImport.Import(zone, disassembly);
+	string output = Path.Combine(new[] { folder }.Concat(zone.Key.Split('/')).ToArray());
+	Directory.CreateDirectory(output);
+	new LevelMapWriter(level.Map).Save(Path.Combine(output, "MAP.map.xml"));
+	new LevelBindingWriter(level.Binding).Save(Path.Combine(output, "BINDING.binding.xml"));
+	Console.WriteLine($"Wrote {zone.Name} to {output}: {level.Map.CollisionVectors.Count} collision lines, {level.Binding.ObjectPlacements.Count} objects.");
+	foreach (string note in level.Notes)
+	{
+		Console.WriteLine("  " + note);
+	}
+	return 0;
+}
+
 static ResourceTree Scan(string file)
 {
 	if (!File.Exists(file))
@@ -124,6 +154,7 @@ static int Usage()
 		  s2hd-data unpack <file.dat> <folder>
 		  s2hd-data pack   <folder> <file.dat> [--base <original.dat>]
 		  s2hd-data import-special-stages <s2disasm folder> <folder>
+		  s2hd-data import-level <zone> <s2disasm folder> <folder>
 		""");
 	return 2;
 }
