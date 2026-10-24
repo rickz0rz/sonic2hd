@@ -49,9 +49,11 @@ public class SolInstance : Badnik
 	{
 		base.OnStart();
 		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath(SolType.AnimationGroupResourceKey));
+		// The original box (size $B) is 16 by 16 pixels.
+		int size = Level.OriginalPhysics ? 64 : 72;
 		CollisionRectangles = new CollisionRectangle[]
 		{
-			new CollisionRectangle(this, 0, -36, -36, 72, 72)
+			new CollisionRectangle(this, 0, -size / 2, -size / 2, size, size)
 		};
 		_waitingForCharacter = true;
 
