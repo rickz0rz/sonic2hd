@@ -155,7 +155,8 @@ public class Player
 	public int AwardChainedScore()
 	{
 		// Each object in a chain gives more points. From the 16th object, each object gives the big chain score.
-		int points = (_scoreChainIndex >= BigChainSize) ? BigChainScore : ChainScores[Math.Min(_scoreChainIndex, ChainScores.Length - 1)];
+		// The index of the 16th object is 15.
+		int points = (_scoreChainIndex >= BigChainSize - 1) ? BigChainScore : ChainScores[Math.Min(_scoreChainIndex, ChainScores.Length - 1)];
 		_scoreChainIndex++;
 		GainScore(points);
 		return points;
