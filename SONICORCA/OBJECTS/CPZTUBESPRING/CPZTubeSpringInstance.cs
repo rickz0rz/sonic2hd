@@ -38,8 +38,7 @@ public class CPZTubeSpringInstance : ActiveObject
 		bool characterNear = false;
 		foreach (IActiveObject character in Level.ObjectManager.Characters)
 		{
-			Vector2 position = (Vector2)character.Position;
-			if (position.X >= Position.X - 64 && position.X <= Position.X + 64 && position.Y >= Position.Y - 48 && position.Y <= Position.Y + 72)
+			if (IsNear(character.Position))
 			{
 				characterNear = true;
 				break;
@@ -53,6 +52,19 @@ public class CPZTubeSpringInstance : ActiveObject
 		{
 			_animation.Index = AnimationClose;
 		}
+	}
+
+	/// <summary>
+	/// Returns true when a character at <paramref name="position"/> opens the spring. The original (Obj7B_Main) opens
+	/// for a character up to 16 pixels to the side and 0 to 48 pixels below the spring.
+	/// </summary>
+	private bool IsNear(Vector2i position)
+	{
+		int dx = position.X - Position.X;
+		int dy = position.Y - Position.Y;
+		if (Level.OriginalPhysics)
+			return dx >= -64 && dx < 64 && dy >= 0 && dy < 192;
+		return dx >= -64 && dx <= 64 && dy >= -48 && dy <= 72;
 	}
 
 	protected override void OnCollision(CollisionEvent e)
