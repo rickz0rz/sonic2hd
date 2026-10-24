@@ -97,7 +97,8 @@ public class CoconutsInstance : Badnik
 			}
 			double distanceX = Math.Abs(Position.X - closestCharacter.Position.X);
 			double distanceY = Math.Abs(Position.Y - closestCharacter.Position.Y);
-			if (distanceX < ThrowRangeX && distanceY < ThrowRangeY)
+			// The original (Obj9D_Idle) checks only the horizontal distance.
+			if (distanceX < ThrowRangeX && (Level.OriginalPhysics || distanceY < ThrowRangeY))
 			{
 				if (_throwWaitDuration == 0)
 				{
@@ -228,9 +229,11 @@ public class CoconutsInstance : Badnik
 			base.OnStart();
 			_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath("/ANIGROUP"), AnimationProjectile);
 			_velocity = new Vector2(InitialSpeed, -InitialSpeed);
+			// The original box (size $B) is 16 by 16 pixels. The HD box is half that size.
+			int size = Level.OriginalPhysics ? 64 : 32;
 			CollisionRectangles = new CollisionRectangle[1]
 			{
-				new CollisionRectangle(this, 0, -16, -16, 32, 32)
+				new CollisionRectangle(this, 0, -size / 2, -size / 2, size, size)
 			};
 		}
 
