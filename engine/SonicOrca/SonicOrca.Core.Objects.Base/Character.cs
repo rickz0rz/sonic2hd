@@ -252,6 +252,9 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	/// </summary>
 	private const int MaximumVelocity = 96;
 
+	/// <summary>The height radius of a standing character in HD physics.</summary>
+	private const int DefaultHeightRadius = 60;
+
 	/// <summary>
 	/// The draw priority of a character in normal play.
 	/// </summary>
@@ -2380,7 +2383,10 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 
 	private void UpdateCollisionsWithObjects()
 	{
-		int offsetY = RectangleCollisionRadius.Y - NormalCollisionRadius.Y;
+		// The touch box is 16 units above the centre of a standing character of the default height (60). A taller
+		// character (Sonic in Original physics) has the same box above the feet. In a roll the radius is the same in
+		// the two modes, so the box stays 16 units above the centre.
+		int offsetY = RectangleCollisionRadius.Y - (IsSpinball ? DefaultHeightRadius : NormalCollisionRadius.Y);
 		Rectangle collisionArea = Rectangle.FromLTRB(PositionPrecise.X - RectangleCollisionRadius.X, PositionPrecise.Y - RectangleCollisionRadius.Y - offsetY, PositionPrecise.X + RectangleCollisionRadius.X, PositionPrecise.Y + RectangleCollisionRadius.Y - offsetY);
 		foreach (ActiveObject activeObject in Level.ObjectManager.ActiveObjects)
 		{
@@ -2667,7 +2673,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	private void SetDefaultConstants()
 	{
 		LedgeSensorRadius = 9;
-		NormalCollisionRadius = new Vector2i(40, 60);
+		NormalCollisionRadius = new Vector2i(40, DefaultHeightRadius);
 		RectangleCollisionRadius = new Vector2i(44, 76);
 		SpinballCollisionRadius = new Vector2i(34, 56);
 		FloorSensorRadius = 32;
