@@ -356,6 +356,24 @@ public static class ObjectPlacements
 					Height = ((originalPlacement.SubType & 0xF) + 1) * 16 * 4
 				};
 				break;
+			case 133:
+				// Spring launcher: subtype 0 is vertical, others diagonal. Bit 7 launches along the ground.
+				key = "SONICORCA/OBJECTS/CNZLAUNCHER";
+				behaviour = new
+				{
+					Diagonal = originalPlacement.SubType != 0,
+					GroundLaunch = (originalPlacement.SubType & 0x80) != 0
+				};
+				break;
+			case 134:
+				// Flipper: subtype 0 sends upward, others are side flippers
+				key = "SONICORCA/OBJECTS/CNZFLIPPER";
+				behaviour = new
+				{
+					Sideways = originalPlacement.SubType != 0,
+					FlipX = originalPlacement.FlipX
+				};
+				break;
 			case 215:
 				key = "SONICORCA/OBJECTS/CNZHEXBUMPER";
 				behaviour = new

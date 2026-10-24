@@ -58,8 +58,8 @@ public sealed class LevelImportTests
 		Assert.True(level.Binding.ObjectPlacements.Count(p => p.Key == "SONICORCA/OBJECTS/RING") > 100);
 		Assert.Contains(level.Binding.ObjectPlacements, p => p.Key == "SONICORCA/OBJECTS/STARPOST");
 		Assert.Contains(level.Binding.ObjectPlacements, p => p.Key == "SONICORCA/OBJECTS/SIGNPOST");
-		// The CNZ objects that SonicOrca does not have yet are listed, for example the flippers ($86)
-		Assert.Contains(level.Notes, note => note.StartsWith("Object type $86"));
+		// The CNZ objects that SonicOrca does not have yet are listed, for example the slot machine cages ($D6)
+		Assert.Contains(level.Notes, note => note.StartsWith("Object type $D6"));
 	}
 
 	[Fact]
@@ -86,6 +86,17 @@ public sealed class LevelImportTests
 		// 6 mapping frames for each of the palette lines 2, 1 and 0
 		Assert.Equal(18, block.AnimationGroup.Split("<animation>").Length - 1);
 		Assert.Equal(18, level.Binding.ObjectPlacements.Count(p => p.Key == "SONICORCA/OBJECTS/CNZHEXBUMPER"));
+	}
+
+	[Fact]
+	public void Cnz_HasTheFlippersAndTheLaunchers_WithTheDiagonalLauncherArt()
+	{
+		ImportedLevel level = Cnz.Value;
+
+		Assert.Equal(63, level.Binding.ObjectPlacements.Count(p => p.Key == "SONICORCA/OBJECTS/CNZFLIPPER"));
+		Assert.Equal(14, level.Binding.ObjectPlacements.Count(p => p.Key == "SONICORCA/OBJECTS/CNZLAUNCHER"));
+		Assert.Contains(level.Sprites, s => s.ObjectKey == "SONICORCA/OBJECTS/CNZLAUNCHER/DIAGONAL");
+		Assert.Equal("SONICORCA.OBJECTS.CNZLAUNCHER", level.NewObjects["SONICORCA/OBJECTS/CNZLAUNCHER"]);
 	}
 
 	[Fact]

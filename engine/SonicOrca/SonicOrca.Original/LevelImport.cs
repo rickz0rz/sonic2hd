@@ -49,12 +49,15 @@ public sealed record OriginalZone(string Name, string Key, string ChunksFile, st
 				new OriginalSprite("SONICORCA/OBJECTS/CNZHEXBUMPER", "art/nemesis/Hexagonal bumper from CNZ.nem", "mappings/sprite/objD7.asm", 2),
 				// Each hit on a bonus block moves it to the next palette line: 2, 1, then 0
 				new OriginalSprite("SONICORCA/OBJECTS/CNZBONUSBLOCK", "art/nemesis/Drop target from CNZ.nem", "mappings/sprite/objD8.asm", new[] { 2, 1, 0 }),
+				new OriginalSprite("SONICORCA/OBJECTS/CNZFLIPPER", "art/nemesis/Flippers.nem", "mappings/sprite/obj86.asm", 2),
+				new OriginalSprite("SONICORCA/OBJECTS/CNZLAUNCHER", "art/nemesis/Vertical impulse spring.nem", "mappings/sprite/obj85_a.asm", 0),
+				new OriginalSprite("SONICORCA/OBJECTS/CNZLAUNCHER/DIAGONAL", "art/nemesis/Diagonal impulse spring from CNZ.nem", "mappings/sprite/obj85_b.asm", 0),
 			}),
 	};
 }
 
 /// <summary>The result of a level import: the map, the binding, and notes about what was not imported.</summary>
-/// <param name="Sprites">The art of the objects that the game data does not have.</param>
+/// <param name="Sprites">The art of the objects that the game data does not have. An object can have more than one, under its key.</param>
 /// <param name="NewObjects">The objects that the binding uses and that the game data does not have: the resource key and the namespace of the code.</param>
 public sealed record ImportedLevel(LevelMap Map, LevelBinding Binding, IReadOnlyList<string> Notes,
 	IReadOnlyList<ImportedSprite> Sprites, IReadOnlyDictionary<string, string> NewObjects);
@@ -100,6 +103,8 @@ public static class LevelImport
 		["SONICORCA/OBJECTS/INVISIBLEBLOCK"] = "SONICORCA.OBJECTS.INVISIBLEBLOCK",
 		["SONICORCA/OBJECTS/CNZHEXBUMPER"] = "SONICORCA.OBJECTS.CNZHEXBUMPER",
 		["SONICORCA/OBJECTS/CNZBONUSBLOCK"] = "SONICORCA.OBJECTS.CNZBONUSBLOCK",
+		["SONICORCA/OBJECTS/CNZFLIPPER"] = "SONICORCA.OBJECTS.CNZFLIPPER",
+		["SONICORCA/OBJECTS/CNZLAUNCHER"] = "SONICORCA.OBJECTS.CNZLAUNCHER",
 	};
 
 	public static ImportedLevel Import(OriginalZone zone, string disassembly)
