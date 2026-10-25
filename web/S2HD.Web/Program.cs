@@ -92,12 +92,21 @@ public static partial class Program
 		return null;
 	}
 
-	/// <summary>Initialises the game. Returns an error message, or null on success.</summary>
+	/// <summary>
+	/// Initialises the game. Returns an error message, or null on success. The arguments are the options of the
+	/// desktop game, separated by spaces, for example "--halfpipe 1" (from ?args= of the page). With profile, the
+	/// frame profiler writes its summary to the console, as S2HD_PROFILE=1 does on the desktop.
+	/// </summary>
 	[JSExport]
-	public static string Start()
+	public static string Start(string arguments, bool profile)
 	{
 		try
 		{
+			CommandLineArguments = (arguments ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries);
+			if (profile)
+			{
+				Environment.SetEnvironmentVariable("S2HD_PROFILE", "1");
+			}
 			Directory.CreateDirectory(UserDataDirectory);
 			ContentDirectory.Override(ContentPath);
 			if (!Directory.Exists(Path.Combine(ContentPath, "data")) || Directory.GetFiles(Path.Combine(ContentPath, "data"), "*.dat").Length == 0)
