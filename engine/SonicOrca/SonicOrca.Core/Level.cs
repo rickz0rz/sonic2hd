@@ -928,6 +928,10 @@ public class Level : IDisposable
 		{
 			_hud.Draw(renderer);
 		}
+		if (_gameContext.EditorEnabled)
+		{
+			_editor.DrawPlayReminder(renderer);
+		}
 		if (StateFlags.HasFlag(LevelStateFlags.CompletingStage))
 		{
 			_completeHud.Draw(renderer);

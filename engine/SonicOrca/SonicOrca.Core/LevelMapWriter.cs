@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Xml;
 using SonicOrca.Core.Collision;
 using SonicOrca.Graphics;
@@ -17,7 +19,8 @@ public class LevelMapWriter
 
 	private const int FlipVerticalFlag = 0x8000;
 
-	private const int TileIndexMask = 0xFFF;
+	// All the bits of a tile value other than the flip flags. The reader keeps them too.
+	private const int TileIndexMask = ~(FlipHorizontalFlag | FlipVerticalFlag) & 0xFFFF;
 
 	private readonly LevelMap _levelMap;
 
@@ -43,62 +46,170 @@ public class LevelMapWriter
 		xmlWriter.WriteEndElement();
 		if (_levelMap.CollisionVectors.Count > 0)
 		{
-			xmlWriter.WriteStartElement("collision");
-			xmlWriter.WriteStartElement("paths");
-			foreach (int collisionPathLayer in _levelMap.CollisionPathLayers)
-			{
-				xmlWriter.WriteStartElement("path");
-				xmlWriter.WriteAttributeString("layer", collisionPathLayer.ToString());
-				xmlWriter.WriteEndElement();
-			}
-			xmlWriter.WriteEndElement();
-			xmlWriter.WriteStartElement("vectors");
-			foreach (CollisionVector collisionVector in _levelMap.CollisionVectors)
-			{
-				xmlWriter.WriteStartElement("vector");
-				xmlWriter.WriteAttributeString("a", collisionVector.RelativeA.X + "," + collisionVector.RelativeA.Y);
-				xmlWriter.WriteAttributeString("b", collisionVector.RelativeB.X + "," + collisionVector.RelativeB.Y);
-				xmlWriter.WriteAttributeString("paths", collisionVector.Paths.ToString());
-				xmlWriter.WriteAttributeString("flags", ((int)collisionVector.Flags).ToString());
-				xmlWriter.WriteEndElement();
-			}
-			xmlWriter.WriteEndElement();
-			xmlWriter.WriteEndElement();
+			WriteCollision(xmlWriter);
 		}
 		if (_levelMap.Markers.Count > 0)
 		{
-			xmlWriter.WriteStartElement("markers");
-			foreach (LevelMarker marker in _levelMap.Markers)
+			WriteMarkers(xmlWriter);
+		}
+		xmlWriter.WriteEndElement();
+		xmlWriter.WriteEndDocument();
+	}
+
+	/// <summary>
+	/// Writes parts of the map into an existing map document, and keeps all the other content of the document. The
+	/// level editor saves a map in this way, so that a value that this writer does not know stays in the file.
+	/// </summary>
+	/// <param name="document">A document that the map was read from.</param>
+	/// <param name="tiles">Write the tile rows of each layer. The layers of the document must be the layers of the map, in the same order.</param>
+	/// <param name="collision">Write the collision paths and vectors.</param>
+	/// <param name="markers">Write the markers.</param>
+	public void Patch(XmlDocument document, bool tiles, bool collision, bool markers)
+	{
+		XmlNode mapNode = document.SelectSingleNode("map") ?? throw new InvalidOperationException("The document has no map element.");
+		if (tiles)
+		{
+			XmlNode[] layerNodes = document.SelectNodes("map/tiles//layer").OfType<XmlNode>().ToArray();
+			if (layerNodes.Length != _levelMap.Layers.Count)
 			{
-				xmlWriter.WriteStartElement("marker");
-				if (!string.IsNullOrEmpty(marker.Name))
-				{
-					xmlWriter.WriteAttributeString("name", marker.Name);
-				}
-				if (!string.IsNullOrEmpty(marker.Tag))
-				{
-					xmlWriter.WriteAttributeString("tag", marker.Tag);
-				}
-				xmlWriter.WriteAttributeString("x", marker.Bounds.X.ToString());
-				xmlWriter.WriteAttributeString("y", marker.Bounds.Y.ToString());
-				if (marker.Bounds.Width > 0)
-				{
-					xmlWriter.WriteAttributeString("width", marker.Bounds.Width.ToString());
-				}
-				if (marker.Bounds.Height > 0)
-				{
-					xmlWriter.WriteAttributeString("height", marker.Bounds.Height.ToString());
-				}
-				if (marker.Layer != null)
-				{
-					xmlWriter.WriteAttributeString("layer", _levelMap.Layers.IndexOf(marker.Layer).ToString());
-				}
-				xmlWriter.WriteEndElement();
+				throw new InvalidOperationException("The layers of the document are not the layers of the map.");
+			}
+			for (int i = 0; i < layerNodes.Length; i++)
+			{
+				PatchTileRows(document, layerNodes[i], _levelMap.Layers[i]);
+			}
+		}
+		if (collision)
+		{
+			ReplaceElement(document, mapNode, "collision", _levelMap.CollisionVectors.Count > 0 ? WriteCollision : null);
+		}
+		if (markers)
+		{
+			ReplaceElement(document, mapNode, "markers", _levelMap.Markers.Count > 0 ? WriteMarkers : null);
+		}
+	}
+
+	private static void PatchTileRows(XmlDocument document, XmlNode layerNode, LevelLayer layer)
+	{
+		XmlNode tilesNode = layerNode.SelectSingleNode("tiles");
+		if (tilesNode == null)
+		{
+			if (layer.Rows == 0)
+			{
+				return;
+			}
+			tilesNode = layerNode.AppendChild(document.CreateElement("tiles"));
+		}
+		foreach (XmlNode rowNode in tilesNode.SelectNodes("row").OfType<XmlNode>().ToArray())
+		{
+			tilesNode.RemoveChild(rowNode);
+		}
+		for (int y = 0; y < layer.Rows; y++)
+		{
+			XmlElement rowElement = document.CreateElement("row");
+			rowElement.InnerText = FormatTileRow(layer, y);
+			tilesNode.AppendChild(rowElement);
+		}
+	}
+
+	/// <summary>Replaces a child element with the output of a write method, or removes it when the method is null.</summary>
+	private static void ReplaceElement(XmlDocument document, XmlNode parent, string name, Action<XmlWriter> write)
+	{
+		XmlNode oldNode = parent.SelectSingleNode(name);
+		XmlNode newNode = null;
+		if (write != null)
+		{
+			StringBuilder text = new StringBuilder();
+			using (XmlWriter xmlWriter = XmlWriter.Create(text, new XmlWriterSettings { ConformanceLevel = ConformanceLevel.Fragment, Indent = true }))
+			{
+				write(xmlWriter);
+			}
+			XmlDocumentFragment fragment = document.CreateDocumentFragment();
+			fragment.InnerXml = text.ToString();
+			newNode = fragment.FirstChild;
+		}
+		if (oldNode != null && newNode != null)
+		{
+			parent.ReplaceChild(newNode, oldNode);
+		}
+		else if (oldNode != null)
+		{
+			parent.RemoveChild(oldNode);
+		}
+		else if (newNode != null)
+		{
+			parent.AppendChild(newNode);
+		}
+	}
+
+	private void WriteCollision(XmlWriter xmlWriter)
+	{
+		xmlWriter.WriteStartElement("collision");
+		xmlWriter.WriteStartElement("paths");
+		foreach (int collisionPathLayer in _levelMap.CollisionPathLayers)
+		{
+			xmlWriter.WriteStartElement("path");
+			xmlWriter.WriteAttributeString("layer", collisionPathLayer.ToString(CultureInfo.InvariantCulture));
+			xmlWriter.WriteEndElement();
+		}
+		xmlWriter.WriteEndElement();
+		xmlWriter.WriteStartElement("vectors");
+		foreach (CollisionVector collisionVector in _levelMap.CollisionVectors)
+		{
+			xmlWriter.WriteStartElement("vector");
+			xmlWriter.WriteAttributeString("a", FormattableString.Invariant($"{collisionVector.RelativeA.X},{collisionVector.RelativeA.Y}"));
+			xmlWriter.WriteAttributeString("b", FormattableString.Invariant($"{collisionVector.RelativeB.X},{collisionVector.RelativeB.Y}"));
+			xmlWriter.WriteAttributeString("paths", collisionVector.Paths.ToString(CultureInfo.InvariantCulture));
+			xmlWriter.WriteAttributeString("flags", ((int)collisionVector.Flags).ToString(CultureInfo.InvariantCulture));
+			xmlWriter.WriteEndElement();
+		}
+		xmlWriter.WriteEndElement();
+		xmlWriter.WriteEndElement();
+	}
+
+	private void WriteMarkers(XmlWriter xmlWriter)
+	{
+		xmlWriter.WriteStartElement("markers");
+		foreach (LevelMarker marker in _levelMap.Markers)
+		{
+			xmlWriter.WriteStartElement("marker");
+			if (!string.IsNullOrEmpty(marker.Name))
+			{
+				xmlWriter.WriteAttributeString("name", marker.Name);
+			}
+			if (!string.IsNullOrEmpty(marker.Tag))
+			{
+				xmlWriter.WriteAttributeString("tag", marker.Tag);
+			}
+			xmlWriter.WriteAttributeString("x", marker.Bounds.X.ToString(CultureInfo.InvariantCulture));
+			xmlWriter.WriteAttributeString("y", marker.Bounds.Y.ToString(CultureInfo.InvariantCulture));
+			if (marker.Bounds.Width > 0)
+			{
+				xmlWriter.WriteAttributeString("width", marker.Bounds.Width.ToString(CultureInfo.InvariantCulture));
+			}
+			if (marker.Bounds.Height > 0)
+			{
+				xmlWriter.WriteAttributeString("height", marker.Bounds.Height.ToString(CultureInfo.InvariantCulture));
+			}
+			if (marker.Layer != null)
+			{
+				xmlWriter.WriteAttributeString("layer", _levelMap.Layers.IndexOf(marker.Layer).ToString(CultureInfo.InvariantCulture));
 			}
 			xmlWriter.WriteEndElement();
 		}
 		xmlWriter.WriteEndElement();
-		xmlWriter.WriteEndDocument();
+	}
+
+	/// <summary>Writes each tile of a row as an optional "h" and "v" flip prefix, then the tile index.</summary>
+	public static string FormatTileRow(LevelLayer layer, int y)
+	{
+		return string.Join(",", Enumerable.Range(0, layer.Columns).Select(x =>
+		{
+			int tileValue = layer.Tiles[x, y];
+			return ((tileValue & FlipHorizontalFlag) != 0 ? "h" : string.Empty) +
+				((tileValue & FlipVerticalFlag) != 0 ? "v" : string.Empty) +
+				(tileValue & TileIndexMask).ToString(CultureInfo.InvariantCulture);
+		}));
 	}
 
 	private void WriteLevelLayerTreeNode(XmlWriter xmlWriter, ILevelLayerTreeNode node)
@@ -136,9 +247,9 @@ public class LevelMapWriter
 				xmlWriter.WriteStartElement("rowdefinition");
 				if (layerRowDefinition.Width != 0)
 				{
-					xmlWriter.WriteAttributeString("width", layerRowDefinition.Width.ToString());
+					xmlWriter.WriteAttributeString("width", layerRowDefinition.Width.ToString(CultureInfo.InvariantCulture));
 				}
-				xmlWriter.WriteAttributeString("height", layerRowDefinition.Height.ToString());
+				xmlWriter.WriteAttributeString("height", layerRowDefinition.Height.ToString(CultureInfo.InvariantCulture));
 				if (layerRowDefinition.Parallax != 1.0)
 				{
 					xmlWriter.WriteAttributeString("parallax_x", layerRowDefinition.Parallax.ToString(CultureInfo.InvariantCulture));
@@ -159,7 +270,7 @@ public class LevelMapWriter
 		{
 			xmlWriter.WriteStartElement("lighting");
 			xmlWriter.WriteAttributeString("type", layer.Lighting.Type.ToString().ToLower());
-			xmlWriter.WriteAttributeString("light", layer.Lighting.Light.ToString());
+			xmlWriter.WriteAttributeString("light", layer.Lighting.Light.ToString(CultureInfo.InvariantCulture));
 			xmlWriter.WriteEndElement();
 		}
 		if (layer.Shadows.Count > 0)
@@ -176,12 +287,12 @@ public class LevelMapWriter
 				{
 					xmlWriter.WriteAttributeString("objects", "false");
 				}
-				xmlWriter.WriteAttributeString("layerIndexOffset", shadow.LayerIndexOffset.ToString());
-				xmlWriter.WriteAttributeString("dx", shadow.Displacement.X.ToString());
-				xmlWriter.WriteAttributeString("dy", shadow.Displacement.Y.ToString());
+				xmlWriter.WriteAttributeString("layerIndexOffset", shadow.LayerIndexOffset.ToString(CultureInfo.InvariantCulture));
+				xmlWriter.WriteAttributeString("dx", shadow.Displacement.X.ToString(CultureInfo.InvariantCulture));
+				xmlWriter.WriteAttributeString("dy", shadow.Displacement.Y.ToString(CultureInfo.InvariantCulture));
 				if (shadow.Softness != 0)
 				{
-					xmlWriter.WriteAttributeString("softness", shadow.Softness.ToString());
+					xmlWriter.WriteAttributeString("softness", shadow.Softness.ToString(CultureInfo.InvariantCulture));
 				}
 				if (shadow.Colour != LevelLayerShadow.DefaultShadowColour)
 				{
@@ -196,7 +307,7 @@ public class LevelMapWriter
 			xmlWriter.WriteStartElement("tiles");
 			if (layer.OffsetY != 0)
 			{
-				xmlWriter.WriteAttributeString("offset_y", layer.OffsetY.ToString());
+				xmlWriter.WriteAttributeString("offset_y", layer.OffsetY.ToString(CultureInfo.InvariantCulture));
 			}
 			if (layer.AutomaticYParallax)
 			{
@@ -214,15 +325,9 @@ public class LevelMapWriter
 			{
 				xmlWriter.WriteAttributeString("wrap_y", "true");
 			}
-			int y;
-			for (y = 0; y < layer.Rows; y++)
+			for (int y = 0; y < layer.Rows; y++)
 			{
-				xmlWriter.WriteStartElement("row");
-				// Write each tile as an optional "h" and "v" flip prefix, then the tile index.
-				IEnumerable<int> rowTiles = from x in Enumerable.Range(0, layer.Columns)
-											select layer.Tiles[x, y];
-				xmlWriter.WriteString(string.Join(",", rowTiles.Select(tileIndex => (((tileIndex & FlipHorizontalFlag) != 0) ? "h" : string.Empty) + (((tileIndex & FlipVerticalFlag) != 0) ? "v" : string.Empty) + (tileIndex & TileIndexMask))));
-				xmlWriter.WriteEndElement();
+				xmlWriter.WriteElementString("row", FormatTileRow(layer, y));
 			}
 			xmlWriter.WriteEndElement();
 		}

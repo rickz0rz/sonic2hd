@@ -350,6 +350,20 @@ public class ObjectManager
 		}
 	}
 
+	/// <summary>
+	/// Registers and starts the object types that loaded after the level started, for example a type that the level
+	/// editor loaded.
+	/// </summary>
+	public void RegisterAndStartNewObjectTypes()
+	{
+		ObjectType[] newTypes = ObjectType.LoadedTypes.Except(_registeredTypes).ToArray();
+		RegisterObjectTypes();
+		foreach (ObjectType objectType in newTypes)
+		{
+			objectType.Start();
+		}
+	}
+
 	public void UnregisterObjectTypes()
 	{
 		foreach (ObjectType registeredType in _registeredTypes)
