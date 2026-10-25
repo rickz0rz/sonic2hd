@@ -425,9 +425,11 @@ public sealed record OriginalZone(string Name, string Key, string ChunksFile, st
 /// <param name="TileSet">The tile set with the tiles in front of the characters, or null.</param>
 /// <param name="PriorityTexture">The texture of the tiles in front of the characters, or null.</param>
 /// <param name="Textures">Other textures, by resource key, for example the slot machine reels.</param>
+/// <param name="TileCollision">The collision data of the front layer, for the level editor.</param>
 public sealed record ImportedLevel(LevelMap Map, LevelBinding Binding, IReadOnlyList<string> Notes,
 	IReadOnlyList<ImportedSprite> Sprites, IReadOnlyDictionary<string, string> NewObjects,
-	string TileSet = null, byte[] PriorityTexture = null, IReadOnlyDictionary<string, byte[]> Textures = null);
+	string TileSet = null, byte[] PriorityTexture = null, IReadOnlyDictionary<string, byte[]> Textures = null,
+	TileCollision TileCollision = null);
 
 /// <summary>
 /// Makes the map and the binding of a SonicOrca level from a zone of the original game. The tiles are the blocks of
@@ -848,7 +850,8 @@ public static class LevelImport
 		// The objects of the binding, and the objects that only other objects or the area make (for example the bosses)
 		var newObjects = binding.ObjectPlacements.Select(p => p.Key).Concat(zone.Sprites.Select(s => s.ObjectKey)).Concat(zone.AreaObjects).Distinct()
 			.Where(RepositoryObjects.ContainsKey).ToDictionary(key => key, key => RepositoryObjects[key]);
-		return new ImportedLevel(map, binding, notes, sprites, newObjects, tileSet, priorityTexture, textures);
+		return new ImportedLevel(map, binding, notes, sprites, newObjects, tileSet, priorityTexture, textures,
+			TileCollision.FromBlocks(FrontLayerIndex, blocks, heights, primary, secondary));
 	}
 
 	/// <summary>
@@ -955,8 +958,11 @@ public static class LevelImport
 		return CollisionTracer.Trace(grid, width, height, Scale);
 	}
 
-	/// <summary>The collision lines of both paths: the line, and the paths that use it (1, 2 or both).</summary>
-	private static List<(Vector2i A, Vector2i B, uint Paths)> GetCollisionLines(ushort[,] blocks, byte[] primary, byte[] secondary, byte[] heights)
+	/// <summary>
+	/// The collision lines of both paths: the line, and the paths that use it (1, 2 or both). Each block is a chunk
+	/// entry of the original: the block number, the flips (bits 10 and 11) and the solidity (bits 12 to 15).
+	/// </summary>
+	public static List<(Vector2i A, Vector2i B, uint Paths)> GetCollisionLines(ushort[,] blocks, byte[] primary, byte[] secondary, byte[] heights)
 	{
 		var primaryLines = TraceCollision(blocks, primary, heights, topBit: 12);
 		var secondaryLines = TraceCollision(blocks, secondary, heights, topBit: 14);

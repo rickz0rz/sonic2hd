@@ -148,6 +148,11 @@ static int ImportLevel(string zoneName, string disassembly, string folder)
 	Directory.CreateDirectory(output);
 	new LevelMapWriter(level.Map).Save(Path.Combine(output, "MAP.map.xml"));
 	new LevelBindingWriter(level.Binding).Save(Path.Combine(output, "BINDING.binding.xml"));
+	// The collision data of the original, so that the level editor can trace the collision again
+	if (level.TileCollision != null)
+	{
+		File.WriteAllBytes(Path.Combine(output, TileCollision.ResourceName + ".xml"), level.TileCollision.ToXml());
+	}
 	// The tiles in front of the characters: a new tile set that adds them to the HD tiles
 	if (level.TileSet != null)
 	{
