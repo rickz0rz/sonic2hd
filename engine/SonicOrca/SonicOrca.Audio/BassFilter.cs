@@ -25,8 +25,7 @@ internal class BassFilter
 			Array.Copy(leftBlock, 0, leftSamples, i, leftBlock.Length);
 			Array.Copy(rightBlock, 0, rightSamples, i, rightBlock.Length);
 		}
-		// The right channel is not used here. The output has the left channel in the two channels.
-		Array.Copy(Sample.SamplesToPCM(leftSamples, leftSamples), buffer, buffer.Length);
+		Array.Copy(Sample.SamplesToPCM(leftSamples, rightSamples), buffer, buffer.Length);
 	}
 
 	private static void Apply(float[] samples)

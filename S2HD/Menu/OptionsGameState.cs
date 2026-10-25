@@ -114,9 +114,8 @@ internal class OptionsGameState : IGameState, IDisposable
 			// Fade out the screen and the music.
 			while (_fadeOutOpacity > 0.0)
 			{
-				_musicSampleInstance.Volume -= FadeStep;
-				_fadeOutOpacity -= FadeStep;
-				_fadeOutOpacity = Math.Min(_fadeOutOpacity, 1f);
+				_musicSampleInstance.Volume = Math.Max(0.0, _musicSampleInstance.Volume - FadeStep);
+				_fadeOutOpacity = Math.Max(_fadeOutOpacity - FadeStep, 0f);
 				_viewPresenterHost.Update();
 				yield return UpdateResult.Next();
 			}

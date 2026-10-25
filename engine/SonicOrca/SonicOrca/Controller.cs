@@ -61,7 +61,13 @@ public class Controller
 				KeyboardState.KEY_J, KeyboardState.KEY_L, KeyboardState.KEY_I, KeyboardState.KEY_K,
 				KeyboardState.KEY_Q, KeyboardState.KEY_W, KeyboardState.KEY_E);
 		}
-		// Note: for players 3 and 4, the game pad state is read but not used.
+		else
+		{
+			// Players 3 and 4 have only a game pad. KEY_UNKNOWN is never down.
+			KeyboardState keyboard = _gameContext.Input.GetInputState(_eventType).Keyboard;
+			const int noKey = KeyboardState.KEY_UNKNOWN;
+			UpdateFromGamePadAndKeyboard(gamePad, keyboard, noKey, noKey, noKey, noKey, noKey, noKey, noKey);
+		}
 		if (!IsDebug)
 		{
 			// Outside debug mode, all three action buttons do the same thing.

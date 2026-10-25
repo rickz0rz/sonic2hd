@@ -162,17 +162,14 @@ internal class LevelHud : IDisposable
 		IFontRenderer fontRenderer = renderer.GetFontRenderer();
 		i2dRenderer.BlendMode = BlendMode.Alpha;
 		i2dRenderer.Colour = new Colour(96, byte.MaxValue, byte.MaxValue, byte.MaxValue);
-		if (_level.Player.ProtagonistCharacterType == CharacterType.Sonic)
+		// A character without its own art, for example Knuckles, uses the art of Sonic
+		if (_level.Player.ProtagonistCharacterType == CharacterType.Tails)
 		{
-			i2dRenderer.RenderTexture(_checkeredTextureSonic, new Vector2(captionLeft - _checkeredTextureSonic.Width / 2 - 8.0, top + _font.Height / 2.0));
+			i2dRenderer.RenderTexture(_checkeredTextureTails, new Vector2(captionLeft - _checkeredTextureTails.Width / 2 - 8.0, top + _font.Height / 2.0));
 		}
 		else
 		{
-			if (_level.Player.ProtagonistCharacterType != CharacterType.Tails)
-			{
-				throw new NotImplementedException();
-			}
-			i2dRenderer.RenderTexture(_checkeredTextureTails, new Vector2(captionLeft - _checkeredTextureTails.Width / 2 - 8.0, top + _font.Height / 2.0));
+			i2dRenderer.RenderTexture(_checkeredTextureSonic, new Vector2(captionLeft - _checkeredTextureSonic.Width / 2 - 8.0, top + _font.Height / 2.0));
 		}
 		if (rightAligned)
 		{
@@ -236,14 +233,14 @@ internal class LevelHud : IDisposable
 		{
 			i2dRenderer.RenderTexture(_lifeTextureSonic, new Vector2(264.0, 958.0));
 		}
+		else if (_level.Player.ProtagonistCharacterType == CharacterType.Tails)
+		{
+			i2dRenderer.RenderTexture(_lifeTextureTails, new Vector2(264.0, 958.0));
+		}
 		else
 		{
-			// There is no life icon for Knuckles.
-			if (_level.Player.ProtagonistCharacterType != CharacterType.Tails)
-			{
-				throw new NotImplementedException();
-			}
-			i2dRenderer.RenderTexture(_lifeTextureTails, new Vector2(264.0, 958.0));
+			// There is no life icon for Knuckles, so the HUD uses the icon of Sonic
+			i2dRenderer.RenderTexture(_lifeTextureSonic, new Vector2(264.0, 958.0));
 		}
 	}
 }

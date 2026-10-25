@@ -186,8 +186,7 @@ public class ChemicalPlantZoneArea : Area
 			_waterHeight = LowWaterTop;
 			_waterRaised = false;
 		}
-		// The top is always the raised level here, not _waterHeight. UpdateWater sets the correct top on the next update.
-		waterArea.Top = RaisedWaterTop;
+		waterArea.Top = _waterHeight;
 		_level.WaterManager.Enabled = true;
 		_level.WaterManager.WaterAreas.Clear();
 		_level.WaterManager.WaterAreas.Add(waterArea);

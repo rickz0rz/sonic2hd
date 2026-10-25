@@ -263,8 +263,7 @@ public class SimpleRenderer : I2dRenderer, IDisposable, IRenderer
 			}
 			else if (_textures.Length == 1)
 			{
-				// Note: this condition looks inverted. A different texture is not stored.
-				if (_textures[0] == value)
+				if (_textures[0] != value)
 				{
 					PushBatchOperation();
 					_textures[0] = value;

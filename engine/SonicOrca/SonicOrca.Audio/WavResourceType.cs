@@ -50,29 +50,58 @@ public class WavResourceType : ResourceType
 			{
 				throw new ResourceException("Invalid wav signature.");
 			}
-			if (binaryReader.ReadInt32() != FormatChunkId)
+			// The file is a list of chunks. Skip the chunks that are not "fmt " or "data", for example "LIST". A
+			// chunk with an odd size has one byte of padding.
+			short channels = 0;
+			int sampleRate = 0;
+			short bitsPerSample = 0;
+			bool hasFormat = false;
+			int dataSize;
+			while (true)
 			{
-				throw new ResourceException("Invalid wav signature.");
+				int chunkId = binaryReader.ReadInt32();
+				int chunkSize = binaryReader.ReadInt32();
+				if (chunkId == FormatChunkId)
+				{
+					if (chunkSize < 16 || binaryReader.ReadInt16() != PcmAudioFormat)
+					{
+						throw new ResourceException("Non PCM wav signature.");
+					}
+					channels = binaryReader.ReadInt16();
+					sampleRate = binaryReader.ReadInt32();
+					binaryReader.ReadInt32(); // Byte rate
+					binaryReader.ReadInt16(); // Block align
+					bitsPerSample = binaryReader.ReadInt16();
+					// A longer format chunk has extra fields after the first 16 bytes
+					SkipBytes(binaryReader, chunkSize - 16 + (chunkSize & 1));
+					hasFormat = true;
+				}
+				else if (chunkId == DataChunkId)
+				{
+					if (!hasFormat)
+					{
+						throw new ResourceException("Invalid wav format.");
+					}
+					dataSize = chunkSize;
+					break;
+				}
+				else
+				{
+					SkipBytes(binaryReader, chunkSize + (chunkSize & 1));
+				}
 			}
-			binaryReader.ReadInt32(); // Format chunk size
-			if (binaryReader.ReadInt16() != PcmAudioFormat)
-			{
-				throw new ResourceException("Non PCM wav signature.");
-			}
-			short channels = binaryReader.ReadInt16();
-			int sampleRate = binaryReader.ReadInt32();
-			binaryReader.ReadInt32(); // Byte rate
-			binaryReader.ReadInt16(); // Block align
-			short bitsPerSample = binaryReader.ReadInt16();
-			if (binaryReader.ReadInt32() != DataChunkId)
-			{
-				throw new ResourceException("Invalid wav format.");
-			}
-			int dataSize = binaryReader.ReadInt32();
 			return new Sample(binaryReader.ReadBytes(dataSize), bitsPerSample, sampleRate, channels)
 			{
 				Resource = e.Resource
 			};
 		});
+	}
+
+	private static void SkipBytes(BinaryReader reader, int count)
+	{
+		if (count > 0 && reader.ReadBytes(count).Length < count)
+		{
+			throw new ResourceException("Invalid wav format.");
+		}
 	}
 }

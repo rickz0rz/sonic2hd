@@ -73,7 +73,7 @@ public class FilmInstance
 	{
 		IFilmBuffer filmBuffer = _filmGroup.FilmBuffers.First();
 		Rectanglei source = new Rectanglei(0, 0, filmBuffer.Width, filmBuffer.Height);
-		Rectanglei destination = new Rectanglei(0, 0, filmBuffer.Width, filmBuffer.Height);
+		Rectanglei destination = new Rectanglei((int)offset.X, (int)offset.Y, filmBuffer.Width, filmBuffer.Height);
 		I2dRenderer renderer2d = renderer.Get2dRenderer();
 		Draw(renderer2d, colour, source, destination, flipX, flipY);
 	}
@@ -85,10 +85,9 @@ public class FilmInstance
 		_renderTarget.SetArgbData(filmBuffer.Width, filmBuffer.Height, argbData);
 		using (renderer.BeginMatixState())
 		{
-			Matrix4 modelMatrix = Matrix4.Identity;
-			modelMatrix *= Matrix4.CreateScale(flipX ? -1 : 1, flipY ? -1 : 1);
-			renderer.ModelMatrix = modelMatrix;
-			renderer.Colour = Colours.White;
+			// RenderTexture flips the image, so the model matrix does not flip it again
+			renderer.ModelMatrix = Matrix4.Identity;
+			renderer.Colour = colour;
 			renderer.BlendMode = BlendMode.Opaque;
 			renderer.RenderTexture(_renderTarget, source, destination, flipX, flipY);
 		}
