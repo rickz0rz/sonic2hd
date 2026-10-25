@@ -106,8 +106,20 @@ public class HalfPipeSpecialStageScreen : Screen
 	/// <summary>The number of track nodes in front of the camera that objects are drawn.</summary>
 	private const int ObjectDrawDistance = 180;
 
-	/// <summary>The number of track nodes between the camera and the player.</summary>
-	private const int PlayerLead = 8;
+	/// <summary>
+	/// The number of track nodes between the camera and the player. With <see cref="CameraHeight"/> and
+	/// <see cref="CameraTilt"/>, the view is as in the original: the bottom of the pipe at the player is 73% down the
+	/// screen, the centre of the pipe 24% down, and the walls at 69% of the width (SS_Offset_X and SS_Offset_Y, with
+	/// the H32 screen of the original). The track goes away above the player, so the player does not hide the rings
+	/// and bombs that come.
+	/// </summary>
+	private const int PlayerLead = 6;
+
+	/// <summary>The height of the camera above the centre line of the pipe, in track units (the pipe radius is 4).</summary>
+	private const double CameraHeight = 0.7;
+
+	/// <summary>The angle in degrees that the camera looks down, under the slope of the track.</summary>
+	private const double CameraTilt = 23.4;
 
 	/// <summary>A bomb takes this number of rings, or all of the rings when the player has fewer.</summary>
 	private const int BombRingLoss = 10;
@@ -150,22 +162,22 @@ public class HalfPipeSpecialStageScreen : Screen
 		{ 0x0CCC, 0x0AAA, 0x0888 },
 	};
 
-	// Sprite sizes in track units. The pipe radius is 4.
-	private const double SonicHeight = 2.4;
+	// Sprite sizes in track units. The pipe radius is 4. Sonic is 0.36 of the radius, as in the original (40 of 110 pixels).
+	private const double SonicHeight = 1.45;
 
 	/// <summary>Tails is smaller than Sonic, as in the art (227 against 264 pixels).</summary>
 	private const double TailsHeight = SonicHeight * 227.0 / 264.0;
 
 	/// <summary>A player in the outer lane shows this far behind a player in the inner lane, nearer to the camera.</summary>
-	private const double OuterLaneDepth = 3.0;
+	private const double OuterLaneDepth = 1.0;
 
-	private const double RingSize = 1.1;
+	private const double RingSize = 0.7;
 
-	private const double BombSize = 1.2;
+	private const double BombSize = 0.75;
 
-	private const double EffectSize = 1.2;
+	private const double EffectSize = 0.75;
 
-	private const double ShadowWidth = 1.2;
+	private const double ShadowWidth = 0.75;
 
 	/// <summary>Sprites stand this far above the surface, so the surface does not hide them.</summary>
 	private const double SurfaceGap = 0.05;
@@ -708,12 +720,14 @@ public class HalfPipeSpecialStageScreen : Screen
 	private void UpdateCamera()
 	{
 		HalfPipeTrackNode node = _track.Nodes[_currentTrackNode];
-		_camera = node.Position + new Vector3(0.0, -2.0, 0.0);
-		_cameraTarget = _camera + new Vector3(Math.Sin(node.Yaw), Math.Sin(node.Pitch), Math.Cos(node.Yaw));
+		_camera = node.Position + new Vector3(0.0, CameraHeight, 0.0);
+		double pitch = node.Pitch - MathX.ToRadians(CameraTilt);
+		_cameraTarget = _camera + new Vector3(Math.Sin(node.Yaw) * Math.Cos(pitch), Math.Sin(pitch), Math.Cos(node.Yaw) * Math.Cos(pitch));
 	}
 
 	public override void Draw(Renderer renderer)
 	{
+		SonicOrca.Core.Debugging.TestHooks.DrawnLevelTick = SonicOrca.Core.Debugging.TestHooks.SpecialStageCaptureOffset + _ticks;
 		DrawBackground(renderer);
 		DrawScene(renderer);
 		DrawHud(renderer);
