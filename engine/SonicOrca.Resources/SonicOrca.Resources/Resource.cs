@@ -17,7 +17,7 @@ public sealed class Resource : IDisposable
 
 	private readonly ResourceTypeIdentifier _identifier;
 
-	private readonly ResourceSource _source;
+	private ResourceSource _source;
 
 	public static int LoadedResourceCount { get; private set; }
 
@@ -25,7 +25,15 @@ public sealed class Resource : IDisposable
 
 	public ResourceTypeIdentifier Identifier => _identifier;
 
-	public ResourceSource Source => _source;
+	/// <summary>
+	/// The bytes of the resource. A change has no effect on a loaded resource. It applies on the next load, for
+	/// example after the level editor saves a level.
+	/// </summary>
+	public ResourceSource Source
+	{
+		get => _source;
+		set => _source = value;
+	}
 
 	public ILoadedResource LoadedResource { get; private set; }
 

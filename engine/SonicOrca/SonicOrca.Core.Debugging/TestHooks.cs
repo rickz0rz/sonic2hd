@@ -15,6 +15,11 @@ namespace SonicOrca.Core.Debugging;
 /// <item>S2HD_TEST_START_RINGS=60: gives the player this number of rings when a level starts.</item>
 /// <item>S2HD_TEST_EMERALDS=7: gives the player this number of emeralds when a level starts.</item>
 /// <item>S2HD_TEST_SPECIAL_STAGE_AT_TICK=300: at this level tick, goes to the special stage as from a star circle.</item>
+/// <item>S2HD_TEST_EDITOR_INPUT="5:mouse 900 500;6:down left;7:up left": replaces the mouse and keyboard of the level
+/// editor with these commands. Each command has the editor frame where it starts (counted over all the times that
+/// the editor opens) and one of: "mouse X Y" (1920 x 1080 screen), "down left|right|middle", "up left|right|middle",
+/// "wheel N", "keydown SCANCODE", "keyup SCANCODE", "tap SCANCODE" (down for one frame) or "type TEXT". While the
+/// editor is open, S2HD_CAPTURE_LEVEL_TICKS uses 10000 plus this frame number.</item>
 /// </list>
 /// </summary>
 public static class TestHooks
@@ -46,6 +51,15 @@ public static class TestHooks
 	/// <summary>Set when the special stage test hook was used, so that it runs once.</summary>
 	public static bool SpecialStageTestDone { get; set; }
 
+	/// <summary>The scripted input of the level editor, by editor frame, or null.</summary>
+	public static readonly IReadOnlyDictionary<int, string[]> EditorInput = ParseEditorInput(Environment.GetEnvironmentVariable("S2HD_TEST_EDITOR_INPUT"));
+
+	/// <summary>The number of frames that the level editor updated, over all the times that it opened.</summary>
+	public static int EditorFrame { get; set; }
+
+	/// <summary>The capture number of an editor frame. It is larger than the level ticks of the tests.</summary>
+	public const int EditorCaptureOffset = 10000;
+
 	/// <summary>The level tick drawn in the current frame, or -1 when no level was drawn.</summary>
 	public static int DrawnLevelTick { get; set; } = -1;
 
@@ -69,4 +83,16 @@ public static class TestHooks
 	}
 
 	public static bool AllCapturesTaken => HasLevelTickCaptures && PendingLevelTickCaptures.Count == 0;
+
+	private static IReadOnlyDictionary<int, string[]> ParseEditorInput(string script)
+	{
+		if (string.IsNullOrWhiteSpace(script))
+		{
+			return null;
+		}
+		return script.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+			.Select(command => command.Split(':', 2))
+			.GroupBy(parts => int.Parse(parts[0]), parts => parts[1].Trim())
+			.ToDictionary(group => group.Key, group => group.ToArray());
+	}
 }

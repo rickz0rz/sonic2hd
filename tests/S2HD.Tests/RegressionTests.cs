@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -61,7 +62,23 @@ public sealed class RegressionTests
 		RunAndCompare($"--level {level} --act {act}", LevelTicks, Path.Combine(TestPaths.GoldenDirectory, "levels", name), name);
 	}
 
-	private static void RunAndCompare(string arguments, int[] ticks, string goldenDirectory, string name)
+	/// <summary>
+	/// Opens the level editor in Emerald Hill with scripted input: it selects a ring, adds a monitor with rings, and
+	/// plays from the mouse position. The editor frames are captured as 10000 plus the frame.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void Editor_MatchesGoldenScreenshots()
+	{
+		const string script = "5:mouse 1167 215;12:down left;13:up left;" +
+			"30:mouse 1600 423;31:down left;32:up left;40:mouse 700 560;41:down left;42:up left;" +
+			"50:mouse 1700 725;51:down left;52:up left;53:down left;54:up left;" +
+			"70:mouse 560 450;71:tap 62";
+		RunAndCompare("--level ehz --editor", new[] { 10020, 10060, 300 }, Path.Combine(TestPaths.GoldenDirectory, "editor"), "editor",
+			new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script });
+	}
+
+	private static void RunAndCompare(string arguments, int[] ticks, string goldenDirectory, string name, IReadOnlyDictionary<string, string> environment = null)
 	{
 		string exe = TestPaths.GameExecutable;
 		if (!File.Exists(exe))
@@ -77,7 +94,7 @@ public sealed class RegressionTests
 		string userData = Directory.CreateTempSubdirectory("s2hd-regression-").FullName;
 		try
 		{
-			RunGame(exe, arguments, ticks, userData);
+			RunGame(exe, arguments, ticks, userData, environment);
 			if (record)
 			{
 				Directory.CreateDirectory(goldenDirectory);
@@ -99,7 +116,7 @@ public sealed class RegressionTests
 		}
 	}
 
-	private static void RunGame(string exe, string arguments, int[] ticks, string userData)
+	private static void RunGame(string exe, string arguments, int[] ticks, string userData, IReadOnlyDictionary<string, string> environment)
 	{
 		// No frame limiter, so the game runs as fast as the machine allows
 		File.WriteAllText(Path.Combine(userData, "sonicorca.cfg"), "[graphics]\nmax_performance=1\n");
@@ -114,6 +131,10 @@ public sealed class RegressionTests
 				["S2HD_EXIT_AFTER_CAPTURES"] = "1",
 			},
 		};
+		foreach (KeyValuePair<string, string> variable in environment ?? new Dictionary<string, string>())
+		{
+			startInfo.Environment[variable.Key] = variable.Value;
+		}
 		using Process process = Process.Start(startInfo);
 		if (!process.WaitForExit(Timeout))
 		{
