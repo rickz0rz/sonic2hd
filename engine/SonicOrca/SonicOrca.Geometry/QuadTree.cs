@@ -190,7 +190,7 @@ public class QuadTree<T> : ICollection<T>, IEnumerable<T>, IEnumerable where T :
 			{
 				return 1;
 			}
-			return _children.Select(x => x.GetDepth()).Max();
+			return 1 + _children.Select(x => x.GetDepth()).Max();
 		}
 
 		public override string ToString()

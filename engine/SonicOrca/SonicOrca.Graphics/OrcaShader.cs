@@ -77,10 +77,10 @@ public static class OrcaShader
 		return stringBuilder.ToString();
 	}
 
-	public static void Parse(string input, out string vertexOuput, out string fragmentOutput)
+	public static void Parse(string input, out string vertexOutput, out string fragmentOutput)
 	{
 		IDictionary<string, string> blocks = GetBlocks(input).ToDictionary(x => x.Key, x => x.Value);
-		vertexOuput = ConcatenateBlocks(blocks, VertexBlockNames);
+		vertexOutput = ConcatenateBlocks(blocks, VertexBlockNames);
 		fragmentOutput = ConcatenateBlocks(blocks, FragmentBlockNames);
 	}
 

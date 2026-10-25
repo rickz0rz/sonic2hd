@@ -3966,7 +3966,8 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			Vector2 rightSensor = GetPointRotatedFromRelative(PositionPrecise, new Vector2(PositionPrecise.X, PositionPrecise.Y - halfWidth), Math.PI / 2.0 + GroundAngle);
 			Vector2 topSensor = GetPointRotatedFromRelative(PositionPrecise, new Vector2(PositionPrecise.X - halfHeight, PositionPrecise.Y), Math.PI / 2.0 + GroundAngle);
 			Vector2 bottomSensor = GetPointRotatedFromRelative(PositionPrecise, new Vector2(PositionPrecise.X + halfHeight, PositionPrecise.Y), Math.PI / 2.0 + GroundAngle);
-			Vector2[][] shortBox = GetCollisionBox(new Vector2(halfWidth - LedgeSensorRadius, halfHeight - FloorSensorRadius + 20.0), rotate: false);
+			// The same boxes as FixPosition uses
+			Vector2[][] shortBox = GetCollisionBox(new Vector2(halfWidth, halfHeight - FloorSensorRadius + 20.0), rotate: false);
 			Vector2[][] narrowBox = GetCollisionBox(new Vector2(halfWidth - LedgeSensorRadius, halfHeight), rotate: false);
 			Vector2[][] wallBoxEdges;
 			Vector2[][] floorBoxEdges;

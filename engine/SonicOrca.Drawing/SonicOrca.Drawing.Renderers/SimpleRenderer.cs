@@ -593,12 +593,13 @@ public class SimpleRenderer : I2dRenderer, IDisposable, IRenderer
 		// The two directions at right angles to the line
 		double leftAngle = Math.Atan2(a.Y - b.Y, a.X - b.X) + Math.PI / 2.0;
 		double rightAngle = Math.Atan2(a.Y - b.Y, a.X - b.X) - Math.PI / 2.0;
+		// The corners go around the quad, so that the two triangles of the quad (0, 1, 2 and 0, 2, 3) fill it
 		PushVertices(new Vector2[4]
 		{
 			a + new Vector2(Math.Cos(leftAngle) * thickness, Math.Sin(leftAngle) * thickness),
 			a + new Vector2(Math.Cos(rightAngle) * thickness, Math.Sin(rightAngle) * thickness),
-			b + new Vector2(Math.Cos(leftAngle) * thickness, Math.Sin(leftAngle) * thickness),
-			b + new Vector2(Math.Cos(rightAngle) * thickness, Math.Sin(rightAngle) * thickness)
+			b + new Vector2(Math.Cos(rightAngle) * thickness, Math.Sin(rightAngle) * thickness),
+			b + new Vector2(Math.Cos(leftAngle) * thickness, Math.Sin(leftAngle) * thickness)
 		});
 	}
 

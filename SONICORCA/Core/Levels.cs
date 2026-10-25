@@ -53,20 +53,17 @@ internal static class Levels
 	}
 
 	/// <summary>
-	/// Returns the number of a Sonic 2 level, counted from 1, or -1 when the level does not exist.
-	/// The count includes the unreleased levels. The comparison is case-sensitive.
+	/// Returns the number of a Sonic 2 level, counted from 1 over the levels that can be played, or -1 when the level
+	/// cannot be played. Story mode uses the same numbers (see <see cref="GetAvailableLevels"/>), so the next level
+	/// after a level from --level is the next level of the story. The comparison ignores case.
 	/// </summary>
-	public static int GetLevelIndex(string mnemonic)
+	public static int GetLevelIndex(string mnemonic, ResourceTree resourceTree)
 	{
-		int levelIndex = 1;
-		foreach (LevelInfo level in LevelList)
+		IReadOnlyList<LevelInfo> levels = GetAvailableLevels(resourceTree);
+		for (int i = 0; i < levels.Count; i++)
 		{
-			if (level.GameIndex == Sonic2)
-			{
-				if (level.Mnemonic == mnemonic)
-					return levelIndex;
-				++levelIndex;
-			}
+			if (levels[i].Mnemonic.Equals(mnemonic, StringComparison.OrdinalIgnoreCase))
+				return i + 1;
 		}
 		return -1;
 	}

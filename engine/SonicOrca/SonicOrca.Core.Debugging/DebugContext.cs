@@ -174,9 +174,7 @@ public class DebugContext : IDisposable
 		}
 	}
 
-	// OnPressUp and OnPressDown always read the option next to the current option, not the option at the loop index.
-	// They also do not stop at the first selectable option, so the focus sound can play more than one time.
-	// This is possibly a bug in the original code.
+	/// <summary>Selects the nearest option above the current option that can be selected.</summary>
 	private void OnPressUp()
 	{
 		if (_currentPage.Options.Count == 0)
@@ -186,15 +184,17 @@ public class DebugContext : IDisposable
 		int currentIndex = _currentPage.Options.IndexOf(_currentOption);
 		for (int i = currentIndex - 1; i >= 0; i--)
 		{
-			DebugOption option = _currentPage.Options[currentIndex - 1];
+			DebugOption option = _currentPage.Options[i];
 			if (option.Selectable)
 			{
 				_currentOption = option;
 				PlayFocusSound();
+				return;
 			}
 		}
 	}
 
+	/// <summary>Selects the nearest option below the current option that can be selected.</summary>
 	private void OnPressDown()
 	{
 		if (_currentPage.Options.Count == 0)
@@ -204,11 +204,12 @@ public class DebugContext : IDisposable
 		int currentIndex = _currentPage.Options.IndexOf(_currentOption);
 		for (int i = currentIndex + 1; i < _currentPage.Options.Count; i++)
 		{
-			DebugOption option = _currentPage.Options[currentIndex + 1];
+			DebugOption option = _currentPage.Options[i];
 			if (option.Selectable)
 			{
 				_currentOption = option;
 				PlayFocusSound();
+				return;
 			}
 		}
 	}
