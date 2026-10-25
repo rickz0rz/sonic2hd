@@ -75,9 +75,23 @@ public sealed class LevelEditorTests
 		history.Record(before);
 
 		Assert.Same(before, history.Undo(after));
-		Assert.Same(after, history.Redo(before));
+		Assert.Equal(after, history.Redo(before));
 		Assert.Null(history.Redo(after));
 		Assert.True(history.CanUndo);
+	}
+
+	[Fact]
+	public void History_TheRedoStep_HasTheTileEditsOfTheUndoneStep()
+	{
+		TileEdit edit = new TileEdit(1, 2, 3, 10, 20, 0, 15);
+		EditorHistory history = new EditorHistory();
+		history.Record(new EditorSnapshot { TileEdits = new[] { edit } });
+
+		EditorSnapshot undone = history.Undo(new EditorSnapshot());
+		EditorSnapshot redone = history.Redo(new EditorSnapshot());
+
+		Assert.Equal(new[] { edit }, undone.TileEdits);
+		Assert.Equal(new[] { edit }, redone.TileEdits);
 	}
 
 	[Fact]

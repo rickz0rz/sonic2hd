@@ -71,6 +71,21 @@ internal abstract class EditorTool : IDisposable
 
 	public abstract List<EditorPropertyRow> GetPropertyRows();
 
+	/// <summary>The tool draws the properties panel itself, with <see cref="DrawProperties"/>, in place of the rows.</summary>
+	public virtual bool HasCustomProperties => false;
+
+	public virtual void DrawProperties(Renderer renderer, I2dRenderer g, Rectangle area)
+	{
+	}
+
+	public virtual void OnPropertiesClick(Vector2 mouse, Rectangle area, int direction)
+	{
+	}
+
+	public virtual void OnPropertiesWheel(double wheel)
+	{
+	}
+
 	/// <summary>The editor opens.</summary>
 	public virtual void Begin()
 	{

@@ -92,6 +92,22 @@ public sealed class RegressionTests
 			new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script });
 	}
 
+	/// <summary>
+	/// Opens the tiles and collision tools of the level editor in Emerald Hill with scripted input. It paints tiles from
+	/// the palette, draws a collision line in the air and plays on it.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void EditorTilesAndCollision_MatchesGoldenScreenshots()
+	{
+		const string script = "3:tap 32;6:mouse 1555 741;7:down left;8:up left;" +
+			"11:mouse 700 400;12:down left;14:mouse 800 400;16:mouse 900 400;18:up left;" +
+			"22:tap 33;24:mouse 1600 93;25:down left;26:up left;28:mouse 300 300;29:down left;30:up left;" +
+			"32:mouse 900 300;33:down left;34:up left;35:tap 41;45:mouse 600 150;46:tap 62";
+		RunAndCompare("--level ehz --editor", new[] { 10020, 10040, 400 }, Path.Combine(TestPaths.GoldenDirectory, "editor-tiles"), "editor-tiles",
+			new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script });
+	}
+
 	private static void RunAndCompare(string arguments, int[] ticks, string goldenDirectory, string name, IReadOnlyDictionary<string, string> environment = null)
 	{
 		string exe = TestPaths.GameExecutable;

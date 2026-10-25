@@ -1,13 +1,22 @@
 using System;
 using System.Collections.Generic;
+using SonicOrca.Core.Collision;
 
 namespace SonicOrca.Core.Editor;
 
 /// <summary>
-/// The state of the level editor that the undo history keeps: the placements, the markers and the selections. The
-/// editor never changes a placement or a marker. It replaces it with a copy, so a snapshot can keep the old ones.
+/// A change of one tile: the tile values before and after, and for the front layer of a map with tile collision,
+/// the solidity before and after.
 /// </summary>
-public sealed class EditorSnapshot
+public readonly record struct TileEdit(int Layer, int Column, int Row, int OldTile, int NewTile, byte OldSolidity, byte NewSolidity);
+
+/// <summary>
+/// The state of the level editor that the undo history keeps: the placements, the markers, the collision lines and
+/// the selections. The editor never changes a placement, a marker or a line. It replaces it with a copy, so a
+/// snapshot can keep the old ones. The tiles are too large to copy for each step, so a step keeps the tile edits of
+/// the change instead (<see cref="TileEdits"/>).
+/// </summary>
+public sealed record EditorSnapshot
 {
 	public ObjectPlacement[] Placements { get; init; } = Array.Empty<ObjectPlacement>();
 
@@ -16,6 +25,13 @@ public sealed class EditorSnapshot
 	public LevelMarker[] Markers { get; init; } = Array.Empty<LevelMarker>();
 
 	public LevelMarker[] MarkerSelection { get; init; } = Array.Empty<LevelMarker>();
+
+	public CollisionVector[] Vectors { get; init; } = Array.Empty<CollisionVector>();
+
+	public CollisionVector[] VectorSelection { get; init; } = Array.Empty<CollisionVector>();
+
+	/// <summary>The tile edits of the change after this snapshot. Undo puts back the old values, and redo the new values.</summary>
+	public TileEdit[] TileEdits { get; init; } = Array.Empty<TileEdit>();
 }
 
 /// <summary>
@@ -59,9 +75,10 @@ public sealed class EditorHistory
 		{
 			return null;
 		}
-		to.Add(current);
 		EditorSnapshot step = from[from.Count - 1];
 		from.RemoveAt(from.Count - 1);
+		// The step on the other list does the same tile edits in the other direction
+		to.Add(current with { TileEdits = step.TileEdits });
 		return step;
 	}
 }
