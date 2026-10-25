@@ -24,6 +24,17 @@ public class HalfPipeSpecialStageScreen : Screen
 	/// <summary>
 	/// A quad with four corners, four texture coordinates and a texture.
 	/// </summary>
+	/// <summary>How a quad is lit and blended.</summary>
+	private enum QuadStyle
+	{
+		/// <summary>The light of the pipe: darker far from the camera.</summary>
+		Lit,
+		/// <summary>Always at full brightness, for the rings.</summary>
+		Bright,
+		/// <summary>A yellow glow, added to the colours behind it.</summary>
+		Glow
+	}
+
 	private struct TexturedQuad
 	{
 		public Vector3[] Position { get; set; }
@@ -32,11 +43,14 @@ public class HalfPipeSpecialStageScreen : Screen
 
 		public ITexture Texture { get; set; }
 
-		public TexturedQuad(Vector3[] position, Vector2[] textureMapping, ITexture texture)
+		public QuadStyle Style { get; set; }
+
+		public TexturedQuad(Vector3[] position, Vector2[] textureMapping, ITexture texture, QuadStyle style = QuadStyle.Lit)
 		{
 			Position = position;
 			TextureMapping = textureMapping;
 			Texture = texture;
+			Style = style;
 		}
 	}
 
@@ -57,6 +71,9 @@ public class HalfPipeSpecialStageScreen : Screen
 	private const string ExplosionAnimationResourceKey = "SONICORCA/SPECIALSTAGE/EXPLOSIONANIM";
 
 	private const string BombResourceKey = "SONICORCA/SPECIALSTAGE/BOMB";
+
+	/// <summary>The glow of the rings, the same texture as the glow of the rings in the levels.</summary>
+	private const string GlowResourceKey = "SONICORCA/PARTICLE/GLOW";
 
 	private const string ShadowResourceKey = "SONICORCA/SPECIALSTAGE/SHADOW";
 
@@ -173,6 +190,21 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	private const double RingSize = 0.7;
 
+	/// <summary>
+	/// The glow behind a ring is this many times the size of the ring. The pipe is darker far from the camera, and
+	/// the rings are small on the wide screen, so the glow makes them easier to see and to follow.
+	/// </summary>
+	private const double RingGlowScale = 2.6;
+
+	/// <summary>The glow is a little behind the ring, so that it is drawn first.</summary>
+	private const double RingGlowDepth = 0.05;
+
+	/// <summary>The lowest light of the pipe, far from the camera. The rings and their glow do not get darker.</summary>
+	private const double MinimumLight = 0.25;
+
+	/// <summary>The colour of the glow (red, green, blue) and its strength (alpha).</summary>
+	private static readonly Vector4 RingGlowColour = new Vector4(1.0, 0.85, 0.3, 0.55);
+
 	private const double BombSize = 0.75;
 
 	private const double EffectSize = 0.75;
@@ -210,6 +242,8 @@ public class HalfPipeSpecialStageScreen : Screen
 	private ITexture _floorTexture;
 
 	private ITexture _bombTexture;
+
+	private ITexture _glowTexture;
 
 	private ITexture _shadowTexture;
 
@@ -344,7 +378,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		string[] keys =
 		{
 			FontResourceKey, BackgroundResourceKey, FloorResourceKey, SonicAnimationResourceKey, RingAnimationResourceKey,
-			RingEffectAnimationResourceKey, ExplosionAnimationResourceKey, BombResourceKey, ShadowResourceKey,
+			RingEffectAnimationResourceKey, ExplosionAnimationResourceKey, BombResourceKey, ShadowResourceKey, GlowResourceKey,
 			RingsLabelResourceKey, MusicResourceKey, RingSoundResourceKey, JumpSoundResourceKey, RingLossSoundResourceKey,
 			BombSoundResourceKey, CheckpointSoundResourceKey, ErrorSoundResourceKey, TallySoundResourceKey,
 			TallyEndSoundResourceKey, EmeraldMusicResourceKey,
@@ -378,6 +412,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		_backgroundTexture = tree.GetLoadedResource<ITexture>(BackgroundResourceKey);
 		_floorTexture = tree.GetLoadedResource<ITexture>(FloorResourceKey);
 		_bombTexture = tree.GetLoadedResource<ITexture>(BombResourceKey);
+		_glowTexture = tree.GetLoadedResource<ITexture>(GlowResourceKey);
 		_shadowTexture = tree.GetLoadedResource<ITexture>(ShadowResourceKey);
 		_ringsLabelTexture = tree.GetLoadedResource<ITexture>(RingsLabelResourceKey);
 		_sonicAnimation = new AnimationInstance(tree, SonicAnimationResourceKey);
@@ -767,10 +802,11 @@ public class HalfPipeSpecialStageScreen : Screen
 		}
 		AddEmeraldQuad(quads);
 
-		// Draw the quads from back to front. Group the quads that use the same texture into one draw call.
-		List<Tuple<int, ITexture>> batches = new List<Tuple<int, ITexture>>();
+		// Draw the quads from back to front. Group the quads that use the same texture and style into one draw call.
+		List<(int Count, ITexture Texture, QuadStyle Style)> batches = new List<(int, ITexture, QuadStyle)>();
 		int batchCount = 0;
 		ITexture texture = null;
+		QuadStyle style = QuadStyle.Lit;
 		_vertexBuffer.Begin();
 		foreach (TexturedQuad quad in quads.OrderByDescending(x => (_camera - x.Position[0]).Length))
 		{
@@ -782,18 +818,20 @@ public class HalfPipeSpecialStageScreen : Screen
 			if (batchCount == 0)
 			{
 				texture = quad.Texture;
+				style = quad.Style;
 			}
-			else if (texture != quad.Texture)
+			else if (texture != quad.Texture || style != quad.Style)
 			{
-				batches.Add(new Tuple<int, ITexture>(batchCount, texture));
+				batches.Add((batchCount, texture, style));
 				batchCount = 0;
 				texture = quad.Texture;
+				style = quad.Style;
 			}
 			batchCount++;
 		}
 		if (batchCount > 0)
 		{
-			batches.Add(new Tuple<int, ITexture>(batchCount, texture));
+			batches.Add((batchCount, texture, style));
 		}
 		_vertexBuffer.End();
 		IShaderProgram program = _pipeShader.Program;
@@ -803,13 +841,23 @@ public class HalfPipeSpecialStageScreen : Screen
 		program.SetUniform("InputTexture", 0);
 		program.SetUniform("InputLightSource", _track.Nodes[_currentTrackNode].Position);
 		int firstQuad = 0;
-		foreach (Tuple<int, ITexture> batch in batches)
+		foreach ((int count, ITexture batchTexture, QuadStyle batchStyle) in batches)
 		{
-			_graphicsContext.SetTexture(batch.Item2);
-			_vertexBuffer.Render(PrimitiveType.Quads, firstQuad * 4, batch.Item1 * 4);
-			firstQuad += batch.Item1;
+			program.SetUniform("MinimumLight", batchStyle == QuadStyle.Lit ? MinimumLight : 1.0);
+			program.SetUniform("Tint", batchStyle == QuadStyle.Glow ? RingGlowColour : new Vector4(1.0, 1.0, 1.0, 1.0));
+			_graphicsContext.BlendMode = batchStyle == QuadStyle.Glow ? BlendMode.Additive : BlendMode.Alpha;
+			_graphicsContext.SetTexture(batchTexture);
+			_vertexBuffer.Render(PrimitiveType.Quads, firstQuad * 4, count * 4);
+			firstQuad += count;
 		}
+		_graphicsContext.BlendMode = BlendMode.Alpha;
 		_graphicsContext.DepthTesting = false;
+	}
+
+	private static TexturedQuad WithStyle(TexturedQuad quad, QuadStyle style)
+	{
+		quad.Style = style;
+		return quad;
 	}
 
 	private Matrix4 GetNodeTransform(int trackNode)
@@ -870,7 +918,11 @@ public class HalfPipeSpecialStageScreen : Screen
 			{
 				if (item.Kind == HalfPipeObjectKind.Ring)
 				{
-					quads.Add(CreateSprite(transform, item.Angle, 0.0, RingSize, RingSize, _ringAnimation.CurrentTexture, _ringAnimation.CurrentFrame.Source));
+					// The glow is centred on the ring, so its bottom is below the surface, where the pipe hides it
+					double glowSize = RingSize * RingGlowScale;
+					quads.Add(WithStyle(CreateSprite(transform, item.Angle, (RingSize - glowSize) / 2.0, glowSize, glowSize, _glowTexture,
+						new Rectanglei(0, 0, _glowTexture.Width, _glowTexture.Height), depth: RingGlowDepth), QuadStyle.Glow));
+					quads.Add(WithStyle(CreateSprite(transform, item.Angle, 0.0, RingSize, RingSize, _ringAnimation.CurrentTexture, _ringAnimation.CurrentFrame.Source), QuadStyle.Bright));
 				}
 				else
 				{

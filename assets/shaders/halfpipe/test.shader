@@ -16,6 +16,8 @@
 	uniform mat4 ModelViewMatrix;
 	uniform sampler2D InputTexture;
 	uniform vec3 InputLightSource;
+	uniform float MinimumLight;
+	uniform vec4 Tint;
 
 @vertex_input:
 	layout (location = 0) in vec3 VertexPosition;
@@ -36,7 +38,7 @@
 	void main()
 	{
 		float distance = 1.0 / length(InputLightSource - VertexPosition) * 10.0;
-		float light = clamp(distance, 0.25, 1.0);
+		float light = clamp(distance, MinimumLight, 1.0);
 		// float light = distance;
 
 		FragmentColour = vec4(light, light, light, 1.0);
@@ -47,5 +49,5 @@
 @fragment:
 	void main()
 	{
-		OutputColour = FragmentColour * texture(InputTexture, FragmentTextureMapping);
+		OutputColour = FragmentColour * Tint * texture(InputTexture, FragmentTextureMapping);
 	}
