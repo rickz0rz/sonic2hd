@@ -85,10 +85,20 @@ public class CasinoNightZoneArea : Area
 		_level.CurrentAct = act;
 		_bossArena = null;
 		_rightWallDone = false;
+		Rectanglei bounds = _level.Map.Bounds;
 		if (_level.TryGetMarker($"bounds_{act}_lt", out LevelMarker leftTop) && _level.TryGetMarker($"bounds_{act}_rb", out LevelMarker rightBottom))
 		{
 			_level.SetStartPosition("startpos_stk_" + act);
-			_level.Bounds = Rectanglei.FromLTRB(leftTop.Position.X, leftTop.Position.Y, rightBottom.Position.X, rightBottom.Position.Y);
+			bounds = Rectanglei.FromLTRB(leftTop.Position.X, leftTop.Position.Y, rightBottom.Position.X, rightBottom.Position.Y);
+			// In a seamless change from act 1, the bounds grow to include act 2 when the title card ends, as in the HD zones.
+			if (settings.Seamless)
+			{
+				ExtendSeamlessLevelBounds(_level, bounds);
+			}
+			else
+			{
+				_level.Bounds = bounds;
+			}
 			if (act == 2 && _level.TryGetMarker("origin_2", out LevelMarker origin))
 			{
 				_bossArena = new BossArena(_level, origin.Position, BossArenaSettings, this.GetAbsolutePath(BossObjectResourceKey),
@@ -97,9 +107,9 @@ public class CasinoNightZoneArea : Area
 		}
 		else
 		{
-			_level.Bounds = _level.Map.Bounds;
+			_level.Bounds = bounds;
 		}
-		_level.RingsPerfectTarget = _level.ObjectManager.ObjectEntryTable.GetRingCountInRegion(_level.Bounds);
+		_level.RingsPerfectTarget = _level.ObjectManager.ObjectEntryTable.GetRingCountInRegion(bounds);
 		settings.StartPath = 0;
 	}
 

@@ -93,11 +93,21 @@ public class OilOceanZoneArea : Area
 		_bossArena = null;
 		_oil = null;
 		_origin = new Vector2i(-1, -1);
+		Rectanglei bounds = _level.Map.Bounds;
 		if (_level.TryGetMarker($"bounds_{act}_lt", out LevelMarker leftTop) && _level.TryGetMarker($"bounds_{act}_rb", out LevelMarker rightBottom))
 		{
 			// A map from "s2hd-data import-level ooz": the start and the bounds of each act
 			_level.SetStartPosition("startpos_stk_" + act);
-			_level.Bounds = Rectanglei.FromLTRB(leftTop.Position.X, leftTop.Position.Y, rightBottom.Position.X, rightBottom.Position.Y);
+			bounds = Rectanglei.FromLTRB(leftTop.Position.X, leftTop.Position.Y, rightBottom.Position.X, rightBottom.Position.Y);
+			// In a seamless change from act 1, the bounds grow to include act 2 when the title card ends, as in the HD zones.
+			if (settings.Seamless)
+			{
+				ExtendSeamlessLevelBounds(_level, bounds);
+			}
+			else
+			{
+				_level.Bounds = bounds;
+			}
 			// The orange sky: the backdrop colour of the original palette (line 2, colour 0)
 			_level.BackdropColour = new Colour(255, 255, 109, 0);
 			// The background moves at 1/8 of the camera speed, 80 pixels lower (InitCam_OOZ)
@@ -116,9 +126,9 @@ public class OilOceanZoneArea : Area
 		}
 		else
 		{
-			_level.Bounds = _level.Map.Bounds;
+			_level.Bounds = bounds;
 		}
-		_level.RingsPerfectTarget = _level.ObjectManager.ObjectEntryTable.GetRingCountInRegion(_level.Bounds);
+		_level.RingsPerfectTarget = _level.ObjectManager.ObjectEntryTable.GetRingCountInRegion(bounds);
 		settings.StartPath = 0;
 	}
 

@@ -21,6 +21,8 @@ namespace SonicOrca.Core.Debugging;
 /// "wheel N", "keydown SCANCODE", "keyup SCANCODE", "tap SCANCODE" (down for one frame) or "type TEXT". While the
 /// editor is open, S2HD_CAPTURE_LEVEL_TICKS uses 10000 plus this frame number. In the special stage, it uses 20000
 /// plus the tick of the stage.</item>
+/// <item>S2HD_TEST_STORY=1 and S2HD_TEST_LOG=file: plays the story without a player and writes a log (see
+/// <see cref="StoryTest"/>).</item>
 /// </list>
 /// </summary>
 public static class TestHooks
@@ -78,6 +80,12 @@ public static class TestHooks
 	public static bool TakeLevelTickCapture(out string filename)
 	{
 		filename = null;
+		if (StoryTest.PendingCapture != null)
+		{
+			filename = StoryTest.PendingCapture;
+			StoryTest.PendingCapture = null;
+			return true;
+		}
 		if (DrawnLevelTick < 0 || !PendingLevelTickCaptures.Remove(DrawnLevelTick))
 		{
 			return false;

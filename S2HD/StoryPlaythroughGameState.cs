@@ -101,7 +101,10 @@ internal class StoryPlaythroughGameState : IGameState, IDisposable
 				_prepareSettings.Emeralds = _levelGameState.Player.Emeralds;
 				_prepareSettings.SpecialStage = _levelGameState.PrepareSettings.SpecialStage;
 				if (!LoadNextLevel())
+				{
 					playNextLevel = false;
+					SonicOrca.Core.Debugging.StoryTest.Log("finished");
+				}
 			}
 		}
 		while (playNextLevel);

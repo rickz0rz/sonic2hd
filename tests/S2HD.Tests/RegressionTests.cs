@@ -116,7 +116,35 @@ public sealed class RegressionTests
 		RunAndCompare("--halfpipe 1", new[] { 20300, 20600, 20900 }, Path.Combine(TestPaths.GoldenDirectory, "special-stage"), "special-stage");
 	}
 
-	private static void RunAndCompare(string arguments, int[] ticks, string goldenDirectory, string name, IReadOnlyDictionary<string, string> environment = null)
+	/// <summary>
+	/// Starts each act of the zones that the import makes from the disassembly, with no input. Skipped when the
+	/// disassembly is not found. The goldens are in tests/golden/levels-imported.
+	/// </summary>
+	[Theory]
+	[Trait("Category", "Regression")]
+	[InlineData("arz", 1)]
+	[InlineData("arz", 2)]
+	[InlineData("cnz", 1)]
+	[InlineData("cnz", 2)]
+	[InlineData("mcz", 1)]
+	[InlineData("mcz", 2)]
+	[InlineData("ooz", 1)]
+	[InlineData("ooz", 2)]
+	[InlineData("mtz", 1)]
+	[InlineData("mtz", 2)]
+	[InlineData("mtz", 3)]
+	[InlineData("scz", 1)]
+	[InlineData("wfz", 1)]
+	[InlineData("dez", 1)]
+	public void ImportedLevelStart_MatchesGoldenScreenshots(string level, int act)
+	{
+		ImportedMods.Get();
+		string name = $"{level}-{act}";
+		RunAndCompare($"--level {level} --act {act}", LevelTicks, Path.Combine(TestPaths.GoldenDirectory, "levels-imported", name), name, withImportedMods: true);
+	}
+
+	private static void RunAndCompare(string arguments, int[] ticks, string goldenDirectory, string name, IReadOnlyDictionary<string, string> environment = null,
+		bool withImportedMods = false)
 	{
 		string exe = TestPaths.GameExecutable;
 		if (!File.Exists(exe))
@@ -130,6 +158,10 @@ public sealed class RegressionTests
 		}
 
 		string userData = Directory.CreateTempSubdirectory("s2hd-regression-").FullName;
+		if (withImportedMods)
+		{
+			ImportedMods.CopyTo(userData);
+		}
 		try
 		{
 			RunGame(exe, arguments, ticks, userData, environment);
