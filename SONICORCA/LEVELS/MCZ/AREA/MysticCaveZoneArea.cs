@@ -80,11 +80,21 @@ public class MysticCaveZoneArea : Area
 		int act = settings.Act == 2 ? 2 : 1;
 		_level.CurrentAct = act;
 		_bossArena = null;
+		Rectanglei bounds = _level.Map.Bounds;
 		if (_level.TryGetMarker($"bounds_{act}_lt", out LevelMarker leftTop) && _level.TryGetMarker($"bounds_{act}_rb", out LevelMarker rightBottom))
 		{
 			// A map from "s2hd-data import-level mcz": the start and the bounds of each act
 			_level.SetStartPosition("startpos_stk_" + act);
-			_level.Bounds = Rectanglei.FromLTRB(leftTop.Position.X, leftTop.Position.Y, rightBottom.Position.X, rightBottom.Position.Y);
+			bounds = Rectanglei.FromLTRB(leftTop.Position.X, leftTop.Position.Y, rightBottom.Position.X, rightBottom.Position.Y);
+			// In a seamless change from act 1, the bounds grow to include act 2 when the title card ends, as in the HD zones.
+			if (settings.Seamless)
+			{
+				ExtendSeamlessLevelBounds(_level, bounds);
+			}
+			else
+			{
+				_level.Bounds = bounds;
+			}
 			// The background moves at 1/3 of the camera speed in act 1 and at 1/6 in act 2 (InitCam_MCZ). Act 1 is
 			// 64 pixels lower in the map than in the original.
 			LevelLayer background = _level.Map.Layers[0];
@@ -98,9 +108,9 @@ public class MysticCaveZoneArea : Area
 		}
 		else
 		{
-			_level.Bounds = _level.Map.Bounds;
+			_level.Bounds = bounds;
 		}
-		_level.RingsPerfectTarget = _level.ObjectManager.ObjectEntryTable.GetRingCountInRegion(_level.Bounds);
+		_level.RingsPerfectTarget = _level.ObjectManager.ObjectEntryTable.GetRingCountInRegion(bounds);
 		settings.StartPath = 0;
 	}
 

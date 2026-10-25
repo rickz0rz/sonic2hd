@@ -785,8 +785,9 @@ public static class LevelImport
 			int index = 0;
 			foreach (ObjectPlacements.OriginalObjectPlacement original in ObjectPlacements.FromFile(Path(act.ObjectsFile)))
 			{
-				// The signpost of act 2 deletes itself (Obj0D_Init): it is only for two player mode
-				if ((original.Type == SignpostType && act.Number == 2) || zone.SkippedObjects.Contains(original.Type))
+				// The signpost of act 2 deletes itself (Obj0D_Init): it is only for two player mode. Metropolis act 2 is
+				// not the last act, so it keeps its signpost.
+				if ((original.Type == SignpostType && act.Number == 2 && zone.Name != "MTZ") || zone.SkippedObjects.Contains(original.Type))
 				{
 					continue;
 				}

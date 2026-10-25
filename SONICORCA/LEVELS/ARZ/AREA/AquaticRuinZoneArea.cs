@@ -95,7 +95,16 @@ public class AquaticRuinZoneArea : Area
 		{
 			// A map from "s2hd-data import-level arz": the start, the bounds and the water of each act
 			_level.SetStartPosition("startpos_stk_" + act);
-			_level.Bounds = Rectanglei.FromLTRB(leftTop.Position.X, leftTop.Position.Y, rightBottom.Position.X, rightBottom.Position.Y);
+			Rectanglei bounds = Rectanglei.FromLTRB(leftTop.Position.X, leftTop.Position.Y, rightBottom.Position.X, rightBottom.Position.Y);
+			// In a seamless change from act 1, the bounds grow to include act 2 when the title card ends, as in the HD zones.
+			if (settings.Seamless)
+			{
+				ExtendSeamlessLevelBounds(_level, bounds);
+			}
+			else
+			{
+				_level.Bounds = bounds;
+			}
 			// The backdrop colour of the original palette (line 2, colour 0)
 			_level.BackdropColour = new Colour(255, 0, 36, 0);
 			if (act == 2 && _level.TryGetMarker("origin_2", out LevelMarker origin))
@@ -113,7 +122,7 @@ public class AquaticRuinZoneArea : Area
 				_level.WaterManager.WaterAreas.Clear();
 				_level.WaterManager.WaterAreas.Add(Rectanglei.FromLTRB(_level.Map.Bounds.Left, water.Position.Y, _level.Map.Bounds.Right, _level.Map.Bounds.Bottom));
 			}
-			_level.RingsPerfectTarget = _level.ObjectManager.ObjectEntryTable.GetRingCountInRegion(_level.Bounds);
+			_level.RingsPerfectTarget = _level.ObjectManager.ObjectEntryTable.GetRingCountInRegion(bounds);
 			settings.StartPath = 0;
 		}
 		else if (act == 1)

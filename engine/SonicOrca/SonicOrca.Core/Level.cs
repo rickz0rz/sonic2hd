@@ -579,7 +579,8 @@ public class Level : IDisposable
 		if (StateFlags.HasFlag(LevelStateFlags.TitleCardActive))
 		{
 			_titleCard.Update();
-			if (_titleCard.AllowLevelToStart)
+			// After a death, the level stays stopped. Otherwise the death takes a life on each tick of the fade.
+			if (_titleCard.AllowLevelToStart && !StateFlags.HasFlag(LevelStateFlags.Dead))
 			{
 				StateFlags |= LevelStateFlags.Updating;
 				StateFlags |= LevelStateFlags.UpdateTime;
