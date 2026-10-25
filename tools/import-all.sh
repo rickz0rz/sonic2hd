@@ -1,6 +1,7 @@
 #!/bin/bash
 # Makes all the mods that come from a local copy of the Sonic 2 disassembly: the zones that the
-# demo data does not have, the special stage layouts and the attract demos. Run it from any folder.
+# demo data does not have, their music, the special stage layouts and the attract demos. Run it
+# from any folder. The music needs ffmpeg (or S2HD_FFMPEG).
 #
 #   ./tools/import-all.sh [s2disasm-dir] [mods-dir]
 #
@@ -73,5 +74,6 @@ done
 import special-stages import-special-stages "$DISASM"
 # The ARZ and CNZ demos need the imports of these zones, which the loop above makes
 import demos import-demos "$DISASM"
+import music import-music "$DISASM"
 
 echo "Done. The game loads the mods from $MODS."

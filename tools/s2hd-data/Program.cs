@@ -13,7 +13,8 @@
 // the original, which gives a small file for the game's mods folder. import-special-stages converts the special
 // stage layouts of the original game from a Sonic 2 disassembly (github.com/sonicretro/s2disasm) into that folder.
 // import-level makes the map (with collision) and the object binding of a zone, for example CNZ, from the same
-// disassembly.
+// disassembly. import-music plays the songs that the demo data does not have on emulated sound chips, and uses
+// ffmpeg (or S2HD_FFMPEG) to encode them as Ogg Vorbis with a loop point.
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -22,6 +23,7 @@ using SonicOrca.Core;
 using SonicOrca.Core.SpecialStage;
 using SonicOrca.HelperLibraries.Png;
 using SonicOrca.Original;
+using SonicOrca.Original.Music;
 using SonicOrca.Resources;
 
 ResourceType.RegisterTypesFrom(typeof(PngResourceType).Assembly);
@@ -39,6 +41,7 @@ try
 		["import-special-stages", string disassembly, string folder] => ImportSpecialStages(disassembly, folder),
 		["import-level", string zone, string disassembly, string folder] => ImportLevel(zone, disassembly, folder),
 		["import-demos", string disassembly, string folder] => ImportDemos(disassembly, folder),
+		["import-music", string disassembly, string folder] => ImportMusic(disassembly, folder),
 		_ => Usage(),
 	};
 }
@@ -185,6 +188,19 @@ static int ImportDemos(string disassembly, string folder)
 	return 0;
 }
 
+static int ImportMusic(string disassembly, string folder)
+{
+	if (!Directory.Exists(Path.Combine(disassembly, MusicImport.MusicFolder)) || !Directory.Exists(Path.Combine(disassembly, MusicImport.DacFolder)))
+	{
+		Console.Error.WriteLine($"Error: The folder {disassembly} does not contain the songs of s2disasm.");
+		return 1;
+	}
+	string ffmpeg = Environment.GetEnvironmentVariable("S2HD_FFMPEG") ?? "ffmpeg";
+	MusicImport.Import(disassembly, folder, ffmpeg, Console.WriteLine);
+	Console.WriteLine($"Wrote {MusicImport.Songs.Count} songs to {folder}.");
+	return 0;
+}
+
 static int ImportLevel(string zoneName, string disassembly, string folder)
 {
 	if (!OriginalZone.All.TryGetValue(zoneName, out OriginalZone zone))
@@ -265,6 +281,7 @@ static int Usage()
 		  s2hd-data import-special-stages <s2disasm folder> <folder>
 		  s2hd-data import-level <zone> <s2disasm folder> <folder>
 		  s2hd-data import-demos <s2disasm folder> <folder>
+		  s2hd-data import-music <s2disasm folder> <folder>
 		""");
 	return 2;
 }
