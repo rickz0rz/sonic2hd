@@ -142,7 +142,10 @@ public class HTZSeeSawInstance : ActiveObject
 		{
 			if (standingCharacter.Velocity.Y >= 0.0 || !standingCharacter.IsAirborne)
 			{
-				// These side codes (left -1, right 0, middle 1) do not match the codes of Sol.Side (-1 and 1).
+				// The side codes compare with Sol.Side (left -1, right 1). The HD release used right 0 and middle 1, so a
+				// character on the right always counted. HD physics keeps that, Original physics uses the right codes.
+				int rightSide = Level.OriginalPhysics ? 1 : 0;
+				int middleSide = Level.OriginalPhysics ? 0 : 1;
 				int side;
 				if (standingCharacter.Position.X < Position.X - MiddleHalfWidth)
 				{
@@ -151,12 +154,12 @@ public class HTZSeeSawInstance : ActiveObject
 				}
 				else if (standingCharacter.Position.X > Position.X + MiddleHalfWidth)
 				{
-					side = 0;
+					side = rightSide;
 					_charactersOnRightSide.Add(standingCharacter);
 				}
 				else
 				{
-					side = 1;
+					side = middleSide;
 					_charactersOnMiddleSide.Add(standingCharacter);
 				}
 				if (!_sol.Flying && side != _sol.Side)

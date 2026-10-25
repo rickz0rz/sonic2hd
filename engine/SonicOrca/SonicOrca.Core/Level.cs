@@ -1025,12 +1025,14 @@ public class Level : IDisposable
 
 	private void UpdateInverals()
 	{
-		// Item1 is the tick at which the callback runs. Item2 is the callback.
-		foreach (Tuple<int, Action> interval in _intervals.Where(x => x.Item1 <= Ticks))
+		// Item1 is the tick at which the callback runs. Item2 is the callback. A callback that is due runs once,
+		// also when its tick passed while the level did not update. A callback can add new intervals.
+		Tuple<int, Action>[] due = _intervals.Where(x => x.Item1 <= Ticks).ToArray();
+		_intervals.RemoveAll(x => x.Item1 <= Ticks);
+		foreach (Tuple<int, Action> interval in due)
 		{
 			interval.Item2();
 		}
-		_intervals.RemoveAll(x => x.Item1 == Ticks);
 	}
 
 	public void ScrollBoundsTo(Rectanglei newBounds, int speed)

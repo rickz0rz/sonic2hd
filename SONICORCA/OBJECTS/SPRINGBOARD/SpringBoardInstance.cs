@@ -206,7 +206,8 @@ public class SpringBoardInstance : ActiveObject
 		else
 		{
 			Rectanglei bounds = Rectanglei.FromLTRB(-110, -32 - height, 132, -32);
-			Vector2i bend = new Vector2i(42, bounds.Top);
+			// The mirror of the bend at x 42 is at x -42. The HD release kept 42, and HD physics keeps it.
+			Vector2i bend = new Vector2i(Level.OriginalPhysics ? -42 : 42, bounds.Top);
 			CollisionVectors[0].RelativeA = bend;
 			CollisionVectors[0].RelativeB = bounds.BottomRight;
 			CollisionVectors[1].RelativeA = bounds.TopLeft;

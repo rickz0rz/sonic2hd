@@ -42,7 +42,8 @@ public sealed class RegressionTests
 
 	/// <summary>
 	/// Starts a level with no input, so the player stands at the start position. These are the levels that the demo
-	/// data contains. The other levels do not load, because their music is not in the data.
+	/// data contains complete. MTZ and DEZ are only stubs in the data (no markers and no objects), and the tests do
+	/// not use the imports, so they are not tested here.
 	/// </summary>
 	[Theory]
 	[Trait("Category", "Regression")]
@@ -52,10 +53,6 @@ public sealed class RegressionTests
 	[InlineData("cpz", 2)]
 	[InlineData("htz", 1)]
 	[InlineData("htz", 2)]
-	[InlineData("mtz", 1)]
-	[InlineData("mtz", 2)]
-	[InlineData("dez", 1)]
-	[InlineData("dez", 2)]
 	public void LevelStart_MatchesGoldenScreenshots(string level, int act)
 	{
 		string name = $"{level}-{act}";

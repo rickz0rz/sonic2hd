@@ -78,8 +78,7 @@ public class CPZSpeedBoosterInstance : ActiveObject
 			}
 			if (delayCamera)
 			{
-				// The Y delay comes from the camera properties of the booster, not of the character.
-				character.CameraProperties.Delay = new Vector2i(16, CameraProperties.Delay.Y);
+				character.CameraProperties.Delay = new Vector2i(16, character.CameraProperties.Delay.Y);
 			}
 		}
 		Level.SoundManager.PlaySound(this, "SONICORCA/SOUND/SPRING");

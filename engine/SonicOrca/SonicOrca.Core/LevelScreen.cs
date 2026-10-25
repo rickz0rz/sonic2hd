@@ -411,8 +411,8 @@ public class LevelScreen : Screen
 		IReadOnlyList<string> commandLineArgs = Environment.GetCommandLineArgs();
 		if (commandLineArgs.Count > 1)
 		{
-			// Note: item 0 is the program path, so this check does not find "host" or "join" in a normal start.
-			string mode = commandLineArgs[0].ToLower();
+			// Item 0 is the program path. Item 1 is the mode, and for "join", item 2 is the server.
+			string mode = commandLineArgs[1].ToLower();
 			if (mode == "host")
 			{
 				_server = new NetworkGameServer(_level, DefaultPort);
@@ -420,7 +420,7 @@ public class LevelScreen : Screen
 				_hosting = true;
 				return true;
 			}
-			if (mode == "join")
+			if (mode == "join" && commandLineArgs.Count > 2)
 			{
 				_client = new NetworkGameClient(_level);
 				_joiningServer = _client.InitiateHandshake(commandLineArgs[2], DefaultPort);

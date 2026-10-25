@@ -83,7 +83,13 @@ public class HTZRisingBlockInstance : ActiveObject
 			};
 		}
 		else
-			collisionVectors = CollisionVector.FromRectangle(this, new Rectanglei(-(_size.X / 2), -(_size.Y / 2), _size.X, _size.Y), flags: CollisionFlags.Solid);
+		{
+			// The HD release gave these blocks no Solid flag, because FromRectangle did not pass the flags on. Original
+			// physics makes them solid, as the sloped blocks are. The state of a placement has no level yet: the active
+			// object calculates the vectors again when it gets the state.
+			collisionVectors = CollisionVector.FromRectangle(this, new Rectanglei(-(_size.X / 2), -(_size.Y / 2), _size.X, _size.Y),
+				flags: Level != null && Level.OriginalPhysics ? CollisionFlags.Solid : 0);
+		}
 		collisionVectors[1].Flags |= CollisionFlags.Conveyor;
 		collisionVectors[3].Flags |= CollisionFlags.Conveyor;
 		return collisionVectors;

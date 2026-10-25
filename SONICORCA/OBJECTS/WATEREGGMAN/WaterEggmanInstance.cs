@@ -529,8 +529,10 @@ public class WaterEggmanInstance : BossObject
 		Fleeing = true;
 		PositionPrecise = _nonHoverPosition;
 		int hoverFailureTicks = 0;
+		int fleeTicks = 0;
 		while (true)
 		{
+			fleeTicks++;
 			_nonHoverPosition += new Vector2(FleeSpeed, 0.0);
 			if (!_turning)
 			{
@@ -598,8 +600,9 @@ public class WaterEggmanInstance : BossObject
 			}
 			else
 				hoverFailureTicks = 0;
-			// No code changes _stateTicks after the defeat, so this condition is never true.
-			if (_stateTicks > 600)
+			// After 10 seconds the egg mobile is far off the screen, so it can go away. The HD release tested
+			// _stateTicks, which does not change after the defeat, so the egg mobile stayed. HD physics keeps that.
+			if (Level.OriginalPhysics ? fleeTicks > 600 : _stateTicks > 600)
 				LockLifetime = false;
 			yield return UpdateResult.Next();
 		}

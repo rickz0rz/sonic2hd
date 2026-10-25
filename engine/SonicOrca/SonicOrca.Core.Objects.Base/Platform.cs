@@ -110,6 +110,7 @@ public class Platform : ActiveObject, IPlatform, IActiveObject
 			PositionPrecise += _fallingVelocity;
 			return;
 		}
+		int oldSagOffset = _sagOffset;
 		UpdateOscillationPosition();
 		if (!IsCharacterInteractingWithPlatform())
 		{
@@ -129,7 +130,22 @@ public class Platform : ActiveObject, IPlatform, IActiveObject
 				_falling = true;
 			}
 		}
-		PositionPrecise += new Vector2(0.0, _sagOffset);
+		if (!Level.OriginalPhysics)
+		{
+			// The HD release adds the sag here and also in UpdateOscillationPosition, so a moving platform sags twice
+			// as far, and a platform that does not move sags further on each frame. HD physics keeps that.
+			PositionPrecise += new Vector2(0.0, _sagOffset);
+		}
+		else if (TimePeriod > 0)
+		{
+			// UpdateOscillationPosition set the position without the sag. At most 16, 4 pixels as in Obj18_Nudge.
+			PositionPrecise += new Vector2(0.0, _sagOffset);
+		}
+		else
+		{
+			// The position stays from the last frame, so only the change of the sag moves it
+			PositionPrecise += new Vector2(0.0, _sagOffset - oldSagOffset);
+		}
 	}
 
 	private void UpdateTime()
@@ -193,7 +209,8 @@ public class Platform : ActiveObject, IPlatform, IActiveObject
 				factorY = Math.Sin(angle);
 			}
 		}
-		PositionPrecise = new Vector2(_initialPosition.X + factorX * MovementRadius.X, _initialPosition.Y + factorY * MovementRadius.Y + _sagOffset);
+		double sag = Level.OriginalPhysics ? 0.0 : _sagOffset;
+		PositionPrecise = new Vector2(_initialPosition.X + factorX * MovementRadius.X, _initialPosition.Y + factorY * MovementRadius.Y + sag);
 	}
 
 	protected bool IsCharacterInteractingWithPlatform()

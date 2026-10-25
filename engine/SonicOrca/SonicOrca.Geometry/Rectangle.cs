@@ -123,10 +123,10 @@ public struct Rectangle : IEquatable<Rectangle>
 		return false;
 	}
 
-	// Note: this compares p.X with Top and p.Y with Left. The result is correct only when X and Y are equal.
+	/// <summary>True when the point is in the rectangle or on its edge.</summary>
 	public bool ContainsOrOverlaps(Vector2 p)
 	{
-		if (p.X >= Top && p.Y >= Left && p.X <= Right)
+		if (p.X >= Left && p.Y >= Top && p.X <= Right)
 		{
 			return p.Y <= Bottom;
 		}
