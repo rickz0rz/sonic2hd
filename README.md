@@ -222,30 +222,41 @@ continues. Super Sonic has the values of the original in the two physics modes.
 
 ### Level editor
 
-The level editor changes the objects and the rings of a level. Start the game with `--editor`. Then press F2 in a
-level to open the editor. With `--level` too, the editor opens when the level starts:
+The level editor changes the objects, the rings and the markers of a level. Start the game with `--editor`. Then
+press F2 in a level to open the editor. With `--level` too, the editor opens when the level starts:
 
 ```sh
 publish/S2HD.app/Contents/MacOS/S2HD --level cnz --editor
 ```
 
-The level stops, and the editor shows all the objects of the level. Use the mouse and the keyboard:
+The level stops, and the editor shows all the objects of the level. The editor has two tools. Select a tool with
+its button or with its key:
+
+- **Objects (1)** changes the objects and the rings. The list has all the object types of the game. A type that the
+  level does not use shows "not loaded". It loads when you click it.
+- **Markers (2)** changes the markers of the map. A point marker has a name, for example `startpos_stk_1` (the start
+  position of act 1), `bounds_1_rb` (the bottom right camera bound of act 1) or `boss_left`. An area marker has a
+  tag, for example `inside`. The level reads the markers when it starts. Click a marker in the list to go to it.
+
+Use the mouse and the keyboard:
 
 | Input | Effect |
 |---|---|
-| Click an object | Selects the object. Shift adds objects to the selection or removes them |
-| Drag an object | Moves the selected objects on the grid |
-| Drag in an empty area | Selects the objects in a box |
+| Click an object or a marker | Selects it. Shift adds items to the selection or removes them |
+| Drag an object or a marker | Moves the selected items on the grid |
+| Drag the corner of an area marker | Changes the size of the area |
+| Drag in an empty area | Selects the items in a box |
 | Click a type in the list, then click in the level | Adds an object of this type. Hold Shift to add more than one. Esc stops |
+| Click "Add a point marker" or "Add an area marker", then click in the level | Adds a marker |
 | Click a value in the properties | Changes the value. A yes or no value and a list value change on a click (right click goes back). For a number or a text, type the value and press Enter |
 | Right drag, middle drag or Space and drag | Moves the view |
 | Wheel, Shift and wheel | Moves the view up and down, or left and right |
 | Ctrl and wheel, `-` and `=` | Zooms out and in |
-| Arrow keys | Move the selected objects by the grid size (Shift: 4 times). Without a selection, they move the view |
-| Del or Backspace | Deletes the selected objects |
+| Arrow keys | Move the selected items by the grid size (Shift: 4 times). Without a selection, they move the view |
+| Del or Backspace | Deletes the selected items |
 | Ctrl+Z, Ctrl+Shift+Z or Ctrl+Y | Undo and redo |
 | Ctrl+C, Ctrl+X, Ctrl+V, Ctrl+D | Copy, cut, paste at the mouse, and duplicate |
-| Ctrl+A | Selects all the objects in the view |
+| Ctrl+A | Selects all the items in the view |
 | G | Changes the grid size: 4, 16, 32, 64 or 128 (1 to 32 pixels of the original) |
 | Home | Moves the view to the start position |
 | F5 | Plays the level from the mouse position |
@@ -254,16 +265,20 @@ The level stops, and the editor shows all the objects of the level. Use the mous
 
 On macOS, Cmd also works in place of Ctrl.
 
-To play, the level starts again with the changes. Press F2 in the level to go back to the editor. The changes stay
-until the game closes, also when you do not save them. Undo also works after you play.
+To play, the level starts again with the changes. Press F2 in the level to go back to the editor. Undo also works
+after you play. While you play with changes that are not saved, a note shows at the top right of the screen.
 
-Save writes the objects of the zone to `mods/editor/<ZONE>.dat` in the user data folder (see "Logs and settings").
-The game loads this folder after all the other mods, so the changes replace the objects of the game data and of the
-imports. The game loads the file also without `--editor`. To remove the changes of a zone, delete its file.
+Save writes the changed parts of the zone to `mods/editor/<ZONE>.dat` in the user data folder (see "Logs and
+settings"): the objects, the map, or both. The game loads this folder after all the other mods, so the changes
+replace the objects and the map of the game data and of the imports. The game loads the file also without
+`--editor`. To remove the changes of a zone, delete its file.
 
-The list shows the object types that the level loaded. To add a type that the level does not use, add it to the
-level in a different way first, for example with a mod. The editor cannot change the tiles, the collision or the
-markers of a level yet.
+When the level unloads with changes that are not saved, for example when you quit the level or close the game, the
+editor writes them to `mods/editor/unsaved/<ZONE>.dat`. The game does not load this folder. To keep the changes,
+move the file to `mods/editor`.
+
+The editor saves the map in a way that keeps all the other data of the map file. It cannot change the tiles or the
+collision of a level yet.
 
 The behavior of levels and objects is C# code in `SONICORCA/`, not data. The `AREA.area.cs` and `.object.cs`
 resources only name the class to use.
@@ -353,7 +368,8 @@ The regression tests run the release build and save screenshots at fixed level t
 - One test plays the Emerald Hill attract demo, which moves the player through the first part of the level.
 - One test for each level that the demo data contains (EHZ, CPZ, HTZ, MTZ and DEZ, acts 1 and 2) starts the level
   with no input.
-- One test opens the level editor in Emerald Hill with scripted input. It adds a monitor and plays.
+- Two tests open the level editor in Emerald Hill with scripted input. One adds a monitor and plays. The other moves
+  the start position marker and plays from the start.
 
 The tests compare the screenshots with golden screenshots. A run takes about 2 minutes. The golden screenshots come
 from the game files, so Git ignores them (`tests/golden/`). Record them once from a known-good build:

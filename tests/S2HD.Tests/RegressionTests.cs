@@ -71,10 +71,24 @@ public sealed class RegressionTests
 	public void Editor_MatchesGoldenScreenshots()
 	{
 		const string script = "5:mouse 1167 215;12:down left;13:up left;" +
-			"30:mouse 1600 423;31:down left;32:up left;40:mouse 700 560;41:down left;42:up left;" +
+			"28:mouse 1600 300;29:wheel -30;30:mouse 1600 423;31:down left;32:up left;40:mouse 700 560;41:down left;42:up left;" +
 			"50:mouse 1700 725;51:down left;52:up left;53:down left;54:up left;" +
 			"70:mouse 560 450;71:tap 62";
 		RunAndCompare("--level ehz --editor", new[] { 10020, 10060, 300 }, Path.Combine(TestPaths.GoldenDirectory, "editor"), "editor",
+			new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script });
+	}
+
+	/// <summary>
+	/// Opens the markers tool of the level editor in Emerald Hill with scripted input. It moves the start position
+	/// marker, adds an area marker and plays from the start.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void EditorMarkers_MatchesGoldenScreenshots()
+	{
+		const string script = "5:tap 31;12:mouse 385 517;15:down left;18:mouse 450 517;22:mouse 641 517;25:up left;" +
+			"32:mouse 1600 123;33:down left;34:up left;36:mouse 900 300;37:down left;38:up left;55:tap 59";
+		RunAndCompare("--level ehz --editor", new[] { 10040, 300 }, Path.Combine(TestPaths.GoldenDirectory, "editor-markers"), "editor-markers",
 			new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script });
 	}
 

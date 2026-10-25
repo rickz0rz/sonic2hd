@@ -63,6 +63,8 @@ public class LevelGameState : IGameState, IDisposable
 
 	public void Dispose()
 	{
+		// Keep the changes of the level editor that the user did not save
+		_level?.Editor.SaveBackup();
 		if (_levelLoader.HasLoadedLevel)
 		{
 			_levelLoader.UnloadLevel();

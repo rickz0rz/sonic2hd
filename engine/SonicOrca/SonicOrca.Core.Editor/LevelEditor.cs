@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,33 +22,33 @@ public enum EditorPlayRequest
 }
 
 /// <summary>
-/// Edits the objects and rings of a level with the mouse and the keyboard. The editor pauses the level and shows all
-/// the placements of the binding. Each change replaces placements in the binding and makes the object entries
-/// again, so a test play after the editor uses the changes. Save writes the binding to the editor file of the zone
-/// (see <see cref="EditorModFile"/>).
+/// Edits a level with the mouse and the keyboard. The editor pauses the level. A tool edits one part of the level:
+/// the objects and rings, or the markers. Each change replaces items in the binding or the map, so a test play after
+/// the editor uses the changes. Save writes the changed resources to the editor file of the zone (see
+/// <see cref="EditorModFile"/>).
 /// </summary>
 public sealed class LevelEditor : IDisposable
 {
 	private const string FontResourceKey = "SONICORCA/FONTS/SEGOEUI";
 
-	private const double ScreenWidth = 1920.0;
+	internal const double ScreenWidth = 1920.0;
 
-	private const double ScreenHeight = 1080.0;
+	internal const double ScreenHeight = 1080.0;
 
-	private const double TopBarHeight = 48.0;
+	internal const double TopBarHeight = 48.0;
 
-	private const double StatusBarHeight = 36.0;
+	internal const double StatusBarHeight = 36.0;
 
-	private const double PanelWidth = 460.0;
+	internal const double PanelWidth = 460.0;
 
-	private const double RowHeight = 30.0;
+	internal const double RowHeight = 30.0;
+
+	internal const double Padding = 10.0;
 
 	private const double TextScale = 0.5;
 
-	private const double Padding = 10.0;
-
-	/// <summary>The palette uses the top part of the side panel, down to this y value. The properties use the rest.</summary>
-	private const double PaletteBottom = 500.0;
+	/// <summary>The list uses the top part of the side panel, down to this y value. The properties use the rest.</summary>
+	private const double ListBottom = 500.0;
 
 	/// <summary>Objects activate in the view and up to this distance around it.</summary>
 	private const int LifetimeMargin = 512;
@@ -62,30 +63,27 @@ public sealed class LevelEditor : IDisposable
 
 	private static readonly double[] Zooms = { 1.0, 0.75, 0.5, 0.35, 0.25 };
 
-	private static readonly Colour PanelColour = new Colour(0.96, 0.07, 0.08, 0.11);
+	internal static readonly Colour PanelColour = new Colour(0.96, 0.07, 0.08, 0.11);
 
-	private static readonly Colour MarkerOutlineColour = new Colour(0.8, 0.0, 0.0, 0.0);
+	internal static readonly Colour ButtonColour = new Colour(1.0, 0.18, 0.2, 0.26);
 
-	private static readonly Colour ButtonColour = new Colour(1.0, 0.18, 0.2, 0.26);
+	internal static readonly Colour ButtonHoverColour = new Colour(1.0, 0.27, 0.3, 0.38);
 
-	private static readonly Colour ButtonHoverColour = new Colour(1.0, 0.27, 0.3, 0.38);
+	internal static readonly Colour AccentColour = new Colour(1.0, 0.16, 0.44, 0.82);
 
-	private static readonly Colour AccentColour = new Colour(1.0, 0.16, 0.44, 0.82);
+	internal static readonly Colour TextColour = Colours.White;
 
-	private static readonly Colour TextColour = Colours.White;
+	internal static readonly Colour DimTextColour = new Colour(1.0, 0.62, 0.65, 0.7);
 
-	private static readonly Colour DimTextColour = new Colour(1.0, 0.62, 0.65, 0.7);
+	internal static readonly Colour OutlineColour = new Colour(0.45, 0.4, 0.85, 1.0);
 
-	private static readonly Colour ObjectOutlineColour = new Colour(0.45, 0.4, 0.85, 1.0);
+	internal static readonly Colour HoverColour = Colours.White;
 
-	private static readonly Colour HoverOutlineColour = Colours.White;
+	internal static readonly Colour SelectionColour = new Colour(1.0, 1.0, 0.8, 0.1);
 
-	private static readonly Colour SelectionColour = new Colour(1.0, 1.0, 0.8, 0.1);
+	internal static readonly Colour SelectionFillColour = new Colour(0.18, 1.0, 0.8, 0.1);
 
-	private static readonly Colour SelectionFillColour = new Colour(0.18, 1.0, 0.8, 0.1);
-
-	/// <summary>The clipboard is shared by the levels, so the user can copy objects from one zone to another.</summary>
-	private static readonly List<ObjectPlacement> Clipboard = new List<ObjectPlacement>();
+	internal static readonly Colour ShadowColour = new Colour(0.8, 0.0, 0.0, 0.0);
 
 	private readonly Level _level;
 
@@ -93,13 +91,15 @@ public sealed class LevelEditor : IDisposable
 
 	private readonly EditorHistory _history = new EditorHistory();
 
-	private readonly HashSet<Guid> _selection = new HashSet<Guid>();
-
 	private readonly EditorInput _input = new EditorInput();
+
+	private readonly EditorTool[] _tools;
 
 	private ResourceSession _resourceSession;
 
 	private Font _font;
+
+	private EditorTool _tool;
 
 	private int _frames;
 
@@ -107,9 +107,7 @@ public sealed class LevelEditor : IDisposable
 
 	private int _zoomIndex;
 
-	private string _placeKey;
-
-	private double _paletteScroll;
+	private double _listScroll;
 
 	private double _propertyScroll;
 
@@ -125,51 +123,69 @@ public sealed class LevelEditor : IDisposable
 	/// <summary>The first key that the user types replaces the old value.</summary>
 	private bool _replaceEditText;
 
-	private Vector2 _mouse;
-
-	private Vector2 _mouseWorld;
-
 	private DragMode _drag;
 
 	private Vector2 _dragStartMouse;
 
-	private Vector2 _dragStartWorld;
-
 	private Vector2 _dragStartCamera;
-
-	private bool _dragMoved;
-
-	private Vector2i _moveDelta;
-
-	private Guid _moveAnchor;
-
-	private readonly Dictionary<Guid, Vector2i> _moveStartPositions = new Dictionary<Guid, Vector2i>();
 
 	private enum DragMode
 	{
 		None,
 		Pan,
-		Move,
+		Tool,
 		Box
 	}
 
+	/// <summary>The objects and rings that are selected, by placement ID.</summary>
+	internal HashSet<Guid> ObjectSelection { get; } = new HashSet<Guid>();
+
+	/// <summary>The markers that are selected.</summary>
+	internal HashSet<LevelMarker> MarkerSelection { get; } = new HashSet<LevelMarker>();
+
+	/// <summary>The binding has changes that are not saved.</summary>
+	public bool BindingDirty { get; private set; }
+
+	/// <summary>The markers of the map have changes that are not saved.</summary>
+	public bool MarkersDirty { get; private set; }
+
 	/// <summary>There are changes that are not saved.</summary>
-	public bool Dirty { get; private set; }
+	public bool Dirty => BindingDirty || MarkersDirty;
 
 	public EditorPlayRequest PlayRequest { get; private set; }
 
 	/// <summary>The position for <see cref="EditorPlayRequest.FromCursor"/>.</summary>
 	public Vector2i PlayPosition { get; private set; }
 
-	public IReadOnlyCollection<Guid> Selection => _selection;
+	internal Level Level => _level;
 
-	private Camera Camera => _level.Camera;
+	internal SonicOrcaGameContext GameContext => _gameContext;
 
-	private IList<ObjectPlacement> Placements => _level.Binding.ObjectPlacements;
+	internal Camera Camera => _level.Camera;
 
-	private int GridSize => GridSizes[_gridIndex];
+	internal IList<ObjectPlacement> Placements => _level.Binding.ObjectPlacements;
 
-	private double Zoom => Zooms[_zoomIndex];
+	internal IList<LevelMarker> Markers => _level.Map.Markers;
+
+	internal Vector2 Mouse { get; private set; }
+
+	internal Vector2 MouseWorld { get; private set; }
+
+	internal Vector2 DragStartWorld { get; private set; }
+
+	/// <summary>The mouse moved far enough with the button down to count as a drag.</summary>
+	internal bool DragMoved { get; private set; }
+
+	internal int GridSize => GridSizes[_gridIndex];
+
+	internal double Zoom => Zooms[_zoomIndex];
+
+	internal bool IsControlDown => IsKeyDown(KeyboardState.KEY_LCTRL) || IsKeyDown(KeyboardState.KEY_RCTRL) ||
+		IsKeyDown(KeyboardState.KEY_LGUI) || IsKeyDown(KeyboardState.KEY_RGUI);
+
+	internal bool IsShiftDown => IsKeyDown(KeyboardState.KEY_LSHIFT) || IsKeyDown(KeyboardState.KEY_RSHIFT);
+
+	internal bool IsMouseOverLevel => IsOverLevel(Mouse);
 
 	private bool HasFont => _font != null;
 
@@ -177,6 +193,8 @@ public sealed class LevelEditor : IDisposable
 	{
 		_level = level;
 		_gameContext = level.GameContext;
+		_tools = new EditorTool[] { new ObjectsTool(this), new MarkersTool(this) };
+		_tool = _tools[0];
 	}
 
 	public async Task LoadAsync(CancellationToken ct = default)
@@ -190,6 +208,10 @@ public sealed class LevelEditor : IDisposable
 
 	public void Dispose()
 	{
+		foreach (EditorTool tool in _tools)
+		{
+			tool.Dispose();
+		}
 		_resourceSession?.Dispose();
 		_resourceSession = null;
 		_font = null;
@@ -203,8 +225,10 @@ public sealed class LevelEditor : IDisposable
 		_frames = 0;
 		_drag = DragMode.None;
 		_editingRow = null;
-		_placeKey = null;
-		GiveUniqueIds();
+		foreach (EditorTool tool in _tools)
+		{
+			tool.Begin();
+		}
 		SetZoom(_zoomIndex, Camera.Bounds.Centre);
 		Rebind();
 		ShowMessage("Editor. F5: play here. F2: play from the start.");
@@ -217,7 +241,9 @@ public sealed class LevelEditor : IDisposable
 		{
 			_messageFrames--;
 		}
-		ReadMouse();
+		_input.Read(_gameContext);
+		Mouse = _input.Mouse;
+		MouseWorld = ToWorld(Mouse);
 		if (!_gameContext.Console.IsOpen)
 		{
 			if (_editingRow != null)
@@ -231,6 +257,7 @@ public sealed class LevelEditor : IDisposable
 		}
 		UpdateMouse();
 		ClampCamera();
+		_tool.Update();
 		_level.TileSet.Animate();
 		_level.Map.Animate();
 		_level.ObjectManager.ResetLifetimeArea();
@@ -240,21 +267,9 @@ public sealed class LevelEditor : IDisposable
 
 	#region Input
 
-	private void ReadMouse()
-	{
-		_input.Read(_gameContext);
-		_mouse = _input.Mouse;
-		_mouseWorld = ToWorld(_mouse);
-	}
-
 	private bool IsKeyDown(int key) => _input.IsKeyDown(key);
 
 	private bool IsKeyPressed(int key) => _input.IsKeyPressed(key);
-
-	private bool IsControlDown => IsKeyDown(KeyboardState.KEY_LCTRL) || IsKeyDown(KeyboardState.KEY_RCTRL) ||
-		IsKeyDown(KeyboardState.KEY_LGUI) || IsKeyDown(KeyboardState.KEY_RGUI);
-
-	private bool IsShiftDown => IsKeyDown(KeyboardState.KEY_LSHIFT) || IsKeyDown(KeyboardState.KEY_RSHIFT);
 
 	private void UpdateKeyboard()
 	{
@@ -267,6 +282,14 @@ public sealed class LevelEditor : IDisposable
 		else if (IsKeyPressed(KeyboardState.KEY_F2))
 		{
 			RequestPlay(EditorPlayRequest.FromStart);
+		}
+		else if (!control && IsKeyPressed(KeyboardState.KEY_1))
+		{
+			SelectTool(0);
+		}
+		else if (!control && IsKeyPressed(KeyboardState.KEY_2))
+		{
+			SelectTool(1);
 		}
 		else if (control && IsKeyPressed(KeyboardState.KEY_S))
 		{
@@ -289,38 +312,34 @@ public sealed class LevelEditor : IDisposable
 		}
 		else if (control && IsKeyPressed(KeyboardState.KEY_C))
 		{
-			Copy();
+			_tool.Copy();
 		}
 		else if (control && IsKeyPressed(KeyboardState.KEY_X))
 		{
-			Copy();
-			DeleteSelection();
+			_tool.Copy();
+			_tool.DeleteSelection();
 		}
 		else if (control && IsKeyPressed(KeyboardState.KEY_V))
 		{
-			Paste(IsOverLevel(_mouse) ? _mouseWorld : Camera.Bounds.Centre);
+			_tool.Paste(IsOverLevel(Mouse) ? MouseWorld : Camera.Bounds.Centre);
 		}
 		else if (control && IsKeyPressed(KeyboardState.KEY_D))
 		{
-			Duplicate();
+			_tool.Duplicate();
 		}
 		else if (control && IsKeyPressed(KeyboardState.KEY_A))
 		{
-			SelectAllInView();
+			_tool.SelectAllInView();
 		}
 		else if (IsKeyPressed(KeyboardState.KEY_DELETE) || IsKeyPressed(KeyboardState.KEY_BACKSPACE))
 		{
-			DeleteSelection();
+			_tool.DeleteSelection();
 		}
 		else if (IsKeyPressed(KeyboardState.KEY_ESCAPE))
 		{
-			if (_placeKey != null)
+			if (!_tool.Cancel())
 			{
-				_placeKey = null;
-			}
-			else
-			{
-				_selection.Clear();
+				_tool.ClearSelection();
 			}
 		}
 		else if (IsKeyPressed(KeyboardState.KEY_G))
@@ -346,23 +365,23 @@ public sealed class LevelEditor : IDisposable
 	/// <summary>The arrow keys move the selection by the grid size. Without a selection, they move the view.</summary>
 	private void UpdateArrowKeys(bool shift)
 	{
-		int x = (IsKeyDown(KeyboardState.KEY_RIGHT) ? 1 : 0) - (IsKeyDown(KeyboardState.KEY_LEFT) ? 1 : 0);
-		int y = (IsKeyDown(KeyboardState.KEY_DOWN) ? 1 : 0) - (IsKeyDown(KeyboardState.KEY_UP) ? 1 : 0);
-		if (_selection.Count > 0)
+		if (_tool.HasSelection)
 		{
 			int pressedX = (IsKeyPressed(KeyboardState.KEY_RIGHT) ? 1 : 0) - (IsKeyPressed(KeyboardState.KEY_LEFT) ? 1 : 0);
 			int pressedY = (IsKeyPressed(KeyboardState.KEY_DOWN) ? 1 : 0) - (IsKeyPressed(KeyboardState.KEY_UP) ? 1 : 0);
 			if (pressedX != 0 || pressedY != 0)
 			{
 				int step = GridSize * (shift ? 4 : 1);
-				MoveSelection(new Vector2i(pressedX * step, pressedY * step));
+				_tool.Nudge(new Vector2i(pressedX * step, pressedY * step));
 			}
+			return;
 		}
-		else if (x != 0 || y != 0)
+		int x = (IsKeyDown(KeyboardState.KEY_RIGHT) ? 1 : 0) - (IsKeyDown(KeyboardState.KEY_LEFT) ? 1 : 0);
+		int y = (IsKeyDown(KeyboardState.KEY_DOWN) ? 1 : 0) - (IsKeyDown(KeyboardState.KEY_UP) ? 1 : 0);
+		if (x != 0 || y != 0)
 		{
 			double speed = (shift ? 64.0 : 16.0) / Zoom;
-			Rectangle bounds = Camera.Bounds;
-			Camera.Bounds = new Rectangle(bounds.X + x * speed, bounds.Y + y * speed, bounds.Width, bounds.Height);
+			MoveView(x * speed, y * speed);
 		}
 	}
 
@@ -387,11 +406,16 @@ public sealed class LevelEditor : IDisposable
 		{
 			_editingRow = null;
 		}
+		else if (IsKeyPressed(KeyboardState.KEY_F5) || IsKeyPressed(KeyboardState.KEY_F2))
+		{
+			// The play keys also work while the user types. The typed value is kept.
+			RequestPlay(IsKeyPressed(KeyboardState.KEY_F5) && !IsShiftDown ? EditorPlayRequest.FromCursor : EditorPlayRequest.FromStart);
+		}
 	}
 
 	private void CommitTextEntry()
 	{
-		PropertyRow row = GetPropertyRows().FirstOrDefault(r => r.Label == _editingRow);
+		EditorPropertyRow row = _tool.GetPropertyRows().FirstOrDefault(r => r.Label == _editingRow);
 		_editingRow = null;
 		if (row?.Commit != null && !row.Commit(_editText))
 		{
@@ -416,23 +440,30 @@ public sealed class LevelEditor : IDisposable
 			{
 				CommitTextEntry();
 			}
-			if (IsOverTopBar(_mouse))
+			if (IsOverTopBar(Mouse))
 			{
 				if (_input.LeftPressed)
 				{
-					GetTopBarButtons().FirstOrDefault(b => b.Bounds.Contains(_mouse) && b.Enabled)?.Action();
+					GetTopBarButtons().FirstOrDefault(b => b.Bounds.Contains(Mouse) && b.Enabled)?.Action();
 				}
 			}
-			else if (IsOverPanel(_mouse))
+			else if (IsOverPanel(Mouse))
 			{
 				OnPanelClick(_input.LeftPressed ? 1 : -1);
 			}
-			else if (IsOverLevel(_mouse))
+			else if (IsOverLevel(Mouse))
 			{
-				OnLevelPress(_input.LeftPressed);
+				if (_input.LeftPressed && !IsKeyDown(KeyboardState.KEY_SPACE))
+				{
+					_tool.OnLevelPress();
+				}
+				else
+				{
+					BeginDrag(DragMode.Pan);
+				}
 			}
 		}
-		else if (_input.MiddlePressed && IsOverLevel(_mouse))
+		else if (_input.MiddlePressed && IsOverLevel(Mouse))
 		{
 			BeginDrag(DragMode.Pan);
 		}
@@ -440,164 +471,113 @@ public sealed class LevelEditor : IDisposable
 
 	private void UpdateWheel(double wheel)
 	{
-		if (IsOverPanel(_mouse))
+		if (IsOverPanel(Mouse))
 		{
-			if (_mouse.Y < PaletteBottom)
+			if (Mouse.Y < ListBottom)
 			{
-				_paletteScroll = Math.Max(0.0, _paletteScroll - wheel * RowHeight);
+				_listScroll = Math.Max(0.0, _listScroll - wheel * RowHeight);
 			}
 			else
 			{
 				_propertyScroll = Math.Max(0.0, _propertyScroll - wheel * RowHeight);
 			}
 		}
-		else if (IsOverLevel(_mouse))
+		else if (IsOverLevel(Mouse))
 		{
 			if (IsControlDown)
 			{
-				SetZoom(_zoomIndex - Math.Sign(wheel), _mouseWorld, _mouse);
+				SetZoom(_zoomIndex - Math.Sign(wheel), MouseWorld, Mouse);
 			}
 			else
 			{
 				double distance = wheel * 96.0 / Zoom;
-				Rectangle bounds = Camera.Bounds;
-				Camera.Bounds = IsShiftDown
-					? new Rectangle(bounds.X - distance, bounds.Y, bounds.Width, bounds.Height)
-					: new Rectangle(bounds.X, bounds.Y - distance, bounds.Width, bounds.Height);
+				if (IsShiftDown)
+				{
+					MoveView(-distance, 0.0);
+				}
+				else
+				{
+					MoveView(0.0, -distance);
+				}
 			}
 		}
 	}
 
-	private void OnLevelPress(bool left)
-	{
-		if (!left || IsKeyDown(KeyboardState.KEY_SPACE))
-		{
-			BeginDrag(DragMode.Pan);
-			return;
-		}
-		if (_placeKey != null)
-		{
-			PlaceObject(_placeKey, Snap(_mouseWorld));
-			if (!IsShiftDown)
-			{
-				_placeKey = null;
-			}
-			return;
-		}
-		ActiveObject hit = HitTest(_mouseWorld);
-		if (hit == null)
-		{
-			if (!IsShiftDown)
-			{
-				_selection.Clear();
-			}
-			BeginDrag(DragMode.Box);
-			return;
-		}
-		Guid uid = hit.Entry.Uid;
-		if (IsShiftDown && _selection.Contains(uid))
-		{
-			_selection.Remove(uid);
-			return;
-		}
-		if (!_selection.Contains(uid))
-		{
-			if (!IsShiftDown)
-			{
-				_selection.Clear();
-			}
-			_selection.Add(uid);
-		}
-		_moveAnchor = uid;
-		BeginDrag(DragMode.Move);
-	}
+	/// <summary>The tool moves or resizes its selection while the mouse button is down (<see cref="EditorTool.OnDrag"/>).</summary>
+	internal void BeginToolDrag() => BeginDrag(DragMode.Tool);
+
+	/// <summary>The user drags a box. At the end, the tool selects the items in it (<see cref="EditorTool.SelectInBox"/>).</summary>
+	internal void BeginBoxSelect() => BeginDrag(DragMode.Box);
 
 	private void BeginDrag(DragMode mode)
 	{
 		_drag = mode;
-		_dragStartMouse = _mouse;
-		_dragStartWorld = _mouseWorld;
+		_dragStartMouse = Mouse;
+		DragStartWorld = MouseWorld;
 		_dragStartCamera = new Vector2(Camera.Bounds.X, Camera.Bounds.Y);
-		_dragMoved = false;
-		_moveDelta = new Vector2i(0, 0);
-		_moveStartPositions.Clear();
-		if (mode == DragMode.Move)
-		{
-			foreach (ObjectPlacement placement in Placements.Where(p => _selection.Contains(p.Uid)))
-			{
-				_moveStartPositions[placement.Uid] = placement.Position;
-			}
-		}
+		DragMoved = false;
 	}
 
 	private void UpdateDrag()
 	{
-		if ((_mouse - _dragStartMouse).Length >= DragThreshold)
+		if ((Mouse - _dragStartMouse).Length >= DragThreshold)
 		{
-			_dragMoved = true;
+			DragMoved = true;
+		}
+		if (_drag == DragMode.Pan)
+		{
+			Vector2 offset = (Mouse - _dragStartMouse) * (1.0 / Zoom);
+			Rectangle bounds = Camera.Bounds;
+			Camera.Bounds = new Rectangle(_dragStartCamera.X - offset.X, _dragStartCamera.Y - offset.Y, bounds.Width, bounds.Height);
+		}
+		else if (_drag == DragMode.Tool && DragMoved)
+		{
+			_tool.OnDrag();
 		}
 		bool buttonDown = _input.Left || _input.Right || _input.Middle;
-		switch (_drag)
-		{
-			case DragMode.Pan:
-			{
-				Vector2 offset = (_mouse - _dragStartMouse) * (1.0 / Zoom);
-				Rectangle bounds = Camera.Bounds;
-				Camera.Bounds = new Rectangle(_dragStartCamera.X - offset.X, _dragStartCamera.Y - offset.Y, bounds.Width, bounds.Height);
-				break;
-			}
-			case DragMode.Move:
-				if (_dragMoved && _moveStartPositions.TryGetValue(_moveAnchor, out Vector2i anchorStart))
-				{
-					Vector2 target = (Vector2)anchorStart + (_mouseWorld - _dragStartWorld);
-					_moveDelta = Snap(target) - anchorStart;
-					MoveActiveObjects(_moveDelta);
-				}
-				break;
-		}
 		if (buttonDown && !_input.AnyReleased)
 		{
 			return;
 		}
 		DragMode mode = _drag;
 		_drag = DragMode.None;
-		if (mode == DragMode.Move && _moveDelta != new Vector2i(0, 0))
+		if (mode == DragMode.Tool)
 		{
-			_history.Record(Placements, _selection);
-			ReplacePlacements(p => _moveStartPositions.TryGetValue(p.Uid, out Vector2i start) ? p.WithPosition(start + _moveDelta) : p);
+			_tool.OnDragEnd();
 		}
-		else if (mode == DragMode.Box && _dragMoved)
+		else if (mode == DragMode.Box && DragMoved)
 		{
-			Rectangle box = GetDragBox();
-			foreach (ActiveObject activeObject in GetSelectableObjects().Where(o => GetBounds(o).IntersectsWith(box)))
-			{
-				_selection.Add(activeObject.Entry.Uid);
-			}
-		}
-	}
-
-	/// <summary>Moves the active objects of the selection while the user drags them. The placements change at the end of the drag.</summary>
-	private void MoveActiveObjects(Vector2i delta)
-	{
-		foreach (ActiveObject activeObject in GetSelectableObjects())
-		{
-			if (_moveStartPositions.TryGetValue(activeObject.Entry.Uid, out Vector2i start))
-			{
-				activeObject.Position = start + delta;
-			}
+			_tool.SelectInBox(GetDragBox());
 		}
 	}
 
 	private Rectangle GetDragBox()
 	{
 		return Rectangle.FromLTRB(
-			Math.Min(_dragStartWorld.X, _mouseWorld.X), Math.Min(_dragStartWorld.Y, _mouseWorld.Y),
-			Math.Max(_dragStartWorld.X, _mouseWorld.X), Math.Max(_dragStartWorld.Y, _mouseWorld.Y));
+			Math.Min(DragStartWorld.X, MouseWorld.X), Math.Min(DragStartWorld.Y, MouseWorld.Y),
+			Math.Max(DragStartWorld.X, MouseWorld.X), Math.Max(DragStartWorld.Y, MouseWorld.Y));
 	}
 
 	#endregion
 
 	#region Commands
+
+	private void SelectTool(int index)
+	{
+		if (_tool == _tools[index])
+		{
+			return;
+		}
+		if (_editingRow != null)
+		{
+			CommitTextEntry();
+		}
+		_tool.Cancel();
+		_tool = _tools[index];
+		_listScroll = 0.0;
+		_propertyScroll = 0.0;
+		ShowMessage(_tool.Name + ": " + _tool.Hint);
+	}
 
 	private void RequestPlay(EditorPlayRequest request)
 	{
@@ -605,7 +585,7 @@ public sealed class LevelEditor : IDisposable
 		{
 			CommitTextEntry();
 		}
-		PlayPosition = IsOverLevel(_mouse) ? Snap(_mouseWorld) : (Vector2i)Camera.Bounds.Centre;
+		PlayPosition = IsOverLevel(Mouse) ? Snap(MouseWorld) : (Vector2i)Camera.Bounds.Centre;
 		PlayRequest = request;
 	}
 
@@ -613,172 +593,123 @@ public sealed class LevelEditor : IDisposable
 	{
 		try
 		{
-			string path = EditorModFile.Save(_level.Binding, _gameContext.UserDataDirectory);
-			Dirty = false;
+			string path = EditorModFile.Save(GetChangedResources(), EditorModFile.GetPath(_gameContext.UserDataDirectory, _level.Binding.Resource.FullKeyPath));
+			BindingDirty = false;
+			MarkersDirty = false;
 			ShowMessage("Saved to " + path);
 		}
-		catch (Exception ex) when (ex is System.IO.IOException || ex is UnauthorizedAccessException || ex is ResourceException)
+		catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is ResourceException || ex is InvalidOperationException)
 		{
 			ShowMessage("Save failed: " + ex.Message);
 		}
 	}
 
+	/// <summary>
+	/// Writes the changes that are not saved to mods/editor/unsaved/ZONE.dat, which the game does not load. The level
+	/// calls this method when it unloads with changes that are not saved.
+	/// </summary>
+	public void SaveBackup()
+	{
+		if (!Dirty)
+		{
+			return;
+		}
+		string zoneFile = EditorModFile.GetPath(_gameContext.UserDataDirectory, _level.Binding.Resource.FullKeyPath);
+		string path = Path.Combine(Path.GetDirectoryName(zoneFile), EditorModFile.UnsavedFolderName, Path.GetFileName(zoneFile));
+		try
+		{
+			EditorModFile.Save(GetChangedResources(), path, updateSources: false);
+		}
+		catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is ResourceException || ex is InvalidOperationException)
+		{
+			System.Diagnostics.Trace.WriteLine("The editor could not save the backup: " + ex.Message);
+		}
+	}
+
+	/// <summary>The resources to save: the binding and the map, when they have changes that are not saved.</summary>
+	private IReadOnlyList<EditorModFile.Change> GetChangedResources()
+	{
+		List<EditorModFile.Change> changes = new List<EditorModFile.Change>();
+		if (BindingDirty)
+		{
+			changes.Add(EditorModFile.Change.ForBinding(_level.Binding));
+		}
+		if (MarkersDirty)
+		{
+			changes.Add(EditorModFile.Change.ForMap(_level.Map, markers: true));
+		}
+		return changes;
+	}
+
 	public void Undo()
 	{
-		if (_history.Undo(Placements, _selection))
+		EditorSnapshot snapshot = _history.Undo(CaptureSnapshot());
+		if (snapshot != null)
 		{
-			AfterHistoryChange();
+			Restore(snapshot);
 		}
 	}
 
 	public void Redo()
 	{
-		if (_history.Redo(Placements, _selection))
+		EditorSnapshot snapshot = _history.Redo(CaptureSnapshot());
+		if (snapshot != null)
 		{
-			AfterHistoryChange();
+			Restore(snapshot);
 		}
 	}
 
-	private void AfterHistoryChange()
+	/// <summary>Keeps the state before a change, for undo. Call it before each change.</summary>
+	internal void RecordHistory() => _history.Record(CaptureSnapshot());
+
+	private EditorSnapshot CaptureSnapshot()
 	{
-		Dirty = true;
-		_selection.IntersectWith(Placements.Select(p => p.Uid));
-		Rebind();
+		return new EditorSnapshot
+		{
+			Placements = Placements.ToArray(),
+			Selection = ObjectSelection.ToArray(),
+			Markers = Markers.ToArray(),
+			MarkerSelection = MarkerSelection.ToArray()
+		};
 	}
 
-	/// <summary>Adds an object of a type at a position, on the layer that most objects use.</summary>
-	public ObjectPlacement PlaceObject(string key, Vector2i position)
+	private void Restore(EditorSnapshot snapshot)
 	{
-		int count = Placements.Count(p => p.Key == key);
-		ObjectType type = FindType(key);
-		string name = $"{type?.Name ?? ShortName(key)} {count}";
-		ObjectPlacement placement = new ObjectPlacement(key, Guid.NewGuid(), name, GetDefaultLayer(), position, new { });
-		_history.Record(Placements, _selection);
-		Placements.Add(placement);
-		_selection.Clear();
-		_selection.Add(placement.Uid);
-		Dirty = true;
-		Rebind();
-		return placement;
-	}
-
-	public void DeleteSelection()
-	{
-		if (_selection.Count == 0)
+		if (!snapshot.Placements.SequenceEqual(Placements))
 		{
-			return;
-		}
-		_history.Record(Placements, _selection);
-		foreach (ObjectPlacement placement in Placements.Where(p => _selection.Contains(p.Uid)).ToArray())
-		{
-			Placements.Remove(placement);
-		}
-		_selection.Clear();
-		Dirty = true;
-		Rebind();
-	}
-
-	public void MoveSelection(Vector2i delta)
-	{
-		if (_selection.Count == 0)
-		{
-			return;
-		}
-		_history.Record(Placements, _selection);
-		ReplacePlacements(p => _selection.Contains(p.Uid) ? p.WithPosition(p.Position + delta) : p);
-	}
-
-	private void Copy()
-	{
-		if (_selection.Count == 0)
-		{
-			return;
-		}
-		Clipboard.Clear();
-		Clipboard.AddRange(Placements.Where(p => _selection.Contains(p.Uid)));
-		ShowMessage($"Copied {Clipboard.Count} objects.");
-	}
-
-	private void Duplicate()
-	{
-		if (_selection.Count == 0)
-		{
-			return;
-		}
-		ObjectPlacement[] selected = Placements.Where(p => _selection.Contains(p.Uid)).ToArray();
-		AddCopies(selected, new Vector2i(GridSize * 2, GridSize * 2));
-	}
-
-	/// <summary>Adds copies of the clipboard objects, with the centre of the group at a position.</summary>
-	private void Paste(Vector2 position)
-	{
-		ObjectPlacement[] available = Clipboard.Where(p => FindType(p.Key) != null).ToArray();
-		if (available.Length == 0)
-		{
-			if (Clipboard.Count > 0)
+			Placements.Clear();
+			foreach (ObjectPlacement placement in snapshot.Placements)
 			{
-				ShowMessage("This level cannot use the object types of the clipboard.");
+				Placements.Add(placement);
 			}
-			return;
+			MarkBindingChanged();
 		}
-		Vector2 centre = new Vector2(available.Average(p => (double)p.Position.X), available.Average(p => (double)p.Position.Y));
-		AddCopies(available, Snap(position) - Snap(centre));
-	}
-
-	/// <summary>
-	/// Adds copies of placements with new IDs. A mapping to an object that is also copied refers to the copy of that
-	/// object.
-	/// </summary>
-	private void AddCopies(IReadOnlyList<ObjectPlacement> sources, Vector2i offset)
-	{
-		Dictionary<Guid, Guid> newIds = sources.ToDictionary(p => p.Uid, _ => Guid.NewGuid());
-		_history.Record(Placements, _selection);
-		_selection.Clear();
-		foreach (ObjectPlacement source in sources)
+		if (!snapshot.Markers.SequenceEqual(Markers))
 		{
-			ObjectPlacement copy = source.With(newIds[source.Uid], source.Position + offset, source.Layer, source.Behaviour);
-			copy.Mappings = source.Mappings
-				.Select(m => Guid.TryParse(Convert.ToString(m.Value), out Guid target) && newIds.TryGetValue(target, out Guid newTarget)
-					? new KeyValuePair<string, object>(m.Key, newTarget.ToString())
-					: m)
-				.ToList();
-			Placements.Add(copy);
-			_selection.Add(copy.Uid);
+			Markers.Clear();
+			foreach (LevelMarker marker in snapshot.Markers)
+			{
+				Markers.Add(marker);
+			}
+			MarkMarkersChanged();
 		}
-		Dirty = true;
+		ObjectSelection.Clear();
+		ObjectSelection.UnionWith(snapshot.Selection);
+		MarkerSelection.Clear();
+		MarkerSelection.UnionWith(snapshot.MarkerSelection);
 		Rebind();
 	}
 
-	private void SelectAllInView()
+	/// <summary>The placements changed. The objects show the change on the next frame.</summary>
+	internal void MarkBindingChanged()
 	{
-		Rectangle view = Camera.Bounds;
-		foreach (ActiveObject activeObject in GetSelectableObjects().Where(o => view.IntersectsWith(GetBounds(o))))
-		{
-			_selection.Add(activeObject.Entry.Uid);
-		}
-	}
-
-	private void ReplacePlacements(Func<ObjectPlacement, ObjectPlacement> change)
-	{
-		for (int i = 0; i < Placements.Count; i++)
-		{
-			Placements[i] = change(Placements[i]);
-		}
-		Dirty = true;
+		BindingDirty = true;
 		Rebind();
 	}
 
-	private void ReplacePlacement(ObjectPlacement oldPlacement, ObjectPlacement newPlacement)
+	internal void MarkMarkersChanged()
 	{
-		int index = Placements.IndexOf(oldPlacement);
-		if (index < 0)
-		{
-			return;
-		}
-		_history.Record(Placements, _selection);
-		Placements[index] = newPlacement;
-		Dirty = true;
-		Rebind();
+		MarkersDirty = true;
 	}
 
 	/// <summary>Makes the object entries again from the placements, so that the level shows the placements as they are.</summary>
@@ -787,23 +718,7 @@ public sealed class LevelEditor : IDisposable
 		_level.ObjectManager.Rebind(_level.Binding);
 	}
 
-	/// <summary>The editor finds objects by ID, so each placement must have a different ID.</summary>
-	private void GiveUniqueIds()
-	{
-		HashSet<Guid> used = new HashSet<Guid>();
-		for (int i = 0; i < Placements.Count; i++)
-		{
-			ObjectPlacement placement = Placements[i];
-			if (placement.Uid == Guid.Empty || !used.Add(placement.Uid))
-			{
-				placement = placement.With(Guid.NewGuid(), placement.Position, placement.Layer, placement.Behaviour);
-				Placements[i] = placement;
-				used.Add(placement.Uid);
-			}
-		}
-	}
-
-	private void ShowMessage(string message)
+	internal void ShowMessage(string message)
 	{
 		_message = message;
 		_messageFrames = MessageFrames;
@@ -819,12 +734,16 @@ public sealed class LevelEditor : IDisposable
 	private void SetZoom(int index, Vector2 focusWorld, Vector2 focusScreen)
 	{
 		_zoomIndex = Math.Clamp(index, 0, Zooms.Length - 1);
-		double width = ScreenWidth / Zoom;
-		double height = ScreenHeight / Zoom;
-		Camera.Bounds = new Rectangle(focusWorld.X - focusScreen.X / Zoom, focusWorld.Y - focusScreen.Y / Zoom, width, height);
+		Camera.Bounds = new Rectangle(focusWorld.X - focusScreen.X / Zoom, focusWorld.Y - focusScreen.Y / Zoom, ScreenWidth / Zoom, ScreenHeight / Zoom);
 	}
 
-	private void CentreOn(Vector2i position)
+	private void MoveView(double x, double y)
+	{
+		Rectangle bounds = Camera.Bounds;
+		Camera.Bounds = new Rectangle(bounds.X + x, bounds.Y + y, bounds.Width, bounds.Height);
+	}
+
+	internal void CentreOn(Vector2 position)
 	{
 		Rectangle bounds = Camera.Bounds;
 		Camera.Bounds = new Rectangle(position.X - bounds.Width / 2.0, position.Y - bounds.Height / 2.0, bounds.Width, bounds.Height);
@@ -834,23 +753,11 @@ public sealed class LevelEditor : IDisposable
 	private void ClampCamera()
 	{
 		Rectangle bounds = Camera.Bounds;
-		Vector2i size = GetMapSize();
-		double margin = 1024.0;
-		double x = Math.Clamp(bounds.X, -margin, Math.Max(-margin, size.X + margin - bounds.Width));
-		double y = Math.Clamp(bounds.Y, -margin, Math.Max(-margin, size.Y + margin - bounds.Height));
+		Rectanglei map = _level.Map.Bounds;
+		const double margin = 1024.0;
+		double x = Math.Clamp(bounds.X, -margin, Math.Max(-margin, map.Width + margin - bounds.Width));
+		double y = Math.Clamp(bounds.Y, -margin, Math.Max(-margin, map.Height + margin - bounds.Height));
 		Camera.Bounds = new Rectangle(x, y, bounds.Width, bounds.Height);
-	}
-
-	private Vector2i GetMapSize()
-	{
-		int width = 0;
-		int height = 0;
-		foreach (LevelLayer layer in _level.Map.Layers)
-		{
-			width = Math.Max(width, layer.Columns * 64);
-			height = Math.Max(height, layer.Rows * 64);
-		}
-		return new Vector2i(width, height);
 	}
 
 	private Vector2 ToWorld(Vector2 screen)
@@ -859,19 +766,19 @@ public sealed class LevelEditor : IDisposable
 		return new Vector2(bounds.X + screen.X / Zoom, bounds.Y + screen.Y / Zoom);
 	}
 
-	private Vector2 ToScreen(Vector2 world)
+	internal Vector2 ToScreen(Vector2 world)
 	{
 		Rectangle bounds = Camera.Bounds;
 		return new Vector2((world.X - bounds.X) * Zoom, (world.Y - bounds.Y) * Zoom);
 	}
 
-	private Rectangle ToScreen(Rectangle world)
+	internal Rectangle ToScreen(Rectangle world)
 	{
 		Vector2 topLeft = ToScreen(new Vector2(world.X, world.Y));
 		return new Rectangle(topLeft.X, topLeft.Y, world.Width * Zoom, world.Height * Zoom);
 	}
 
-	private Vector2i Snap(Vector2 position)
+	internal Vector2i Snap(Vector2 position)
 	{
 		int grid = GridSize;
 		return new Vector2i((int)Math.Round(position.X / grid) * grid, (int)Math.Round(position.Y / grid) * grid);
@@ -884,61 +791,6 @@ public sealed class LevelEditor : IDisposable
 	private static bool IsOverStatusBar(Vector2 screen) => screen.Y >= ScreenHeight - StatusBarHeight;
 
 	private static bool IsOverLevel(Vector2 screen) => !IsOverTopBar(screen) && !IsOverPanel(screen) && !IsOverStatusBar(screen);
-
-	#endregion
-
-	#region Objects
-
-	/// <summary>The active objects that a placement made. Sub-objects, characters and particles are not selectable.</summary>
-	private IEnumerable<ActiveObject> GetSelectableObjects()
-	{
-		return _level.ObjectManager.ActiveObjects.Where(o => !o.IsSubObject && o.Entry != null && o.Entry.Active == o);
-	}
-
-	private static Rectangle GetBounds(ActiveObject activeObject)
-	{
-		Rectanglei designBounds = activeObject.DesignBounds;
-		double width = Math.Max(designBounds.Width, 32);
-		double height = Math.Max(designBounds.Height, 32);
-		double x = activeObject.Position.X + designBounds.X + (designBounds.Width - width) / 2.0;
-		double y = activeObject.Position.Y + designBounds.Y + (designBounds.Height - height) / 2.0;
-		return new Rectangle(x, y, width, height);
-	}
-
-	/// <summary>Finds the object under a position. When objects overlap, the smallest object is found.</summary>
-	private ActiveObject HitTest(Vector2 world)
-	{
-		return GetSelectableObjects()
-			.Where(o => GetBounds(o).Contains(world))
-			.OrderBy(o => GetBounds(o).Width * GetBounds(o).Height)
-			.FirstOrDefault();
-	}
-
-	private ObjectType FindType(string key)
-	{
-		return _level.ObjectManager.RegisteredTypes.FirstOrDefault(t => t.Resource != null && string.Equals(t.ResourceKey, key, StringComparison.OrdinalIgnoreCase));
-	}
-
-	/// <summary>The object types that the user can place: the loaded types that are not characters, animals or particles.</summary>
-	private IReadOnlyList<ObjectType> GetPaletteTypes()
-	{
-		return _level.ObjectManager.RegisteredTypes
-			.Where(t => t.Resource != null && t.Classification != ObjectClassification.Character &&
-				t.Classification != ObjectClassification.Animal && t.Classification != ObjectClassification.Particle)
-			.OrderBy(t => ShortName(t.ResourceKey), StringComparer.Ordinal)
-			.ToArray();
-	}
-
-	private int GetDefaultLayer()
-	{
-		return Placements.GroupBy(p => p.Layer).OrderByDescending(g => g.Count()).Select(g => g.Key).FirstOrDefault();
-	}
-
-	private static string ShortName(string key)
-	{
-		const string prefix = "SONICORCA/OBJECTS/";
-		return key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ? key.Substring(prefix.Length) : key;
-	}
 
 	#endregion
 
@@ -955,20 +807,6 @@ public sealed class LevelEditor : IDisposable
 		public bool Active;
 
 		public Action Action;
-	}
-
-	/// <summary>A row of the properties panel. A row with <see cref="Commit"/> takes a typed value. A row with <see cref="Step"/> changes on a click.</summary>
-	private sealed class PropertyRow
-	{
-		public string Label;
-
-		public string Value;
-
-		public Func<string, bool> Commit;
-
-		public Action<int> Step;
-
-		public bool IsHeading;
 	}
 
 	private List<Button> GetTopBarButtons()
@@ -988,43 +826,41 @@ public sealed class LevelEditor : IDisposable
 			});
 			x += width + 6.0;
 		}
+		for (int i = 0; i < _tools.Length; i++)
+		{
+			int index = i;
+			Add($"{_tools[i].Name} ({i + 1})", () => SelectTool(index), active: _tool == _tools[i]);
+		}
+		x += Padding;
 		Add("Play here (F5)", () => RequestPlay(EditorPlayRequest.FromCursor));
 		Add("Play from start (F2)", () => RequestPlay(EditorPlayRequest.FromStart));
-		Add("Save (Ctrl+S)", Save, active: Dirty);
+		Add("Save", Save, active: Dirty);
 		Add("Undo", Undo, _history.CanUndo);
 		Add("Redo", Redo, _history.CanRedo);
-		Add("Copy", Copy, _selection.Count > 0);
-		Add("Paste", () => Paste(Camera.Bounds.Centre), Clipboard.Count > 0);
-		Add("Delete", DeleteSelection, _selection.Count > 0);
-		Add($"Grid {GridSize} (G)", () => _gridIndex = (_gridIndex + 1) % GridSizes.Length);
+		Add("Delete", _tool.DeleteSelection, _tool.HasSelection);
+		Add($"Grid {GridSize}", () => _gridIndex = (_gridIndex + 1) % GridSizes.Length);
 		Add($"Zoom {Zoom * 100:0}%", () => SetZoom((_zoomIndex + 1) % Zooms.Length, Camera.Bounds.Centre));
 		return buttons;
 	}
 
 	private void OnPanelClick(int direction)
 	{
-		if (_mouse.Y < PaletteBottom)
+		if (Mouse.Y < ListBottom)
 		{
-			IReadOnlyList<ObjectType> types = GetPaletteTypes();
-			int index = (int)Math.Floor((_mouse.Y - (TopBarHeight + RowHeight) + _paletteScroll) / RowHeight);
-			if (_mouse.Y >= TopBarHeight + RowHeight && index >= 0 && index < types.Count)
+			int index = (int)Math.Floor((Mouse.Y - (TopBarHeight + RowHeight) + _listScroll) / RowHeight);
+			if (Mouse.Y >= TopBarHeight + RowHeight && index >= 0 && index < _tool.GetListRows().Count)
 			{
-				string key = types[index].ResourceKey;
-				_placeKey = _placeKey == key ? null : key;
-				if (_placeKey != null)
-				{
-					ShowMessage($"Click in the level to place {ShortName(key)}. Hold Shift to place more. Esc to stop.");
-				}
+				_tool.OnListClick(index, direction);
 			}
 			return;
 		}
-		List<PropertyRow> rows = GetPropertyRows();
-		int rowIndex = GetPropertyRowIndexAt(_mouse.Y);
+		List<EditorPropertyRow> rows = _tool.GetPropertyRows();
+		int rowIndex = GetPropertyRowIndexAt(Mouse.Y);
 		if (rowIndex < 0 || rowIndex >= rows.Count)
 		{
 			return;
 		}
-		PropertyRow row = rows[rowIndex];
+		EditorPropertyRow row = rows[rowIndex];
 		if (row.Step != null)
 		{
 			row.Step(direction);
@@ -1039,7 +875,7 @@ public sealed class LevelEditor : IDisposable
 
 	private int GetPropertyRowIndexAt(double y)
 	{
-		double top = PaletteBottom + RowHeight;
+		double top = ListBottom + RowHeight;
 		if (y < top)
 		{
 			return -1;
@@ -1049,93 +885,13 @@ public sealed class LevelEditor : IDisposable
 
 	private bool IsOverPropertyRow(string label)
 	{
-		if (!IsOverPanel(_mouse) || _mouse.Y < PaletteBottom)
+		if (!IsOverPanel(Mouse) || Mouse.Y < ListBottom)
 		{
 			return false;
 		}
-		List<PropertyRow> rows = GetPropertyRows();
-		int index = GetPropertyRowIndexAt(_mouse.Y);
+		List<EditorPropertyRow> rows = _tool.GetPropertyRows();
+		int index = GetPropertyRowIndexAt(Mouse.Y);
 		return index >= 0 && index < rows.Count && rows[index].Label == label;
-	}
-
-	/// <summary>The rows of the properties panel for the selection.</summary>
-	private List<PropertyRow> GetPropertyRows()
-	{
-		List<PropertyRow> rows = new List<PropertyRow>();
-		ObjectPlacement[] selected = Placements.Where(p => _selection.Contains(p.Uid)).ToArray();
-		if (selected.Length != 1)
-		{
-			if (selected.Length > 1)
-			{
-				rows.Add(new PropertyRow { Label = "Selected", Value = $"{selected.Length} objects", IsHeading = true });
-				foreach (IGrouping<string, ObjectPlacement> group in selected.GroupBy(p => p.Key).OrderBy(g => g.Key))
-				{
-					rows.Add(new PropertyRow { Label = ShortName(group.Key), Value = group.Count().ToString() });
-				}
-			}
-			return rows;
-		}
-		ObjectPlacement placement = selected[0];
-		rows.Add(new PropertyRow { Label = "Type", Value = ShortName(placement.Key), IsHeading = true });
-		rows.Add(new PropertyRow
-		{
-			Label = "Name",
-			Value = placement.Name ?? "",
-			Commit = text => ReplaceWith(placement, placement.With(placement.Uid, placement.Position, placement.Layer, placement.Behaviour, text))
-		});
-		rows.Add(new PropertyRow
-		{
-			Label = "X",
-			Value = placement.Position.X.ToString(),
-			Commit = text => int.TryParse(text, out int x) && ReplaceWith(placement, placement.WithPosition(new Vector2i(x, placement.Position.Y)))
-		});
-		rows.Add(new PropertyRow
-		{
-			Label = "Y",
-			Value = placement.Position.Y.ToString(),
-			Commit = text => int.TryParse(text, out int y) && ReplaceWith(placement, placement.WithPosition(new Vector2i(placement.Position.X, y)))
-		});
-		IList<LevelLayer> layers = _level.Map.Layers;
-		rows.Add(new PropertyRow
-		{
-			Label = "Layer",
-			Value = placement.Layer >= 0 && placement.Layer < layers.Count ? $"{placement.Layer}: {layers[placement.Layer].Name}" : placement.Layer.ToString(),
-			Step = direction =>
-			{
-				int layer = ((placement.Layer + direction) % layers.Count + layers.Count) % layers.Count;
-				ReplaceWith(placement, placement.With(placement.Uid, placement.Position, layer, placement.Behaviour));
-			}
-		});
-		ObjectType type = FindType(placement.Key);
-		if (type == null)
-		{
-			return rows;
-		}
-		rows.Add(new PropertyRow { Label = "Properties", Value = "", IsHeading = true });
-		foreach (EditorProperty property in EditorProperty.For(type))
-		{
-			object value = property.GetValue(placement);
-			PropertyRow row = new PropertyRow { Label = property.Name, Value = EditorProperty.Format(value) };
-			if (property.IsEditable)
-			{
-				if (property.Type == typeof(bool) || property.Type.IsEnum)
-				{
-					row.Step = direction => ReplaceWith(placement, property.SetValue(placement, property.Step(value, direction)));
-				}
-				else
-				{
-					row.Commit = text => property.TryParse(text, out object newValue) && ReplaceWith(placement, property.SetValue(placement, newValue));
-				}
-			}
-			rows.Add(row);
-		}
-		return rows;
-	}
-
-	private bool ReplaceWith(ObjectPlacement oldPlacement, ObjectPlacement newPlacement)
-	{
-		ReplacePlacement(oldPlacement, newPlacement);
-		return true;
 	}
 
 	#endregion
@@ -1146,11 +902,13 @@ public sealed class LevelEditor : IDisposable
 	{
 		I2dRenderer g = renderer.Get2dRenderer();
 		g.BlendMode = BlendMode.Alpha;
-		// The level renderer leaves the scale of the zoom in the model matrix
+		// The level renderer leaves the scale of the zoom in the model matrix and in the object renderer, which the
+		// font renderer uses
 		g.ModelMatrix = Matrix4.Identity;
-		DrawObjectOverlays(g);
+		renderer.GetObjectRenderer().Scale = new Vector2(1.0, 1.0);
+		_tool.DrawOverlay(renderer, g);
 		DrawStartPosition(renderer, g);
-		if (_drag == DragMode.Box && _dragMoved)
+		if (_drag == DragMode.Box && DragMoved)
 		{
 			Rectangle box = ToScreen(GetDragBox());
 			g.RenderQuad(SelectionFillColour, box);
@@ -1166,76 +924,59 @@ public sealed class LevelEditor : IDisposable
 		renderer.DeativateRenderer();
 	}
 
-	private void DrawObjectOverlays(I2dRenderer g)
+	/// <summary>While the level plays, reminds the user that the editor has changes that are not saved.</summary>
+	public void DrawPlayReminder(Renderer renderer)
 	{
-		ActiveObject hover = _drag == DragMode.None && IsOverLevel(_mouse) && _placeKey == null ? HitTest(_mouseWorld) : null;
-		foreach (ActiveObject activeObject in GetSelectableObjects())
+		if (!Dirty || !HasFont)
 		{
-			Rectangle bounds = ToScreen(GetBounds(activeObject));
-			if (_selection.Contains(activeObject.Entry.Uid))
-			{
-				g.RenderQuad(SelectionFillColour, bounds);
-				g.RenderRectangle(SelectionColour, bounds, 3.0);
-			}
-			else if (activeObject == hover)
-			{
-				g.RenderRectangle(HoverOutlineColour, bounds, 2.0);
-			}
-			else
-			{
-				g.RenderRectangle(ObjectOutlineColour, bounds, 1.0);
-			}
+			return;
 		}
+		I2dRenderer g = renderer.Get2dRenderer();
+		g.BlendMode = BlendMode.Alpha;
+		g.ModelMatrix = Matrix4.Identity;
+		const string text = "Editor changes not saved (F2, then Ctrl+S)";
+		DrawLabel(renderer, g, text, ScreenWidth - MeasureText(text) - Padding * 3.0, Padding, SelectionColour);
+		renderer.DeativateRenderer();
 	}
 
 	private void DrawStartPosition(Renderer renderer, I2dRenderer g)
 	{
 		Vector2 start = ToScreen((Vector2)_level.StartPosition);
-		DrawCross(g, start, 24.0, MarkerOutlineColour, 7.0);
+		DrawCross(g, start, 24.0, ShadowColour, 7.0);
 		DrawCross(g, start, 24.0, Colours.White, 3.0);
-		if (HasFont)
-		{
-			const string label = "START";
-			Rectangle box = new Rectangle(start.X + 10.0, start.Y - 40.0, MeasureText(label) + Padding, RowHeight - 4.0);
-			g.RenderQuad(PanelColour, box);
-			DrawText(renderer, label, box.X + Padding / 2.0, box.Y + 2.0, TextColour);
-		}
+		DrawLabel(renderer, g, "START", start.X + 10.0, start.Y - 40.0, TextColour);
 	}
 
-	private static void DrawCross(I2dRenderer g, Vector2 centre, double size, Colour colour, double thickness)
+	internal static void DrawCross(I2dRenderer g, Vector2 centre, double size, Colour colour, double thickness)
 	{
 		g.RenderLine(colour, new Vector2(centre.X - size, centre.Y), new Vector2(centre.X + size, centre.Y), thickness);
 		g.RenderLine(colour, new Vector2(centre.X, centre.Y - size), new Vector2(centre.X, centre.Y + size), thickness);
 	}
 
-	/// <summary>Shows the type of the object under the mouse, or the type that a click places.</summary>
-	private void DrawCursorLabel(Renderer renderer, I2dRenderer g)
+	/// <summary>Draws a text on a dark box, for labels in the level.</summary>
+	internal void DrawLabel(Renderer renderer, I2dRenderer g, string text, double x, double y, Colour colour)
 	{
-		if (!IsOverLevel(_mouse) || _drag != DragMode.None)
+		if (!HasFont)
 		{
 			return;
 		}
-		string label;
-		if (_placeKey != null)
-		{
-			Vector2 position = ToScreen((Vector2)Snap(_mouseWorld));
-			g.RenderLine(SelectionColour, new Vector2(position.X - 16.0, position.Y), new Vector2(position.X + 16.0, position.Y), 2.0);
-			g.RenderLine(SelectionColour, new Vector2(position.X, position.Y - 16.0), new Vector2(position.X, position.Y + 16.0), 2.0);
-			label = "+ " + ShortName(_placeKey);
-		}
-		else
-		{
-			ActiveObject hover = HitTest(_mouseWorld);
-			if (hover == null)
-			{
-				return;
-			}
-			label = ShortName(hover.Type.ResourceKey);
-		}
-		double width = MeasureText(label) + Padding;
-		Rectangle box = new Rectangle(_mouse.X + 18.0, _mouse.Y + 18.0, width, RowHeight - 4.0);
+		Rectangle box = new Rectangle(x, y, MeasureText(text) + Padding, RowHeight - 4.0);
 		g.RenderQuad(PanelColour, box);
-		DrawText(renderer, label, box.X + Padding / 2.0, box.Y + 2.0, TextColour);
+		DrawText(renderer, text, box.X + Padding / 2.0, box.Y + 2.0, colour);
+	}
+
+	/// <summary>Shows what is under the mouse, or what a click adds.</summary>
+	private void DrawCursorLabel(Renderer renderer, I2dRenderer g)
+	{
+		if (!IsOverLevel(Mouse) || _drag != DragMode.None)
+		{
+			return;
+		}
+		string label = _tool.GetCursorLabel(g);
+		if (label != null)
+		{
+			DrawLabel(renderer, g, label, Mouse.X + 18.0, Mouse.Y + 18.0, TextColour);
+		}
 	}
 
 	private void DrawTopBar(Renderer renderer, I2dRenderer g)
@@ -1243,7 +984,7 @@ public sealed class LevelEditor : IDisposable
 		g.RenderQuad(PanelColour, new Rectangle(0.0, 0.0, ScreenWidth, TopBarHeight));
 		foreach (Button button in GetTopBarButtons())
 		{
-			bool hover = button.Enabled && button.Bounds.Contains(_mouse);
+			bool hover = button.Enabled && button.Bounds.Contains(Mouse);
 			g.RenderQuad(button.Active ? AccentColour : (hover ? ButtonHoverColour : ButtonColour), button.Bounds);
 			DrawText(renderer, button.Text, button.Bounds.X + Padding, button.Bounds.Y + (button.Bounds.Height - TextHeight) / 2.0, button.Enabled ? TextColour : DimTextColour);
 		}
@@ -1257,44 +998,41 @@ public sealed class LevelEditor : IDisposable
 		double bottom = ScreenHeight - StatusBarHeight;
 		g.RenderQuad(PanelColour, new Rectangle(left, TopBarHeight, PanelWidth, bottom - TopBarHeight));
 
-		// The palette
-		DrawHeading(renderer, g, "Objects (click, then click in the level)", left, TopBarHeight);
-		IReadOnlyList<ObjectType> types = GetPaletteTypes();
-		Dictionary<string, int> counts = Placements.GroupBy(p => p.Key, StringComparer.OrdinalIgnoreCase).ToDictionary(x => x.Key, x => x.Count(), StringComparer.OrdinalIgnoreCase);
+		DrawHeading(renderer, g, _tool.ListHeading, left, TopBarHeight);
+		IReadOnlyList<EditorListRow> listRows = _tool.GetListRows();
 		double listTop = TopBarHeight + RowHeight;
-		_paletteScroll = Math.Min(_paletteScroll, Math.Max(0.0, types.Count * RowHeight - (PaletteBottom - listTop)));
-		g.ClipRectangle = new Rectangle(left, listTop, PanelWidth, PaletteBottom - listTop);
-		for (int i = 0; i < types.Count; i++)
+		_listScroll = Math.Min(_listScroll, Math.Max(0.0, listRows.Count * RowHeight - (ListBottom - listTop)));
+		g.ClipRectangle = new Rectangle(left, listTop, PanelWidth, ListBottom - listTop);
+		for (int i = 0; i < listRows.Count; i++)
 		{
-			double y = listTop + i * RowHeight - _paletteScroll;
-			if (y + RowHeight < listTop || y > PaletteBottom)
+			double y = listTop + i * RowHeight - _listScroll;
+			if (y + RowHeight < listTop || y > ListBottom)
 			{
 				continue;
 			}
+			EditorListRow listRow = listRows[i];
 			Rectangle row = new Rectangle(left, y, PanelWidth, RowHeight);
-			string key = types[i].ResourceKey;
-			if (string.Equals(key, _placeKey, StringComparison.OrdinalIgnoreCase))
+			if (listRow.Active)
 			{
 				g.RenderQuad(AccentColour, row);
 			}
-			else if (row.Contains(_mouse))
+			else if (row.Contains(Mouse))
 			{
 				g.RenderQuad(ButtonHoverColour, row);
 			}
-			DrawText(renderer, ShortName(key), left + Padding, y + (RowHeight - TextHeight) / 2.0, TextColour);
-			if (counts.TryGetValue(key, out int count))
+			double textY = y + (RowHeight - TextHeight) / 2.0;
+			DrawText(renderer, listRow.Text, left + Padding, textY, listRow.Dim ? DimTextColour : TextColour);
+			if (!string.IsNullOrEmpty(listRow.Detail))
 			{
-				string countText = count.ToString();
-				DrawText(renderer, countText, ScreenWidth - Padding - MeasureText(countText), y + (RowHeight - TextHeight) / 2.0, DimTextColour);
+				DrawText(renderer, listRow.Detail, ScreenWidth - Padding - MeasureText(listRow.Detail), textY, DimTextColour);
 			}
 		}
 		renderer.DeativateRenderer();
 		g.ClipRectangle = new Rectangle(0.0, 0.0, ScreenWidth, ScreenHeight);
 
-		// The properties of the selection
-		DrawHeading(renderer, g, _selection.Count == 0 ? "Properties (select an object)" : "Properties (click a value to change it)", left, PaletteBottom);
-		List<PropertyRow> rows = GetPropertyRows();
-		double rowsTop = PaletteBottom + RowHeight;
+		DrawHeading(renderer, g, _tool.PropertiesHeading, left, ListBottom);
+		List<EditorPropertyRow> rows = _tool.GetPropertyRows();
+		double rowsTop = ListBottom + RowHeight;
 		_propertyScroll = Math.Min(_propertyScroll, Math.Max(0.0, rows.Count * RowHeight - (bottom - rowsTop)));
 		g.ClipRectangle = new Rectangle(left, rowsTop, PanelWidth, bottom - rowsTop);
 		for (int i = 0; i < rows.Count; i++)
@@ -1304,7 +1042,7 @@ public sealed class LevelEditor : IDisposable
 			{
 				continue;
 			}
-			PropertyRow row = rows[i];
+			EditorPropertyRow row = rows[i];
 			Rectangle bounds = new Rectangle(left, y, PanelWidth, RowHeight);
 			bool editing = row.Label == _editingRow;
 			bool changeable = row.Commit != null || row.Step != null;
@@ -1312,7 +1050,7 @@ public sealed class LevelEditor : IDisposable
 			{
 				g.RenderQuad(AccentColour, bounds);
 			}
-			else if (changeable && bounds.Contains(_mouse))
+			else if (changeable && bounds.Contains(Mouse))
 			{
 				g.RenderQuad(ButtonHoverColour, bounds);
 			}
@@ -1335,12 +1073,12 @@ public sealed class LevelEditor : IDisposable
 	{
 		double top = ScreenHeight - StatusBarHeight;
 		g.RenderQuad(PanelColour, new Rectangle(0.0, top, ScreenWidth, StatusBarHeight));
-		Vector2i position = Snap(_mouseWorld);
-		string left = IsOverLevel(_mouse)
-			? $"X {position.X}  Y {position.Y}   (original {position.X / 4}, {position.Y / 4})   Objects {Placements.Count}   Selected {_selection.Count}"
-			: $"Objects {Placements.Count}   Selected {_selection.Count}";
+		Vector2i position = Snap(MouseWorld);
+		string left = IsOverLevel(Mouse)
+			? $"X {position.X}  Y {position.Y}   (original {position.X / 4}, {position.Y / 4})   {_tool.Status}"
+			: _tool.Status;
 		DrawText(renderer, left, Padding, top + (StatusBarHeight - TextHeight) / 2.0, DimTextColour);
-		string right = _messageFrames > 0 ? _message : "Drag: move or select.  Right drag, Space drag or wheel: scroll.  Ctrl+wheel: zoom.  Del: delete.  Ctrl+Z: undo.";
+		string right = _messageFrames > 0 ? _message : _tool.Hint;
 		DrawText(renderer, right, ScreenWidth - Padding - MeasureText(right), top + (StatusBarHeight - TextHeight) / 2.0, _messageFrames > 0 ? TextColour : DimTextColour);
 	}
 
@@ -1353,10 +1091,14 @@ public sealed class LevelEditor : IDisposable
 
 	private double TextHeight => _font.Height * TextScale;
 
-	private double MeasureText(string text) => HasFont ? _font.MeasureString(text).Width * TextScale : text.Length * 10.0;
+	internal double MeasureText(string text) => HasFont ? _font.MeasureString(text).Width * TextScale : text.Length * 10.0;
 
-	private void DrawText(Renderer renderer, string text, double x, double y, Colour colour)
+	internal void DrawText(Renderer renderer, string text, double x, double y, Colour colour)
 	{
+		if (!HasFont)
+		{
+			return;
+		}
 		I2dRenderer g = renderer.Get2dRenderer();
 		using (g.BeginMatixState())
 		{
