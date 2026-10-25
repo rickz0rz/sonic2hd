@@ -164,6 +164,8 @@ public class OggDecodeStream : Stream
 
 			// Decode the audio packets.
 			int convertSize = InputChunkSize / info.channels;
+			long streamStart = output.Position;
+			long lastGranule = -1;
 			dspState.synthesis_init(info);
 			block.init(dspState);
 			float[][][] pcm = new float[1][][];
@@ -183,6 +185,10 @@ public class OggDecodeStream : Stream
 						continue;
 					}
 					streamState.pagein(page);
+					if (page.granulepos() >= 0)
+					{
+						lastGranule = page.granulepos();
+					}
 					while (true)
 					{
 						int packetResult = streamState.packetout(packet);
@@ -246,6 +252,15 @@ public class OggDecodeStream : Stream
 						endOfStream = true;
 					}
 				}
+			}
+			// The granule position of the last page is the number of samples of the stream. The last block of the
+			// decoder can give a few more samples, which are only padding. Without the cut, a looped sample plays
+			// the padding before each loop.
+			long streamEnd = streamStart + lastGranule * 2 * info.channels;
+			if (lastGranule > 0 && streamEnd < output.Length)
+			{
+				output.SetLength(streamEnd);
+				output.Seek(streamEnd, SeekOrigin.Begin);
 			}
 			streamState.clear();
 			block.clear();

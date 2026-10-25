@@ -148,7 +148,8 @@ game data or of an import. To share the mod as one file, pack the folder with `-
 ### Import all
 
 The build does not make the data of the missing zones. One script makes all the mods that come from the
-disassembly: the zones, the special stage layouts and the demos. The sections below tell what each import does.
+disassembly: the zones, their music, the special stage layouts and the demos. The music needs `ffmpeg` on the
+`PATH` (or set `S2HD_FFMPEG`). The sections below tell what each import does.
 
 ```sh
 git clone https://github.com/sonicretro/s2disasm.git ../s2disasm
@@ -158,6 +159,24 @@ git clone https://github.com/sonicretro/s2disasm.git ../s2disasm
 The script finds the disassembly at `S2DISASM_DIR`, `../s2disasm` or `../../sonicretro/s2disasm`. It writes the
 `.dat` files to the `mods` folder in the user data folder. To use other folders, give them as arguments:
 `./tools/import-all.sh <s2disasm> <mods>`. Run the script again after an update of this repository.
+
+### Music
+
+The demo data has no music for ARZ, CNZ, MCZ, OOZ, SCZ, WFZ and DEZ. The import command makes this music from the
+songs of the disassembly (`sound/music`):
+
+```sh
+dotnet run --project tools/s2hd-data -- import-music ../s2disasm music
+dotnet run --project tools/s2hd-data -- pack music music.dat --base data/sonicorca.dat
+```
+
+The command plays each song with a copy of the Sonic 2 sound driver in C#. The driver sends the notes to emulated
+YM2612 (FM) and SN76489 (PSG) chips, and the DAC drums come from `sound/DAC`. The command finds the point where the
+song repeats, and `ffmpeg` encodes the sound as Ogg Vorbis at 48000 Hz. The sample info of each song gives the loop
+point, so the game repeats the song without a gap. It takes about 10 seconds. The songs use the fixes of
+`FixMusicAndSFXDataBugs`, so they play as their composers meant.
+
+Put `music.dat` in the `mods` folder. The music comes from the original game, so do not commit it.
 
 ### Special stage layouts
 
