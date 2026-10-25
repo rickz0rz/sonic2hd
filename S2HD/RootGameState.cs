@@ -239,7 +239,7 @@ internal class RootGameState : IGameState, IDisposable
 		string areaResourceKey = Levels.GetAreaResourceKey(mnemonic);
 		if (areaResourceKey == null)
 			return null;
-		int levelNumber = Levels.GetLevelIndex(mnemonic);
+		int levelNumber = Levels.GetLevelIndex(mnemonic, _gameContext.ResourceTree);
 		if (levelNumber == -1)
 			levelNumber = 1;
 		LevelPrepareSettings settingsFromCommandLine = new LevelPrepareSettings()

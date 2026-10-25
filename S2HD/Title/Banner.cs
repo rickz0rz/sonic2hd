@@ -30,15 +30,10 @@ internal class Banner
 	private readonly S2HDSonicOrcaGameContext _gameContext;
 	private readonly IMaskRenderer _maskRenderer;
 	private AnimationGroup _animationGroup;
-	[ResourcePath("SONICORCA/TITLE/FRAMES/0")]
 	private ITexture _bannerTexture;
-	[ResourcePath("SONICORCA/TITLE/FRAMES/1")]
 	private ITexture _bannerInsideTexture;
-	[ResourcePath("SONICORCA/TITLE/ADDFRAMES/0")]
 	private ITexture _hdStarTexture;
-	[ResourcePath("SONICORCA/TITLE/ADDFRAMES/1")]
 	private ITexture _maskTexture;
-	[ResourcePath("SONICORCA/TITLE/ADDFRAMES/2")]
 	private ITexture _titleOutlineTexture;
 	private AnimationInstance[] _preBannerStarSpin;
 	private AnimationInstance _sonicAnimationInstance;
@@ -67,10 +62,7 @@ internal class Banner
 		Position = new Vector2i(960, 476);
 	}
 
-	/// <remarks>
-	/// The resource attributes on the texture fields are not used. This method sets the fields, and it gives
-	/// _titleOutlineTexture and _hdStarTexture the opposite keys of their attributes.
-	/// </remarks>
+	/// <summary>Gets the animation group and the textures of the banner from the loaded resources.</summary>
 	private void GetResourceReferences()
 	{
 		ResourceTree resourceTree = _gameContext.ResourceTree;

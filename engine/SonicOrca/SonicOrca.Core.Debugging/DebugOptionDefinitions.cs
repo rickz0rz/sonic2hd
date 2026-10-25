@@ -398,7 +398,7 @@ internal static class DebugOptionDefinitions
 			return new KeyValuePair<string, object>[1][] { new KeyValuePair<string, object>[2]
 			{
 				new KeyValuePair<string, object>("TOTAL VECTORS", collisionTable.Count),
-				new KeyValuePair<string, object>("TOTAL QUADTREE NODES", internalTree.GetDepth())
+				new KeyValuePair<string, object>("QUADTREE DEPTH", internalTree.GetDepth())
 			} };
 		}
 	}

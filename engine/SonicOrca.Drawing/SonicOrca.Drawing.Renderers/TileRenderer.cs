@@ -120,7 +120,7 @@ public class TileRenderer : ITileRenderer, IRenderer, IDisposable
 	{
 		if (Rendering)
 		{
-			throw new InvalidOperationException("Already renderering.");
+			throw new InvalidOperationException("Already rendering.");
 		}
 		Rendering = true;
 		NumTiles = 0;
@@ -131,7 +131,7 @@ public class TileRenderer : ITileRenderer, IRenderer, IDisposable
 	{
 		if (!Rendering)
 		{
-			throw new Exception("Not currently renderering");
+			throw new Exception("Not currently rendering.");
 		}
 		ITexture texture = Textures[textureIndex];
 		Renderer.GetVertices(destination, _vertexPositions);
@@ -161,7 +161,7 @@ public class TileRenderer : ITileRenderer, IRenderer, IDisposable
 	{
 		if (!Rendering)
 		{
-			throw new Exception("Not currently renderering");
+			throw new Exception("Not currently rendering.");
 		}
 		_vbo.SetData(_vertices, 0, numVertices);
 		_renderer.ActivateRenderer(this);

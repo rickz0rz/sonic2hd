@@ -246,11 +246,9 @@ public class SonicOrcaConsole : IDisposable
 				WriteLine("usage: barrier <none|classic|bubble|fire|lightning>");
 				return;
 		}
-		// The local variable hides the LevelGameState property and is always null, so this command has no effect.
-		LevelGameState levelGameState = null;
-		if (levelGameState != null && levelGameState.Level != null)
+		if (LevelGameState != null && LevelGameState.Level != null)
 		{
-			ICharacter protagonist = levelGameState.Player.Protagonist;
+			ICharacter protagonist = LevelGameState.Player.Protagonist;
 			if (protagonist != null)
 			{
 				protagonist.Barrier = barrierType;
@@ -311,17 +309,18 @@ public class SonicOrcaConsole : IDisposable
 		{
 			return;
 		}
-		// The other arguments are "-name value" pairs that set the behaviour of the new object.
+		// The other arguments are "-name value" pairs that set the behaviour of the new object. A later pair with
+		// the same name replaces an earlier one.
 		Dictionary<string, object> behaviour = new Dictionary<string, object>();
 		for (int i = 1; i < args.Length; i++)
 		{
-			if (args[i].StartsWith("-") || i >= args.Length - 2)
+			if (!args[i].StartsWith("-") || i + 1 >= args.Length)
 			{
-				string key = args[i].Substring(1);
-				object value = ParseBehaviourValue(args[i + 1]);
-				behaviour.Add(key, value);
-				i++;
+				WriteLine("usage: spawn <object> [-name value]...");
+				return;
 			}
+			behaviour[args[i].Substring(1)] = ParseBehaviourValue(args[i + 1]);
+			i++;
 		}
 		Vector2i position = level.Player.Protagonist.Position;
 		LevelLayer layer = level.Map.Layers[level.Map.CollisionPathLayers.Last()];
