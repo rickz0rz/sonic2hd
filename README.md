@@ -11,7 +11,7 @@ non-profit fan project, not affiliated with SEGA or Sonic Team.
 |---|---|
 | `S2HD/`, `SONICORCA/` | Game code (title, menus, levels, objects) |
 | `engine/` | Decompiled SonicOrca engine projects |
-| `assets/` | Shaders (patched for core-profile OpenGL) and the app icon |
+| `assets/` | Shaders (patched for core-profile OpenGL) and the app icons (`S2HD.icon` for macOS, `S2HD.ico` for Windows) |
 | `lib/` | `SDL2-CS.dll`; FFmpeg for Windows is downloaded into `lib/ffmpeg` |
 | `tests/` | Tests: the resource file format and a screenshot regression test |
 | `tools/` | Release scripts, the resource tool `s2hd-data` and the local web server |
@@ -50,6 +50,10 @@ open publish/S2HD.app
 `build-app.sh` bundles SDL2 2.32.10 and an LGPL FFmpeg 7.1.3 (H.264/MP4 decoding only) into `S2HD.app` and
 ad-hoc signs it for local use. Alternatively, build a kit on Windows with `.\tools\publish.ps1 -Runtime osx-arm64 -Zip`,
 copy `publish\S2HD-macos-kit.zip` to the Mac, unzip it and run `./build-app.sh`.
+
+The app icon is `assets/S2HD.icon`, an Icon Composer file. On macOS 26 and later it has the Liquid Glass look.
+`build-app.sh` compiles it with `actool`, which needs Xcode 26 or later. Without that version of Xcode, the script
+makes a flat icon from `assets/S2HD.png`.
 
 ## Web (experimental)
 

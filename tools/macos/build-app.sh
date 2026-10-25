@@ -4,8 +4,11 @@
 #
 #   ./build-app.sh [publish-dir] [output-dir]
 #
-# Works from the macOS kit made by tools/publish.ps1 -Runtime osx-arm64 (S2HD-osx-arm64/ and S2HD.png
-# beside this script), or from a repository checkout (publish/S2HD-osx-arm64 and assets/S2HD.png).
+# Works from the macOS kit made by tools/publish.ps1 -Runtime osx-arm64 (S2HD-osx-arm64/, S2HD.icon and
+# S2HD.png beside this script), or from a repository checkout (publish/S2HD-osx-arm64 and assets/).
+#
+# The app icon comes from S2HD.icon (an Icon Composer file, with the Liquid Glass look of macOS 26 and
+# later). actool from Xcode 26 or later compiles it. Without that actool, the icon is made from S2HD.png.
 #
 # Bundled native libraries (cached in ~/Library/Caches/S2HD-build between runs):
 #   - SDL2: official release framework binary (zlib license)
@@ -18,11 +21,13 @@ BUNDLE_ID="${S2HD_BUNDLE_ID:-local.s2hd.game}"
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ -d "$HERE/S2HD-osx-arm64" ]]; then
-  DEFAULT_PUBLISH="$HERE/S2HD-osx-arm64"; ICON_PNG="$HERE/S2HD.png"; DEFAULT_OUT="$HERE"
+  DEFAULT_PUBLISH="$HERE/S2HD-osx-arm64"; ICON_DIR="$HERE"; DEFAULT_OUT="$HERE"
 else
   REPO="$(cd "$HERE/../.." && pwd)"
-  DEFAULT_PUBLISH="$REPO/publish/S2HD-osx-arm64"; ICON_PNG="$REPO/assets/S2HD.png"; DEFAULT_OUT="$REPO/publish"
+  DEFAULT_PUBLISH="$REPO/publish/S2HD-osx-arm64"; ICON_DIR="$REPO/assets"; DEFAULT_OUT="$REPO/publish"
 fi
+ICON_FILE="$ICON_DIR/S2HD.icon"
+ICON_PNG="$ICON_DIR/S2HD.png"
 PUBLISH_DIR="$(cd "${1:-$DEFAULT_PUBLISH}" && pwd)"
 OUT_DIR="${2:-$DEFAULT_OUT}"
 APP="$OUT_DIR/S2HD.app"
@@ -97,6 +102,7 @@ write_info_plist() {
   <key>CFBundleIdentifier</key><string>$BUNDLE_ID</string>
   <key>CFBundleExecutable</key><string>S2HD</string>
   <key>CFBundleIconFile</key><string>S2HD</string>
+  <key>CFBundleIconName</key><string>S2HD</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>2.0.1012</string>
   <key>CFBundleVersion</key><string>2.0.1012.10521</string>
@@ -108,7 +114,24 @@ write_info_plist() {
 EOF
 }
 
+# Compiles S2HD.icon into Assets.car (the icon of macOS 26 and later) and S2HD.icns (for older macOS).
+# Returns non-zero when actool is missing or cannot read the file, so that make_icns can make the icon.
+compile_icon() {
+  [[ -d "$ICON_FILE" ]] || return 1
+  xcrun --find actool >/dev/null 2>&1 || { log "actool not found (install Xcode 26 or later for the Liquid Glass icon)"; return 1; }
+  local partial; partial="$(mktemp -d)/partial.plist"
+  if ! xcrun actool "$ICON_FILE" --compile "$APP/Contents/Resources" --app-icon S2HD \
+      --platform macosx --target-device mac --minimum-deployment-target 14.0 \
+      --output-partial-info-plist "$partial" >/dev/null 2>&1 || [[ ! -f "$APP/Contents/Resources/Assets.car" ]]; then
+    log "actool could not compile $ICON_FILE (it needs Xcode 26 or later)"
+    rm -f "$APP/Contents/Resources/Assets.car" "$APP/Contents/Resources/S2HD.icns"
+    return 1
+  fi
+  log "Compiled the app icon from $ICON_FILE"
+}
+
 make_icns() {
+  compile_icon && return
   [[ -f "$ICON_PNG" ]] || { log "No icon found at $ICON_PNG; skipping"; return; }
   local iconset; iconset="$(mktemp -d)/S2HD.iconset"
   mkdir -p "$iconset"
