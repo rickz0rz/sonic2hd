@@ -81,7 +81,10 @@ dotnet run --project tools/web-server -- publish/web/wwwroot 8080
 ```
 
 Then open http://localhost:8080. The `?data=<url>` query parameter loads a zip from the same site instead of asking,
-which is useful for testing. Keyboard controls match the desktop game. Sound starts at the first key press or click,
+which is useful for testing. `?args=` gives options as on the desktop command line, for example
+`?args=--halfpipe%201` or `?args=--level%20arz`. `?profile` turns on the frame profiler, as `S2HD_PROFILE=1` does on
+the desktop. The green text at the top left shows the frame rate, the CPU time of a game step and the time of the
+audio mix, every 5 seconds. Keyboard controls match the desktop game. Sound starts at the first key press or click,
 because browsers block audio until then. Gamepads and the credits video are not implemented yet, and a browser
 with WebGL2 and a keyboard is required.
 

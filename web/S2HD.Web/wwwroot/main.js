@@ -175,7 +175,7 @@ if (params.has('shadertest')) { report(game.CompileAllShaders()); report('DONE')
 
 // Game loop: logic runs at a fixed 60 Hz regardless of the display's refresh rate
 const STEP = 1000 / 60;
-const perf = { steps: [], intervals: [] };
+const perf = { steps: [], intervals: [], mixes: [] };
 const shotFrames = new Set((params.get('shots') || '').split(',').filter(Boolean).map(Number));
 let last = 0, accumulator = 0, frames = 0, running = false;
 
@@ -183,7 +183,8 @@ async function start() {
   setStatus('Starting…');
   await new Promise(requestAnimationFrame);
   const t0 = performance.now();
-  const error = game.Start();
+  // ?args=--halfpipe%201 passes options as on the desktop command line. ?profile turns on the frame profiler
+  const error = game.Start(params.get('args') || '', params.has('profile'));
   if (error) { setStatus(error); return; }
   console.log(`Started in ${(performance.now() - t0).toFixed(0)} ms`);
   panel.hidden = true;
@@ -211,7 +212,9 @@ function loop(now) {
     // ?shots=600,1800 reports the canvas at those frames (captured before the browser clears the buffer)
     if (shotFrames.has(frames)) report(`SHOT ${frames} ${canvas.toDataURL('image/png')}`);
   }
+  const mixStart = performance.now();
   pumpAudio(now);
+  perf.mixes.push(performance.now() - mixStart);
   requestAnimationFrame(loop);
 }
 
@@ -222,15 +225,16 @@ function stats(values) {
 }
 
 function reportPerformance() {
-  const step = stats(perf.steps), interval = stats(perf.intervals);
+  const step = stats(perf.steps), interval = stats(perf.intervals), mix = stats(perf.mixes);
   const over = perf.steps.filter((v) => v > STEP).length;
   const line = `PERF frame ${frames}: step avg ${step.avg.toFixed(2)} p95 ${step.p95.toFixed(2)} max ${step.max.toFixed(1)} ms | ` +
-    `over budget ${over}/${perf.steps.length} | rAF interval avg ${interval.avg.toFixed(2)} p95 ${interval.p95.toFixed(2)} ms | ` +
+    `over budget ${over}/${perf.steps.length} | audio mix avg ${mix.avg.toFixed(2)} p95 ${mix.p95.toFixed(2)} max ${mix.max.toFixed(1)} ms | rAF interval avg ${interval.avg.toFixed(2)} p95 ${interval.p95.toFixed(2)} ms | ` +
     `audio ${audio.context?.state ?? 'off'} peak ${audio.peak.toFixed(2)} underruns ${audio.underruns}`;
   audio.peak = 0;
   audio.underruns = 0;
   report(line);
-  hud.textContent = `${(1000 / interval.avg).toFixed(0)} fps · step ${step.avg.toFixed(1)} ms (p95 ${step.p95.toFixed(1)})`;
+  hud.textContent = `${(1000 / interval.avg).toFixed(0)} fps · step ${step.avg.toFixed(1)} ms (p95 ${step.p95.toFixed(1)}) · audio ${mix.avg.toFixed(1)} ms`;
   perf.steps.length = 0;
   perf.intervals.length = 0;
+  perf.mixes.length = 0;
 }
