@@ -342,6 +342,12 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	private const int NumPointsWide = 32;
 
+	/// <summary>The pipe quads between two track nodes.</summary>
+	private const int QuadsPerNode = NumPointsWide - 1;
+
+	/// <summary>The quads of the whole pipe, made once. The quads between node i - 1 and node i come at (i - 1) * <see cref="QuadsPerNode"/>.</summary>
+	private VertexBuffer _pipeBuffer;
+
 	private int _ticks;
 
 	private Vector3 _camera;
@@ -455,6 +461,8 @@ public class HalfPipeSpecialStageScreen : Screen
 		_checkpoints = _track.Checkpoints;
 		_flow = new HalfPipeStageFlow(_track);
 		_emeraldTexture = CreateEmeraldTexture(_graphicsContext, _stage);
+		_pipeBuffer = _graphicsContext.CreateVertexBuffer(3, 2);
+		FillPipeBuffer();
 	}
 
 	public override void Update()
@@ -760,6 +768,7 @@ public class HalfPipeSpecialStageScreen : Screen
 	public override void Deinitialise()
 	{
 		_vertexBuffer?.Dispose();
+		_pipeBuffer?.Dispose();
 		_emeraldTexture?.Dispose();
 		_pipeShader?.Dispose();
 		_objectShader?.Dispose();
@@ -798,8 +807,15 @@ public class HalfPipeSpecialStageScreen : Screen
 		_graphicsContext.ClearDepthBuffer();
 		_graphicsContext.DepthTesting = true;
 		_graphicsContext.BlendMode = BlendMode.Alpha;
+		IShaderProgram program = _pipeShader.Program;
+		program.Activate();
+		program.SetUniform("ProjectionMatrix", _projectionMatrix);
+		program.SetUniform("ModelViewMatrix", _modelViewMatrix);
+		program.SetUniform("InputTexture", 0);
+		program.SetUniform("InputLightSource", _track.Nodes[_currentTrackNode].Position);
+		DrawPipe(program);
+
 		List<TexturedQuad> quads = new List<TexturedQuad>();
-		AddPipeQuads(quads);
 		AddObjectQuads(quads);
 		AddPlayerQuads(quads, _player, _sonicAnimation, SonicHeight);
 		if (_tails != null)
@@ -808,7 +824,8 @@ public class HalfPipeSpecialStageScreen : Screen
 		}
 		AddEmeraldQuad(quads);
 
-		// Draw the quads from back to front. Group the quads that use the same texture and style into one draw call.
+		// Draw the sprites from back to front, after the pipe, which is opaque. Group the quads that use the same
+		// texture and style into one draw call.
 		List<(int Count, ITexture Texture, QuadStyle Style)> batches = new List<(int, ITexture, QuadStyle)>();
 		int batchCount = 0;
 		ITexture texture = null;
@@ -840,12 +857,6 @@ public class HalfPipeSpecialStageScreen : Screen
 			batches.Add((batchCount, texture, style));
 		}
 		_vertexBuffer.End();
-		IShaderProgram program = _pipeShader.Program;
-		program.Activate();
-		program.SetUniform("ProjectionMatrix", _projectionMatrix);
-		program.SetUniform("ModelViewMatrix", _modelViewMatrix);
-		program.SetUniform("InputTexture", 0);
-		program.SetUniform("InputLightSource", _track.Nodes[_currentTrackNode].Position);
 		int firstQuad = 0;
 		foreach ((int count, ITexture batchTexture, QuadStyle batchStyle) in batches)
 		{
@@ -878,41 +889,66 @@ public class HalfPipeSpecialStageScreen : Screen
 		return Matrix4.Identity.RotateY(node.Yaw).Translate(node.Position);
 	}
 
-	private void AddPipeQuads(List<TexturedQuad> quads)
+	/// <summary>
+	/// Makes the quads of the whole pipe once. The pipe does not change, so each frame draws a part of this buffer
+	/// in one call, and only the sprites go into the vertex buffer of the frame.
+	/// </summary>
+	private void FillPipeBuffer()
 	{
 		double textureScale = 8.0 / _floorTexture.Width;
 		// The number of track nodes that one repeat of the floor texture covers.
 		int textureRepeatNodes = (int)(_floorTexture.Height * textureScale / HalfPipeTrackBuilder.NodeSpacing);
+		Vector3[] crossSection = GetCrossSection();
 		Vector3[] previousSection = null;
-		int first = Math.Max(0, _currentTrackNode - DrawDistanceBehind);
-		int last = Math.Min(_track.Nodes.Count - 1, _currentTrackNode + DrawDistanceAhead);
-		for (int i = first; i <= last; i++)
+		Vector3[] section = new Vector3[crossSection.Length];
+		_pipeBuffer.Begin();
+		for (int i = 0; i < _track.Nodes.Count; i++)
 		{
 			Matrix4 transform = GetNodeTransform(i);
-			Vector3[] section = GetCrossSection().Select(x => transform * x).ToArray();
+			for (int j = 0; j < crossSection.Length; j++)
+			{
+				section[j] = transform * crossSection[j];
+			}
 			// Join this cross section to the previous one with floor quads.
 			if (previousSection != null)
 			{
 				int textureRow = i % textureRepeatNodes;
+				double vNear = 1.0 - (textureRow + 1) / (double)textureRepeatNodes;
+				double vFar = 1.0 - textureRow / (double)textureRepeatNodes;
 				for (int j = 0; j < section.Length - 1; j++)
 				{
-					quads.Add(new TexturedQuad(new[]
-					{
-						section[j],
-						previousSection[j],
-						previousSection[j + 1],
-						section[j + 1]
-					}, new[]
-					{
-						new Vector2(j / (double)(section.Length - 1), 1.0 - (textureRow + 1) / (double)textureRepeatNodes),
-						new Vector2(j / (double)(section.Length - 1), 1.0 - textureRow / (double)textureRepeatNodes),
-						new Vector2((j + 1) / (double)(section.Length - 1), 1.0 - textureRow / (double)textureRepeatNodes),
-						new Vector2((j + 1) / (double)(section.Length - 1), 1.0 - (textureRow + 1) / (double)textureRepeatNodes)
-					}, _floorTexture));
+					double u0 = j / (double)(section.Length - 1);
+					double u1 = (j + 1) / (double)(section.Length - 1);
+					_pipeBuffer.AddValue(0, section[j]);
+					_pipeBuffer.AddValue(1, new Vector2(u0, vNear));
+					_pipeBuffer.AddValue(0, previousSection[j]);
+					_pipeBuffer.AddValue(1, new Vector2(u0, vFar));
+					_pipeBuffer.AddValue(0, previousSection[j + 1]);
+					_pipeBuffer.AddValue(1, new Vector2(u1, vFar));
+					_pipeBuffer.AddValue(0, section[j + 1]);
+					_pipeBuffer.AddValue(1, new Vector2(u1, vNear));
 				}
 			}
-			previousSection = section;
+			previousSection = (Vector3[])section.Clone();
 		}
+		_pipeBuffer.End();
+	}
+
+	/// <summary>Draws the pipe from <see cref="DrawDistanceBehind"/> nodes behind the camera to <see cref="DrawDistanceAhead"/> nodes ahead.</summary>
+	private void DrawPipe(IShaderProgram program)
+	{
+		int first = Math.Max(0, _currentTrackNode - DrawDistanceBehind);
+		int last = Math.Min(_track.Nodes.Count - 1, _currentTrackNode + DrawDistanceAhead);
+		if (last <= first)
+		{
+			return;
+		}
+		program.SetUniform("MinimumLight", MinimumLight);
+		program.SetUniform("Tint", new Vector4(1.0, 1.0, 1.0, 1.0));
+		_graphicsContext.BlendMode = BlendMode.Alpha;
+		_graphicsContext.SetTexture(_floorTexture);
+		// The quads between nodes first and first + 1 come first
+		_pipeBuffer.Render(PrimitiveType.Quads, first * QuadsPerNode * 4, (last - first) * QuadsPerNode * 4);
 	}
 
 	private void AddObjectQuads(List<TexturedQuad> quads)

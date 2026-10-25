@@ -23,6 +23,9 @@ internal class GLVertexBuffer : VertexBuffer
 
 	private readonly List<float>[] _data;
 
+	/// <summary>The upload copy of the values of each attribute, kept between frames so that an upload makes no garbage.</summary>
+	private float[][] _uploadBuffers;
+
 	private int _vertexCount;
 
 	/// <summary>Set by <see cref="End"/> when no values were collected. Data set with SetBufferData still renders.</summary>
@@ -105,9 +108,17 @@ internal class GLVertexBuffer : VertexBuffer
 		{
 			return;
 		}
+		_uploadBuffers ??= new float[_data.Length][];
 		for (int i = 0; i < _data.Length; i++)
 		{
-			SetBufferData(i, _data[i]);
+			List<float> values = _data[i];
+			if (_uploadBuffers[i] == null || _uploadBuffers[i].Length < values.Count)
+			{
+				_uploadBuffers[i] = new float[Math.Max(values.Count, (_uploadBuffers[i]?.Length ?? 0) * 2)];
+			}
+			values.CopyTo(_uploadBuffers[i]);
+			GL.BindBuffer(BufferTarget.ArrayBuffer, _bufferIds[i]);
+			GL.BufferData(BufferTarget.ArrayBuffer, (IntPtr)(values.Count * sizeof(float)), _uploadBuffers[i], BufferUsageHint.StreamDraw);
 		}
 	}
 
