@@ -108,6 +108,17 @@ public sealed class RegressionTests
 			new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script });
 	}
 
+	/// <summary>
+	/// Plays the first special stage with no input, so that the camera, the sizes and the track stay as in the
+	/// original. The special stage ticks are captured as 20000 plus the tick.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void SpecialStage_MatchesGoldenScreenshots()
+	{
+		RunAndCompare("--halfpipe 1", new[] { 20300, 20600, 20900 }, Path.Combine(TestPaths.GoldenDirectory, "special-stage"), "special-stage");
+	}
+
 	private static void RunAndCompare(string arguments, int[] ticks, string goldenDirectory, string name, IReadOnlyDictionary<string, string> environment = null)
 	{
 		string exe = TestPaths.GameExecutable;

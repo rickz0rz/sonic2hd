@@ -19,7 +19,8 @@ namespace SonicOrca.Core.Debugging;
 /// editor with these commands. Each command has the editor frame where it starts (counted over all the times that
 /// the editor opens) and one of: "mouse X Y" (1920 x 1080 screen), "down left|right|middle", "up left|right|middle",
 /// "wheel N", "keydown SCANCODE", "keyup SCANCODE", "tap SCANCODE" (down for one frame) or "type TEXT". While the
-/// editor is open, S2HD_CAPTURE_LEVEL_TICKS uses 10000 plus this frame number.</item>
+/// editor is open, S2HD_CAPTURE_LEVEL_TICKS uses 10000 plus this frame number. In the special stage, it uses 20000
+/// plus the tick of the stage.</item>
 /// </list>
 /// </summary>
 public static class TestHooks
@@ -59,6 +60,9 @@ public static class TestHooks
 
 	/// <summary>The capture number of an editor frame. It is larger than the level ticks of the tests.</summary>
 	public const int EditorCaptureOffset = 10000;
+
+	/// <summary>The capture number of a special stage tick, so that S2HD_CAPTURE_LEVEL_TICKS can also capture the special stage.</summary>
+	public const int SpecialStageCaptureOffset = 20000;
 
 	/// <summary>The level tick drawn in the current frame, or -1 when no level was drawn.</summary>
 	public static int DrawnLevelTick { get; set; } = -1;

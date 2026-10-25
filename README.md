@@ -393,6 +393,7 @@ The regression tests run the release build and save screenshots at fixed level t
 - One test plays the Emerald Hill attract demo, which moves the player through the first part of the level.
 - One test for each level that the demo data contains (EHZ, CPZ, HTZ, MTZ and DEZ, acts 1 and 2) starts the level
   with no input.
+- One test plays the first special stage with no input.
 - Three tests open the level editor in Emerald Hill with scripted input. One adds a monitor and plays. One moves
   the start position marker and plays from the start. One paints tiles, draws a collision line and plays on it.
 
@@ -412,7 +413,7 @@ The test uses these environment variables, which you can also set by hand:
 |---|---|
 | `S2HD_USER_DATA_DIR` | Uses this folder for the log, settings and screenshots |
 | `S2HD_RANDOM_SEED` | Seeds the random number generators of the level and the particles |
-| `S2HD_CAPTURE_LEVEL_TICKS` | Saves a screenshot at these level ticks, for example `60,600` |
+| `S2HD_CAPTURE_LEVEL_TICKS` | Saves a screenshot at these level ticks, for example `60,600`. In the special stage, use 20000 plus the tick of the stage |
 | `S2HD_EXIT_AFTER_CAPTURES` | With `1`, quits after the last screenshot |
 | `S2HD_TEST_START_RINGS` | Gives the player this number of rings at the start of a level |
 | `S2HD_TEST_EMERALDS` | Gives the player this number of emeralds at the start of a level. With `7` and 50 rings, Sonic can become Super Sonic |
