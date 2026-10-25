@@ -120,6 +120,31 @@ the `[general]` section of `sonicorca.cfg`.
 
 Without `--base`, `pack` writes all resources of the folder. That file can replace `data/sonicorca.dat`.
 
+### Mod folders
+
+A folder in a `mods` folder is also a mod. It has the same files as an unpacked folder, for example
+`mods/my-mod/SONICORCA/OBJECTS/RING/TEXTURE.png`. The game reads the files from the disk when it starts, so you can
+change a file and start the game again, with no pack step. The game loads the folders and the `.dat` files of a
+`mods` folder together, in name order. The `editor` folder and the folders whose names start with a dot are not
+mods.
+
+To change images, unpack all the images into a mod folder, change the images that you want, and then delete the
+images that you did not change:
+
+```sh
+MODS="$HOME/Library/Application Support/SonicOrca/mods"
+dotnet run --project tools/s2hd-data -- unpack data/sonicorca.dat "$MODS/my-mod" --images
+# Change images in "$MODS/my-mod", and start the game to see them
+dotnet run --project tools/s2hd-data -- prune "$MODS/my-mod" data/sonicorca.dat
+```
+
+`unpack` and `prune` accept more than one `.dat` file. A later file replaces the resources of an earlier file, as
+in the game. Add the files of the imported zones to get their images too, for example
+`unpack data/sonicorca.dat "$MODS/cnz.dat" "$MODS/my-mod" --images`. Without `--images`, `unpack` writes all the
+resources. `prune` deletes the files that are the same as in the `.dat` files, so the folder keeps only your
+changes. It is good to prune: a file that you did not change still replaces the resource of a later update of the
+game data or of an import. To share the mod as one file, pack the folder with `--base`.
+
 ### Import all
 
 The build does not make the data of the missing zones. One script makes all the mods that come from the

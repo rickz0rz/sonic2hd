@@ -20,22 +20,25 @@ public static class ResourceDirectory
 {
 	private const string SelfFileName = "_";
 
-	/// <summary>Writes each resource of the tree as a file under <paramref name="directory"/>. Returns the file count.</summary>
-	public static int Export(ResourceTree tree, string directory)
+	/// <summary>
+	/// Writes each resource of the tree as a file under <paramref name="directory"/>. With <paramref name="include"/>,
+	/// only the resources that it accepts. Returns the file count.
+	/// </summary>
+	public static int Export(ResourceTree tree, string directory, Func<Resource, bool> include = null)
 	{
 		int count = 0;
 		foreach (ResourceTree.Node child in tree.Head.Children)
 		{
-			count += ExportNode(child, directory);
+			count += ExportNode(child, directory, include);
 		}
 		return count;
 	}
 
-	private static int ExportNode(ResourceTree.Node node, string parentDirectory)
+	private static int ExportNode(ResourceTree.Node node, string parentDirectory, Func<Resource, bool> include)
 	{
 		int count = 0;
 		string nodeDirectory = Path.Combine(parentDirectory, node.Key);
-		if (node.Resource != null)
+		if (node.Resource != null && (include == null || include(node.Resource)))
 		{
 			string extension = ResourceType.FromIdentifier(node.Resource.Identifier).DefaultExtension;
 			string path = node.Children.Count > 0
@@ -51,7 +54,7 @@ public static class ResourceDirectory
 		}
 		foreach (ResourceTree.Node child in node.Children)
 		{
-			count += ExportNode(child, nodeDirectory);
+			count += ExportNode(child, nodeDirectory, include);
 		}
 		return count;
 	}

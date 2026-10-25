@@ -77,8 +77,8 @@ internal class S2HDSonicOrcaGameContext(IPlatform platform) : SonicOrcaGameConte
 		if (bool.Parse(Configuration.GetProperty("general", "use_mods", "true")))
 		{
 			// Mods next to the game data, then mods in the user data folder (outside the macOS app bundle)
-			LoadResourceFiles(Path.Combine(contentDirectory, "mods"));
-			LoadResourceFiles(Path.Combine(UserDataDirectory, "mods"));
+			LoadResourceFiles(Path.Combine(contentDirectory, "mods"), folders: true);
+			LoadResourceFiles(Path.Combine(UserDataDirectory, "mods"), folders: true);
 			// The changes of the level editor load last. They load into memory, because the editor writes the files again.
 			LoadResourceFiles(EditorModFile.GetFolder(UserDataDirectory), inMemory: true);
 		}
@@ -286,15 +286,36 @@ internal class S2HDSonicOrcaGameContext(IPlatform platform) : SonicOrcaGameConte
 	/// <summary>
 	/// Merges each .dat file in the folder into the resource tree, in name order. A later file replaces the
 	/// resources with the same key, so mods/ overrides data/, and mods/20-x.dat overrides mods/10-y.dat.
+	/// With <paramref name="folders"/>, each subfolder is also a mod: a folder of resource files as "s2hd-data
+	/// unpack" writes them, for example mods/my-mod/SONICORCA/OBJECTS/RING/TEXTURE.png. The game reads these files
+	/// from the disk, so a changed file needs no pack step, only a restart. The editor folder and the folders whose
+	/// names start with a dot are not mods.
 	/// </summary>
-	private void LoadResourceFiles(string inputDirectory, bool inMemory = false)
+	private void LoadResourceFiles(string inputDirectory, bool inMemory = false, bool folders = false)
 	{
 		if (!Directory.Exists(inputDirectory))
 			return;
-		foreach (string file in Directory.GetFiles(inputDirectory, "*.dat").OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
+		IEnumerable<string> paths = Directory.GetFiles(inputDirectory, "*.dat");
+		if (folders)
 		{
-			Trace.WriteLine("Loading resource file " + file);
-			ResourceTree.MergeWith(inMemory ? EditorModFile.ReadIntoMemory(file) : new ResourceFile(file).Scan());
+			paths = paths.Concat(Directory.GetDirectories(inputDirectory).Where(d =>
+			{
+				string name = Path.GetFileName(d);
+				return !name.StartsWith('.') && !name.Equals(EditorModFile.FolderName, StringComparison.OrdinalIgnoreCase);
+			}));
+		}
+		foreach (string path in paths.OrderBy(p => Path.GetFileName(p), StringComparer.OrdinalIgnoreCase))
+		{
+			if (Directory.Exists(path))
+			{
+				var skipped = new List<string>();
+				ResourceTree folderTree = ResourceDirectory.Import(path, skipped);
+				Trace.WriteLine($"Loading resource folder {path}: {folderTree.GetResourceListing().Count} resources, {skipped.Count} files of unknown type");
+				ResourceTree.MergeWith(folderTree);
+				continue;
+			}
+			Trace.WriteLine("Loading resource file " + path);
+			ResourceTree.MergeWith(inMemory ? EditorModFile.ReadIntoMemory(path) : new ResourceFile(path).Scan());
 		}
 	}
 
