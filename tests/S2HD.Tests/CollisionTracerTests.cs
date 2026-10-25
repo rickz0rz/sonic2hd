@@ -66,6 +66,31 @@ public sealed class CollisionTracerTests
 	}
 
 	[Fact]
+	public void TopSolidGentleSlope_IsOneConnectedLine()
+	{
+		// A floor that is solid only from the top and goes down by one pixel every four columns. Without the steps
+		// between its top edges, it would be 6 separate pieces, and a character would balance at the end of each.
+		byte[] grid = Grid(24, 12, (x, y) => y >= 2 + x / 4 ? CollisionTracer.TopSolid : (byte)0);
+
+		var lines = CollisionTracer.Trace(grid, 24, 12, scale: 2);
+
+		Assert.Single(lines);
+		Assert.Equal(0, lines[0].A.X);
+		Assert.Equal(48, lines[0].B.X);
+		Assert.True(lines[0].B.Y > lines[0].A.Y);
+	}
+
+	[Fact]
+	public void TopSolidLedgeOfTwoPixels_StaysALedge()
+	{
+		byte[] grid = Grid(12, 10, (x, y) => y >= (x < 6 ? 3 : 5) ? CollisionTracer.TopSolid : (byte)0);
+
+		var lines = CollisionTracer.Trace(grid, 12, 10, scale: 2);
+
+		Assert.Equal(2, lines.Count);
+	}
+
+	[Fact]
 	public void PixelsThatTouchAtACorner_StaySeparate()
 	{
 		// Two 2 x 2 squares: one from (1, 1) to (3, 3), one from (3, 3) to (5, 5)

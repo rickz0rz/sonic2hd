@@ -55,6 +55,7 @@ public static class CollisionTracer
 				}
 				if ((flags & SidesSolid) == 0)
 				{
+					AddFloorSteps(grid, width, height, x, y, edges);
 					continue;
 				}
 				if (!Solid(x + 1, y))
@@ -83,6 +84,31 @@ public static class CollisionTracer
 			}
 		}
 		return lines;
+	}
+
+	/// <summary>
+	/// A floor that is solid only from the top has no side edges. On a slope, its top edges are then separate pieces
+	/// with a step of one pixel between them, and a character on a piece balances at its end. This adds the edge of
+	/// each step of one pixel between two top edges, so that the floor is one chain and becomes a straight slope.
+	/// </summary>
+	private static void AddFloorSteps(byte[] grid, int width, int height, int x, int y, EdgeGraph edges)
+	{
+		bool Solid(int px, int py) => px >= 0 && py >= 0 && px < width && py < height && grid[py * width + px] != 0;
+		bool HasTop(int px, int py) => px >= 0 && py >= 0 && px < width && py < height && (grid[py * width + px] & TopSolid) != 0 && !Solid(px, py - 1);
+		if (!HasTop(x, y) || !Solid(x, y + 1))
+		{
+			return;
+		}
+		// The floor goes down by one pixel to the right of this pixel
+		if (!Solid(x + 1, y) && HasTop(x + 1, y + 1))
+		{
+			edges.Add(x + 1, y, x + 1, y + 1);
+		}
+		// The floor goes up by one pixel to this pixel from the left
+		if (!Solid(x - 1, y) && HasTop(x - 1, y + 1))
+		{
+			edges.Add(x, y + 1, x, y);
+		}
 	}
 
 	/// <summary>
