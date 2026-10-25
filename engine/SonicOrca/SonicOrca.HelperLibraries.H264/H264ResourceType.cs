@@ -10,7 +10,7 @@ namespace SonicOrca.HelperLibraries.H264;
 /// </summary>
 public class H264ResourceType : ResourceType
 {
-	public override string Name => "h265";
+	public override string Name => "h264";
 
 	public override string DefaultExtension => ".mp4";
 
@@ -21,6 +21,7 @@ public class H264ResourceType : ResourceType
 	{
 	}
 
+	/// <remarks>The game has only one film, so this type always loads credits.film from the content folder.</remarks>
 	public override async Task<ILoadedResource> LoadAsync(ResourceLoadArgs e, CancellationToken ct = default(CancellationToken))
 	{
 		return await Task.Run<ILoadedResource>(() => new FilmBuffer(ContentDirectory.Combine("credits.film"))

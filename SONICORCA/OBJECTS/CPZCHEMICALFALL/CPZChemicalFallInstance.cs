@@ -54,13 +54,13 @@ public class CPZChemicalFallInstance : ActiveObject
 		int top = _animationCorner.CurrentFrame.Source.Height / 2;
 		Rectanglei source = _animationVertical.CurrentFrame.Source;
 		Rectanglei destination = new Rectanglei(-source.Width / 2, top, source.Width, source.Height);
-		// Draw the column in steps of 64 pixels down to the bottom.
-		// The height changes by the overlap with the bottom on each step, also when the overlap is negative.
+		// Draw the column in steps of 64 pixels down to the bottom. The last step is cut at the bottom.
+		int frameHeight = source.Height;
 		for (int bottom = _bottom - Position.Y; destination.Y < bottom; destination.Y += 64)
 		{
-			int overlap = destination.Bottom - bottom;
-			source.Height -= overlap;
-			destination.Height -= overlap;
+			int overlap = Math.Max(0, destination.Y + frameHeight - bottom);
+			source.Height = frameHeight - overlap;
+			destination.Height = frameHeight - overlap;
 			objectRenderer.Render((Rectangle)source, (Rectangle)destination);
 		}
 	}
@@ -70,8 +70,7 @@ public class CPZChemicalFallInstance : ActiveObject
 	{
 		int top = Position.Y;
 		int left = Position.X - 32;
-		// This uses Position.Y, not Position.X, as the right edge. Keep it to keep the same behavior.
-		int right = Position.Y + 32;
+		int right = Position.X + 32;
 		int bottom = Level.Map.Bounds.Height;
 		foreach (Rectanglei waterArea in Level.WaterManager.WaterAreas)
 		{

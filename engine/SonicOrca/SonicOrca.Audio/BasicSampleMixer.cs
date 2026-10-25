@@ -25,15 +25,15 @@ public class BasicSampleMixer : ISampleMixer
 			double calculatedVolume = channel.CalculatedVolume;
 			if (!(calculatedVolume <= 0.0))
 			{
-				// The read uses the offset, but the mix loop starts at index 0 in both buffers.
-				int bytesRead = channel.Read(channelBuffer, offset, length);
+				// The channel buffer starts at 0. The mixed samples go into the buffer from the offset.
+				int bytesRead = channel.Read(channelBuffer, 0, length);
 				for (int i = 0; i < bytesRead; i += BytesPerSample)
 				{
-					short existingSample = BitConverter.ToInt16(buffer, i);
+					short existingSample = BitConverter.ToInt16(buffer, offset + i);
 					short channelSample = (short)(BitConverter.ToInt16(channelBuffer, i) * calculatedVolume);
 					short mixedSample = MixSample(existingSample, channelSample);
-					buffer[i] = (byte)(mixedSample & 0xFF);
-					buffer[i + 1] = (byte)((mixedSample >> 8) & 0xFF);
+					buffer[offset + i] = (byte)(mixedSample & 0xFF);
+					buffer[offset + i + 1] = (byte)((mixedSample >> 8) & 0xFF);
 				}
 			}
 		}

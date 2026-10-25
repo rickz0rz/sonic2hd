@@ -73,7 +73,7 @@ internal class MenuViewPresenterHost
 			SetViewModel(_viewModelStack.Pop());
 			// The options screen does not need to know about a step back to a previous page.
 			// The pause menu does, because it plays a different animation for each page.
-			if (NavigateBack.Target.GetType() == typeof(OptionsGameState))
+			if (NavigateBack?.Target is OptionsGameState)
 				return;
 			NavigateBack?.Invoke(sender, EventArgs.Empty);
 		}
@@ -103,8 +103,7 @@ internal class MenuViewPresenterHost
 
 	private void PlayConfirmSound()
 	{
-		// This checks NavigateSample, but it plays ConfirmSample. The original code does the same.
-		if (_settingUIResources.NavigateSample == null)
+		if (_settingUIResources.ConfirmSample == null)
 			return;
 		SonicOrcaGameContext.Singleton.Audio.PlaySound(_settingUIResources.ConfirmSample);
 	}

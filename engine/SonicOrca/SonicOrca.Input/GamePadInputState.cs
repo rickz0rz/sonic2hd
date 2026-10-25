@@ -71,7 +71,7 @@ public struct GamePadInputState
 		result.RightAxisButton = prev.RightAxisButton && !next.RightAxisButton;
 		result.North = prev.North && !next.North;
 		result.East = prev.East && !next.East;
-		// South is not set here, so it keeps the value from next. This is kept as it was.
+		result.South = prev.South && !next.South;
 		result.West = prev.West && !next.West;
 		result.Start = prev.Start && !next.Start;
 		result.Select = prev.Select && !next.Select;

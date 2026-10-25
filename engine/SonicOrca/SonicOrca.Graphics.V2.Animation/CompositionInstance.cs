@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using SonicOrca.Geometry;
@@ -183,7 +184,7 @@ public class CompositionInstance
 			Matrix4 modelMatrix = Matrix4.Identity;
 			modelMatrix *= Matrix4.CreateTranslation(currentFrame.Position);
 			modelMatrix = (modelMatrix * Matrix4.CreateScale(currentFrame.Scale.X * PercentToFraction, currentFrame.Scale.Y * PercentToFraction)).RotateZ(currentFrame.Rotation);
-			colour.Alpha = (byte)(currentFrame.Opacity * PercentToFraction * 256.0);
+			colour.Alpha = (byte)Math.Clamp(Math.Round(currentFrame.Opacity * PercentToFraction * 255.0), 0.0, 255.0);
 			renderer.ModelMatrix = modelMatrix;
 			renderer.Colour = colour;
 			renderer.BlendMode = AdditiveBlending ? BlendMode.Additive : BlendMode.Alpha;

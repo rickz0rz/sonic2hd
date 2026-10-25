@@ -387,8 +387,6 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	/// </summary>
 	private int _spindashCameraLag;
 
-	private Vector2 _intersection;
-
 	private int _dyingTicks;
 
 	private PlayerDeathCause _deathCause;
@@ -4058,9 +4056,6 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 				DrawProtection(renderer);
 				DrawBreathTimeRemaining(renderer);
 			}
-			// Debug marker that the original code left in. _intersection is never set, so the marker moves each frame.
-			_intersection -= PositionPrecise;
-			renderer.Get2dRenderer().RenderRectangle(Colour.ParseHex("FF00FF"), Rectangle.FromLTRB(_intersection.X - 10.0, _intersection.Y - 10.0, _intersection.X + 10.0, _intersection.Y + 10.0), 40.0);
 		}
 	}
 

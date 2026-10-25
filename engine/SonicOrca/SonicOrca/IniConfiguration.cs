@@ -102,12 +102,38 @@ public class IniConfiguration
 		Save(_path);
 	}
 
+	/// <summary>Writes the file. A configuration made without a file then saves to this path with <see cref="Save()"/>.</summary>
 	public void Save(string path)
 	{
+		_path ??= path;
 		using StreamWriter streamWriter = new StreamWriter(new FileStream(path, FileMode.Create, FileAccess.Write));
 		foreach (string line in _lines)
 		{
 			streamWriter.WriteLine(line);
+		}
+	}
+
+	/// <summary>Adds 1 to each kept line index from an index, after a line is inserted there.</summary>
+	private void MoveLineIndexes(int fromIndex)
+	{
+		foreach (Section section in _sections.Values)
+		{
+			MoveLineIndexes(section.Lines, fromIndex);
+			foreach (Property property in section.Properties.Values)
+			{
+				MoveLineIndexes(property.Lines, fromIndex);
+			}
+		}
+	}
+
+	private static void MoveLineIndexes(IList<int> lines, int fromIndex)
+	{
+		for (int i = 0; i < lines.Count; i++)
+		{
+			if (lines[i] >= fromIndex)
+			{
+				lines[i]++;
+			}
 		}
 	}
 
@@ -187,10 +213,10 @@ public class IniConfiguration
 		property.Value = value;
 		if (section.Lines.Count > 0)
 		{
-			// Insert the new line directly after the section header.
-			// Note: the line indexes that other sections and properties keep do not move, so they can become wrong.
+			// Insert the new line directly after the section header. The lines after it move down by one.
 			int lineIndex = section.Lines.Last() + 1;
 			_lines.Insert(lineIndex, GetPropertySetValueLine(propertyName, value));
+			MoveLineIndexes(lineIndex);
 			property.Lines.Add(lineIndex);
 			return;
 		}

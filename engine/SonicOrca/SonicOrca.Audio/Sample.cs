@@ -84,8 +84,9 @@ public class Sample : ILoadedResource, IDisposable
 		int position = 0;
 		for (int i = 0; i < leftSamples.Length; i++)
 		{
-			short left = (short)(leftSamples[i] * SampleScale);
-			short right = (short)(rightSamples[i] * SampleScale);
+			// A sample outside -1 to 1 is cut at the limit of 16 bits, so that it does not wrap to the other sign
+			short left = (short)Math.Clamp(leftSamples[i] * SampleScale, short.MinValue, short.MaxValue);
+			short right = (short)Math.Clamp(rightSamples[i] * SampleScale, short.MinValue, short.MaxValue);
 			pcmData[position++] = (byte)(left & 0xFF);
 			pcmData[position++] = (byte)(left >> 8);
 			pcmData[position++] = (byte)(right & 0xFF);

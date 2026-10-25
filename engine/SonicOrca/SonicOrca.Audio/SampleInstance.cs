@@ -134,8 +134,7 @@ public class SampleInstance : IDisposable, ISampleProvider
 		{
 			Playing = false;
 		}
-		// This copies from index 0, not from the offset.
-		_lastReadBytes = buffer.GetRange(0, bytesRead);
+		_lastReadBytes = buffer.GetRange(offset, bytesRead);
 		return bytesRead;
 	}
 }
