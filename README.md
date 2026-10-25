@@ -406,8 +406,8 @@ writes one row per frame to `profile.csv` next to the log.
 ## Tests
 
 ```sh
-dotnet test --project tests/S2HD.Tests --filter-not-trait "Category=Regression"   # fast tests
-dotnet test --project tests/S2HD.Tests                                             # all tests
+dotnet test --project tests/S2HD.Tests --filter-not-trait "Category=Regression" --filter-not-trait "Category=Story"   # fast tests
+dotnet test --project tests/S2HD.Tests --filter-not-trait "Category=Story"                                             # all tests except the story test
 ```
 
 The resource file tests make their own small files. The game data tests read the real `sonicorca.dat` and are
@@ -419,6 +419,10 @@ The regression tests run the release build and save screenshots at fixed level t
 - One test for each complete level of the demo data (EHZ, CPZ and HTZ, acts 1 and 2) starts the level with no
   input. MTZ and DEZ are only stubs in the demo data, so the tests do not use them.
 - One test plays the first special stage with no input.
+- One test for each act of the imported zones starts the act with no input. These tests need the Sonic 2
+  disassembly, as the import section describes. The tests import the zones into a temporary folder and record
+  their golden screenshots in `tests/golden/levels-imported/`. When the disassembly is not found, the tests are
+  skipped.
 - Three tests open the level editor in Emerald Hill with scripted input. One adds a monitor and plays. One moves
   the start position marker and plays from the start. One paints tiles, draws a collision line and plays on it.
 
@@ -432,6 +436,18 @@ After a change, build the game again and run the tests. The tests copy screensho
 `tests/golden/actual`. When a change is meant to change what the game draws, check the new screenshots, then record
 the golden screenshots again. Set `S2HD_EXE` to test a build in a different location.
 
+The story test plays the full story with the imported zones and no input. It starts in Emerald Hill and plays to
+the end of Death Egg. At the start of each act, the player waits, so that the test can find a bad start position.
+Then the test moves the player to a point before the signpost and holds right. The test examines the start of each
+act, the seamless change from act 1 to act 2, and the change to the next zone. It also finds deaths and acts that
+start again. A run takes about 8 minutes, so the fast tests and the regression tests do not include it:
+
+```sh
+dotnet test --project tests/S2HD.Tests --filter-trait "Category=Story"
+```
+
+When the test fails, it keeps the log and a screenshot of each act. The message gives the folder.
+
 The test uses these environment variables, which you can also set by hand:
 
 | Variable | Effect |
@@ -444,4 +460,6 @@ The test uses these environment variables, which you can also set by hand:
 | `S2HD_TEST_EMERALDS` | Gives the player this number of emeralds at the start of a level. With `7` and 50 rings, Sonic can become Super Sonic |
 | `S2HD_TEST_SPECIAL_STAGE_AT_TICK` | Starts the special stage at this level tick, one time only |
 | `S2HD_TEST_EDITOR_INPUT` | Replaces the mouse and keyboard of the level editor with commands, for example `5:mouse 900 500;6:down left;7:up left`. See `TestHooks.cs` for the commands. While the editor is open, the screenshot numbers are 10000 plus the editor frame |
+| `S2HD_TEST_STORY` | With `1`, plays the story with no input, as the story test describes. Each act saves a screenshot `story-ZONE-ACT.png` |
+| `S2HD_TEST_LOG` | With `S2HD_TEST_STORY`, writes the log of the story test to this file |
 | `S2HD_PHYSICS` | With `original` or `hd`, plays the levels with this physics. With `hd`, the tests use the golden screenshots in `tests/golden-hd/`, not `tests/golden/` |

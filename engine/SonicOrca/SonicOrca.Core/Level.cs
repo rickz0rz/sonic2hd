@@ -449,6 +449,7 @@ public class Level : IDisposable
 		State = LevelState.Playing;
 		RingsCollected = 0;
 		Area.OnStart();
+		SonicOrca.Core.Debugging.StoryTest.OnStart(this);
 	}
 
 	public void Stop()
@@ -694,6 +695,7 @@ public class Level : IDisposable
 			{
 				ReadPlayerInput();
 			}
+			SonicOrca.Core.Debugging.StoryTest.Update(this);
 			SetObjectLifetimeArea();
 			_objectManager.Update();
 			_particleManager.Update();
