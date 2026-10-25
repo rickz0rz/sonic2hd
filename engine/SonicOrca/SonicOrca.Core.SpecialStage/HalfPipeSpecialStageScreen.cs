@@ -29,10 +29,12 @@ public class HalfPipeSpecialStageScreen : Screen
 	{
 		/// <summary>The light of the pipe: darker far from the camera.</summary>
 		Lit,
-		/// <summary>Always at full brightness, for the rings.</summary>
+		/// <summary>Always at full brightness, for the rings and the bombs.</summary>
 		Bright,
-		/// <summary>A yellow glow, added to the colours behind it.</summary>
-		Glow
+		/// <summary>The yellow glow of a ring, added to the colours behind it.</summary>
+		Glow,
+		/// <summary>The red glow of a bomb, added to the colours behind it.</summary>
+		BombGlow
 	}
 
 	private struct TexturedQuad
@@ -200,11 +202,14 @@ public class HalfPipeSpecialStageScreen : Screen
 	/// <summary>The glow is a little behind the ring, so that it is drawn first.</summary>
 	private const double RingGlowDepth = 0.05;
 
-	/// <summary>The lowest light of the pipe, far from the camera. The rings and their glow do not get darker.</summary>
+	/// <summary>The lowest light of the pipe, far from the camera. The rings, the bombs and their glows do not get darker.</summary>
 	private const double MinimumLight = 0.25;
 
 	/// <summary>The colour of the glow (red, green, blue), the yellow of the ring, and its strength (alpha).</summary>
 	private static readonly Vector4 RingGlowColour = new Vector4(1.0, 0.8, 0.2, 0.22);
+
+	/// <summary>The red glow of a bomb, as faint as the glow of a ring.</summary>
+	private static readonly Vector4 BombGlowColour = new Vector4(1.0, 0.15, 0.1, 0.22);
 
 	private const double BombSize = 0.75;
 
@@ -845,8 +850,14 @@ public class HalfPipeSpecialStageScreen : Screen
 		foreach ((int count, ITexture batchTexture, QuadStyle batchStyle) in batches)
 		{
 			program.SetUniform("MinimumLight", batchStyle == QuadStyle.Lit ? MinimumLight : 1.0);
-			program.SetUniform("Tint", batchStyle == QuadStyle.Glow ? RingGlowColour : new Vector4(1.0, 1.0, 1.0, 1.0));
-			_graphicsContext.BlendMode = batchStyle == QuadStyle.Glow ? BlendMode.Additive : BlendMode.Alpha;
+			bool glow = batchStyle == QuadStyle.Glow || batchStyle == QuadStyle.BombGlow;
+			program.SetUniform("Tint", batchStyle switch
+			{
+				QuadStyle.Glow => RingGlowColour,
+				QuadStyle.BombGlow => BombGlowColour,
+				_ => new Vector4(1.0, 1.0, 1.0, 1.0)
+			});
+			_graphicsContext.BlendMode = glow ? BlendMode.Additive : BlendMode.Alpha;
 			_graphicsContext.SetTexture(batchTexture);
 			_vertexBuffer.Render(PrimitiveType.Quads, firstQuad * 4, count * 4);
 			firstQuad += count;
@@ -927,7 +938,11 @@ public class HalfPipeSpecialStageScreen : Screen
 				}
 				else
 				{
-					quads.Add(CreateSprite(transform, item.Angle, 0.0, BombSize, BombSize, _bombTexture, new Rectanglei(0, 0, _bombTexture.Width, _bombTexture.Height)));
+					double glowSize = BombSize * RingGlowScale;
+					quads.Add(WithStyle(CreateSprite(transform, item.Angle, (BombSize - glowSize) / 2.0, glowSize, glowSize, _glowTexture,
+						new Rectanglei(0, 0, _glowTexture.Width, _glowTexture.Height), depth: RingGlowDepth), QuadStyle.BombGlow));
+					quads.Add(WithStyle(CreateSprite(transform, item.Angle, 0.0, BombSize, BombSize, _bombTexture,
+						new Rectanglei(0, 0, _bombTexture.Width, _bombTexture.Height)), QuadStyle.Bright));
 				}
 				continue;
 			}
