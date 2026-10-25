@@ -4,9 +4,11 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using SonicOrca.Core.Collision;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
 using SonicOrca.Input;
+using SonicOrca.Original;
 using SonicOrca.Resources;
 
 namespace SonicOrca.Core.Editor;
@@ -143,14 +145,32 @@ public sealed class LevelEditor : IDisposable
 	/// <summary>The markers that are selected.</summary>
 	internal HashSet<LevelMarker> MarkerSelection { get; } = new HashSet<LevelMarker>();
 
+	/// <summary>The collision lines that are selected.</summary>
+	internal HashSet<CollisionVector> VectorSelection { get; } = new HashSet<CollisionVector>();
+
+	/// <summary>
+	/// The collision data of the original for the front layer, or null when the zone has none (see
+	/// <see cref="TileCollision"/>). With it, the collision follows the tiles.
+	/// </summary>
+	internal TileCollision TileCollision { get; private set; }
+
 	/// <summary>The binding has changes that are not saved.</summary>
 	public bool BindingDirty { get; private set; }
 
 	/// <summary>The markers of the map have changes that are not saved.</summary>
 	public bool MarkersDirty { get; private set; }
 
+	/// <summary>The tiles of the map have changes that are not saved.</summary>
+	public bool TilesDirty { get; private set; }
+
+	/// <summary>The collision lines of the map have changes that are not saved.</summary>
+	public bool CollisionDirty { get; private set; }
+
+	/// <summary>The solidity of the cells (<see cref="TileCollision"/>) has changes that are not saved.</summary>
+	public bool SolidityDirty { get; private set; }
+
 	/// <summary>There are changes that are not saved.</summary>
-	public bool Dirty => BindingDirty || MarkersDirty;
+	public bool Dirty => BindingDirty || MarkersDirty || TilesDirty || CollisionDirty || SolidityDirty;
 
 	public EditorPlayRequest PlayRequest { get; private set; }
 
@@ -163,9 +183,13 @@ public sealed class LevelEditor : IDisposable
 
 	internal Camera Camera => _level.Camera;
 
+	internal Renderer Renderer => _gameContext.Renderer;
+
 	internal IList<ObjectPlacement> Placements => _level.Binding.ObjectPlacements;
 
 	internal IList<LevelMarker> Markers => _level.Map.Markers;
+
+	internal IList<CollisionVector> Vectors => _level.Map.CollisionVectors;
 
 	internal Vector2 Mouse { get; private set; }
 
@@ -193,7 +217,7 @@ public sealed class LevelEditor : IDisposable
 	{
 		_level = level;
 		_gameContext = level.GameContext;
-		_tools = new EditorTool[] { new ObjectsTool(this), new MarkersTool(this) };
+		_tools = new EditorTool[] { new ObjectsTool(this), new MarkersTool(this), new TilesTool(this), new CollisionTool(this) };
 		_tool = _tools[0];
 	}
 
@@ -225,6 +249,9 @@ public sealed class LevelEditor : IDisposable
 		_frames = 0;
 		_drag = DragMode.None;
 		_editingRow = null;
+		// The editor changes the map as it is in the file, without the layout changes of the play
+		LayoutChanges.Reset(_level.Map);
+		TileCollision ??= LoadTileCollision();
 		foreach (EditorTool tool in _tools)
 		{
 			tool.Begin();
@@ -258,6 +285,7 @@ public sealed class LevelEditor : IDisposable
 		UpdateMouse();
 		ClampCamera();
 		_tool.Update();
+		UpdateTrace();
 		_level.TileSet.Animate();
 		_level.Map.Animate();
 		_level.ObjectManager.ResetLifetimeArea();
@@ -270,6 +298,9 @@ public sealed class LevelEditor : IDisposable
 	private bool IsKeyDown(int key) => _input.IsKeyDown(key);
 
 	private bool IsKeyPressed(int key) => _input.IsKeyPressed(key);
+
+	/// <summary>A key for a command of a tool. It is false while the user types a value or the console is open.</summary>
+	internal bool IsCommandKeyPressed(int key) => _editingRow == null && !_gameContext.Console.IsOpen && !IsControlDown && IsKeyPressed(key);
 
 	private void UpdateKeyboard()
 	{
@@ -290,6 +321,14 @@ public sealed class LevelEditor : IDisposable
 		else if (!control && IsKeyPressed(KeyboardState.KEY_2))
 		{
 			SelectTool(1);
+		}
+		else if (!control && IsKeyPressed(KeyboardState.KEY_3))
+		{
+			SelectTool(2);
+		}
+		else if (!control && IsKeyPressed(KeyboardState.KEY_4))
+		{
+			SelectTool(3);
 		}
 		else if (control && IsKeyPressed(KeyboardState.KEY_S))
 		{
@@ -477,6 +516,10 @@ public sealed class LevelEditor : IDisposable
 			{
 				_listScroll = Math.Max(0.0, _listScroll - wheel * RowHeight);
 			}
+			else if (_tool.HasCustomProperties)
+			{
+				_tool.OnPropertiesWheel(wheel);
+			}
 			else
 			{
 				_propertyScroll = Math.Max(0.0, _propertyScroll - wheel * RowHeight);
@@ -581,6 +624,7 @@ public sealed class LevelEditor : IDisposable
 
 	private void RequestPlay(EditorPlayRequest request)
 	{
+		CompleteTraces();
 		if (_editingRow != null)
 		{
 			CommitTextEntry();
@@ -593,9 +637,13 @@ public sealed class LevelEditor : IDisposable
 	{
 		try
 		{
+			CompleteTraces();
 			string path = EditorModFile.Save(GetChangedResources(), EditorModFile.GetPath(_gameContext.UserDataDirectory, _level.Binding.Resource.FullKeyPath));
 			BindingDirty = false;
 			MarkersDirty = false;
+			TilesDirty = false;
+			CollisionDirty = false;
+			SolidityDirty = false;
 			ShowMessage("Saved to " + path);
 		}
 		catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is ResourceException || ex is InvalidOperationException)
@@ -610,6 +658,7 @@ public sealed class LevelEditor : IDisposable
 	/// </summary>
 	public void SaveBackup()
 	{
+		CompleteTraces();
 		if (!Dirty)
 		{
 			return;
@@ -634,9 +683,13 @@ public sealed class LevelEditor : IDisposable
 		{
 			changes.Add(EditorModFile.Change.ForBinding(_level.Binding));
 		}
-		if (MarkersDirty)
+		if (MarkersDirty || TilesDirty || CollisionDirty)
 		{
-			changes.Add(EditorModFile.Change.ForMap(_level.Map, markers: true));
+			changes.Add(EditorModFile.Change.ForMap(_level.Map, tiles: TilesDirty, collision: CollisionDirty, markers: MarkersDirty));
+		}
+		if (SolidityDirty && TileCollision != null && GetTileCollisionResource() is Resource resource)
+		{
+			changes.Add(new EditorModFile.Change(resource, TileCollision.ToXml()));
 		}
 		return changes;
 	}
@@ -646,7 +699,7 @@ public sealed class LevelEditor : IDisposable
 		EditorSnapshot snapshot = _history.Undo(CaptureSnapshot());
 		if (snapshot != null)
 		{
-			Restore(snapshot);
+			Restore(snapshot, undo: true);
 		}
 	}
 
@@ -655,26 +708,58 @@ public sealed class LevelEditor : IDisposable
 		EditorSnapshot snapshot = _history.Redo(CaptureSnapshot());
 		if (snapshot != null)
 		{
-			Restore(snapshot);
+			Restore(snapshot, undo: false);
 		}
 	}
 
 	/// <summary>Keeps the state before a change, for undo. Call it before each change.</summary>
 	internal void RecordHistory() => _history.Record(CaptureSnapshot());
 
-	private EditorSnapshot CaptureSnapshot()
+	/// <summary>Keeps a state from before a change that is complete now, for example a stroke of tiles with its tile edits.</summary>
+	internal void RecordHistory(EditorSnapshot before) => _history.Record(before);
+
+	internal EditorSnapshot CaptureSnapshot()
 	{
 		return new EditorSnapshot
 		{
 			Placements = Placements.ToArray(),
 			Selection = ObjectSelection.ToArray(),
 			Markers = Markers.ToArray(),
-			MarkerSelection = MarkerSelection.ToArray()
+			MarkerSelection = MarkerSelection.ToArray(),
+			Vectors = Vectors.ToArray(),
+			VectorSelection = VectorSelection.ToArray()
 		};
 	}
 
-	private void Restore(EditorSnapshot snapshot)
+	private void Restore(EditorSnapshot snapshot, bool undo)
 	{
+		// Undo puts back the old tiles of the step. Redo puts back the new tiles.
+		IEnumerable<TileEdit> edits = undo ? snapshot.TileEdits.Reverse() : snapshot.TileEdits;
+		foreach (TileEdit edit in edits)
+		{
+			SetTile(edit.Layer, edit.Column, edit.Row, undo ? edit.OldTile : edit.NewTile, undo ? edit.OldSolidity : edit.NewSolidity);
+		}
+		if (snapshot.TileEdits.Length > 0)
+		{
+			TilesDirty = true;
+			// The lines of the snapshot can be from before a trace that did not finish, so trace the cells again
+			int layer = TileCollision?.Layer ?? -1;
+			foreach (TileEdit edit in snapshot.TileEdits.Where(e => e.Layer == layer))
+			{
+				RequestTrace(new Rectanglei(edit.Column, edit.Row, 1, 1));
+			}
+		}
+		if (!snapshot.Vectors.SequenceEqual(Vectors))
+		{
+			Vectors.Clear();
+			foreach (CollisionVector vector in snapshot.Vectors)
+			{
+				Vectors.Add(vector);
+			}
+			CollisionDirty = true;
+		}
+		VectorSelection.Clear();
+		VectorSelection.UnionWith(snapshot.VectorSelection);
 		if (!snapshot.Placements.SequenceEqual(Placements))
 		{
 			Placements.Clear();
@@ -710,6 +795,190 @@ public sealed class LevelEditor : IDisposable
 	internal void MarkMarkersChanged()
 	{
 		MarkersDirty = true;
+	}
+
+	internal void MarkTilesChanged() => TilesDirty = true;
+
+	internal void MarkCollisionChanged() => CollisionDirty = true;
+
+	/// <summary>Sets a tile, and the solidity of the cell when the layer is the front layer of the tile collision.</summary>
+	internal void SetTile(int layerIndex, int column, int row, int tile, byte solidity)
+	{
+		LevelLayer layer = _level.Map.Layers[layerIndex];
+		if (column < 0 || row < 0 || column >= layer.Columns || row >= layer.Rows)
+		{
+			return;
+		}
+		layer.Tiles[column, row] = tile;
+		if (TileCollision != null && layerIndex == TileCollision.Layer)
+		{
+			_tileGeneration++;
+		}
+		if (TileCollision != null && layerIndex == TileCollision.Layer && TileCollision.GetSolidity(column, row) != solidity)
+		{
+			TileCollision.SetSolidity(column, row, solidity);
+			SolidityDirty = true;
+		}
+	}
+
+	/// <summary>The front cells that changed since the last trace, or null.</summary>
+	private Rectanglei? _pendingTraceCells;
+
+	private Task<List<(Vector2i A, Vector2i B, uint Paths)>> _traceTask;
+
+	private Rectanglei _traceTaskCells;
+
+	/// <summary>Changes on each change of the front tiles, so that a trace of old tiles is not used.</summary>
+	private int _tileGeneration;
+
+	private int _traceTaskGeneration;
+
+	/// <summary>
+	/// The collision of the front cells in an area must follow the tiles again. A trace runs in the background, and
+	/// <see cref="Update"/> uses the result when the tiles did not change in the meantime.
+	/// </summary>
+	internal void RequestTrace(Rectanglei cells)
+	{
+		if (TileCollision == null)
+		{
+			return;
+		}
+		_pendingTraceCells = _pendingTraceCells is Rectanglei pending ? Union(pending, cells) : cells;
+	}
+
+	private static Rectanglei Union(Rectanglei a, Rectanglei b)
+	{
+		int left = Math.Min(a.X, b.X);
+		int top = Math.Min(a.Y, b.Y);
+		return new Rectanglei(left, top, Math.Max(a.X + a.Width, b.X + b.Width) - left, Math.Max(a.Y + a.Height, b.Y + b.Height) - top);
+	}
+
+	private void UpdateTrace()
+	{
+		if (_traceTask != null && _traceTask.IsCompleted)
+		{
+			Task<List<(Vector2i A, Vector2i B, uint Paths)>> task = _traceTask;
+			_traceTask = null;
+			if (task.IsFaulted)
+			{
+				ShowMessage("The collision trace failed: " + task.Exception?.InnerException?.Message);
+			}
+			else if (_traceTaskGeneration == _tileGeneration)
+			{
+				ApplyTrace(task.Result, _traceTaskCells);
+			}
+			else
+			{
+				RequestTrace(_traceTaskCells);
+			}
+		}
+		if (_traceTask == null && _pendingTraceCells is Rectanglei cells)
+		{
+			_pendingTraceCells = null;
+			_traceTaskCells = cells;
+			_traceTaskGeneration = _tileGeneration;
+			// The trace reads copies, so that the user can paint while it runs
+			TileCollision tileCollision = TileCollision.Clone();
+			LevelLayer front = CopyLayer(_level.Map.Layers[TileCollision.Layer]);
+			_traceTask = Task.Run(() => tileCollision.Trace(front));
+		}
+	}
+
+	/// <summary>Waits for the traces that did not finish, for example before a save or a test play.</summary>
+	internal void CompleteTraces()
+	{
+		if (_traceTask != null)
+		{
+			_traceTask.Wait();
+			Task<List<(Vector2i A, Vector2i B, uint Paths)>> task = _traceTask;
+			_traceTask = null;
+			if (!task.IsFaulted && _traceTaskGeneration == _tileGeneration)
+			{
+				ApplyTrace(task.Result, _traceTaskCells);
+			}
+			else
+			{
+				RequestTrace(_traceTaskCells);
+			}
+		}
+		if (_pendingTraceCells is Rectanglei cells)
+		{
+			_pendingTraceCells = null;
+			ApplyTrace(TileCollision.Trace(_level.Map.Layers[TileCollision.Layer]), cells);
+		}
+	}
+
+	private static LevelLayer CopyLayer(LevelLayer layer)
+	{
+		LevelLayer copy = new LevelLayer(layer.Map);
+		copy.Resize(layer.Columns, layer.Rows);
+		Array.Copy(layer.Tiles, copy.Tiles, layer.Tiles.Length);
+		return copy;
+	}
+
+	/// <summary>Uses a trace of the whole map for the lines that cross an area of cells (see <see cref="CollisionDiff"/>).</summary>
+	private void ApplyTrace(List<(Vector2i A, Vector2i B, uint Paths)> lines, Rectanglei cells)
+	{
+		(List<CollisionVector> removed, List<(Vector2i A, Vector2i B, uint Paths)> added) = CollisionDiff.Get(Vectors, lines, cells);
+		if (added.Count == 0 && removed.Count == 0)
+		{
+			return;
+		}
+		foreach (CollisionVector vector in removed)
+		{
+			Vectors.Remove(vector);
+			VectorSelection.Remove(vector);
+		}
+		foreach ((Vector2i a, Vector2i b, uint paths) in added)
+		{
+			Vectors.Add(new CollisionVector(a, b, paths));
+		}
+		CollisionDirty = true;
+	}
+
+	/// <summary>Traces all the lines of paths 1 and 2 again from the tiles, and replaces the lines that are different.</summary>
+	/// <returns><c>true</c> if a line changed.</returns>
+	internal bool RetraceAll()
+	{
+		if (TileCollision == null)
+		{
+			return false;
+		}
+		CompleteTraces();
+		List<CollisionVector> before = Vectors.ToList();
+		LevelLayer front = _level.Map.Layers[TileCollision.Layer];
+		ApplyTrace(TileCollision.Trace(front), new Rectanglei(-1, -1, front.Columns + 2, front.Rows + 2));
+		return !before.SequenceEqual(Vectors);
+	}
+
+	private Resource GetTileCollisionResource()
+	{
+		string mapKey = _level.Map.Resource?.FullKeyPath;
+		if (mapKey == null || mapKey.LastIndexOf('/') < 0)
+		{
+			return null;
+		}
+		return _gameContext.ResourceTree[mapKey.Substring(0, mapKey.LastIndexOf('/') + 1) + TileCollision.ResourceName]?.Resource;
+	}
+
+	private TileCollision LoadTileCollision()
+	{
+		Resource resource = GetTileCollisionResource();
+		if (resource == null)
+		{
+			return null;
+		}
+		try
+		{
+			using Stream stream = resource.Source.ReadUncompressed();
+			TileCollision tileCollision = TileCollision.FromXml(stream);
+			return tileCollision.Layer < _level.Map.Layers.Count ? tileCollision : null;
+		}
+		catch (Exception ex) when (ex is IOException || ex is FormatException || ex is System.Xml.XmlException || ex is InvalidDataException || ex is ArgumentException)
+		{
+			System.Diagnostics.Trace.WriteLine("The tile collision did not load: " + ex.Message);
+			return null;
+		}
 	}
 
 	/// <summary>Makes the object entries again from the placements, so that the level shows the placements as they are.</summary>
@@ -854,6 +1123,11 @@ public sealed class LevelEditor : IDisposable
 			}
 			return;
 		}
+		if (_tool.HasCustomProperties)
+		{
+			_tool.OnPropertiesClick(Mouse, PropertiesArea, direction);
+			return;
+		}
 		List<EditorPropertyRow> rows = _tool.GetPropertyRows();
 		int rowIndex = GetPropertyRowIndexAt(Mouse.Y);
 		if (rowIndex < 0 || rowIndex >= rows.Count)
@@ -872,6 +1146,9 @@ public sealed class LevelEditor : IDisposable
 			_replaceEditText = true;
 		}
 	}
+
+	/// <summary>The area of the properties panel under its heading.</summary>
+	private static Rectangle PropertiesArea => new Rectangle(ScreenWidth - PanelWidth, ListBottom + RowHeight, PanelWidth, ScreenHeight - StatusBarHeight - ListBottom - RowHeight);
 
 	private int GetPropertyRowIndexAt(double y)
 	{
@@ -1031,6 +1308,14 @@ public sealed class LevelEditor : IDisposable
 		g.ClipRectangle = new Rectangle(0.0, 0.0, ScreenWidth, ScreenHeight);
 
 		DrawHeading(renderer, g, _tool.PropertiesHeading, left, ListBottom);
+		if (_tool.HasCustomProperties)
+		{
+			g.ClipRectangle = PropertiesArea;
+			_tool.DrawProperties(renderer, g, PropertiesArea);
+			renderer.DeativateRenderer();
+			g.ClipRectangle = new Rectangle(0.0, 0.0, ScreenWidth, ScreenHeight);
+			return;
+		}
 		List<EditorPropertyRow> rows = _tool.GetPropertyRows();
 		double rowsTop = ListBottom + RowHeight;
 		_propertyScroll = Math.Min(_propertyScroll, Math.Max(0.0, rows.Count * RowHeight - (bottom - rowsTop)));

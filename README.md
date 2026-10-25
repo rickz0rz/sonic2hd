@@ -176,6 +176,8 @@ an update of this repository. The import does these steps:
 - It makes animated tiles from the animated level art of the original, for example the oil of OOZ and the
   flipping panels of CNZ. The HD tiles do not have this art.
 - In CNZ, it also adds the bumpers that are part of the landscape, and the reels of the slot machines.
+- It writes the collision data of the original for the front layer (`TILECOLLISION`), so that the level editor can
+  trace the collision again after a change of tiles.
 
 On a flipper or a spring launcher in CNZ, the jump button controls the object. Press jump to flip a flipper. Hold
 jump to pull back a launcher, then let go to launch.
@@ -222,14 +224,15 @@ continues. Super Sonic has the values of the original in the two physics modes.
 
 ### Level editor
 
-The level editor changes the objects, the rings and the markers of a level. Start the game with `--editor`. Then
-press F2 in a level to open the editor. With `--level` too, the editor opens when the level starts:
+The level editor changes the objects, the rings, the markers, the tiles and the collision of a level. Start the game
+with `--editor`. Then press F2 in a level to open the editor. With `--level` too, the editor opens when the level
+starts:
 
 ```sh
 publish/S2HD.app/Contents/MacOS/S2HD --level cnz --editor
 ```
 
-The level stops, and the editor shows all the objects of the level. The editor has two tools. Select a tool with
+The level stops, and the editor shows all the objects of the level. The editor has four tools. Select a tool with
 its button or with its key:
 
 - **Objects (1)** changes the objects and the rings. The list has all the object types of the game. A type that the
@@ -237,6 +240,25 @@ its button or with its key:
 - **Markers (2)** changes the markers of the map. A point marker has a name, for example `startpos_stk_1` (the start
   position of act 1), `bounds_1_rb` (the bottom right camera bound of act 1) or `boss_left`. An area marker has a
   tag, for example `inside`. The level reads the markers when it starts. Click a marker in the list to go to it.
+- **Tiles (3)** paints the tiles of a layer. Click a layer in the list, then click a tile in the palette, or hold
+  Ctrl and drag in the level to take a rectangle of tiles. Click or drag in the level to paint. X and Y flip the
+  brush. The first tile of the palette is empty, to erase. On the front layer, a brush also paints the priority
+  tiles (`front_high`) and the solidity of the cells. Set the solidity of a palette tile for each path: none, top
+  only, or all sides.
+- **Collision (4)** changes the collision lines. A line is solid on its right side, from its start to its arrow,
+  with Y down. So a floor goes from left to right, and a ceiling from right to left. Green lines are on path 1,
+  blue lines on path 2, and white lines on both. The layer switches select the path. Grey lines are the lines of
+  layout changes. Click "Draw lines", then click the points of the lines. Drag the end of a selected line to move
+  the point. The other lines that end at that point move with it.
+
+In the imported zones, the collision follows the tiles: after you paint on the front layer, the editor traces the
+collision of the changed area again, as the import does. Lines that you drew by hand in other areas stay. "Trace
+paths 1 and 2 again from the tiles" in the collision tool traces all the lines again. This needs the tile collision
+data that the import writes (`TILECOLLISION`), so run `./tools/import-all.sh` again after an update. The zones of
+the game data (EHZ, CPZ, HTZ) have no tile collision data. In these zones, draw the collision lines with the
+collision tool.
+
+The editor shows the map without the layout changes of the play, for example the walls that close a boss arena.
 
 Use the mouse and the keyboard:
 
@@ -277,8 +299,7 @@ When the level unloads with changes that are not saved, for example when you qui
 editor writes them to `mods/editor/unsaved/<ZONE>.dat`. The game does not load this folder. To keep the changes,
 move the file to `mods/editor`.
 
-The editor saves the map in a way that keeps all the other data of the map file. It cannot change the tiles or the
-collision of a level yet.
+The editor saves the map in a way that keeps all the other data of the map file.
 
 The behavior of levels and objects is C# code in `SONICORCA/`, not data. The `AREA.area.cs` and `.object.cs`
 resources only name the class to use.
@@ -368,8 +389,8 @@ The regression tests run the release build and save screenshots at fixed level t
 - One test plays the Emerald Hill attract demo, which moves the player through the first part of the level.
 - One test for each level that the demo data contains (EHZ, CPZ, HTZ, MTZ and DEZ, acts 1 and 2) starts the level
   with no input.
-- Two tests open the level editor in Emerald Hill with scripted input. One adds a monitor and plays. The other moves
-  the start position marker and plays from the start.
+- Three tests open the level editor in Emerald Hill with scripted input. One adds a monitor and plays. One moves
+  the start position marker and plays from the start. One paints tiles, draws a collision line and plays on it.
 
 The tests compare the screenshots with golden screenshots. A run takes about 2 minutes. The golden screenshots come
 from the game files, so Git ignores them (`tests/golden/`). Record them once from a known-good build:
