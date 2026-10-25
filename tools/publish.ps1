@@ -59,6 +59,7 @@ if (-not $isWindowsBuild) {
   Move-Item $out (Join-Path $release "S2HD-$Runtime")
   Copy-Item (Join-Path $root 'tools\macos\build-app.sh') $release
   Copy-Item (Join-Path $root 'assets\S2HD.png') $release
+  Copy-Item (Join-Path $root 'assets\S2HD.icon') $release -Recurse
 }
 
 if ($Zip) {
