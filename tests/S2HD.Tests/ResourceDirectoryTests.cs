@@ -35,6 +35,23 @@ public sealed class ResourceDirectoryTests : IDisposable
 	}
 
 	[Fact]
+	public void Export_WithAFilter_WritesOnlyTheResourcesThatItAccepts()
+	{
+		ResourceTree tree = MakeTree(new()
+		{
+			["SONICORCA/FONTS/HUD"] = (ResourceTypeIdentifier.Font, "<font />"),
+			["SONICORCA/FONTS/HUD/SHAPE"] = (ResourceTypeIdentifier.TexturePNG, "png bytes"),
+			["SONICORCA/LEVELS/EHZ/MAP"] = (ResourceTypeIdentifier.Map, "<map />"),
+		});
+		string output = Path.Combine(_directory, "images");
+
+		int count = ResourceDirectory.Export(tree, output, r => r.Identifier == ResourceTypeIdentifier.TexturePNG);
+
+		Assert.Equal(1, count);
+		Assert.Equal(new[] { Path.Combine(output, "SONICORCA", "FONTS", "HUD", "SHAPE.png") }, Directory.GetFiles(output, "*", SearchOption.AllDirectories));
+	}
+
+	[Fact]
 	public void ExportThenImport_KeepsKeysTypesAndContent()
 	{
 		var expected = new Dictionary<string, (ResourceTypeIdentifier, string)>

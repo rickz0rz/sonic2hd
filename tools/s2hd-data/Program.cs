@@ -1,10 +1,14 @@
 // Lists, unpacks and packs the game's resource files (.dat).
 //   dotnet run --project tools/s2hd-data -- list   <file.dat>
-//   dotnet run --project tools/s2hd-data -- unpack <file.dat> <folder>
+//   dotnet run --project tools/s2hd-data -- unpack <file.dat>... <folder> [--images]
 //   dotnet run --project tools/s2hd-data -- pack   <folder> <file.dat> [--base <original.dat>]
+//   dotnet run --project tools/s2hd-data -- prune  <folder> <file.dat>...
 //   dotnet run --project tools/s2hd-data -- import-special-stages <s2disasm folder> <folder>
 //   dotnet run --project tools/s2hd-data -- import-level <zone> <s2disasm folder> <folder>
-// unpack writes each resource as a normal file (.png, .ogg, .map.xml and so on) that you can edit. pack makes a
+// unpack writes each resource as a normal file (.png, .ogg, .map.xml and so on) that you can edit. With more than
+// one .dat file, a later file replaces the resources of an earlier one, as in the game. With --images, unpack
+// writes only the images. The game loads such a folder from its mods folder. prune deletes the files of a folder
+// that are the same as in the .dat files, so that the folder keeps only the changes. pack makes a
 // .dat file from such a folder. With --base, pack writes only the resources that are new or changed compared to
 // the original, which gives a small file for the game's mods folder. import-special-stages converts the special
 // stage layouts of the original game from a Sonic 2 disassembly (github.com/sonicretro/s2disasm) into that folder.
@@ -27,7 +31,9 @@ try
 	return args switch
 	{
 		["list", string file] => List(file),
-		["unpack", string file, string folder] => Unpack(file, folder),
+		["unpack", .. var unpackArgs] when unpackArgs.Count(a => a != "--images") >= 2 =>
+			Unpack(unpackArgs.Where(a => a != "--images").SkipLast(1).ToArray(), unpackArgs.Last(a => a != "--images"), unpackArgs.Contains("--images")),
+		["prune", string pruneFolder, .. var baseFiles] when baseFiles.Length > 0 => Prune(pruneFolder, baseFiles),
 		["pack", string folder, string file] => Pack(folder, file, null),
 		["pack", string folder, string file, "--base", string baseFile] => Pack(folder, file, baseFile),
 		["import-special-stages", string disassembly, string folder] => ImportSpecialStages(disassembly, folder),
@@ -52,16 +58,64 @@ static int List(string file)
 	return 0;
 }
 
-static int Unpack(string file, string folder)
+static int Unpack(string[] files, string folder, bool imagesOnly)
 {
 	if (Directory.Exists(folder) && Directory.EnumerateFileSystemEntries(folder).Any())
 	{
 		Console.Error.WriteLine($"Error: The folder {folder} is not empty. Use an empty folder.");
 		return 1;
 	}
-	int count = ResourceDirectory.Export(Scan(file), folder);
+	ResourceTree tree = ScanAll(files);
+	Func<Resource, bool> include = imagesOnly ? IsImage : null;
+	int count = ResourceDirectory.Export(tree, folder, include);
 	Console.WriteLine($"Wrote {count} files to {folder}.");
 	return 0;
+}
+
+static bool IsImage(Resource resource) => resource.Identifier is ResourceTypeIdentifier.TexturePNG or ResourceTypeIdentifier.TextureBMP
+	or ResourceTypeIdentifier.TextureGIF or ResourceTypeIdentifier.TextureJPG;
+
+static int Prune(string folder, string[] baseFiles)
+{
+	if (!Directory.Exists(folder))
+	{
+		Console.Error.WriteLine($"Error: The folder {folder} does not exist.");
+		return 1;
+	}
+	string root = Path.GetFullPath(folder);
+	ResourceTree changes = ResourceComparison.GetChanges(ResourceDirectory.Import(root), ScanAll(baseFiles));
+	var changedFiles = new HashSet<string>(changes.GetResourceListing().Values
+		.Select(r => Path.GetFullPath(((FileResourceSource)r.Source).Path)), StringComparer.Ordinal);
+	int deleted = 0;
+	foreach (string path in ResourceDirectory.Import(root).GetResourceListing().Values.Select(r => Path.GetFullPath(((FileResourceSource)r.Source).Path)))
+	{
+		if (!changedFiles.Contains(path))
+		{
+			File.Delete(path);
+			deleted++;
+		}
+	}
+	// Remove the folders that are empty now, deepest first
+	foreach (string directory in Directory.GetDirectories(root, "*", SearchOption.AllDirectories).OrderByDescending(d => d.Length))
+	{
+		if (!Directory.EnumerateFileSystemEntries(directory).Any())
+		{
+			Directory.Delete(directory);
+		}
+	}
+	Console.WriteLine($"Deleted {deleted} files that are the same as in the .dat files. {changedFiles.Count} changed files stay in {folder}.");
+	return 0;
+}
+
+/// <summary>Reads the .dat files into one tree. A later file replaces the resources of an earlier file, as in the game.</summary>
+static ResourceTree ScanAll(IEnumerable<string> files)
+{
+	ResourceTree tree = new ResourceTree();
+	foreach (string file in files)
+	{
+		tree.MergeWith(Scan(file));
+	}
+	return tree;
 }
 
 static int Pack(string folder, string file, string baseFile)
@@ -205,8 +259,9 @@ static int Usage()
 	Console.Error.WriteLine("""
 		Usage:
 		  s2hd-data list   <file.dat>
-		  s2hd-data unpack <file.dat> <folder>
+		  s2hd-data unpack <file.dat>... <folder> [--images]
 		  s2hd-data pack   <folder> <file.dat> [--base <original.dat>]
+		  s2hd-data prune  <folder> <file.dat>...
 		  s2hd-data import-special-stages <s2disasm folder> <folder>
 		  s2hd-data import-level <zone> <s2disasm folder> <folder>
 		  s2hd-data import-demos <s2disasm folder> <folder>
