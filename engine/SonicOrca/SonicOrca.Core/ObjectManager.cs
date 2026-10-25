@@ -70,6 +70,27 @@ public class ObjectManager
 		Trace.Unindent();
 	}
 
+	/// <summary>
+	/// Stops all the active objects, also the characters, and makes the entries again from the binding. The level
+	/// editor calls this method after each change, so that the level shows all the placements as they are.
+	/// </summary>
+	public void Rebind(LevelBinding binding)
+	{
+		foreach (ActiveObject activeObject in _activeObjects.Concat(_newActiveObjects).ToArray())
+		{
+			activeObject.Finish();
+			activeObject.Stop();
+			if (activeObject.Entry != null)
+			{
+				activeObject.Entry.Active = null;
+			}
+		}
+		_activeObjects.Clear();
+		_newActiveObjects.Clear();
+		_respawnPrevention.Clear();
+		_objectEntryTable.Initialise(binding);
+	}
+
 	public void ResetLifetimeArea()
 	{
 		_lifeTimeAreas.Clear();

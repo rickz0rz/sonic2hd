@@ -127,6 +127,9 @@ public abstract class SonicOrcaGameContext : IDisposable
 
 	public bool ForceHD { get; set; }
 
+	/// <summary>F2 in a level opens the level editor (the --editor option).</summary>
+	public bool EditorEnabled { get; set; }
+
 	public IniConfiguration Configuration { get; protected set; }
 
 	public IReadOnlyList<Controller> Current => _controllersCurrent;

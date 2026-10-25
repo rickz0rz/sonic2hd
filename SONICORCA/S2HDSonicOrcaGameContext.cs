@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using S2HD;
 using SonicOrca.Core;
+using SonicOrca.Core.Editor;
 using SonicOrca.Drawing;
 using SonicOrca.Drawing.LevelRendering;
 using SonicOrca.Drawing.Renderers;
@@ -78,6 +79,8 @@ internal class S2HDSonicOrcaGameContext(IPlatform platform) : SonicOrcaGameConte
 			// Mods next to the game data, then mods in the user data folder (outside the macOS app bundle)
 			LoadResourceFiles(Path.Combine(contentDirectory, "mods"));
 			LoadResourceFiles(Path.Combine(UserDataDirectory, "mods"));
+			// The changes of the level editor load last. They load into memory, because the editor writes the files again.
+			LoadResourceFiles(EditorModFile.GetFolder(UserDataDirectory), inMemory: true);
 		}
 		RenderFactory = DefaultRendererFactory.Create(Window.GraphicsContext);
 		_rootGameState = new RootGameState(this);
@@ -284,14 +287,14 @@ internal class S2HDSonicOrcaGameContext(IPlatform platform) : SonicOrcaGameConte
 	/// Merges each .dat file in the folder into the resource tree, in name order. A later file replaces the
 	/// resources with the same key, so mods/ overrides data/, and mods/20-x.dat overrides mods/10-y.dat.
 	/// </summary>
-	private void LoadResourceFiles(string inputDirectory)
+	private void LoadResourceFiles(string inputDirectory, bool inMemory = false)
 	{
 		if (!Directory.Exists(inputDirectory))
 			return;
 		foreach (string file in Directory.GetFiles(inputDirectory, "*.dat").OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
 		{
 			Trace.WriteLine("Loading resource file " + file);
-			ResourceTree.MergeWith(new ResourceFile(file).Scan());
+			ResourceTree.MergeWith(inMemory ? EditorModFile.ReadIntoMemory(file) : new ResourceFile(file).Scan());
 		}
 	}
 

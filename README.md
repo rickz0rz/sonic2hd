@@ -220,6 +220,51 @@ each second. He becomes normal again when he has no rings, at the end of the act
 become super. The data has no Super Sonic art, music or sound, so the game colours Sonic gold and the level music
 continues. Super Sonic has the values of the original in the two physics modes.
 
+### Level editor
+
+The level editor changes the objects and the rings of a level. Start the game with `--editor`. Then press F2 in a
+level to open the editor. With `--level` too, the editor opens when the level starts:
+
+```sh
+publish/S2HD.app/Contents/MacOS/S2HD --level cnz --editor
+```
+
+The level stops, and the editor shows all the objects of the level. Use the mouse and the keyboard:
+
+| Input | Effect |
+|---|---|
+| Click an object | Selects the object. Shift adds objects to the selection or removes them |
+| Drag an object | Moves the selected objects on the grid |
+| Drag in an empty area | Selects the objects in a box |
+| Click a type in the list, then click in the level | Adds an object of this type. Hold Shift to add more than one. Esc stops |
+| Click a value in the properties | Changes the value. A yes or no value and a list value change on a click (right click goes back). For a number or a text, type the value and press Enter |
+| Right drag, middle drag or Space and drag | Moves the view |
+| Wheel, Shift and wheel | Moves the view up and down, or left and right |
+| Ctrl and wheel, `-` and `=` | Zooms out and in |
+| Arrow keys | Move the selected objects by the grid size (Shift: 4 times). Without a selection, they move the view |
+| Del or Backspace | Deletes the selected objects |
+| Ctrl+Z, Ctrl+Shift+Z or Ctrl+Y | Undo and redo |
+| Ctrl+C, Ctrl+X, Ctrl+V, Ctrl+D | Copy, cut, paste at the mouse, and duplicate |
+| Ctrl+A | Selects all the objects in the view |
+| G | Changes the grid size: 4, 16, 32, 64 or 128 (1 to 32 pixels of the original) |
+| Home | Moves the view to the start position |
+| F5 | Plays the level from the mouse position |
+| F2 or Shift+F5 | Plays the level from the start position |
+| Ctrl+S | Saves the level |
+
+On macOS, Cmd also works in place of Ctrl.
+
+To play, the level starts again with the changes. Press F2 in the level to go back to the editor. The changes stay
+until the game closes, also when you do not save them. Undo also works after you play.
+
+Save writes the objects of the zone to `mods/editor/<ZONE>.dat` in the user data folder (see "Logs and settings").
+The game loads this folder after all the other mods, so the changes replace the objects of the game data and of the
+imports. The game loads the file also without `--editor`. To remove the changes of a zone, delete its file.
+
+The list shows the object types that the level loaded. To add a type that the level does not use, add it to the
+level in a different way first, for example with a mod. The editor cannot change the tiles, the collision or the
+markers of a level yet.
+
 The behavior of levels and objects is C# code in `SONICORCA/`, not data. The `AREA.area.cs` and `.object.cs`
 resources only name the class to use.
 
@@ -230,6 +275,7 @@ resources only name the class to use.
 | `--level <zone> [--act <n>]` | Starts a level directly, for example `--level htz --act 2` |
 | `--protagonist <name>`, `--sidekick <name>` | Chooses the characters for `--level` (`sonic`, `tails`, `knuckles`) |
 | `--debug` | Starts the level with debug mode on |
+| `--editor` | Turns on the level editor: F2 in a level opens it. With `--level`, the editor opens when the level starts |
 | `--physics original`, `--physics hd` | Plays the `--level` level with this physics, whatever the PHYSICS setting is |
 | `--demo` | Plays the attract demo (the demos of all zones that have one play in turn) |
 | `--record <file>` | Records the input of the level to a file, for example for a demo |
@@ -307,6 +353,7 @@ The regression tests run the release build and save screenshots at fixed level t
 - One test plays the Emerald Hill attract demo, which moves the player through the first part of the level.
 - One test for each level that the demo data contains (EHZ, CPZ, HTZ, MTZ and DEZ, acts 1 and 2) starts the level
   with no input.
+- One test opens the level editor in Emerald Hill with scripted input. It adds a monitor and plays.
 
 The tests compare the screenshots with golden screenshots. A run takes about 2 minutes. The golden screenshots come
 from the game files, so Git ignores them (`tests/golden/`). Record them once from a known-good build:
@@ -329,4 +376,5 @@ The test uses these environment variables, which you can also set by hand:
 | `S2HD_TEST_START_RINGS` | Gives the player this number of rings at the start of a level |
 | `S2HD_TEST_EMERALDS` | Gives the player this number of emeralds at the start of a level. With `7` and 50 rings, Sonic can become Super Sonic |
 | `S2HD_TEST_SPECIAL_STAGE_AT_TICK` | Starts the special stage at this level tick, one time only |
+| `S2HD_TEST_EDITOR_INPUT` | Replaces the mouse and keyboard of the level editor with commands, for example `5:mouse 900 500;6:down left;7:up left`. See `TestHooks.cs` for the commands. While the editor is open, the screenshot numbers are 10000 plus the editor frame |
 | `S2HD_PHYSICS` | With `original` or `hd`, plays the levels with this physics. With `hd`, the tests use the golden screenshots in `tests/golden-hd/`, not `tests/golden/` |

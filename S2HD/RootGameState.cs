@@ -43,6 +43,8 @@ internal class RootGameState : IGameState, IDisposable
 	{
 		Initialise();
 		InputContext input = _gameContext.Input;
+		// With --editor, F2 in a level opens the level editor. With --level too, the editor opens when the level starts.
+		_gameContext.EditorEnabled = _cmdLineArgs.HasOption("editor");
 		if (_cmdLineArgs.HasOption("level"))
 		{
 			LevelPrepareSettings settingsFromCommandLine = GetLevelPrepareSettingsFromCommandLine();
@@ -248,6 +250,7 @@ internal class RootGameState : IGameState, IDisposable
 			LevelNumber = levelNumber,
 			Lives = 3,
 			TimeTrial = _cmdLineArgs.HasOption("timetrial"),
+			OpenEditor = _cmdLineArgs.HasOption("editor"),
 			Physics = Enum.TryParse(_cmdLineArgs.GetOptionValues("physics").FirstOrDefault(), ignoreCase: true, out PhysicsMode physics)
 				? physics
 				: null

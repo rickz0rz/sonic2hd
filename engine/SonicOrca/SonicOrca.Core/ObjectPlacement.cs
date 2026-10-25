@@ -138,6 +138,27 @@ public class ObjectPlacement
 	}
 
 	/// <summary>
+	/// Makes a copy of the placement with a different unique ID, position, layer, behaviour and name (null keeps the
+	/// name). The copy keeps the key and the mappings. The level editor changes a placement with a copy, so that the undo history
+	/// can keep the old placement.
+	/// </summary>
+	public ObjectPlacement With(Guid uid, Vector2i position, int layer, IEnumerable<KeyValuePair<string, object>> behaviour, string name = null)
+	{
+		IDictionary<string, object> state = new ExpandoObject();
+		foreach (KeyValuePair<string, object> pair in behaviour)
+		{
+			state[pair.Key] = pair.Value;
+		}
+		return new ObjectPlacement(_key, uid, name ?? _name ?? "", layer, position, state)
+		{
+			Mappings = _mappings.ToList()
+		};
+	}
+
+	/// <summary>Makes a copy of the placement at a different position.</summary>
+	public ObjectPlacement WithPosition(Vector2i position) => With(_uid, position, _layer, _behaviour);
+
+	/// <summary>
 	/// Converts the entry values and the state object to key and value pairs.
 	/// An anonymous or dynamic state gives all its properties. Other states give only the state variables
 	/// that are different from the default value.

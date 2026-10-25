@@ -51,6 +51,9 @@ public class LevelPrepareSettings
 
 	public bool Debugging { get; set; }
 
+	/// <summary>Open the level editor when the level starts. The game must start with the editor turned on.</summary>
+	public bool OpenEditor { get; set; }
+
 	public double NightMode { get; set; }
 
 	public LevelPrepareSettings()

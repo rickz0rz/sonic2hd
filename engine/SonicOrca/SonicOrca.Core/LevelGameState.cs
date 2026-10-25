@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using SonicOrca.Core.Editor;
 using SonicOrca.Core.Network;
 using SonicOrca.Core.SpecialStage;
 using SonicOrca.Geometry;
+using SonicOrca.Input;
 using SonicOrca.Menu;
 
 namespace SonicOrca.Core;
@@ -39,6 +41,11 @@ public class LevelGameState : IGameState, IDisposable
 	private Vector2 _inputDirection;
 
 	private bool _inputAction;
+
+	/// <summary>The start position of the prepare settings before the editor opened the first time.</summary>
+	private Vector2i? _startPositionBeforeEditor;
+
+	private bool _editorOpened;
 
 	public LevelPrepareSettings PrepareSettings { get; set; }
 
@@ -102,6 +109,9 @@ public class LevelGameState : IGameState, IDisposable
 					break;
 				case LevelState.Playing:
 					OnLevelUpdate();
+					break;
+				case LevelState.Editing:
+					OnEditorUpdate();
 					break;
 				case LevelState.Dead:
 					OnPlayerDeath();
@@ -191,10 +201,54 @@ public class LevelGameState : IGameState, IDisposable
 		}
 		_level.Start();
 		_draw = true;
+		if (PrepareSettings.OpenEditor && _gameContext.EditorEnabled)
+		{
+			PrepareSettings.OpenEditor = false;
+			OpenEditor();
+		}
+	}
+
+	/// <summary>Opens the level editor. A recorded play or a network play cannot open it.</summary>
+	private void OpenEditor()
+	{
+		if (_level.PlayRecorder.Playing || _level.PlayRecorder.Recording || _gameContext.NetworkManager.NetworkPlay)
+		{
+			return;
+		}
+		if (!_editorOpened)
+		{
+			_editorOpened = true;
+			_startPositionBeforeEditor = PrepareSettings.StartPosition;
+		}
+		_level.EnterEditor();
+	}
+
+	/// <summary>
+	/// Updates the level editor. To play, the level starts again from the beginning with the changed objects, at the
+	/// start position or at the position that the editor gives.
+	/// </summary>
+	private void OnEditorUpdate()
+	{
+		LevelEditor editor = _level.Editor;
+		editor.Update();
+		if (editor.PlayRequest == EditorPlayRequest.None)
+		{
+			return;
+		}
+		PrepareSettings.StartPosition = editor.PlayRequest == EditorPlayRequest.FromCursor ? editor.PlayPosition : _startPositionBeforeEditor;
+		_level.State = LevelState.Restart;
 	}
 
 	private void OnLevelUpdate()
 	{
+		if (_gameContext.EditorEnabled && !_gameContext.Console.IsOpen && _gameContext.Input.Pressed.Keyboard[KeyboardState.KEY_F2])
+		{
+			OpenEditor();
+			if (_level.State == LevelState.Editing)
+			{
+				return;
+			}
+		}
 		NetworkPlayUpdate();
 		LevelStateFlags stateFlags = _level.StateFlags;
 		if (stateFlags.HasFlag(LevelStateFlags.Paused))

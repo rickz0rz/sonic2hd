@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using SonicOrca.Audio;
 using SonicOrca.Core.Collision;
 using SonicOrca.Core.Debugging;
+using SonicOrca.Core.Editor;
 using SonicOrca.Core.Lighting;
 using SonicOrca.Core.Objects;
 using SonicOrca.Core.Objects.Base;
@@ -74,6 +75,8 @@ public class Level : IDisposable
 	private readonly Dictionary<string, LevelMarker> _markers = new Dictionary<string, LevelMarker>();
 
 	private readonly DebugContext _debugContext;
+
+	private readonly LevelEditor _editor;
 
 	private readonly LevelHud _hud;
 
@@ -184,6 +187,9 @@ public class Level : IDisposable
 
 	public LevelState State { get; set; }
 
+	/// <summary>The level editor. It loads only when the game starts with the editor turned on.</summary>
+	public LevelEditor Editor => _editor;
+
 	public LevelStateFlags StateFlags { get; set; }
 
 	public int Ticks { get; set; }
@@ -247,6 +253,7 @@ public class Level : IDisposable
 		_soundManager = new SoundManager(this);
 		_lightingManager = new LightingManager();
 		_debugContext = new DebugContext(this);
+		_editor = new LevelEditor(this);
 		_hud = new LevelHud(this);
 		_completeHud = new LevelCompleteHud(this);
 		_gameOverHud = new GameOverHud(this);
@@ -275,6 +282,7 @@ public class Level : IDisposable
 		_completeHud.Dispose();
 		_hud.Dispose();
 		_debugContext.Dispose();
+		_editor.Dispose();
 		_fadeTransitionRenderer.Dispose();
 	}
 
@@ -282,6 +290,10 @@ public class Level : IDisposable
 	{
 		Trace.WriteLine("Loading common level components");
 		await _debugContext.LoadAsync(ct);
+		if (_gameContext.EditorEnabled)
+		{
+			await _editor.LoadAsync(ct);
+		}
 		await _hud.LoadAsync(ct);
 		await _completeHud.LoadAsync(ct);
 		await _gameOverHud.LoadAsync(ct);
@@ -334,6 +346,7 @@ public class Level : IDisposable
 	{
 		Trace.WriteLine("Unloading common level components");
 		_debugContext.Dispose();
+		_editor.Dispose();
 		_hud.Dispose();
 		_completeHud.Dispose();
 		_gameOverHud.Dispose();
@@ -886,12 +899,30 @@ public class Level : IDisposable
 		return CharacterInputButtonState.Pressed;
 	}
 
+	/// <summary>
+	/// Pauses the level and opens the level editor. The sounds stop. To leave the editor, the level starts again,
+	/// see <see cref="LevelGameState"/>.
+	/// </summary>
+	public void EnterEditor()
+	{
+		StopEarthquake();
+		_soundManager.StopAll();
+		StateFlags &= ~LevelStateFlags.Paused;
+		State = LevelState.Editing;
+		_editor.Begin();
+	}
+
 	public void Draw(Renderer renderer)
 	{
-		SonicOrca.Core.Debugging.TestHooks.DrawnLevelTick = Ticks;
+		SonicOrca.Core.Debugging.TestHooks.DrawnLevelTick = State == LevelState.Editing ? SonicOrca.Core.Debugging.TestHooks.EditorCaptureOffset + SonicOrca.Core.Debugging.TestHooks.EditorFrame : Ticks;
 		Viewport viewport = new Viewport(new Rectangle(0.0, 0.0, ScreenWidth, ScreenHeight));
 		viewport.Bounds = _camera.Bounds;
 		_levelRenderer.Render(renderer, viewport, _layerViewOptions);
+		if (State == LevelState.Editing)
+		{
+			_editor.Draw(renderer);
+			return;
+		}
 		_camera.Draw(renderer);
 		if (ShowHUD)
 		{

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Xml;
 
@@ -20,18 +21,24 @@ public class LevelBindingWriter
 
 	public void Save(string path)
 	{
+		using FileStream stream = new FileStream(path, FileMode.Create, FileAccess.Write);
+		Save(stream);
+	}
+
+	public void Save(Stream stream)
+	{
 		XmlWriterSettings settings = new XmlWriterSettings
 		{
 			Indent = true
 		};
-		using XmlWriter xmlWriter = XmlWriter.Create(path, settings);
+		using XmlWriter xmlWriter = XmlWriter.Create(stream, settings);
 		xmlWriter.WriteStartDocument();
 		xmlWriter.WriteStartElement("Binding");
 		// The default layer is the layer with the most objects. A placement on that layer does not write its layer.
 		int defaultLayer = (from x in _binding.ObjectPlacements
 							group x by x.Layer into layerGroup
 							orderby layerGroup.Count() descending
-							select layerGroup).First().Key;
+							select layerGroup.Key).FirstOrDefault();
 		xmlWriter.WriteStartElement("Definitions");
 		xmlWriter.WriteAttributeString("DefaultLayer", defaultLayer.ToString());
 		foreach (ObjectPlacement objectPlacement in _binding.ObjectPlacements)
