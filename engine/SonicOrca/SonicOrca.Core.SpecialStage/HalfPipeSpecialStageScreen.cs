@@ -293,6 +293,13 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	private const double PipeRadius = 4.0;
 
+	/// <summary>
+	/// The original draws the pipe and the positions on it 0.8 times as wide as high (SSAnglePos multiplies X by
+	/// $CC / $100). The sprites keep their shape. On a 4:3 screen this gives a path of about 0.46 screen heights to
+	/// each side, so the player crosses the same part of the screen in the same time as in the original.
+	/// </summary>
+	private const double PipeWidthScale = 0xCC / 256.0;
+
 	private const int NumPointsWide = 32;
 
 	private int _ticks;
@@ -944,6 +951,8 @@ public class HalfPipeSpecialStageScreen : Screen
 		Vector3 right = new Vector3(Math.Sin(theta), -Math.Cos(theta), 0.0);
 		// Depth moves the sprite along the track: a negative depth is nearer to the camera
 		Vector3 bottomCentre = surface + up * (SurfaceGap + height) + new Vector3(0.0, 0.0, depth);
+		// The positions are narrower, as in the original, but the sprites keep their shape
+		bottomCentre = new Vector3(bottomCentre.X * PipeWidthScale, bottomCentre.Y, bottomCentre.Z);
 		if (spin != 0.0)
 		{
 			// Turn the sprite in its own plane, about its centre
@@ -981,7 +990,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		for (int i = 0; i < points.Length; i++)
 		{
 			double angle = i / 31.0 * Math.PI;
-			points[i] = new Vector3((0.0 - Math.Cos(angle)) * PipeRadius, (0.0 - Math.Sin(angle)) * PipeRadius, 0.0);
+			points[i] = new Vector3((0.0 - Math.Cos(angle)) * PipeRadius * PipeWidthScale, (0.0 - Math.Sin(angle)) * PipeRadius, 0.0);
 		}
 		return points;
 	}
