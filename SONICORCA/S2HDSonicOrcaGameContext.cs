@@ -149,12 +149,14 @@ internal class S2HDSonicOrcaGameContext(IPlatform platform) : SonicOrcaGameConte
 						NetworkManager.Update();
 					break;
 				case "-join":
-					// This does not check for a last argument, so "-join" at the end causes an exception.
-					string serverHost = commandLineArguments[++index];
-					Trace.WriteLine("Joining " + serverHost);
-					NetworkManager.Join(serverHost);
-					while (!NetworkManager.AllConnected)
-						NetworkManager.Update();
+					if (!isLastArgument)
+					{
+						string serverHost = commandLineArguments[++index];
+						Trace.WriteLine("Joining " + serverHost);
+						NetworkManager.Join(serverHost);
+						while (!NetworkManager.AllConnected)
+							NetworkManager.Update();
+					}
 					break;
 				case "-level":
 					if (!isLastArgument)

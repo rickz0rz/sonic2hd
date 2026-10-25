@@ -75,8 +75,9 @@ public class QuadTree<T> : ICollection<T>, IEnumerable<T>, IEnumerable where T :
 			}
 			if (_children.Length == 0)
 			{
-				// A leaf keeps items until it has more than the target count. Then it tries to subdivide.
-				if (_items.Count <= _quadTree._subdivideTargetCount)
+				// A leaf keeps items until it has more than the target count. Then it tries to subdivide. A leaf that
+				// is too small to subdivide keeps all its items, in the same order as before.
+				if (_items.Count <= _quadTree._subdivideTargetCount || _bounds.Area <= _quadTree._minNodeSize)
 				{
 					_items.Add(item);
 					return true;

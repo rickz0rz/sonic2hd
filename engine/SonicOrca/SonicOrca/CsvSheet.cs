@@ -138,7 +138,7 @@ public class CsvSheet
 
 	private void CalculateColumns()
 	{
-		_columns = _rows.Max(row => row.Count);
+		_columns = _rows.Count == 0 ? 0 : _rows.Max(row => row.Count);
 	}
 
 	private string[] ProcessLine(string line)

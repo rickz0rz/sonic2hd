@@ -2335,29 +2335,16 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		return Vector2.GetDistance(PositionPrecise, t.Bounds.Centre);
 	}
 
+	/// <summary>Gives the point of the line through v1 and v2 that is nearest to a point.</summary>
 	public Vector2 GetProjectedPointOnLine(Vector2 v1, Vector2 v2, Vector2 point)
 	{
-		Vector2 lineDirection = new Vector2(v2.X - v1.X, v2.Y - v1.Y);
-		Vector2 pointOffset = new Vector2(point.X - v1.X, point.Y - v1.Y);
-		double dot = lineDirection.Dot(pointOffset);
-		double lineLength = Math.Sqrt(lineDirection.X * lineDirection.X + lineDirection.Y * lineDirection.Y);
-		double offsetLength = Math.Sqrt(pointOffset.X * pointOffset.X + pointOffset.Y * pointOffset.Y);
-		double projectedLength = dot / (lineLength * offsetLength) * offsetLength;
-		return new Vector2(v1.X + projectedLength * lineDirection.X / lineLength, v1.Y + projectedLength * lineDirection.Y / lineLength);
-	}
-
-	/// <summary>
-	/// Does the same as <see cref="GetProjectedPointOnLine"/>.
-	/// </summary>
-	public Vector2 GetProjectedPointOnLine2(Vector2 v1, Vector2 v2, Vector2 point)
-	{
-		Vector2 lineDirection = new Vector2(v2.X - v1.X, v2.Y - v1.Y);
-		Vector2 pointOffset = new Vector2(point.X - v1.X, point.Y - v1.Y);
-		double dot = lineDirection.Dot(pointOffset);
-		double lineLength = Math.Sqrt(lineDirection.X * lineDirection.X + lineDirection.Y * lineDirection.Y);
-		double offsetLength = Math.Sqrt(pointOffset.X * pointOffset.X + pointOffset.Y * pointOffset.Y);
-		double projectedLength = dot / (lineLength * offsetLength) * offsetLength;
-		return new Vector2(v1.X + projectedLength * lineDirection.X / lineLength, v1.Y + projectedLength * lineDirection.Y / lineLength);
+		Vector2 lineDirection = v2 - v1;
+		double lengthSquared = lineDirection.Dot(lineDirection);
+		if (lengthSquared == 0.0)
+		{
+			return v1;
+		}
+		return v1 + lineDirection * (lineDirection.Dot(point - v1) / lengthSquared);
 	}
 
 	/// <summary>

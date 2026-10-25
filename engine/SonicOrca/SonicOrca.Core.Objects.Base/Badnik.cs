@@ -9,7 +9,7 @@ namespace SonicOrca.Core.Objects.Base;
 /// </summary>
 public class Badnik : ActiveObject
 {
-	public bool CanBeDestoryed { get; set; } = true;
+	public bool CanBeDestroyed { get; set; } = true;
 
 	protected override void OnStart()
 	{
@@ -21,7 +21,7 @@ public class Badnik : ActiveObject
 		if (e.ActiveObject.Type.Classification == ObjectClassification.Character)
 		{
 			ICharacter character = (ICharacter)e.ActiveObject;
-			if (character.IsDeadly && CanBeDestoryed)
+			if (character.IsDeadly && CanBeDestroyed)
 			{
 				Destroy(character);
 			}

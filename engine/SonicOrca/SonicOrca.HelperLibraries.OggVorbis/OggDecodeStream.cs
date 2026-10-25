@@ -311,8 +311,7 @@ public class OggDecodeStream : Stream
 
 	public override long Seek(long offset, SeekOrigin origin)
 	{
-		// This calls itself and causes a stack overflow. It is kept as it was.
-		return Seek(offset, origin);
+		return _decodedStream.Seek(offset, origin);
 	}
 
 	public override void SetLength(long value)

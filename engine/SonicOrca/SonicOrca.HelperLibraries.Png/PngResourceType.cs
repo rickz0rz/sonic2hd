@@ -92,31 +92,4 @@ public class PngResourceType : ResourceType
 			}
 		}
 	}
-
-	[DllImport("SonicOrcaFastUtil.dll")]
-	private static extern int BeginReadPNG(IntPtr input, int inputSize, out int width, out int height, out IntPtr output);
-
-	[DllImport("SonicOrcaFastUtil.dll")]
-	private static extern void EndReadPNG(IntPtr output);
-
-	/// <summary>
-	/// Decodes the image with the native SonicOrcaFastUtil library. Nothing calls this method at this time.
-	/// </summary>
-	private async Task<PixelData> GetFastStream(Stream inputStream)
-	{
-		byte[] inputData;
-		using (MemoryStream ms = new MemoryStream())
-		{
-			await inputStream.CopyToAsync(ms);
-			inputData = ms.ToArray();
-		}
-		if (BeginReadPNG(Marshal.UnsafeAddrOfPinnedArrayElement((Array)inputData, 0), inputData.Length, out int width, out int height, out IntPtr output) == 0)
-		{
-			throw new ResourceException("Unable to load PNG.");
-		}
-		byte[] pixels = new byte[width * height * BytesPerPixel];
-		Marshal.Copy(output, pixels, 0, pixels.Length);
-		EndReadPNG(output);
-		return new PixelData(width, height, BytesPerPixel, pixels);
-	}
 }

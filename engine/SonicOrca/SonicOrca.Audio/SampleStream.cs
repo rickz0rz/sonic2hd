@@ -19,13 +19,7 @@ internal class SampleStream : Stream
 
 	private readonly long _lengthFromLoopPoint;
 
-	public override bool CanRead
-	{
-		get
-		{
-			throw new NotImplementedException();
-		}
-	}
+	public override bool CanRead => true;
 
 	public override bool CanSeek => true;
 

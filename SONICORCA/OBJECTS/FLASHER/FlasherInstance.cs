@@ -144,7 +144,7 @@ public class FlasherInstance : Badnik
 				_state = State.Fly;
 				_timer = FlyTicks;
 				_frame = 0;
-				CanBeDestoryed = true;
+				CanBeDestroyed = true;
 				break;
 		}
 	}
@@ -156,7 +156,7 @@ public class FlasherInstance : Badnik
 			// It lights up and hurts from now on
 			_state = State.Flicker;
 			_ticks = 0;
-			CanBeDestoryed = false;
+			CanBeDestroyed = false;
 			return;
 		}
 		if (_flightCount >= 0x8000)

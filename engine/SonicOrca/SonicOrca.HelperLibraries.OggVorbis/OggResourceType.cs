@@ -36,31 +36,4 @@ public class OggResourceType : ResourceType
 	{
 		return Task.Run<Stream>(() => new OggDecodeStream(inputStream, skipWavHeader: false));
 	}
-
-	[DllImport("SonicOrcaFastUtil.dll")]
-	private static extern int BeginReadVorbis(IntPtr input, int inputSize, out IntPtr output, out int outputLength);
-
-	[DllImport("SonicOrcaFastUtil.dll")]
-	private static extern void EndReadVorbis(IntPtr output);
-
-	/// <summary>
-	/// Decodes the data with the native SonicOrcaFastUtil library. Nothing calls this method at this time.
-	/// </summary>
-	private async Task<Stream> GetFastStream(Stream inputStream)
-	{
-		byte[] inputData;
-		using (MemoryStream ms = new MemoryStream())
-		{
-			await inputStream.CopyToAsync(ms);
-			inputData = ms.ToArray();
-		}
-		if (BeginReadVorbis(Marshal.UnsafeAddrOfPinnedArrayElement((Array)inputData, 0), inputData.Length, out IntPtr output, out int outputLength) == 0)
-		{
-			throw new ResourceException("Unable to read OGG Vorbis data");
-		}
-		byte[] decodedData = new byte[outputLength];
-		Marshal.Copy(output, decodedData, 0, outputLength);
-		EndReadVorbis(output);
-		return new MemoryStream(decodedData);
-	}
 }
