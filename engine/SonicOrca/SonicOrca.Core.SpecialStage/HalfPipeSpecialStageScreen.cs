@@ -191,10 +191,11 @@ public class HalfPipeSpecialStageScreen : Screen
 	private const double RingSize = 0.7;
 
 	/// <summary>
-	/// The glow behind a ring is this many times the size of the ring. The pipe is darker far from the camera, and
-	/// the rings are small on the wide screen, so the glow makes them easier to see and to follow.
+	/// The glow behind a ring is this many times the size of the ring. It is small and faint, so that the ring looks
+	/// brighter, not like a ring with a halo. The rings are small on the wide screen, so this makes them easier to see
+	/// and to follow.
 	/// </summary>
-	private const double RingGlowScale = 2.6;
+	private const double RingGlowScale = 1.6;
 
 	/// <summary>The glow is a little behind the ring, so that it is drawn first.</summary>
 	private const double RingGlowDepth = 0.05;
@@ -202,8 +203,8 @@ public class HalfPipeSpecialStageScreen : Screen
 	/// <summary>The lowest light of the pipe, far from the camera. The rings and their glow do not get darker.</summary>
 	private const double MinimumLight = 0.25;
 
-	/// <summary>The colour of the glow (red, green, blue) and its strength (alpha).</summary>
-	private static readonly Vector4 RingGlowColour = new Vector4(1.0, 0.85, 0.3, 0.55);
+	/// <summary>The colour of the glow (red, green, blue), the yellow of the ring, and its strength (alpha).</summary>
+	private static readonly Vector4 RingGlowColour = new Vector4(1.0, 0.8, 0.2, 0.22);
 
 	private const double BombSize = 0.75;
 
