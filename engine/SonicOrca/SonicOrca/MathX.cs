@@ -178,10 +178,10 @@ public static class MathX
 		return x;
 	}
 
-	// Note: the first test is against PI, not -PI. Thus a value from -PI to PI moves up by 2 PI and then back down.
+	/// <summary>Moves an angle into the range from -PI to PI, for an angle that is at most one turn outside it.</summary>
 	public static double WrapRadians(double radians)
 	{
-		if (radians < Math.PI)
+		if (radians < -Math.PI)
 		{
 			radians += Math.PI * 2.0;
 		}

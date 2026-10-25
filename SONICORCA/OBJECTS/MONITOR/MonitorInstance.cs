@@ -88,10 +88,15 @@ public class MonitorInstance : ActiveObject
 		}
 	}
 
-	// The AnimationContents* animations are not used: the raised contents use the screen animation.
-	private static int GetContentsAnimationIndex(MonitorContents contents, int character)
+	/// <summary>
+	/// The animation of the item that rises from a broken monitor. In Original physics it is the clean icon
+	/// (AnimationContents*), as in the original game. The HD release shows the screen icon with its scan lines, and
+	/// HD physics keeps that. The two lists of animations have the same order.
+	/// </summary>
+	private int GetContentsAnimationIndex(MonitorContents contents, int character)
 	{
-		return GetScreenContentsAnimationIndex(contents, character);
+		int screenIndex = GetScreenContentsAnimationIndex(contents, character);
+		return Level.OriginalPhysics ? screenIndex - AnimationScreenContentsLifeSonic + AnimationContentsLifeSonic : screenIndex;
 	}
 
 	[StateVariable]

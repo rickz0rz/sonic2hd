@@ -52,8 +52,6 @@ public abstract class SonicOrcaGameContext : IDisposable
 
 	private int _lastUpdateTick;
 
-	private int _lastFrameTick;
-
 	private int _fpsMonitorLastTick;
 
 	private int _fpsMonitorLastUps;
@@ -264,8 +262,8 @@ public abstract class SonicOrcaGameContext : IDisposable
 	private void UpdateCatchup()
 	{
 		int expectedUpdates = (Environment.TickCount - _catchupTick) * TargetFrameRate / 1000;
-		// Note: _lastFrameTick is never set, so this test is against two seconds of updates from the start of the count.
-		if (expectedUpdates > _lastFrameTick + TargetFrameRate * 2)
+		// More than two seconds behind: do not catch up, start the count again
+		if (expectedUpdates > _lastUpdateTick + TargetFrameRate * 2)
 		{
 			_lastUpdateTick = 0;
 			_catchupTick = Environment.TickCount;

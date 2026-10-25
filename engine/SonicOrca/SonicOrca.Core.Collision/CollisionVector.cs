@@ -176,15 +176,14 @@ public class CollisionVector : IBounds
 	/// <summary>
 	/// Makes four vectors around a rectangle: left, top, right and bottom.
 	/// </summary>
-	/// <remarks>The vectors do not get <paramref name="flags"/>. This is possibly a bug in the original code.</remarks>
 	public static CollisionVector[] FromRectangle(ActiveObject owner, Rectanglei rect, uint paths = AllPaths, CollisionFlags flags = 0)
 	{
 		return new CollisionVector[4]
 		{
-			new CollisionVector(owner, new Vector2i(rect.X, rect.Y + rect.Height), new Vector2i(rect.X, rect.Y), paths),
-			new CollisionVector(owner, new Vector2i(rect.X, rect.Y), new Vector2i(rect.X + rect.Width, rect.Y), paths),
-			new CollisionVector(owner, new Vector2i(rect.X + rect.Width, rect.Y), new Vector2i(rect.X + rect.Width, rect.Y + rect.Height), paths),
-			new CollisionVector(owner, new Vector2i(rect.X + rect.Width, rect.Y + rect.Height), new Vector2i(rect.X, rect.Y + rect.Height), paths)
+			new CollisionVector(owner, new Vector2i(rect.X, rect.Y + rect.Height), new Vector2i(rect.X, rect.Y), paths, flags),
+			new CollisionVector(owner, new Vector2i(rect.X, rect.Y), new Vector2i(rect.X + rect.Width, rect.Y), paths, flags),
+			new CollisionVector(owner, new Vector2i(rect.X + rect.Width, rect.Y), new Vector2i(rect.X + rect.Width, rect.Y + rect.Height), paths, flags),
+			new CollisionVector(owner, new Vector2i(rect.X + rect.Width, rect.Y + rect.Height), new Vector2i(rect.X, rect.Y + rect.Height), paths, flags)
 		};
 	}
 

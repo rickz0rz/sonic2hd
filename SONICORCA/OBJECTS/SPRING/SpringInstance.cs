@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using SonicOrca.Core;
 using SonicOrca.Core.Collision;
 using SonicOrca.Core.Objects;
@@ -109,9 +110,14 @@ public class SpringInstance : ActiveObject
 			_animation.Index += DiagonalAnimationOffset;
 		_bounceAnimationIndex = _animation.Index + 1;
 
-		// Set the collision shape. The vectors with the spring collision ID are the spring side.
-		// DownRight and DownLeft springs have no collision.
-		switch (_direction)
+		SetCollision(_direction);
+		Priority = -256;
+	}
+
+	/// <summary>Sets the collision shape and the bounce velocity. The vectors with the spring collision ID are the spring side.</summary>
+	private void SetCollision(SpringDirection direction)
+	{
+		switch (direction)
 		{
 			case SpringDirection.Up:
 				CollisionVectors = new CollisionVector[]
@@ -172,8 +178,28 @@ public class SpringInstance : ActiveObject
 				CollisionVectors[1].Id = SpringCollisionId;
 				_bounceVelocity = new Vector2(-_strength, -_strength);
 				break;
+			case SpringDirection.DownRight:
+			case SpringDirection.DownLeft:
+				// The shape of the spring that points up to the same side, upside down
+				SetUpsideDownCollision(direction == SpringDirection.DownRight ? SpringDirection.UpRight : SpringDirection.UpLeft);
+				break;
 		}
-		Priority = -256;
+	}
+
+	/// <summary>
+	/// Makes the collision of a spring that points down and to a side from the spring that points up to that side:
+	/// the Y of each point changes sign, and each vector changes direction so that its solid side stays outside.
+	/// </summary>
+	private void SetUpsideDownCollision(SpringDirection upDirection)
+	{
+		SetCollision(upDirection);
+		CollisionVectors = CollisionVectors.Select(v =>
+		{
+			CollisionVector flipped = new CollisionVector(this, new Vector2i(v.RelativeB.X, -v.RelativeB.Y), new Vector2i(v.RelativeA.X, -v.RelativeA.Y));
+			flipped.Id = v.Id;
+			return flipped;
+		}).ToArray();
+		_bounceVelocity = new Vector2(_bounceVelocity.X, -_bounceVelocity.Y);
 	}
 
 	private bool IsHorizontal => _direction == SpringDirection.Left || _direction == SpringDirection.Right;
@@ -281,16 +307,20 @@ public class SpringInstance : ActiveObject
 			{
 				case SpringDirection.Up:
 				case SpringDirection.UpRight:
-				case SpringDirection.DownRight:
 					objectRenderer.Render(_animation);
+					break;
+				case SpringDirection.DownRight:
+					objectRenderer.Render(_animation, flipY: true);
 					break;
 				case SpringDirection.Right:
 					objectRenderer.ModelMatrix *= Matrix4.CreateRotationZ(Math.PI / 2.0);
 					objectRenderer.Render(_animation, true);
 					break;
 				case SpringDirection.Down:
-				case SpringDirection.DownLeft:
 					objectRenderer.Render(_animation, flipY: true);
+					break;
+				case SpringDirection.DownLeft:
+					objectRenderer.Render(_animation, true, true);
 					break;
 				case SpringDirection.Left:
 					objectRenderer.ModelMatrix *= Matrix4.CreateRotationZ(Math.PI / 2.0);

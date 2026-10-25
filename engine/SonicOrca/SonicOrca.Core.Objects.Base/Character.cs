@@ -784,7 +784,11 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		{
 			if (value)
 			{
-				if (StateFlags != CharacterState.Airborne)
+				// The last tick on the ground is the tick that the character leaves the ground. The HD release compared
+				// all the state flags with Airborne, so it also moved the tick for a character that was already in the
+				// air (for example after a spring or a hit). HD physics keeps that.
+				bool wasAirborne = Level.OriginalPhysics ? StateFlags.HasFlag(CharacterState.Airborne) : StateFlags == CharacterState.Airborne;
+				if (!wasAirborne)
 				{
 					StateFlags |= CharacterState.Airborne;
 					LastTickOnGround = Level.Ticks;
@@ -1548,6 +1552,12 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	/// </summary>
 	private bool IsBeyondPathStart(bool useLedgeSensor)
 	{
+		// A character that does not move is not past the end, as for the B end. The HD release had this test only for
+		// the B end, and HD physics keeps that.
+		if (Level.OriginalPhysics && LastPositionPrecise == PositionPrecise)
+		{
+			return false;
+		}
 		int ledgeInset = useLedgeSensor ? (CollisionRadius.X - LedgeSensorRadius) : 0;
 		Vector2 sensorStart = GetPointRotatedFromRelative(PositionPrecise, new Vector2(PositionPrecise.X - CollisionRadius.Y, PositionPrecise.Y), GroundAngle + Math.PI / 2.0);
 		Vector2 sensorEnd = GetPointRotatedFromRelative(PositionPrecise, new Vector2(PositionPrecise.X + CollisionRadius.Y, PositionPrecise.Y), GroundAngle + Math.PI / 2.0);
@@ -1961,14 +1971,14 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 					// No sensor line crosses the vector. Check if an end of the vector is in the box.
 					// Edge 0 starts at the top-left corner and edge 1 starts at the bottom-right corner.
 					Rectangle wallArea = Rectangle.FromLTRB(wallBoxEdges[0][0].X, wallBoxEdges[0][0].Y, wallBoxEdges[1][0].X, wallBoxEdges[1][0].Y);
-					if (wallArea.ContainsOrOverlaps(vectorEnds[0]))
+					if (IsInSensorBox(wallArea, vectorEnds[0]))
 					{
 						Vector2 perpendicularPoint = GetPointRotatedFromRelative(vectorEnds[0], new Vector2(vectorEnds[0].X - 5.0, vectorEnds[0].Y), Math.PI / 2.0);
 						Vector2.GetLineIntersection(vectorEnds[0], perpendicularPoint, wallLines[0][0], wallLines[0][1], out Vector2 intersection);
 						wallIntersections.Add(intersection);
 						crossesWallSensor = true;
 					}
-					if (wallArea.ContainsOrOverlaps(vectorEnds[1]))
+					if (IsInSensorBox(wallArea, vectorEnds[1]))
 					{
 						Vector2 perpendicularPoint = GetPointRotatedFromRelative(vectorEnds[1], new Vector2(vectorEnds[1].X - 5.0, vectorEnds[1].Y), Math.PI / 2.0);
 						Vector2.GetLineIntersection(vectorEnds[1], perpendicularPoint, wallLines[0][0], wallLines[0][1], out Vector2 intersection);
@@ -2044,13 +2054,13 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			{
 				// No sensor line crosses the vector. Check if an end of the vector is in the box.
 				Rectangle floorArea = Rectangle.FromLTRB(floorBoxEdges[0][0].X, floorBoxEdges[0][0].Y, floorBoxEdges[1][0].X, floorBoxEdges[1][0].Y);
-				if (floorArea.ContainsOrOverlaps(vectorEnds[0]))
+				if (IsInSensorBox(floorArea, vectorEnds[0]))
 				{
 					Vector2.GetLineIntersection(GetPointRotatedFromRelative(vectorEnds[0], new Vector2(vectorEnds[0].X, vectorEnds[0].Y + 5.0), Math.PI / 2.0), vectorEnds[0], floorLines[0][0], floorLines[0][1], out Vector2 intersection);
 					floorIntersections.Add(intersection);
 					crossesFloorSensor = true;
 				}
-				if (floorArea.ContainsOrOverlaps(vectorEnds[1]))
+				if (IsInSensorBox(floorArea, vectorEnds[1]))
 				{
 					Vector2.GetLineIntersection(GetPointRotatedFromRelative(vectorEnds[1], new Vector2(vectorEnds[1].X, vectorEnds[1].Y + 5.0), Math.PI / 2.0), vectorEnds[1], floorLines[0][0], floorLines[0][1], out Vector2 intersection);
 					floorIntersections.Add(intersection);
@@ -2336,6 +2346,20 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	}
 
 	/// <summary>Gives the point of the line through v1 and v2 that is nearest to a point.</summary>
+	/// <summary>
+	/// True when an end of a vector is in a sensor box. The HD release compared X with the top and Y with the left of
+	/// the box, so the test was wrong at most positions. HD physics keeps that test. Original physics uses the
+	/// correct test.
+	/// </summary>
+	private bool IsInSensorBox(Rectangle box, Vector2 p)
+	{
+		if (Level.OriginalPhysics)
+		{
+			return box.ContainsOrOverlaps(p);
+		}
+		return p.X >= box.Top && p.Y >= box.Left && p.X <= box.Right && p.Y <= box.Bottom;
+	}
+
 	public Vector2 GetProjectedPointOnLine(Vector2 v1, Vector2 v2, Vector2 point)
 	{
 		Vector2 lineDirection = v2 - v1;

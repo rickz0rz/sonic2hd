@@ -140,16 +140,20 @@ public class Camera
 		_bounds.Y = Math.Max(Bounds.Y, limits.Y);
 		_bounds.X = Math.Min(Bounds.Right, limits.Right) - Bounds.Width;
 		_bounds.Y = Math.Min(Bounds.Bottom, limits.Bottom) - Bounds.Height;
-		// Known defect: this code sets a copy of the velocity, not _velocity. Thus it has no effect.
-		// It is kept as it is, because a fix would change the camera movement.
-		Vector2 velocity = Velocity;
+		// A camera that stops at a limit has no velocity on that axis. The HD release changed a copy of the velocity,
+		// so the velocity stayed. HD physics keeps that. The velocity matters only for the spy mode and the camera
+		// delay of the CPZ speed booster.
+		if (!_level.OriginalPhysics)
+		{
+			return;
+		}
 		if (Bounds.X != oldX)
 		{
-			velocity.X = 0.0;
+			_velocity.X = 0.0;
 		}
 		if (Bounds.Y != oldY)
 		{
-			velocity.Y = 0.0;
+			_velocity.Y = 0.0;
 		}
 	}
 

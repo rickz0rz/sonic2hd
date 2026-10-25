@@ -102,7 +102,8 @@ public class ObjectEntry
 		Position = position;
 		_type = type;
 		_uid = uid;
-		throw new NotImplementedException();
+		_key = type.Resource?.FullKeyPath;
+		CreateState();
 	}
 
 	public ObjectEntry(Level level, ObjectPlacement placement)

@@ -416,8 +416,8 @@ skipped when the game files are not found. Set `S2HD_GAME_DIR` if they are not i
 The regression tests run the release build and save screenshots at fixed level ticks:
 
 - One test plays the Emerald Hill attract demo, which moves the player through the first part of the level.
-- One test for each level that the demo data contains (EHZ, CPZ, HTZ, MTZ and DEZ, acts 1 and 2) starts the level
-  with no input.
+- One test for each complete level of the demo data (EHZ, CPZ and HTZ, acts 1 and 2) starts the level with no
+  input. MTZ and DEZ are only stubs in the demo data, so the tests do not use them.
 - One test plays the first special stage with no input.
 - Three tests open the level editor in Emerald Hill with scripted input. One adds a monitor and plays. One moves
   the start position marker and plays from the start. One paints tiles, draws a collision line and plays on it.
