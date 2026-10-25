@@ -109,9 +109,13 @@ public abstract class VertexBuffer : IDisposable
 	{
 		for (int i = 0; i < values.Length; i++)
 		{
-			if (values[i] is float || values[i] is double)
+			if (values[i] is float f)
 			{
-				AddValue(i, (double)values[i]);
+				AddValue(i, (double)f);
+			}
+			else if (values[i] is double d)
+			{
+				AddValue(i, d);
 			}
 			else if (values[i] is Vector2)
 			{

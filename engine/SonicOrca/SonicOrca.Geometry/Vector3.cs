@@ -101,9 +101,8 @@ public struct Vector3 : IEquatable<Vector3>
 		return new Vector3(v.X / s, v.Y / s, v.Z / s);
 	}
 
-	// Note: this operator divides the vector by the scalar, not the scalar by the vector.
 	public static Vector3 operator /(double s, Vector3 v)
 	{
-		return new Vector3(v.X / s, v.Y / s, v.Z / s);
+		return new Vector3(s / v.X, s / v.Y, s / v.Z);
 	}
 }

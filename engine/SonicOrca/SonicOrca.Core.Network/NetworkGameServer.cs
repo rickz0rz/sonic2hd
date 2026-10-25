@@ -76,8 +76,7 @@ internal class NetworkGameServer : IDisposable, IObserver<ReceivedPacket>
 		}
 	}
 
-	// Nothing calls this method. It removes items from the list while it enumerates the list,
-	// thus it causes an InvalidOperationException when a client times out. This is possibly a bug in the original code.
+	/// <summary>Removes the players that sent no packet for a time. Nothing calls this method yet.</summary>
 	private void MaintainConnections()
 	{
 		List<NetworkPlayer> timedOutPlayers = new List<NetworkPlayer>();
@@ -87,9 +86,13 @@ internal class NetworkGameServer : IDisposable, IObserver<ReceivedPacket>
 			{
 				if (Environment.TickCount >= networkPlayer.LastPacketReceivedTickCount + ConnectionTimeoutMs)
 				{
-					_networkPlayers.Instance.Remove(networkPlayer);
 					timedOutPlayers.Add(networkPlayer);
 				}
+			}
+			// Remove the players after the loop, because a list cannot change while a loop goes through it
+			foreach (NetworkPlayer networkPlayer in timedOutPlayers)
+			{
+				_networkPlayers.Instance.Remove(networkPlayer);
 			}
 		}
 		foreach (NetworkPlayer networkPlayer in timedOutPlayers)

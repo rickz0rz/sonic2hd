@@ -130,15 +130,14 @@ internal class StoryPlaythroughGameState : IGameState, IDisposable
 	}
 
 	/// <summary>
-	/// Prepares the level with the number in <see cref="_levelNumber"/>, counted from 1 over the released Sonic 2 levels.
+	/// Prepares the level with a number, counted from 1 over the Sonic 2 levels that can be played.
 	/// Returns false when there is no such level.
 	/// </summary>
-	/// <remarks>The <paramref name="index"/> parameter is not used. The callers give the same value as _levelNumber.</remarks>
 	private bool SetLevel(int index, int act = 1)
 	{
 		if (_levelGameState != null)
 			_levelGameState.Dispose();
-		LevelInfo levelInfo = Levels.GetAvailableLevels(_gameContext.ResourceTree).Skip(_levelNumber - 1).FirstOrDefault();
+		LevelInfo levelInfo = Levels.GetAvailableLevels(_gameContext.ResourceTree).Skip(index - 1).FirstOrDefault();
 		if (levelInfo == null)
 			return false;
 		_levelGameState = new LevelGameState(_gameContext);
@@ -161,8 +160,7 @@ internal class StoryPlaythroughGameState : IGameState, IDisposable
 
 	public void Dispose()
 	{
-		if (_levelGameState == null)
-			return;
-		_levelGameState.Dispose();
+		_optionsMenu?.Dispose();
+		_levelGameState?.Dispose();
 	}
 }

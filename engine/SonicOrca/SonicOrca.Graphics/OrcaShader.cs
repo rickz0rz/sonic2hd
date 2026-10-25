@@ -47,7 +47,7 @@ public static class OrcaShader
 			path = ContentDirectory.Combine(path);
 		}
 		StringBuilder stringBuilder = new StringBuilder();
-		StreamReader streamReader = new StreamReader(path);
+		using StreamReader streamReader = new StreamReader(path);
 		string line;
 		while ((line = streamReader.ReadLine()) != null)
 		{

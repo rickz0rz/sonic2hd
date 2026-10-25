@@ -187,7 +187,7 @@ public struct Colour : IEquatable<Colour>
 
 	public override bool Equals(object obj)
 	{
-		return Equals((Colour)obj);
+		return obj is Colour other && Equals(other);
 	}
 
 	public bool Equals(Colour other)
@@ -245,12 +245,12 @@ public struct Colour : IEquatable<Colour>
 			double min = lum + lum - max;
 			double saturation = (max - min) / max;
 			hue *= 6.0;
-			int sector = (int)hue;
-			double fraction = hue - sector;
+			// A hue of exactly 1 is the same colour as a hue of 0
+			int sector = (int)hue % 6;
+			double fraction = hue - (int)hue;
 			double step = max * saturation * fraction;
 			double rising = min + step;
 			double falling = max - step;
-			// A hue of exactly 1 gives sector 6. No case matches it, so the colour stays grey.
 			switch (sector)
 			{
 				case 0:

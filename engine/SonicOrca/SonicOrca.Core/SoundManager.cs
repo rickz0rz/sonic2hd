@@ -403,6 +403,7 @@ public class SoundManager
 		{
 			simpleInstance.Dispose();
 		}
+		_simpleInstances.Clear();
 	}
 
 	public void PlaySound(IActiveObject activeObject, string resourceKey)

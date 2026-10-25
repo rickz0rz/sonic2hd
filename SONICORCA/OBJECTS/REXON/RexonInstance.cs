@@ -221,7 +221,7 @@ public class RexonInstance : ActiveObject
 			{
 				new CollisionRectangle(this, 0, -size / 2, -size / 2, size, size)
 			};
-			CanBeDestoryed = false;
+			CanBeDestroyed = false;
 		}
 
 		protected override void OnUpdate()
@@ -336,7 +336,7 @@ public class RexonInstance : ActiveObject
 		{
 			base.Prepare(index);
 			_headFront = Level.ObjectManager.AddSubObject<HeadFront>(this);
-			CanBeDestoryed = true;
+			CanBeDestroyed = true;
 		}
 
 		protected override void OnUpdate()

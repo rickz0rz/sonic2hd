@@ -450,17 +450,15 @@ public struct Matrix4 : IEquatable<Matrix4>
 		return matrix;
 	}
 
-	// Note: this does not make a correct rotation about the X axis. It sets M21 to cos, M22 to -sin,
-	// and M31 and M32 to sin, and it leaves M33 at 1.
 	public static Matrix4 CreateRotationX(double angle)
 	{
 		double cos = Math.Cos(angle);
 		double sin = Math.Sin(angle);
 		Matrix4 matrix = Identity;
-		matrix.M21 = cos;
-		matrix.M31 = sin;
-		matrix.M22 = 0.0 - sin;
+		matrix.M22 = cos;
+		matrix.M23 = 0.0 - sin;
 		matrix.M32 = sin;
+		matrix.M33 = cos;
 		return matrix;
 	}
 

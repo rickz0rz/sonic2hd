@@ -21,10 +21,9 @@ public class NetworkManager
 
 	public bool AllConnected { get; private set; }
 
-	// Host ignores the port parameter and always uses DefaultPort. This is possibly a bug in the original code.
 	public void Host(int port = DefaultPort)
 	{
-		Server = new NetworkGameServer(null, DefaultPort);
+		Server = new NetworkGameServer(null, port);
 		NetworkPlay = true;
 		Hosting = true;
 	}

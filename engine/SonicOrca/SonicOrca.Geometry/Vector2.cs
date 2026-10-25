@@ -16,8 +16,7 @@ public struct Vector2 : IEquatable<Vector2>
 
 	public double Length => Math.Sqrt(X * X + Y * Y);
 
-	// Note: this squares the sum of the squares, so the result is the length to the power of 4.
-	public double LengthSquared => Math.Pow(X * X + Y * Y, 2.0);
+	public double LengthSquared => X * X + Y * Y;
 
 	public double Angle => Math.Atan2(Y, X);
 
@@ -64,11 +63,10 @@ public struct Vector2 : IEquatable<Vector2>
 		return new Vector2(X * cos - Y * sin, X * sin + Y * cos);
 	}
 
-	// Note: this adds the origin before the rotation and subtracts it after. A rotation about the origin
-	// usually does the opposite.
+	/// <summary>Rotates the vector about a point.</summary>
 	public Vector2 Rotate(double radians, Vector2 origin)
 	{
-		return (this + origin).Rotate(radians) - origin;
+		return (this - origin).Rotate(radians) + origin;
 	}
 
 	public Vector2 Reflect(Vector2 normal)
@@ -191,10 +189,9 @@ public struct Vector2 : IEquatable<Vector2>
 		return new Vector2(v.X / x, v.Y / x);
 	}
 
-	// Note: this operator divides the vector by the scalar, not the scalar by the vector.
 	public static Vector2 operator /(double x, Vector2 v)
 	{
-		return new Vector2(v.X / x, v.Y / x);
+		return new Vector2(x / v.X, x / v.Y);
 	}
 
 	public static bool operator ==(Vector2 a, Vector2 b)

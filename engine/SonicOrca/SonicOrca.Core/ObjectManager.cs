@@ -262,8 +262,8 @@ public class ObjectManager
 
 	private static void SetMappedMember(ActiveObject owner, string field, ActiveObject value)
 	{
-		// First() throws when the member does not exist, so the null check is always true.
-		MemberInfo memberInfo = owner.GetType().GetMember(field, MappingBindingFlags).First();
+		// A mapping to a member that the object does not have does nothing
+		MemberInfo memberInfo = owner.GetType().GetMember(field, MappingBindingFlags).FirstOrDefault();
 		if (memberInfo != null)
 		{
 			memberInfo.SetUnderlyingValue(owner, value);

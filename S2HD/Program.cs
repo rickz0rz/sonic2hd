@@ -185,7 +185,11 @@ public static class Program
 	public static void LogException(Exception ex, bool logStackTrace = true)
 	{
 		string[] messageLines = ex.Message.Split(Environment.NewLine.ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
-		if (messageLines.Length <= 1)
+		if (messageLines.Length == 0)
+		{
+			Trace.WriteLine("EXCEPTION: " + ex.GetType().Name);
+		}
+		else if (messageLines.Length == 1)
 		{
 			Trace.WriteLine("EXCEPTION: " + messageLines[0]);
 		}

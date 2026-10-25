@@ -239,13 +239,11 @@ public class CollisionVector : IBounds
 		return _connectionB[path];
 	}
 
-	// SetConnectionA and SetConnectionB resize the array to "path" items, not "path + 1" items.
-	// Thus a path that is out of range causes an IndexOutOfRangeException. This is possibly a bug in the original code.
 	public void SetConnectionA(int path, CollisionVector v)
 	{
 		if (_connectionA.Length <= path)
 		{
-			Array.Resize(ref _connectionA, path);
+			Array.Resize(ref _connectionA, path + 1);
 		}
 		_connectionA[path] = v;
 	}
@@ -254,7 +252,7 @@ public class CollisionVector : IBounds
 	{
 		if (_connectionB.Length <= path)
 		{
-			Array.Resize(ref _connectionB, path);
+			Array.Resize(ref _connectionB, path + 1);
 		}
 		_connectionB[path] = v;
 	}
