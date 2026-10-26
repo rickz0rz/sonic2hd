@@ -128,6 +128,49 @@ public sealed class RegressionTests
 	}
 
 	/// <summary>
+	/// Opens the animation editor on the ring with scripted input. It adds a PNG file as a new texture of the group and
+	/// saves. The texture file must be in the folder of the editor, and the saved group must name it.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void AnimationEditorTextures_MatchesGoldenScreenshots()
+	{
+		string gameData = TestPaths.GameDataFile;
+		if (gameData == null)
+		{
+			Assert.Skip("Game files not found. Set S2HD_GAME_DIR to the S2HD_2.0.1012-rc2 folder.");
+		}
+		// A PNG file to add: the texture of the ring from the game data
+		string folder = Directory.CreateTempSubdirectory("s2hd-texture-").FullName;
+		string sheet = Path.Combine(folder, "SHEET.png");
+		using (Stream source = new SonicOrca.Resources.ResourceFile(gameData).Scan()["SONICORCA/OBJECTS/RING/TEXTURE"].Resource.Source.ReadUncompressed())
+		using (FileStream file = File.Create(sheet))
+		{
+			source.CopyTo(file);
+		}
+		try
+		{
+			// The wheel scrolls the properties to their end, where "Add texture" is the last row
+			string script = $"5:mouse 1600 900;6:wheel -30;8:mouse 1600 1029;9:down left;10:up left;12:type {sheet};13:tap 40;" +
+				"16:keydown 224;17:tap 22;18:keyup 224";
+			RunAndCompare("--animations SONICORCA/OBJECTS/RING/ANIGROUP", new[] { 10030 }, Path.Combine(TestPaths.GoldenDirectory, "animation-editor-textures"),
+				"animation-editor-textures", new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script },
+				checkUserData: userData =>
+				{
+					string ring = Path.Combine(userData, "mods", "editor", "animations", "SONICORCA", "OBJECTS", "RING");
+					Assert.True(File.Exists(Path.Combine(ring, "SHEET.png")), "The texture file is not in the folder of the editor.");
+					string group = Path.Combine(ring, "ANIGROUP.anigroup.xml");
+					Assert.True(File.Exists(group), "The animation editor did not save " + group);
+					Assert.Equal(new[] { "//TEXTURE", "//SHEET" }, SonicOrca.Core.Editor.AnimationGroupDocument.Parse(File.ReadAllText(group)).Textures);
+				});
+		}
+		finally
+		{
+			Directory.Delete(folder, recursive: true);
+		}
+	}
+
+	/// <summary>
 	/// Opens the markers tool of the level editor in Emerald Hill with scripted input. It moves the start position
 	/// marker, adds an area marker and plays from the start.
 	/// </summary>

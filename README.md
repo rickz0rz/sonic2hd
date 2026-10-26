@@ -400,6 +400,14 @@ and it can delete only the last animation. The name of an animation is the comme
 frame of an animation is the frame that comes after its last frame. Without a loop frame, the game stays on the last
 frame, or goes to the next animation.
 
+The textures section at the end of the properties changes the images of the group. **Edit** copies a texture as a
+PNG file into `mods/editor/animations/` (for example `SONICORCA/OBJECTS/RING/TEXTURE.png`) and shows the file in
+Finder or Explorer. Open the file in an image editor: when you save it, the editor shows the new image at once, and a
+level that starts later in the session uses it too. **Replace** and **Add texture** take the path of a PNG file and
+copy it into the same folder; a new texture gets its name from the file name, and you set it on the frames that use
+it with the texture property of the frame. These files are written at once, so undo does not remove them. Delete a
+file to use the texture of the game again.
+
 Ctrl+S writes each changed group as a file into `mods/editor/animations/` in the user data folder, in the layout of
 `s2hd-data unpack`, for example `mods/editor/animations/SONICORCA/OBJECTS/SONIC/ANIGROUP.anigroup.xml`. The game
 loads this folder after the other mods. A level that starts later in the same session already has the changes. To
@@ -501,9 +509,9 @@ The regression tests run the release build and save screenshots at fixed level t
   skipped.
 - Three tests open the level editor in Emerald Hill with scripted input. One adds a monitor and plays. One moves
   the start position marker and plays from the start. One paints tiles, draws a collision line and plays on it.
-- Two tests open the animation editor on Sonic with scripted input. One changes the delay of a frame and adds a
-  frame. One drags the edge of a rectangle in the texture view and drags a frame in the preview. Both save, and
-  check the saved file.
+- Three tests open the animation editor with scripted input. One changes the delay of a frame of Sonic and adds a
+  frame. One drags the edge of a rectangle in the texture view and drags a frame in the preview. One adds a PNG file
+  as a new texture of the ring. All save, and check the saved files.
 
 The tests compare the screenshots with golden screenshots. A run takes about 2 minutes. The golden screenshots come
 from the game files, so Git ignores them (`tests/golden/`). Record them once from a known-good build:
