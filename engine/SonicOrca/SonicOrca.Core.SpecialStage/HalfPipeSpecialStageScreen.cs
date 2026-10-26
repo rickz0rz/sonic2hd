@@ -174,6 +174,31 @@ public class HalfPipeSpecialStageScreen : Screen
 	/// <summary>After a failed emerald test, the track moves one node each 12 frames (60 frames for each track frame).</summary>
 	private const double SlowTrackNodesPerFrame = 1.0 / 12.0;
 
+	/// <summary>The jingle of the results screen: the imported "End of Act" song, else the jingle of the HD game.</summary>
+	private const string ResultsJingleResourceKey = "SONICORCA/MUSIC/JINGLE/STAGECLEAR/S2/SAMPLE";
+
+	/// <summary>The frames of the fades from white at the start and to white at the end (Pal_FadeFromWhite, Pal_FadeToWhite).</summary>
+	private const int WhiteFadeFrames = 22;
+
+	/// <summary>The START banner falls one pixel each tick to this height, then waits, then breaks (Obj5F).</summary>
+	private const int BannerStopY = 0x48;
+
+	private const int BannerStartY = -0x40;
+
+	private const int BannerWaitTicks = 0xF;
+
+	/// <summary>The speed of the pieces of the banner, in pixels each tick.</summary>
+	private const int BannerPieceSpeed = 8;
+
+	/// <summary>The ticks that the pieces of the banner fly before they are off the screen.</summary>
+	private const int BannerPieceTicks = 40;
+
+	/// <summary>The height of the winged hand of the checkpoint messages, in pixels of the original (Obj5A).</summary>
+	private const int HandY = 0x48;
+
+	/// <summary>The speed of the text of the results screen, in pixels each frame (Obj34_MoveTowardsTargetPosition).</summary>
+	private const int ResultsTextSpeed = 0x10;
+
 	/// <summary>The music fades out over this number of ticks.</summary>
 	private const int MusicFadeTicks = 30;
 
@@ -304,6 +329,27 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	private Sample _emeraldJingle;
 
+	private Sample _resultsJingle;
+
+	/// <summary>The art of the original, when a mod adds it, else null.</summary>
+	private HalfPipeOriginalArt _originalArt;
+
+	/// <summary>The emeralds that the player has before this stage, and the score, for the results screen.</summary>
+	private readonly int _startEmeralds;
+
+	private readonly int _startScore;
+
+	/// <summary>The frames of the fade to white after the end of the stage, or -1 before the end.</summary>
+	private int _endFadeFrames = -1;
+
+	/// <summary>The frames since the results screen started.</summary>
+	private int _resultsFrames;
+
+	private string _lastMessage;
+
+	/// <summary>The logic tick at which the current message started.</summary>
+	private int _messageStartTick;
+
 	private ITexture _emeraldTexture;
 
 	private HalfPipeStageFlow _flow;
@@ -376,9 +422,13 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	/// <param name="stage">The special stage number, from 0 to 6. It selects the ring quotas.</param>
 	/// <param name="withTails">True to play with Tails. The ring quotas are then those of Sonic and Tails.</param>
-	public HalfPipeSpecialStageScreen(SonicOrcaGameContext gameContext, int stage = 0, bool withTails = false)
+	/// <param name="emeralds">The emeralds that the player has, for the results screen.</param>
+	/// <param name="score">The score of the player, for the results screen.</param>
+	public HalfPipeSpecialStageScreen(SonicOrcaGameContext gameContext, int stage = 0, bool withTails = false, int emeralds = 0, int score = 0)
 	{
 		_stage = stage;
+		_startEmeralds = emeralds;
+		_startScore = score;
 		if (withTails)
 		{
 			_tails = new HalfPipePlayer(outerLane: true);
@@ -426,6 +476,18 @@ public class HalfPipeSpecialStageScreen : Screen
 				_resourceSession.PushDependency(key);
 			}
 		}
+		// The art of the original and the results jingle are not in the game data. A mod can add them (see tools/s2hd-data).
+		ResourceTree resources = _gameContext.ResourceTree;
+		bool hasOriginalArt = HalfPipeOriginalArt.IsAvailable(resources);
+		if (hasOriginalArt)
+		{
+			foreach (string key in HalfPipeOriginalArt.ResourceKeys)
+			{
+				_resourceSession.PushDependency(key);
+			}
+		}
+		string resultsJingleKey = resources[ResultsJingleResourceKey]?.Resource != null ? ResultsJingleResourceKey : EmeraldMusicResourceKey;
+		_resourceSession.PushDependency(resultsJingleKey);
 		// The original layouts are not in the game data. A mod can add them (see tools/s2hd-data).
 		string stageKey = StageResourceKeyPrefix + (_stage + 1);
 		bool hasStage = _gameContext.ResourceTree[stageKey]?.Resource != null;
@@ -461,6 +523,8 @@ public class HalfPipeSpecialStageScreen : Screen
 		_tallySound = tree.GetLoadedResource<Sample>(TallySoundResourceKey);
 		_tallyEndSound = tree.GetLoadedResource<Sample>(TallyEndSoundResourceKey);
 		_emeraldJingle = tree.GetLoadedResource<Sample>(EmeraldMusicResourceKey);
+		_resultsJingle = tree.GetLoadedResource<Sample>(resultsJingleKey);
+		_originalArt = hasOriginalArt ? new HalfPipeOriginalArt(tree) : null;
 		if (_tails != null)
 		{
 			_tailsAnimation = new AnimationInstance(tree, TailsAnimationResourceKey);
@@ -510,7 +574,16 @@ public class HalfPipeSpecialStageScreen : Screen
 		UpdateMusicFade();
 		if (_results != null)
 		{
+			_resultsFrames++;
 			UpdateResults();
+		}
+		else if (_endFadeFrames >= 0)
+		{
+			// The stage stops while it fades to white, then the results screen starts
+			if (++_endFadeFrames >= WhiteFadeFrames)
+			{
+				StartResults();
+			}
 		}
 		else
 		{
@@ -520,6 +593,11 @@ public class HalfPipeSpecialStageScreen : Screen
 				UpdatePlayer();
 				UpdateObjects();
 				UpdateFlow();
+				if (_flow.Message != _lastMessage)
+				{
+					_lastMessage = _flow.Message;
+					_messageStartTick = _ticks;
+				}
 				_ringAnimation.Animate();
 				foreach (HalfPipeObject used in _objects)
 				{
@@ -716,10 +794,21 @@ public class HalfPipeSpecialStageScreen : Screen
 					break;
 			}
 		}
-		if (_flow.Finished)
+		if (_flow.Finished && _endFadeFrames < 0)
 		{
-			_results = new HalfPipeResults(Rings, _flow.EmeraldWon, _ringsCollected, _track.RingCount);
+			_endFadeFrames = 0;
 		}
+	}
+
+	/// <summary>Starts the results screen, with its jingle (MusID_EndLevel).</summary>
+	private void StartResults()
+	{
+		_results = new HalfPipeResults(Rings, _flow.EmeraldWon, _ringsCollected, _track.RingCount);
+		_resultsFrames = 0;
+		_musicInstance?.Stop();
+		_musicInstance?.Dispose();
+		_musicInstance = new SampleInstance(_gameContext, _resultsJingle);
+		_musicInstance.Play();
 	}
 
 	private void UpdateResults()
@@ -839,6 +928,141 @@ public class HalfPipeSpecialStageScreen : Screen
 		DrawBackground(renderer);
 		DrawScene(renderer);
 		DrawHud(renderer);
+		DrawWhiteFade(renderer);
+	}
+
+	/// <summary>The stage fades from white at the start and to white at the end, as in the original.</summary>
+	private void DrawWhiteFade(Renderer renderer)
+	{
+		double whiteness = 0.0;
+		if (_results == null && _endFadeFrames >= 0)
+		{
+			whiteness = _endFadeFrames / (double)WhiteFadeFrames;
+		}
+		else if (_results == null && _frames < WhiteFadeFrames)
+		{
+			whiteness = 1.0 - _frames / (double)WhiteFadeFrames;
+		}
+		if (whiteness <= 0.0)
+		{
+			return;
+		}
+		I2dRenderer g = renderer.Get2dRenderer();
+		g.BlendMode = BlendMode.Alpha;
+		g.RenderQuad(new Colour((byte)(Math.Min(1.0, whiteness) * 255), 255, 255, 255), new Rectangle(0.0, 0.0, 1920.0, 1080.0));
+		g.Deactivate();
+	}
+
+	/// <summary>True while a checkpoint message shows: the original shows the winged hand with it.</summary>
+	private bool ShowsHand => _originalArt != null && (_flow.Message == HalfPipeStageFlow.CheckpointPassedMessage || _flow.Message == HalfPipeStageFlow.CheckpointFailedMessage);
+
+	/// <summary>
+	/// The START banner of the original (Obj5F): it falls to its place, waits, then breaks into its pieces, which fly
+	/// away from the centre.
+	/// </summary>
+	private void DrawStartBanner(I2dRenderer g)
+	{
+		int breakTick = BannerStopY - BannerStartY + BannerWaitTicks;
+		if (_ticks >= breakTick + BannerPieceTicks)
+		{
+			return;
+		}
+		AnimationGroup start = _originalArt.Start;
+		const double x = 0x80;
+		if (_ticks < breakTick)
+		{
+			double y = Math.Min(BannerStopY, BannerStartY + _ticks);
+			HalfPipeOriginalArt.DrawFrame(g, start, HalfPipeOriginalArt.BannerFrame, HalfPipeOriginalArt.StageLeft, x, y);
+			return;
+		}
+		// Each piece flies along the line from a point $28 pixels below the banner through the piece (CalcAngle)
+		int[] pieceX = { -0x48, -0x28, -0x18, -8, 8, 0x18, 0x28 };
+		double distance = (_ticks - breakTick) * BannerPieceSpeed;
+		for (int i = 0; i < HalfPipeOriginalArt.BannerPieces; i++)
+		{
+			double angle = Math.Atan2(-0x28, pieceX[i]);
+			HalfPipeOriginalArt.DrawFrame(g, start, HalfPipeOriginalArt.FirstBannerPiece + i, HalfPipeOriginalArt.StageLeft,
+				x + Math.Cos(angle) * distance, BannerStopY + Math.Sin(angle) * distance);
+		}
+	}
+
+	/// <summary>
+	/// The winged hand of a checkpoint message (Obj5A_Handshake): the hand goes up and down by 4 pixels, one pixel each
+	/// tick. A failed checkpoint shows it upside down: thumb down.
+	/// </summary>
+	private void DrawHand(I2dRenderer g)
+	{
+		AnimationGroup messages = _originalArt.Messages;
+		const double x = 0x80;
+		HalfPipeOriginalArt.DrawFrame(g, messages, HalfPipeOriginalArt.WingsFrame, HalfPipeOriginalArt.StageLeft, x, HandY);
+		int phase = (_ticks - _messageStartTick) % 16;
+		int bounce = phase < 4 ? -phase : phase < 12 ? phase - 8 : 16 - phase;
+		bool failed = _flow.Message == HalfPipeStageFlow.CheckpointFailedMessage;
+		HalfPipeOriginalArt.DrawFrame(g, messages, HalfPipeOriginalArt.HandFrame, HalfPipeOriginalArt.StageLeft, x, HandY + bounce, flipY: failed);
+	}
+
+	/// <summary>
+	/// The results screen of the original (Obj6F): a white screen, the title, the emeralds of the player, the score and
+	/// the counters, which slide in from the sides. The numbers count down during the tally.
+	/// </summary>
+	private void DrawOriginalResults(I2dRenderer g)
+	{
+		g.RenderQuad(Colours.White, new Rectangle(0.0, 0.0, 1920.0, 1080.0));
+		AnimationGroup results = _originalArt.Results;
+		double left = HalfPipeOriginalArt.ResultsLeft;
+		const double centreX = 160.0;
+		const double centreY = 112.0;
+		// A text slides from its start towards the centre of the screen
+		double Slide(double start) => start > centreX
+			? Math.Max(centreX, start - _resultsFrames * ResultsTextSpeed)
+			: Math.Min(centreX, start + _resultsFrames * ResultsTextSpeed);
+		int emeralds = _startEmeralds + (_results.EmeraldWon ? 1 : 0);
+		bool allEmeralds = _results.EmeraldWon && emeralds >= HalfPipeLayout.StageCount;
+		int titleFrame = allEmeralds ? 25 : _results.EmeraldWon ? 4 : 0;
+		HalfPipeOriginalArt.DrawFrame(g, results, titleFrame, left, Slide(320 + 128), centreY - 70);
+		if (_results.EmeraldWon)
+		{
+			// "Sonic got a" or "Sonic has all the", from the left
+			HalfPipeOriginalArt.DrawFrame(g, results, allEmeralds ? 22 : 1, left, Slide(-128), centreY - 88);
+		}
+		// The emeralds that the player has, in a ring around the last one
+		(int X, int Y)[] emeraldPositions = { (-8, -44), (16, -32), (16, -8), (-8, 4), (-32, -8), (-32, -32), (-8, -20) };
+		for (int i = 0; i < emeraldPositions.Length; i++)
+		{
+			bool has = i < _startEmeralds || (_results.EmeraldWon && i == _stage);
+			if (has)
+			{
+				HalfPipeOriginalArt.DrawFrame(g, results, 5 + i, left, centreX + emeraldPositions[i].X, centreY + emeraldPositions[i].Y);
+			}
+		}
+		// The rings that are left to count, for each player
+		int ringsLeft = _results.RingBonus / HalfPipeResults.PointsPerRing;
+		int tailsRingsLeft = _tails != null ? Math.Min(_tailsRings, ringsLeft) : 0;
+		var rows = new List<(int Frame, int StartX, int Value)>
+		{
+			(12, 320 + 368, _startScore + _results.Total),
+			(13, 320 + 384, ringsLeft - tailsRingsLeft)
+		};
+		if (_tails != null)
+		{
+			rows.Add((15, 320 + 400, tailsRingsLeft));
+		}
+		if (_results.EmeraldWon)
+		{
+			rows.Add((16, 320 + 416, _results.GemsBonus));
+		}
+		if (_results.PerfectBonus > 0 || _results.Total >= HalfPipeResults.PerfectBonusPoints)
+		{
+			rows.Add((17, 320 + 432, _results.PerfectBonus));
+		}
+		for (int i = 0; i < rows.Count; i++)
+		{
+			double x = Slide(rows[i].StartX);
+			double y = centreY + 24 + i * 16;
+			HalfPipeOriginalArt.DrawFrame(g, results, rows[i].Frame, left, x, y);
+			// The numbers end 96 pixels right of the centre of the row
+			_originalArt.DrawNumber(g, rows[i].Value, left, x + 0x60, y);
+		}
 	}
 
 	private void DrawBackground(Renderer renderer)
@@ -1157,6 +1381,12 @@ public class HalfPipeSpecialStageScreen : Screen
 		I2dRenderer g = renderer.Get2dRenderer();
 		g.BlendMode = BlendMode.Alpha;
 		g.Colour = Colours.White;
+		if (_results != null && _originalArt != null)
+		{
+			DrawOriginalResults(g);
+			g.Deactivate();
+			return;
+		}
 		if (_results != null)
 		{
 			// The results: a dark screen with the bonuses
@@ -1195,7 +1425,21 @@ public class HalfPipeSpecialStageScreen : Screen
 		}
 		if (_flow.Message != null)
 		{
-			fontRenderer.RenderString(_flow.Message, new Rectangle(960.0, 440.0, 0.0, 0.0), FontAlignment.MiddleX, _font, 0);
+			// Under the winged hand, when it shows
+			double messageY = ShowsHand ? 560.0 : 440.0;
+			fontRenderer.RenderString(_flow.Message, new Rectangle(960.0, messageY, 0.0, 0.0), FontAlignment.MiddleX, _font, 0);
+		}
+		if (_originalArt != null)
+		{
+			I2dRenderer overlay = renderer.Get2dRenderer();
+			overlay.BlendMode = BlendMode.Alpha;
+			overlay.Colour = Colours.White;
+			DrawStartBanner(overlay);
+			if (ShowsHand)
+			{
+				DrawHand(overlay);
+			}
+			overlay.Deactivate();
 		}
 	}
 

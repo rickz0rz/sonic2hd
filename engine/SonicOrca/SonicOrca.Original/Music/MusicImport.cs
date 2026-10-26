@@ -30,7 +30,9 @@ public static class MusicImport
 		("84 - OOZ.asm", "SONICORCA/MUSIC/LEVELS/OOZ"),
 		("8D - SCZ.asm", "SONICORCA/MUSIC/LEVELS/SCZ"),
 		("8F - WFZ.asm", "SONICORCA/MUSIC/LEVELS/WFZ"),
-		("8A - DEZ.asm", "SONICORCA/MUSIC/LEVELS/DEZ")
+		("8A - DEZ.asm", "SONICORCA/MUSIC/LEVELS/DEZ"),
+		// The jingle of the results screen of the special stage (MusID_EndLevel)
+		("9A - End of Act.asm", "SONICORCA/MUSIC/JINGLE/STAGECLEAR/S2")
 	};
 
 	/// <summary>The quality of the Vorbis encoder.</summary>

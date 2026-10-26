@@ -79,7 +79,7 @@ public class StarpostBonusStarInstance : ActiveObject
 			return;
 		_entered = true;
 		Level.SoundManager.PlaySound(this, Type.GetAbsolutePath(StarpostBonusStarType.EnterSoundResourceKey));
-		Level.FadeOut(LevelState.SpecialStage);
+		Level.EnterSpecialStage();
 	}
 
 	protected override void OnAnimate()

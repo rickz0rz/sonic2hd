@@ -166,7 +166,15 @@ static int ImportSpecialStages(string disassembly, string folder)
 		using var writer = new StreamWriter(Path.Combine(output, $"STAGE{i + 1}.xml"));
 		stages[i].WriteXml(writer);
 	}
-	Console.WriteLine($"Wrote {stages.Count} special stages to {output}.");
+	// The art of the messages, the START banner and the results screen, which the game data does not have
+	foreach (ImportedSprite sprite in SpecialStageArt.Import(disassembly))
+	{
+		string spriteFolder = Path.Combine(new[] { folder }.Concat(sprite.ObjectKey.Split('/')).ToArray());
+		Directory.CreateDirectory(spriteFolder);
+		File.WriteAllBytes(Path.Combine(spriteFolder, "TEXTURE.png"), sprite.Texture);
+		File.WriteAllText(Path.Combine(spriteFolder, "ANIGROUP.anigroup.xml"), sprite.AnimationGroup);
+	}
+	Console.WriteLine($"Wrote {stages.Count} special stages and their art to {output}.");
 	return 0;
 }
 

@@ -60,6 +60,9 @@ public class Level : IDisposable
 
 	private readonly FadeTransition _fadeTransition = new FadeTransition(FadeDuration);
 
+	/// <summary>True while the level fades to white, for the special stage, not to black.</summary>
+	private bool _fadeToWhite;
+
 	private readonly ObjectManager _objectManager;
 
 	private readonly CollisionTable _collisionTable;
@@ -370,6 +373,7 @@ public class Level : IDisposable
 		Trace.WriteLine("Starting level " + Name);
 		_waterManager.Load();
 		_fadeTransition.Clear();
+		_fadeToWhite = false;
 		StateFlags = 0;
 		Ticks = 0;
 		BossFight = false;
@@ -781,7 +785,7 @@ public class Level : IDisposable
 		if (SonicOrca.Core.Debugging.TestHooks.SpecialStageAtTick == Ticks && !SonicOrca.Core.Debugging.TestHooks.SpecialStageTestDone)
 		{
 			SonicOrca.Core.Debugging.TestHooks.SpecialStageTestDone = true;
-			FadeOut(LevelState.SpecialStage);
+			EnterSpecialStage();
 		}
 	}
 
@@ -949,7 +953,8 @@ public class Level : IDisposable
 		}
 		DrawDebugThings(renderer);
 		renderer.DeativateRenderer();
-		_fadeTransitionRenderer.Opacity = (float)(0.0 - _fadeTransition.Opacity);
+		// A positive value fades to white, a negative value to black
+		_fadeTransitionRenderer.Opacity = (float)(_fadeToWhite ? _fadeTransition.Opacity : 0.0 - _fadeTransition.Opacity);
 		_fadeTransitionRenderer.Render();
 	}
 
@@ -987,6 +992,17 @@ public class Level : IDisposable
 		StateFlags &= ~(LevelStateFlags.Animating | LevelStateFlags.Updating);
 		StateFlags |= LevelStateFlags.GameOver;
 		_gameOverHud.Start(GameOverHud.Reason.GameOver);
+	}
+
+	/// <summary>
+	/// The player entered the star circle. The original leaves the level at once: the level stops, and the screen
+	/// fades to white before the special stage.
+	/// </summary>
+	public void EnterSpecialStage()
+	{
+		StateFlags &= ~(LevelStateFlags.Updating | LevelStateFlags.UpdateTime | LevelStateFlags.Animating);
+		_fadeToWhite = true;
+		FadeOut(LevelState.SpecialStage);
 	}
 
 	public void FadeOut(LevelState finishingState)
