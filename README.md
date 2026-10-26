@@ -554,8 +554,9 @@ The test uses these environment variables, which you can also set by hand:
 | `S2HD_CAPTURE_LEVEL_TICKS` | Saves a screenshot at these level ticks, for example `60,600`. In the special stage, use 20000 plus the tick of the stage |
 | `S2HD_EXIT_AFTER_CAPTURES` | With `1`, quits after the last screenshot |
 | `S2HD_TEST_START_RINGS` | Gives the player this number of rings at the start of a level |
-| `S2HD_TEST_EMERALDS` | Gives the player this number of emeralds at the start of a level. With `7` and 50 rings, Sonic can become Super Sonic |
+| `S2HD_TEST_EMERALDS` | Gives the player this number of emeralds at the start of a level, or of `--halfpipe`. With `7` and 50 rings, Sonic can become Super Sonic |
 | `S2HD_TEST_SPECIAL_STAGE_AT_TICK` | Starts the special stage at this level tick, one time only |
+| `S2HD_TEST_SPECIAL_STAGE_RESULTS` | Shows the results screen of `--halfpipe` at once. The value is the rings, then 1 or 0 for the emerald, then 1 or 0 for all the rings, for example `20,1,1`. With `S2HD_TEST_EMERALDS=6` and `--halfpipe 7`, the Super Sonic message shows |
 | `S2HD_TEST_EDITOR_INPUT` | Replaces the mouse and keyboard of the level editor with commands, for example `5:mouse 900 500;6:down left;7:up left`. See `TestHooks.cs` for the commands. While the editor is open, the screenshot numbers are 10000 plus the editor frame |
 | `S2HD_TEST_STORY` | With `1`, plays the story with no input, as the story test describes. Each act saves a screenshot `story-ZONE-ACT.png` |
 | `S2HD_TEST_LOG` | With `S2HD_TEST_STORY`, writes the log of the story test to this file |
