@@ -22,6 +22,12 @@ public static class SpecialStageArt
 	/// <summary>The results screen (Obj6F): the titles, the emeralds and the labels.</summary>
 	public const string ResultsKey = "SONICORCA/SPECIALSTAGE/ORIGINAL/RESULTS";
 
+	/// <summary>
+	/// The big digits of the special stage (Obj5F_MapUnc_72D2 with ArtNem_SpecialHUD): frames 0 to 9 are the digits of
+	/// the ring counters (Obj87) and of the ring messages (Obj5A). Palette line 2.
+	/// </summary>
+	public const string HudKey = "SONICORCA/SPECIALSTAGE/ORIGINAL/HUD";
+
 	/// <summary>The digits 0 to 9 of the counters of the results screen, in the colours of the results screen.</summary>
 	public const string DigitsKey = "SONICORCA/SPECIALSTAGE/ORIGINAL/DIGITS";
 
@@ -58,7 +64,13 @@ public static class SpecialStageArt
 		SpriteImport.ReadPaletteFile(disassembly, "art/palettes/Special Stage Results Screen.bin", resultsPalette, 0);
 		return new List<ImportedSprite>
 		{
-			SpriteImport.Import(new OriginalSprite(MessagesKey, "art/nemesis/Special stage messages and icons.nem", "mappings/sprite/obj5A.asm", new[] { 1, 2 }),
+			// The letter O (frame 8) is the digit 0 of the HUD art, which the original loads $58 tiles after the messages
+			SpriteImport.Import(new OriginalSprite(MessagesKey, "art/nemesis/Special stage messages and icons.nem", "mappings/sprite/obj5A.asm", new[] { 1, 2 })
+				{
+					MoreArt = new[] { ("art/nemesis/Sonic and Miles number text from special stage.nem", 0x1FA - 0x1A2) }
+				},
+				disassembly, stagePalette, Scale),
+			SpriteImport.Import(new OriginalSprite(HudKey, "art/nemesis/Sonic and Miles number text from special stage.nem", "mappings/sprite/obj5F_b.asm", 2),
 				disassembly, stagePalette, Scale),
 			SpriteImport.Import(new OriginalSprite(StartKey, "art/nemesis/Start text from special stage.nem", "mappings/sprite/obj5F_a.asm", 0),
 				disassembly, stagePalette, Scale),

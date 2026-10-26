@@ -405,6 +405,22 @@ public class HalfPipeSpecialStageScreen : Screen
 	/// <summary>The logic tick at which the current message started.</summary>
 	private int _messageStartTick;
 
+	/// <summary>The letters of the messages that ended, which fly away from the centre of the screen (Obj5A_TextFlyout).</summary>
+	private readonly List<FlyingGlyph> _flyingGlyphs = new List<FlyingGlyph>();
+
+	private sealed class FlyingGlyph
+	{
+		public HalfPipeGlyph Glyph;
+
+		public double X;
+
+		public double Y;
+
+		public double VelocityX;
+
+		public double VelocityY;
+	}
+
 	private ITexture _emeraldTexture;
 
 	private HalfPipeStageFlow _flow;
@@ -540,6 +556,10 @@ public class HalfPipeSpecialStageScreen : Screen
 			{
 				_resourceSession.PushDependency(key);
 			}
+			if (resources[HalfPipeOriginalArt.HudKey]?.Resource != null)
+			{
+				_resourceSession.PushDependency(HalfPipeOriginalArt.HudKey);
+			}
 		}
 		string resultsJingleKey = resources[ResultsJingleResourceKey]?.Resource != null ? ResultsJingleResourceKey : EmeraldMusicResourceKey;
 		_resourceSession.PushDependency(resultsJingleKey);
@@ -661,8 +681,13 @@ public class HalfPipeSpecialStageScreen : Screen
 				UpdatePlayer();
 				UpdateObjects();
 				UpdateFlow();
+				UpdateFlyingGlyphs();
 				if (_flow.Message != _lastMessage)
 				{
+					if (UsesOriginalText && _lastMessage != null)
+					{
+						StartFlyout(_lastMessage);
+					}
 					_lastMessage = _flow.Message;
 					_messageStartTick = _ticks;
 				}
@@ -679,6 +704,50 @@ public class HalfPipeSpecialStageScreen : Screen
 		}
 		UpdateCamera();
 		_frames++;
+	}
+
+	/// <summary>The messages and the counters use the letters and the big digits of the original, when a mod has them.</summary>
+	private bool UsesOriginalText => _originalArt?.Hud != null;
+
+	/// <summary>The letters and digits of a message of the flow, at the places of the original.</summary>
+	private static List<HalfPipeGlyph> GetMessageGlyphs(string message)
+	{
+		if (message == HalfPipeStageFlow.CheckpointPassedMessage || message == HalfPipeStageFlow.CheckpointFailedMessage)
+		{
+			return HalfPipeMessageText.Checkpoint(message == HalfPipeStageFlow.CheckpointPassedMessage);
+		}
+		string[] words = message.Split(' ');
+		return words.Length == 3 && words[0] == "GET" && int.TryParse(words[1], out int goal) ? HalfPipeMessageText.RingRequirement(goal) : null;
+	}
+
+	/// <summary>Each letter of an ended message flies away from the centre of the screen, at 8 pixels a tick.</summary>
+	private void StartFlyout(string message)
+	{
+		foreach (HalfPipeGlyph glyph in GetMessageGlyphs(message) ?? new List<HalfPipeGlyph>())
+		{
+			double dx = glyph.X - HalfPipeMessageText.CentreX;
+			double dy = glyph.Y - HalfPipeMessageText.CentreY;
+			// A letter at the centre goes down, as CalcAngle gives for (0, 0)
+			double angle = dx == 0 && dy == 0 ? Math.PI / 2.0 : Math.Atan2(dy, dx);
+			_flyingGlyphs.Add(new FlyingGlyph
+			{
+				Glyph = glyph,
+				X = glyph.X,
+				Y = glyph.Y,
+				VelocityX = Math.Cos(angle) * HalfPipeMessageText.FlyoutSpeed,
+				VelocityY = Math.Sin(angle) * HalfPipeMessageText.FlyoutSpeed
+			});
+		}
+	}
+
+	private void UpdateFlyingGlyphs()
+	{
+		foreach (FlyingGlyph glyph in _flyingGlyphs)
+		{
+			glyph.X += glyph.VelocityX;
+			glyph.Y += glyph.VelocityY;
+		}
+		_flyingGlyphs.RemoveAll(glyph => glyph.X < 0 || glyph.X > 256 || glyph.Y < 0 || glyph.Y > 224);
 	}
 
 	/// <summary>Moves the track, until the player reaches the end.</summary>
@@ -1555,9 +1624,17 @@ public class HalfPipeSpecialStageScreen : Screen
 		if (_tails == null)
 		{
 			g.RenderTexture(_ringsLabelTexture, new Rectangle(48.0, 40.0, _ringsLabelTexture.Width, _ringsLabelTexture.Height));
+			if (UsesOriginalText)
+			{
+				// The big white digits of the original, as tall as the word RINGS
+				_originalArt.DrawHudNumber(g, _rings, 48.0 + _ringsLabelTexture.Width + 16.0, 40.0 + _ringsLabelTexture.Height / 2.0);
+			}
 			g.Deactivate();
 			fontRenderer = renderer.GetFontRenderer();
-			fontRenderer.RenderString(_rings.ToString(), new Rectangle(260.0, 48.0, 0.0, 0.0), FontAlignment.Left, _font, 0);
+			if (!UsesOriginalText)
+			{
+				fontRenderer.RenderString(_rings.ToString(), new Rectangle(260.0, 48.0, 0.0, 0.0), FontAlignment.Left, _font, 0);
+			}
 		}
 		else
 		{
@@ -1571,20 +1648,32 @@ public class HalfPipeSpecialStageScreen : Screen
 			g.RenderTexture(_totalLabelTexture, new Rectangle(960.0 - _totalLabelTexture.Width / 2.0, 24.0, _totalLabelTexture.Width, _totalLabelTexture.Height));
 			g.RenderTexture(_tailsLabelTexture, new Rectangle(tailsX, nameY, _tailsLabelTexture.Width, _tailsLabelTexture.Height));
 			g.RenderTexture(_ringsLabelTexture, new Rectangle(tailsX, ringsY, _ringsLabelTexture.Width, _ringsLabelTexture.Height));
+			double sonicCountX = 48.0 + _ringsLabelTexture.Width + 16.0;
+			double tailsCountX = tailsX + _ringsLabelTexture.Width + 16.0;
+			if (UsesOriginalText)
+			{
+				double ringsCentreY = ringsY + _ringsLabelTexture.Height / 2.0;
+				_originalArt.DrawHudNumber(g, _rings, sonicCountX, ringsCentreY);
+				// The total goes inside the box of the label
+				_originalArt.DrawHudNumber(g, Rings, 960.0, 24.0 + _totalLabelTexture.Height / 2.0, centred: true);
+				_originalArt.DrawHudNumber(g, _tailsRings, tailsCountX, ringsCentreY);
+			}
 			g.Deactivate();
 			fontRenderer = renderer.GetFontRenderer();
-			double countY = ringsY + _ringsLabelTexture.Height / 2.0 - 24.0;
-			fontRenderer.RenderString(_rings.ToString(), new Rectangle(48.0 + _ringsLabelTexture.Width + 16.0, countY, 0.0, 0.0), FontAlignment.Left, _font, 0);
-			// The total goes inside the box of the label
-			fontRenderer.RenderString(Rings.ToString(), new Rectangle(960.0, 24.0 + _totalLabelTexture.Height / 2.0 - 16.0, 0.0, 0.0), FontAlignment.MiddleX, _font, 0);
-			fontRenderer.RenderString(_tailsRings.ToString(), new Rectangle(tailsX + _ringsLabelTexture.Width + 16.0, countY, 0.0, 0.0), FontAlignment.Left, _font, 0);
+			if (!UsesOriginalText)
+			{
+				double countY = ringsY + _ringsLabelTexture.Height / 2.0 - 24.0;
+				fontRenderer.RenderString(_rings.ToString(), new Rectangle(sonicCountX, countY, 0.0, 0.0), FontAlignment.Left, _font, 0);
+				fontRenderer.RenderString(Rings.ToString(), new Rectangle(960.0, 24.0 + _totalLabelTexture.Height / 2.0 - 16.0, 0.0, 0.0), FontAlignment.MiddleX, _font, 0);
+				fontRenderer.RenderString(_tailsRings.ToString(), new Rectangle(tailsCountX, countY, 0.0, 0.0), FontAlignment.Left, _font, 0);
+			}
 			counterY = 220.0;
 		}
-		if (_flow.Counter != null)
+		if (_flow.Counter != null && !UsesOriginalText)
 		{
 			fontRenderer.RenderString(_flow.Counter, new Rectangle(960.0, counterY, 0.0, 0.0), FontAlignment.MiddleX, _font, 0);
 		}
-		if (_flow.Message != null)
+		if (_flow.Message != null && !UsesOriginalText)
 		{
 			// Under the winged hand, when it shows
 			double messageY = ShowsHand ? 560.0 : 440.0;
@@ -1600,7 +1689,34 @@ public class HalfPipeSpecialStageScreen : Screen
 			{
 				DrawHand(overlay);
 			}
+			if (UsesOriginalText)
+			{
+				DrawOriginalText(overlay);
+			}
 			overlay.Deactivate();
+		}
+	}
+
+	/// <summary>The "xx RINGS TO GO!" counter, the message, and the letters that fly away, with the art of the original.</summary>
+	private void DrawOriginalText(I2dRenderer g)
+	{
+		if (_flow.RingsToGo is int toGo)
+		{
+			foreach (HalfPipeGlyph glyph in HalfPipeMessageText.RingsToGo(toGo))
+			{
+				_originalArt.DrawGlyph(g, glyph, glyph.X, glyph.Y);
+			}
+		}
+		if (_flow.Message != null)
+		{
+			foreach (HalfPipeGlyph glyph in GetMessageGlyphs(_flow.Message) ?? new List<HalfPipeGlyph>())
+			{
+				_originalArt.DrawGlyph(g, glyph, glyph.X, glyph.Y);
+			}
+		}
+		foreach (FlyingGlyph flying in _flyingGlyphs)
+		{
+			_originalArt.DrawGlyph(g, flying.Glyph, flying.X, flying.Y);
 		}
 	}
 
