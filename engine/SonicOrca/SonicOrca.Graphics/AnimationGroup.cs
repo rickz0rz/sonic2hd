@@ -15,7 +15,7 @@ public class AnimationGroup : ILoadedResource, IDisposable, IReadOnlyList<Animat
 
 	private readonly IReadOnlyList<string> _textureResourceKeys;
 
-	private readonly IReadOnlyList<Animation> _animations;
+	private IReadOnlyList<Animation> _animations;
 
 	public Resource Resource { get; set; }
 
@@ -41,6 +41,16 @@ public class AnimationGroup : ILoadedResource, IDisposable, IReadOnlyList<Animat
 	public void OnLoaded()
 	{
 		Textures = _textureResourceKeys.Select(x => _resourceTree.GetLoadedResource<ITexture>(x)).ToArray();
+	}
+
+	/// <summary>
+	/// Replaces the textures and the animations, for an editor. The animation instances of the group show the new
+	/// animations at once.
+	/// </summary>
+	public void Replace(IEnumerable<ITexture> textures, IEnumerable<Animation> animations)
+	{
+		Textures = textures.ToArray();
+		_animations = animations.ToArray();
 	}
 
 	public void Dispose()

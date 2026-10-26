@@ -5,6 +5,8 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Xml;
+using SonicOrca.Geometry;
+using SonicOrca.Graphics;
 
 namespace SonicOrca.Core.Editor;
 
@@ -115,6 +117,42 @@ public sealed class AnimationGroupDocument
 		xml.Append("  </animations>\n");
 		xml.Append("</anigroup>\n");
 		return xml.ToString();
+	}
+
+	/// <summary>
+	/// Makes the animations of the game from the document, for <see cref="AnimationGroup.Replace"/> in a running
+	/// level. The game finds animations by index, so an animation after the last one of the document stays as it is
+	/// in <paramref name="current"/>. Values that would stop the game are made safe: an animation without frames gets
+	/// one empty frame, and a texture, a loop or a next out of range is clamped or removed.
+	/// </summary>
+	public List<Animation> ToAnimations(IReadOnlyList<Animation> current, int textureCount)
+	{
+		List<Animation> animations = new List<Animation>();
+		int count = Math.Max(Animations.Count, current.Count);
+		for (int i = 0; i < count; i++)
+		{
+			if (i >= Animations.Count)
+			{
+				animations.Add(current[i]);
+				continue;
+			}
+			AnimationDocument animation = Animations[i];
+			List<Animation.Frame> frames = animation.Frames.Select(frame => new Animation.Frame
+			{
+				TextureIndex = Math.Clamp(frame.Texture, 0, Math.Max(0, textureCount - 1)),
+				Source = new Rectanglei(frame.X, frame.Y, frame.Width, frame.Height),
+				Offset = new Vector2i(frame.OffsetX, frame.OffsetY),
+				Delay = Math.Max(0, frame.Delay)
+			}).ToList();
+			if (frames.Count == 0)
+			{
+				frames.Add(new Animation.Frame());
+			}
+			int? loop = animation.Loop is int l ? Math.Clamp(l, 0, frames.Count - 1) : null;
+			int? next = animation.Next is int n && n >= 0 && n < count ? n : null;
+			animations.Add(new Animation(frames, next, loop));
+		}
+		return animations;
 	}
 
 	internal static string Escape(string text) => text.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;");

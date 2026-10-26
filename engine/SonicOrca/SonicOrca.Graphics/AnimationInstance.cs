@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using SonicOrca.Geometry;
 using SonicOrca.Resources;
 
@@ -28,7 +29,22 @@ public class AnimationInstance
 
 	public AnimationGroup AnimationGroup => _animationGroup;
 
-	public Animation.Frame CurrentFrame => _animationGroup[_animationIndex].Frames[CurrentFrameIndex];
+	/// <summary>
+	/// The frame that the instance shows. An editor can give the animation fewer frames (see
+	/// <see cref="AnimationGroup.Replace"/>), so a frame index after the last frame goes back to the first frame.
+	/// </summary>
+	public Animation.Frame CurrentFrame
+	{
+		get
+		{
+			IReadOnlyList<Animation.Frame> frames = _animationGroup[_animationIndex].Frames;
+			if (CurrentFrameIndex >= frames.Count)
+			{
+				CurrentFrameIndex = 0;
+			}
+			return frames[CurrentFrameIndex];
+		}
+	}
 
 	public ITexture CurrentTexture => _animationGroup.Textures[OverrideTextureIndex.GetValueOrDefault(CurrentFrame.TextureIndex)];
 
@@ -70,7 +86,7 @@ public class AnimationInstance
 	public void Animate()
 	{
 		Animation animation = _animationGroup[_animationIndex];
-		Animation.Frame frame = animation.Frames[CurrentFrameIndex];
+		Animation.Frame frame = CurrentFrame;
 		int delay = OverrideDelay.GetValueOrDefault(frame.Delay);
 		if (_frameTime >= delay)
 		{

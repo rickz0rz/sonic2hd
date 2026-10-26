@@ -119,6 +119,17 @@ public sealed class LevelEditor : IDisposable
 
 	private int _messageFrames;
 
+	/// <summary>The animation editor of the level. It keeps its changes and its undo history when it closes.</summary>
+	private AnimationEditorScreen _animationEditor;
+
+	/// <summary>The animation editor loads its font and the list of the groups.</summary>
+	private Task _animationEditorLoad;
+
+	private bool _animationEditorOpen;
+
+	/// <summary>The group, the animation and the hit boxes that the animation editor shows when it opens.</summary>
+	private (string Key, int Index, Rectanglei[] Hitboxes) _animationTarget;
+
 
 
 
@@ -229,6 +240,11 @@ public sealed class LevelEditor : IDisposable
 
 	public void Dispose()
 	{
+		if (_animationEditor != null && _animationEditorLoad == null)
+		{
+			_animationEditor.Unload();
+		}
+		_animationEditor = null;
 		foreach (EditorTool tool in _tools)
 		{
 			tool.Dispose();
@@ -264,6 +280,11 @@ public sealed class LevelEditor : IDisposable
 		if (_messageFrames > 0)
 		{
 			_messageFrames--;
+		}
+		if (_animationEditorLoad != null || _animationEditorOpen)
+		{
+			UpdateAnimationEditor();
+			return;
 		}
 		_input.Read(_gameContext);
 		Mouse = _input.Mouse;
@@ -394,6 +415,14 @@ public sealed class LevelEditor : IDisposable
 		else if (IsKeyPressed(KeyboardState.KEY_HOME))
 		{
 			CentreOn(_level.StartPosition);
+		}
+		else if (IsKeyPressed(KeyboardState.KEY_N))
+		{
+			OpenAnimationEditor();
+		}
+		else if (IsKeyPressed(KeyboardState.KEY_H))
+		{
+			ToggleHitboxes();
 		}
 		UpdateArrowKeys(shift);
 	}
@@ -619,6 +648,110 @@ public sealed class LevelEditor : IDisposable
 		PlayPosition = IsOverLevel(Mouse) ? Snap(MouseWorld) : (Vector2i)Camera.Bounds.Centre;
 		PlayRequest = request;
 	}
+
+	#region Animation editor
+
+	/// <summary>
+	/// Opens the animation editor for the selected object, or for the protagonist when no object is selected. The
+	/// editor shows the animation that the object plays now, with the hit boxes of the object.
+	/// </summary>
+	private void OpenAnimationEditor()
+	{
+		ActiveObject target = _level.ObjectManager.ActiveObjects
+			.FirstOrDefault(o => o.Entry != null && o.Entry.Active == o && ObjectSelection.Contains(o.Entry.Uid))
+			?? _level.Player?.Protagonist as ActiveObject;
+		AnimationInstance animation = target != null ? FindMainAnimation(target) : null;
+		if (target != null && animation == null)
+		{
+			ShowMessage("The selected object has no animation that the editor can find.");
+			return;
+		}
+		_animationTarget = (animation?.AnimationGroup.Resource.FullKeyPath, animation?.Index ?? 0,
+			target?.Hitboxes.ToArray() ?? Array.Empty<Rectanglei>());
+		CompleteTraces();
+		_drag = DragMode.None;
+		if (_animationEditor == null)
+		{
+			_animationEditor = new AnimationEditorScreen(_gameContext, _animationTarget.Key, hosted: true);
+			_animationEditorLoad = _animationEditor.LoadAsync(new SonicOrca.Menu.ScreenLoadingProgress(_animationEditor));
+			return;
+		}
+		ShowAnimationEditor();
+	}
+
+	private void ShowAnimationEditor()
+	{
+		_animationEditorOpen = true;
+		_animationEditor.Open(_animationTarget.Key, _animationTarget.Index, _animationTarget.Hitboxes);
+	}
+
+	private void UpdateAnimationEditor()
+	{
+		if (_animationEditorLoad != null)
+		{
+			if (!_animationEditorLoad.IsCompleted)
+			{
+				return;
+			}
+			Task load = _animationEditorLoad;
+			_animationEditorLoad = null;
+			if (load.IsFaulted)
+			{
+				_animationEditor = null;
+				ShowMessage("The animation editor did not open: " + load.Exception?.GetBaseException().Message);
+				return;
+			}
+			_animationEditor.Initialise();
+			ShowAnimationEditor();
+		}
+		_animationEditor.Update();
+		if (!_animationEditor.CloseRequested)
+		{
+			return;
+		}
+		_animationEditorOpen = false;
+		_animationEditor.ApplyToGame();
+		_input.Begin(_gameContext);
+		if (_animationEditor.PlayRequested)
+		{
+			RequestPlay(EditorPlayRequest.FromCursor);
+		}
+		else
+		{
+			ShowMessage("The level shows the animation changes. N: animation editor. F5: play.");
+		}
+	}
+
+	/// <summary>
+	/// The animation of an object that the editor shows: of the animation instances in the fields of the object, the
+	/// one with the most animations. For a character, that is the body and not the dust or the barrier.
+	/// </summary>
+	internal static AnimationInstance FindMainAnimation(object target)
+	{
+		List<AnimationInstance> found = new List<AnimationInstance>();
+		for (Type type = target.GetType(); type != null && type != typeof(object); type = type.BaseType)
+		{
+			foreach (System.Reflection.FieldInfo field in type.GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public |
+				System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.DeclaredOnly))
+			{
+				if (field.FieldType == typeof(AnimationInstance) && field.GetValue(target) is AnimationInstance instance && instance.AnimationGroup?.Resource != null)
+				{
+					found.Add(instance);
+				}
+			}
+		}
+		return found.OrderByDescending(instance => instance.AnimationGroup.Count).FirstOrDefault();
+	}
+
+	/// <summary>Shows or hides the hit boxes of the objects, in the editor and in the play.</summary>
+	private void ToggleHitboxes()
+	{
+		LayerViewOptions options = _level.LayerViewOptions;
+		options.ShowObjectCollision = !options.ShowObjectCollision;
+		ShowMessage(options.ShowObjectCollision ? "Hit boxes on" : "Hit boxes off");
+	}
+
+	#endregion
 
 	public void Save()
 	{
@@ -1090,6 +1223,8 @@ public sealed class LevelEditor : IDisposable
 		x += Padding;
 		Add("Play here (F5)", () => RequestPlay(EditorPlayRequest.FromCursor));
 		Add("Play from start (F2)", () => RequestPlay(EditorPlayRequest.FromStart));
+		Add("Animations (N)", OpenAnimationEditor);
+		Add("Hit boxes (H)", ToggleHitboxes, active: _level.LayerViewOptions.ShowObjectCollision);
 		Add("Save", Save, active: Dirty);
 		Add("Undo", Undo, _history.CanUndo);
 		Add("Redo", Redo, _history.CanRedo);
@@ -1162,6 +1297,11 @@ public sealed class LevelEditor : IDisposable
 
 	public void Draw(Renderer renderer)
 	{
+		if (_animationEditorOpen)
+		{
+			_animationEditor.Draw(renderer);
+			return;
+		}
 		I2dRenderer g = renderer.Get2dRenderer();
 		g.BlendMode = BlendMode.Alpha;
 		// The level renderer leaves the scale of the zoom in the model matrix and in the object renderer, which the

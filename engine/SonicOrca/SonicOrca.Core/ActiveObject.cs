@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using SonicOrca.Core.Collision;
 using SonicOrca.Core.Lighting;
 using SonicOrca.Core.Objects.Metadata;
@@ -42,6 +44,12 @@ public abstract class ActiveObject : IActiveObject
 	public CollisionVector[] CollisionVectors { get; set; }
 
 	public CollisionRectangle[] CollisionRectangles { get; set; }
+
+	/// <summary>
+	/// The hit boxes of the object, relative to its position, for the collision view and the animation editor. They
+	/// are the collision rectangles, unless the object touches the other objects in another way.
+	/// </summary>
+	public virtual IEnumerable<Rectanglei> Hitboxes => CollisionRectangles.Select(collisionRectangle => collisionRectangle.Bounds);
 
 	public CameraProperties CameraProperties { get; set; }
 

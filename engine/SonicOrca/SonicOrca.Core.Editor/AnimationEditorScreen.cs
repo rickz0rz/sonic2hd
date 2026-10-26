@@ -103,6 +103,9 @@ public sealed class AnimationEditorScreen : Screen
 
 	private static readonly Colour FrameOutlineColour = new Colour(0.6, 0.4, 0.85, 1.0);
 
+	/// <summary>The colour of the hit boxes, as the collision view of the level draws them.</summary>
+	private static readonly Colour HitboxColour = new Colour(0.9, 1.0, 0.0, 0.0);
+
 	private readonly SonicOrcaGameContext _gameContext;
 
 	private readonly ResourceSession _fontSession;
@@ -114,6 +117,18 @@ public sealed class AnimationEditorScreen : Screen
 	private readonly EditorInput _input = new EditorInput();
 
 	private readonly string _initialKey;
+
+	/// <summary>The level editor runs the editor (see <see cref="Open"/>): Escape goes back to the level.</summary>
+	private readonly bool _hosted;
+
+	/// <summary>The groups that changed since the editor opened, saved or not. The running level takes their changes (see <see cref="ApplyToGame"/>).</summary>
+	private readonly HashSet<string> _changed = new HashSet<string>();
+
+	/// <summary>The hit boxes of the object that the level editor opened the editor for, relative to its position.</summary>
+	private IReadOnlyList<Rectanglei> _hitboxes = Array.Empty<Rectanglei>();
+
+	/// <summary>The group of the object of <see cref="_hitboxes"/>. The preview of another group draws no hit boxes.</summary>
+	private string _hitboxGroupKey;
 
 	/// <summary>The game read the texture files of the folder before this time; a file that changed later is reloaded.</summary>
 	private readonly DateTime _startTime = DateTime.UtcNow;
@@ -211,12 +226,19 @@ public sealed class AnimationEditorScreen : Screen
 	private sealed record Snapshot(AnimationGroupDocument Document, int Animation, int Frame);
 
 	/// <param name="initialKey">The key of the animation group to open, or null for the first group.</param>
-	public AnimationEditorScreen(SonicOrcaGameContext gameContext, string initialKey = null)
+	public AnimationEditorScreen(SonicOrcaGameContext gameContext, string initialKey = null, bool hosted = false)
 	{
 		_gameContext = gameContext;
 		_fontSession = new ResourceSession(gameContext.ResourceTree);
 		_initialKey = initialKey;
+		_hosted = hosted;
 	}
+
+	/// <summary>The user pressed Escape or F5 in the editor of a level (see <see cref="Open"/>).</summary>
+	public bool CloseRequested { get; private set; }
+
+	/// <summary>The user pressed F5 in the editor of a level: the level plays after the editor closes.</summary>
+	public bool PlayRequested { get; private set; }
 
 	private AnimationDocument Animation => _document != null && _animationIndex < _document.Animations.Count ? _document.Animations[_animationIndex] : null;
 
@@ -285,6 +307,10 @@ public sealed class AnimationEditorScreen : Screen
 
 	public override void Unload()
 	{
+		if (_hosted)
+		{
+			ReleaseGameTextures();
+		}
 		foreach (ITexture texture in _ownedTextures)
 		{
 			texture.Dispose();
@@ -292,6 +318,119 @@ public sealed class AnimationEditorScreen : Screen
 		_ownedTextures.Clear();
 		_textureSession?.Dispose();
 		_fontSession.Dispose();
+	}
+
+	/// <summary>
+	/// Shows a group and one of its animations, for the level editor. The hit boxes are drawn in the preview. The
+	/// documents, the changes and the undo history stay from the last time that the editor was open.
+	/// </summary>
+	public void Open(string groupKey, int animationIndex, IReadOnlyList<Rectanglei> hitboxes)
+	{
+		_input.Begin(_gameContext);
+		CloseRequested = false;
+		PlayRequested = false;
+		_confirmLeave = false;
+		_hitboxes = hitboxes ?? Array.Empty<Rectanglei>();
+		_hitboxGroupKey = groupKey;
+		if (groupKey != null && _groupKeys.Contains(groupKey))
+		{
+			if (groupKey != _groupKey)
+			{
+				_filter = "";
+				SelectGroup(groupKey);
+			}
+			ScrollToGroup();
+			SelectAnimation(animationIndex);
+		}
+		ShowMessage(_hitboxes.Count > 0 ? "Red boxes: the hit boxes of the object. Esc: back to the level. F5: play." : "Esc: back to the level. F5: play.");
+	}
+
+	/// <summary>
+	/// Gives the changed groups to the game, so that the running level shows them: the loaded groups take the new
+	/// animations and textures, and the resources take the new files for the groups that load again.
+	/// </summary>
+	public void ApplyToGame()
+	{
+		ResourceTree tree = _gameContext.ResourceTree;
+		foreach (string key in _changed)
+		{
+			AnimationGroupDocument document = _documents[key];
+			Resource resource = tree[key]?.Resource;
+			// Save gives the resource the saved file; a group with changes that are not saved gives its changes
+			if (resource != null && _dirty.Contains(key))
+			{
+				resource.Source = new MemoryResourceSource(Encoding.UTF8.GetBytes(document.ToXml()));
+			}
+			if (!tree.TryGetLoadedResource(key, out AnimationGroup group))
+			{
+				continue;
+			}
+			List<ITexture> textures = GetGameTextures(key, document, group);
+			if (textures.Count > 0 && textures.All(texture => texture != null))
+			{
+				group.Replace(textures, document.ToAnimations(group, textures.Count));
+			}
+		}
+	}
+
+	/// <summary>The textures for a group of the game: the textures of the editor, else the textures that the group has, else the loaded resources.</summary>
+	private List<ITexture> GetGameTextures(string key, AnimationGroupDocument document, AnimationGroup group)
+	{
+		Resource resource = _gameContext.ResourceTree[key]?.Resource;
+		List<ITexture> textures = new List<ITexture>();
+		for (int i = 0; i < document.Textures.Count; i++)
+		{
+			ITexture texture = key == _groupKey && _textureTask == null && i < _textures.Count ? _textures[i] : null;
+			texture ??= i < group.Textures.Count ? group.Textures[i] : null;
+			string textureKey = resource?.GetAbsolutePath(document.Textures[i]);
+			if (texture == null && textureKey != null && _gameContext.ResourceTree.TryGetLoadedResource(textureKey, out ITexture loaded))
+			{
+				texture = loaded;
+			}
+			textures.Add(texture ?? group.Textures.FirstOrDefault());
+		}
+		return textures;
+	}
+
+	/// <summary>
+	/// The editor disposes the textures that it made from files. The groups of the game that use them take the
+	/// textures of the resources again.
+	/// </summary>
+	private void ReleaseGameTextures()
+	{
+		foreach (string key in _changed)
+		{
+			if (!_gameContext.ResourceTree.TryGetLoadedResource(key, out AnimationGroup group) || !group.Textures.Any(_ownedTextures.Contains))
+			{
+				continue;
+			}
+			Resource resource = _gameContext.ResourceTree[key]?.Resource;
+			IReadOnlyList<string> keys = _documents[key].Textures;
+			List<ITexture> textures = new List<ITexture>();
+			for (int i = 0; i < group.Textures.Count; i++)
+			{
+				ITexture texture = group.Textures[i];
+				string textureKey = i < keys.Count ? resource?.GetAbsolutePath(keys[i]) : null;
+				if (_ownedTextures.Contains(texture))
+				{
+					texture = textureKey != null && _gameContext.ResourceTree.TryGetLoadedResource(textureKey, out ITexture loaded) ? loaded : null;
+				}
+				textures.Add(texture);
+			}
+			ITexture fallback = textures.FirstOrDefault(texture => texture != null);
+			if (fallback != null)
+			{
+				group.Replace(textures.Select(texture => texture ?? fallback), group);
+			}
+		}
+	}
+
+	/// <summary>Scrolls the group list so that the selected group is in the middle.</summary>
+	private void ScrollToGroup()
+	{
+		int index = VisibleGroups.ToList().IndexOf(_groupKey);
+		double height = ScreenHeight - EditorUi.StatusBarHeight - GroupListTop;
+		_groupScroll = Math.Max(0.0, index * EditorUi.RowHeight - (height - EditorUi.RowHeight) / 2.0);
 	}
 
 	#region Groups
@@ -450,6 +589,7 @@ public sealed class AnimationEditorScreen : Screen
 			}
 			_textures[index] = texture;
 			_ownedTextures.Add(texture);
+			_changed.Add(_groupKey);
 			ShowMessage($"Reloaded {key.Split('/')[^1]} ({texture.Width} x {texture.Height})");
 		}
 	}
@@ -661,6 +801,13 @@ public sealed class AnimationEditorScreen : Screen
 			{
 				MoveFrame(1);
 			}
+			return;
+		}
+		if (_hosted && (IsKeyPressed(KeyboardState.KEY_ESCAPE) || IsKeyPressed(KeyboardState.KEY_F5)))
+		{
+			// The changes stay in the editor and in the level, saved or not
+			PlayRequested = IsKeyPressed(KeyboardState.KEY_F5);
+			CloseRequested = true;
 			return;
 		}
 		if (IsKeyPressed(KeyboardState.KEY_ESCAPE))
@@ -1254,6 +1401,7 @@ public sealed class AnimationEditorScreen : Screen
 		GetStack(_redo).Clear();
 		action();
 		_dirty.Add(_groupKey);
+		_changed.Add(_groupKey);
 		_confirmLeave = false;
 		ClampSelection();
 	}
@@ -1299,6 +1447,7 @@ public sealed class AnimationEditorScreen : Screen
 		_animationIndex = snapshot.Animation;
 		_frameIndex = snapshot.Frame;
 		_dirty.Add(_groupKey);
+		_changed.Add(_groupKey);
 		ClampSelection();
 		if (texturesChanged)
 		{
@@ -1604,6 +1753,11 @@ public sealed class AnimationEditorScreen : Screen
 		}
 		bool hasAnimation = Animation != null;
 		bool hasFrame = Frame != null;
+		if (_hosted)
+		{
+			Add("Level (Esc)", () => CloseRequested = true);
+			x += EditorUi.Padding;
+		}
 		Add("Save", Save, active: _dirty.Count > 0);
 		Add("Undo", Undo, CanUndo);
 		Add("Redo", Redo, CanRedo);
@@ -1703,6 +1857,10 @@ public sealed class AnimationEditorScreen : Screen
 			DrawFrame(renderer, g, frame, destination);
 			g.RenderRectangle(FrameOutlineColour, destination, 1.0);
 		}
+		foreach (Rectanglei hitbox in _groupKey == _hitboxGroupKey ? _hitboxes : Array.Empty<Rectanglei>())
+		{
+			g.RenderRectangle(HitboxColour, new Rectangle(origin.X + hitbox.X * Zoom, origin.Y + hitbox.Y * Zoom, hitbox.Width * Zoom, hitbox.Height * Zoom), 2.0);
+		}
 		EditorUi.DrawCross(g, origin, 16.0, EditorUi.ShadowColour, 5.0);
 		EditorUi.DrawCross(g, origin, 16.0, Colours.White, 2.0);
 		renderer.DeativateRenderer();
@@ -1782,10 +1940,15 @@ public sealed class AnimationEditorScreen : Screen
 		{
 			renderer.DeativateRenderer();
 			ICharacterRenderer characterRenderer = renderer.GetCharacterRenderer();
+			// The level shares the character renderer and does not set these values, so they go back after the frame
+			Matrix4 modelMatrix = characterRenderer.ModelMatrix;
+			Rectangle clipRectangle = characterRenderer.ClipRectangle;
 			characterRenderer.ModelMatrix = Matrix4.Identity;
 			characterRenderer.ClipRectangle = g.ClipRectangle;
 			characterRenderer.RenderTexture(_textures[1], _textures[0], source, destination);
 			renderer.DeativateRenderer();
+			characterRenderer.ModelMatrix = modelMatrix;
+			characterRenderer.ClipRectangle = clipRectangle;
 			return;
 		}
 		ITexture texture = frame.Texture >= 0 && frame.Texture < _textures.Count ? _textures[frame.Texture] : null;
