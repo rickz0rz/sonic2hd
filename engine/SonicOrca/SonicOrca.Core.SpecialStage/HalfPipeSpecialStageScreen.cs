@@ -1148,7 +1148,9 @@ public class HalfPipeSpecialStageScreen : Screen
 		ITexture texture = null;
 		QuadStyle style = QuadStyle.Lit;
 		_vertexBuffer.Begin();
-		foreach (TexturedQuad quad in quads.OrderByDescending(x => (_camera - x.Position[0]).Length))
+		// The shadows lie on the pipe, under everything else, so they come first. A sprite writes the depth of its whole
+		// quad, also where it is transparent, so a shadow after it would lose the part behind it.
+		foreach (TexturedQuad quad in quads.OrderBy(x => x.Style == QuadStyle.Shadow ? 0 : 1).ThenByDescending(x => (_camera - x.Position[0]).Length))
 		{
 			for (int corner = 0; corner < 4; corner++)
 			{
