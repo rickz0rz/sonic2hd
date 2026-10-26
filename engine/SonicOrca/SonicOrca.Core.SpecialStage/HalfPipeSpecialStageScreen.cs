@@ -258,10 +258,16 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	private const double EffectSize = 0.75;
 
-	/// <summary>The size of the shadow of a player across the pipe, and along the track.</summary>
-	private const double ShadowWidth = 0.75;
+	/// <summary>
+	/// The size of the shadow of a player across the pipe, and along the track. As in the original, a shadow is a flat
+	/// oval: short along the track.
+	/// </summary>
+	private const double ShadowWidth = 0.8;
 
-	private const double ShadowLength = 1.1;
+	private const double ShadowLength = 0.55;
+
+	/// <summary>The length of the round shadow of an object along the track, for each unit of its width.</summary>
+	private const double ObjectShadowSquash = 0.5;
 
 	/// <summary>The darkness of the shadows: the opacity of their black.</summary>
 	private const double ShadowOpacity = 0.45;
@@ -1288,7 +1294,7 @@ public class HalfPipeSpecialStageScreen : Screen
 				if (Math.Abs(item.Angle) <= Math.PI / 2.0)
 				{
 					double shadowSize = (item.Kind == HalfPipeObjectKind.Ring ? RingSize : BombSize) * 0.8;
-					quads.Add(CreateSurfaceShadow(transform, item.Angle, shadowSize, shadowSize, 0.0, _ballShadowTexture));
+					quads.Add(CreateSurfaceShadow(transform, item.Angle, shadowSize, shadowSize * ObjectShadowSquash, 0.0, _ballShadowTexture));
 				}
 				if (item.Kind == HalfPipeObjectKind.Ring)
 				{
@@ -1333,7 +1339,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		double bob = _flow.EmeraldWon ? new[] { -1, 0, 1, 0 }[_flow.EmeraldWonFrames / 4 % 4] * PixelsToUnits : 0.0;
 		// The emerald floats at 3/4 of the pipe radius from the centre
 		double height = PipeRadius / 4.0 + bob;
-		quads.Add(CreateSurfaceShadow(GetNodeTransform(node), 0.0, EmeraldSize * 0.6, EmeraldSize * 0.6, 0.0, _ballShadowTexture));
+		quads.Add(CreateSurfaceShadow(GetNodeTransform(node), 0.0, EmeraldSize * 0.6, EmeraldSize * 0.6 * ObjectShadowSquash, 0.0, _ballShadowTexture));
 		quads.Add(CreateSprite(GetNodeTransform(node), 0.0, height, EmeraldSize, EmeraldSize, _emeraldTexture,
 			new Rectanglei(0, 0, _emeraldTexture.Width, _emeraldTexture.Height)));
 	}
@@ -1387,6 +1393,9 @@ public class HalfPipeSpecialStageScreen : Screen
 	{
 		double radius = PipeRadius - ShadowGap;
 		double halfAngle = width / 2.0 / radius;
+		// The whole shadow stays on the pipe: its centre is not nearer to the top edges than half its width
+		double maxAngle = Math.PI / 2.0 - halfAngle;
+		angle = Math.Clamp(angle, -maxAngle, maxAngle);
 		Vector3 Point(double theta, double z) => transform * new Vector3(-Math.Cos(theta) * radius * PipeWidthScale, -Math.Sin(theta) * radius, z);
 		// Theta is the angle of the cross section: 0 at the left edge, pi / 2 at the bottom, pi at the right edge
 		double theta = Math.PI / 2.0 + angle;
