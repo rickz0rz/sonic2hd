@@ -103,6 +103,31 @@ public sealed class RegressionTests
 	}
 
 	/// <summary>
+	/// Opens the animation editor on Sonic with scripted input. In the texture view, it drags the right edge of the
+	/// rectangle of a frame 32 pixels to the right. In the preview, it drags the frame by (20, 10), and saves.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void AnimationEditorRectangles_MatchesGoldenScreenshots()
+	{
+		// T (23) changes the view. The texture view puts the selected rectangle in its centre (960, 461), so its right
+		// edge is at x 1088. The position of the object in the preview is at (960, 502).
+		const string script = "5:mouse 1600 303;6:down left;7:up left;10:mouse 760 950;11:down left;12:up left;14:tap 23;" +
+			"18:mouse 1088 461;19:down left;21:mouse 1104 461;23:mouse 1120 461;25:up left;32:tap 23;" +
+			"35:mouse 960 502;36:down left;38:mouse 970 507;40:mouse 980 512;42:up left;46:keydown 224;47:tap 22;48:keyup 224";
+		RunAndCompare("--animations SONICORCA/OBJECTS/SONIC/ANIGROUP", new[] { 10030, 10060 }, Path.Combine(TestPaths.GoldenDirectory, "animation-editor-rectangles"),
+			"animation-editor-rectangles", new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script },
+			checkUserData: userData =>
+			{
+				string path = Path.Combine(userData, "mods", "editor", "animations", "SONICORCA", "OBJECTS", "SONIC", "ANIGROUP.anigroup.xml");
+				Assert.True(File.Exists(path), "The animation editor did not save " + path);
+				SonicOrca.Core.Editor.AnimationFrameDocument frame = SonicOrca.Core.Editor.AnimationGroupDocument.Parse(File.ReadAllText(path)).Animations[7].Frames[2];
+				Assert.Equal((0, 1400, 288, 280), (frame.X, frame.Y, frame.Width, frame.Height));
+				Assert.Equal((20, 6), (frame.OffsetX, frame.OffsetY));
+			});
+	}
+
+	/// <summary>
 	/// Opens the markers tool of the level editor in Emerald Hill with scripted input. It moves the start position
 	/// marker, adds an area marker and plays from the start.
 	/// </summary>

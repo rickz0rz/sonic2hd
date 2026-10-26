@@ -20,7 +20,9 @@ namespace SonicOrca.Core.Editor;
 /// The centre plays the selected animation, and the strip under it shows its frames. The right panel lists the
 /// animations of the group, and the properties of the animation and of the selected frame.
 /// <para>
-/// The editor changes the timing and the order of the frames, and adds and removes frames and animations. Ctrl+S
+/// The editor changes the timing and the order of the frames, and adds and removes frames and animations. In the
+/// preview, a drag moves the offset of the frame. The texture view (T) shows the texture of the frame with the
+/// rectangles of the frames: a drag moves, resizes or draws the rectangle of the selected frame. Ctrl+S
 /// writes the changed groups into the folder mods/editor/animations of the user data folder, in the layout of
 /// "s2hd-data unpack". The game loads this folder after the other mods.
 /// </para>
@@ -46,6 +48,49 @@ public sealed class AnimationEditorScreen : Screen
 	private const int MessageFrames = 240;
 
 	private static readonly double[] Zooms = { 0.5, 1.0, 2.0, 3.0, 4.0 };
+
+	private static readonly double[] TextureZooms = { 0.25, 0.5, 1.0, 2.0, 4.0, 8.0 };
+
+	/// <summary>The size of the handles of the selected rectangle, and the distance at which the mouse takes an edge.</summary>
+	private const double HandleSize = 10.0;
+
+	/// <summary>The opacity of the previous frame in the preview (onion skin).</summary>
+	private const double OnionOpacity = 0.3;
+
+	private static readonly Colour RectangleColour = new Colour(0.5, 1.0, 1.0, 1.0);
+
+	private static readonly Colour SelectedRectangleColour = new Colour(1.0, 1.0, 0.8, 0.1);
+
+	private enum View
+	{
+		/// <summary>The frame at the position of the object, as in the game.</summary>
+		Preview,
+		/// <summary>The texture of the frame, with the rectangles of the frames of the animation.</summary>
+		Texture
+	}
+
+	private enum DragMode
+	{
+		None,
+		/// <summary>Moves the offset of the frame, or of all the frames with Ctrl.</summary>
+		Offset,
+		MoveRectangle,
+		/// <summary>Moves the edges of the rectangle in <see cref="_resizeEdges"/>.</summary>
+		ResizeRectangle,
+		/// <summary>Draws a new rectangle from the point where the drag started.</summary>
+		DrawRectangle,
+		Pan
+	}
+
+	[Flags]
+	private enum Edges
+	{
+		None = 0,
+		Left = 1,
+		Right = 2,
+		Top = 4,
+		Bottom = 8
+	}
 
 	private static readonly Colour PreviewColour = new Colour(1.0, 0.11, 0.12, 0.15);
 
@@ -103,6 +148,29 @@ public sealed class AnimationEditorScreen : Screen
 
 	private int _zoomIndex = 1;
 
+	private View _view = View.Preview;
+
+	private bool _onionSkin = true;
+
+	private int _textureZoomIndex = 2;
+
+	/// <summary>The position of the top left of the texture in the texture view, from the top left of the view.</summary>
+	private Vector2 _texturePan = new Vector2(20.0, 20.0);
+
+	private DragMode _drag;
+
+	private Vector2 _dragStart;
+
+	private Vector2 _dragStartPan;
+
+	/// <summary>The values of the frames of the animation when the drag started.</summary>
+	private List<AnimationFrameDocument> _dragFrames;
+
+	private Edges _resizeEdges;
+
+	/// <summary>True after the drag changed the document: the undo history has its step.</summary>
+	private bool _dragChanged;
+
 	private double _groupScroll;
 
 	private double _animationScroll;
@@ -142,6 +210,17 @@ public sealed class AnimationEditorScreen : Screen
 	}
 
 	private double Zoom => Zooms[_zoomIndex];
+
+	private double TextureZoom => TextureZooms[_textureZoomIndex];
+
+	private ITexture FrameTexture
+	{
+		get
+		{
+			AnimationFrameDocument frame = Frame;
+			return frame != null && frame.Texture >= 0 && frame.Texture < _textures.Count ? _textures[frame.Texture] : null;
+		}
+	}
 
 	private static Rectangle PreviewArea => new Rectangle(EditorUi.PanelWidth, EditorUi.TopBarHeight, ScreenWidth - EditorUi.PanelWidth * 2.0,
 		ScreenHeight - EditorUi.StatusBarHeight - StripHeight - EditorUi.TopBarHeight);
@@ -378,6 +457,9 @@ public sealed class AnimationEditorScreen : Screen
 		{
 			TogglePlay();
 		}
+		else if (IsAltDown && UpdateNudge())
+		{
+		}
 		else if (IsKeyPressed(KeyboardState.KEY_LEFT))
 		{
 			StepFrame(-1);
@@ -394,6 +476,14 @@ public sealed class AnimationEditorScreen : Screen
 		{
 			SelectAnimation(_animationIndex + 1);
 		}
+		else if (IsKeyPressed(KeyboardState.KEY_T))
+		{
+			ToggleView();
+		}
+		else if (IsKeyPressed(KeyboardState.KEY_O))
+		{
+			_onionSkin = !_onionSkin;
+		}
 		else if (IsKeyPressed(KeyboardState.KEY_INSERT))
 		{
 			AddFrame();
@@ -404,16 +494,114 @@ public sealed class AnimationEditorScreen : Screen
 		}
 		else if (IsKeyPressed(KeyboardState.KEY_Z))
 		{
+			CycleZoom();
+		}
+	}
+
+	private bool IsAltDown => _input.IsKeyDown(KeyboardState.KEY_LALT) || _input.IsKeyDown(KeyboardState.KEY_RALT);
+
+	/// <summary>
+	/// Alt and an arrow key move the offset of the frame (preview) or its rectangle (texture view) by one pixel. With
+	/// Shift in the texture view, they change the size of the rectangle.
+	/// </summary>
+	private bool UpdateNudge()
+	{
+		int dx = IsKeyPressed(KeyboardState.KEY_LEFT) ? -1 : IsKeyPressed(KeyboardState.KEY_RIGHT) ? 1 : 0;
+		int dy = IsKeyPressed(KeyboardState.KEY_UP) ? -1 : IsKeyPressed(KeyboardState.KEY_DOWN) ? 1 : 0;
+		AnimationFrameDocument frame = Frame;
+		if ((dx == 0 && dy == 0) || frame == null)
+		{
+			return false;
+		}
+		_playing = false;
+		if (_view == View.Preview)
+		{
+			Change(() =>
+			{
+				frame.OffsetX += dx;
+				frame.OffsetY += dy;
+			});
+		}
+		else if (IsShiftDown)
+		{
+			Change(() =>
+			{
+				frame.Width = Math.Max(1, frame.Width + dx);
+				frame.Height = Math.Max(1, frame.Height + dy);
+			});
+		}
+		else
+		{
+			Change(() =>
+			{
+				frame.X = Math.Max(0, frame.X + dx);
+				frame.Y = Math.Max(0, frame.Y + dy);
+			});
+		}
+		return true;
+	}
+
+	private void ToggleView()
+	{
+		_view = _view == View.Preview ? View.Texture : View.Preview;
+		_playing = false;
+		if (_view == View.Texture)
+		{
+			CentreTextureOnFrame();
+		}
+	}
+
+	private void CycleZoom()
+	{
+		if (_view == View.Texture)
+		{
+			_textureZoomIndex = (_textureZoomIndex + 1) % TextureZooms.Length;
+			CentreTextureOnFrame();
+		}
+		else
+		{
 			_zoomIndex = (_zoomIndex + 1) % Zooms.Length;
 		}
+	}
+
+	/// <summary>Moves the texture view so that the rectangle of the selected frame is in the centre.</summary>
+	private void CentreTextureOnFrame()
+	{
+		AnimationFrameDocument frame = Frame;
+		if (frame == null)
+		{
+			return;
+		}
+		Rectangle area = PreviewArea;
+		_texturePan = new Vector2(
+			Math.Round(area.Width / 2.0 - (frame.X + frame.Width / 2.0) * TextureZoom),
+			Math.Round(area.Height / 2.0 - (frame.Y + frame.Height / 2.0) * TextureZoom));
 	}
 
 	private void UpdateMouse()
 	{
 		Vector2 mouse = _input.Mouse;
+		if (_drag != DragMode.None)
+		{
+			UpdateDrag(mouse);
+			if (!_input.Left && !_input.Right && !_input.Middle)
+			{
+				_drag = DragMode.None;
+			}
+			return;
+		}
 		if (_input.Wheel != 0.0)
 		{
 			UpdateWheel(mouse, _input.Wheel);
+		}
+		if (PreviewArea.Contains(mouse) && (_input.LeftPressed || _input.RightPressed || _input.MiddlePressed))
+		{
+			if (_entry.IsActive && _entry.Row != FilterRow)
+			{
+				UpdateTextEntryCommitOnClick();
+			}
+			BeginDrag(mouse);
+			return;
 		}
 		int direction = _input.LeftPressed ? 1 : _input.RightPressed ? -1 : 0;
 		if (direction == 0)
@@ -480,9 +668,203 @@ public sealed class AnimationEditorScreen : Screen
 		{
 			_stripScroll = Math.Max(0.0, _stripScroll + step);
 		}
+		else if (_view == View.Texture)
+		{
+			// Zoom about the point under the mouse
+			Vector2 point = ScreenToTexture(mouse);
+			_textureZoomIndex = Math.Clamp(_textureZoomIndex + Math.Sign(wheel), 0, TextureZooms.Length - 1);
+			Rectangle area = PreviewArea;
+			_texturePan = new Vector2(Math.Round(mouse.X - area.X - point.X * TextureZoom), Math.Round(mouse.Y - area.Y - point.Y * TextureZoom));
+		}
 		else
 		{
 			_zoomIndex = Math.Clamp(_zoomIndex + Math.Sign(wheel), 0, Zooms.Length - 1);
+		}
+	}
+
+	private Vector2 TextureToScreen(double x, double y)
+	{
+		Rectangle area = PreviewArea;
+		return new Vector2(area.X + _texturePan.X + x * TextureZoom, area.Y + _texturePan.Y + y * TextureZoom);
+	}
+
+	private Vector2 ScreenToTexture(Vector2 screen)
+	{
+		Rectangle area = PreviewArea;
+		return new Vector2((screen.X - area.X - _texturePan.X) / TextureZoom, (screen.Y - area.Y - _texturePan.Y) / TextureZoom);
+	}
+
+	private Rectangle TextureToScreen(AnimationFrameDocument frame)
+	{
+		Vector2 topLeft = TextureToScreen(frame.X, frame.Y);
+		return new Rectangle(topLeft.X, topLeft.Y, frame.Width * TextureZoom, frame.Height * TextureZoom);
+	}
+
+	/// <summary>The edges of the rectangle that are near the mouse, for a resize.</summary>
+	private static Edges GetEdgesAt(Rectangle rectangle, Vector2 mouse)
+	{
+		Rectangle near = new Rectangle(rectangle.X - HandleSize, rectangle.Y - HandleSize, rectangle.Width + HandleSize * 2.0, rectangle.Height + HandleSize * 2.0);
+		if (!near.Contains(mouse))
+		{
+			return Edges.None;
+		}
+		Edges edges = Edges.None;
+		if (Math.Abs(mouse.X - rectangle.X) <= HandleSize)
+		{
+			edges |= Edges.Left;
+		}
+		else if (Math.Abs(mouse.X - rectangle.Right) <= HandleSize)
+		{
+			edges |= Edges.Right;
+		}
+		if (Math.Abs(mouse.Y - rectangle.Y) <= HandleSize)
+		{
+			edges |= Edges.Top;
+		}
+		else if (Math.Abs(mouse.Y - rectangle.Bottom) <= HandleSize)
+		{
+			edges |= Edges.Bottom;
+		}
+		return edges;
+	}
+
+	/// <summary>Starts a drag in the centre: the offset in the preview; the rectangle in the texture view; a pan with the right or the middle button.</summary>
+	private void BeginDrag(Vector2 mouse)
+	{
+		AnimationDocument animation = Animation;
+		_dragStart = mouse;
+		_dragStartPan = _texturePan;
+		_dragChanged = false;
+		_dragFrames = animation?.Frames.Select(f => f.Clone()).ToList();
+		if (!_input.LeftPressed)
+		{
+			_drag = _view == View.Texture ? DragMode.Pan : DragMode.None;
+			return;
+		}
+		AnimationFrameDocument frame = Frame;
+		if (frame == null)
+		{
+			return;
+		}
+		_playing = false;
+		if (_view == View.Preview)
+		{
+			_drag = DragMode.Offset;
+			return;
+		}
+		Rectangle selected = TextureToScreen(frame);
+		Edges edges = GetEdgesAt(selected, mouse);
+		if (edges != Edges.None)
+		{
+			_drag = DragMode.ResizeRectangle;
+			_resizeEdges = edges;
+			return;
+		}
+		if (selected.Contains(mouse))
+		{
+			_drag = DragMode.MoveRectangle;
+			return;
+		}
+		// A click in the rectangle of another frame of the texture selects that frame
+		for (int i = 0; i < animation.Frames.Count; i++)
+		{
+			AnimationFrameDocument other = animation.Frames[i];
+			if (i != _frameIndex && other.Texture == frame.Texture && TextureToScreen(other).Contains(mouse))
+			{
+				_frameIndex = i;
+				_drag = DragMode.None;
+				return;
+			}
+		}
+		_drag = DragMode.DrawRectangle;
+	}
+
+	private void UpdateDrag(Vector2 mouse)
+	{
+		AnimationFrameDocument frame = Frame;
+		if (_drag == DragMode.Pan)
+		{
+			_texturePan = _dragStartPan + (mouse - _dragStart);
+			return;
+		}
+		if (frame == null || _dragFrames == null || _frameIndex >= _dragFrames.Count)
+		{
+			return;
+		}
+		AnimationFrameDocument start = _dragFrames[_frameIndex];
+		ITexture texture = FrameTexture;
+		int maxX = texture?.Width ?? 16384;
+		int maxY = texture?.Height ?? 16384;
+		// The mouse moves in screen pixels; the values are in pixels of the texture
+		double scale = _drag == DragMode.Offset ? Zoom : TextureZoom;
+		int dx = (int)Math.Round((mouse.X - _dragStart.X) / scale);
+		int dy = (int)Math.Round((mouse.Y - _dragStart.Y) / scale);
+		if (!_dragChanged && dx == 0 && dy == 0)
+		{
+			return;
+		}
+		if (!_dragChanged)
+		{
+			// One step of the undo history for the whole drag
+			Change(() => { });
+			_dragChanged = true;
+		}
+		switch (_drag)
+		{
+			case DragMode.Offset:
+				AnimationDocument animation = Animation;
+				// With Ctrl, the offsets of all the frames move together
+				for (int i = 0; i < animation.Frames.Count && i < _dragFrames.Count; i++)
+				{
+					if (i == _frameIndex || IsControlDown)
+					{
+						animation.Frames[i].OffsetX = _dragFrames[i].OffsetX + dx;
+						animation.Frames[i].OffsetY = _dragFrames[i].OffsetY + dy;
+					}
+				}
+				break;
+			case DragMode.MoveRectangle:
+				frame.X = Math.Clamp(start.X + dx, 0, Math.Max(0, maxX - start.Width));
+				frame.Y = Math.Clamp(start.Y + dy, 0, Math.Max(0, maxY - start.Height));
+				break;
+			case DragMode.ResizeRectangle:
+				int left = start.X;
+				int top = start.Y;
+				int right = start.X + start.Width;
+				int bottom = start.Y + start.Height;
+				if (_resizeEdges.HasFlag(Edges.Left))
+				{
+					left = Math.Clamp(start.X + dx, 0, right - 1);
+				}
+				if (_resizeEdges.HasFlag(Edges.Right))
+				{
+					right = Math.Clamp(right + dx, left + 1, maxX);
+				}
+				if (_resizeEdges.HasFlag(Edges.Top))
+				{
+					top = Math.Clamp(start.Y + dy, 0, bottom - 1);
+				}
+				if (_resizeEdges.HasFlag(Edges.Bottom))
+				{
+					bottom = Math.Clamp(bottom + dy, top + 1, maxY);
+				}
+				frame.X = left;
+				frame.Y = top;
+				frame.Width = right - left;
+				frame.Height = bottom - top;
+				break;
+			case DragMode.DrawRectangle:
+				Vector2 a = ScreenToTexture(_dragStart);
+				Vector2 b = ScreenToTexture(mouse);
+				int x0 = Math.Clamp((int)Math.Floor(Math.Min(a.X, b.X)), 0, maxX - 1);
+				int y0 = Math.Clamp((int)Math.Floor(Math.Min(a.Y, b.Y)), 0, maxY - 1);
+				int x1 = Math.Clamp((int)Math.Ceiling(Math.Max(a.X, b.X)), x0 + 1, maxX);
+				int y1 = Math.Clamp((int)Math.Ceiling(Math.Max(a.Y, b.Y)), y0 + 1, maxY);
+				frame.X = x0;
+				frame.Y = y0;
+				frame.Width = x1 - x0;
+				frame.Height = y1 - y0;
+				break;
 		}
 	}
 
@@ -982,7 +1364,9 @@ public sealed class AnimationEditorScreen : Screen
 		Add("Duplicate animation", () => AddAnimation(true), hasAnimation);
 		Add("Delete last animation", DeleteLastAnimation, _document != null && _document.Animations.Count > 0);
 		x += EditorUi.Padding;
-		Add($"Zoom {Zoom * 100:0}%", () => _zoomIndex = (_zoomIndex + 1) % Zooms.Length);
+		Add(_view == View.Texture ? "Preview (T)" : "Texture (T)", ToggleView, hasFrame, _view == View.Texture);
+		Add("Onion skin (O)", () => _onionSkin = !_onionSkin, active: _onionSkin);
+		Add($"Zoom {(_view == View.Texture ? TextureZoom : Zoom) * 100:0}%", CycleZoom);
 		return buttons;
 	}
 
@@ -994,7 +1378,14 @@ public sealed class AnimationEditorScreen : Screen
 		g.ModelMatrix = Matrix4.Identity;
 		g.ClipRectangle = new Rectangle(0.0, 0.0, ScreenWidth, ScreenHeight);
 		g.RenderQuad(new Colour(1.0, 0.05, 0.06, 0.08), new Rectangle(0.0, 0.0, ScreenWidth, ScreenHeight));
-		DrawPreview(renderer, g);
+		if (_view == View.Texture)
+		{
+			DrawTextureView(renderer, g);
+		}
+		else
+		{
+			DrawPreview(renderer, g);
+		}
 		DrawStrip(renderer, g);
 		if (_ui.HasFont)
 		{
@@ -1038,10 +1429,22 @@ public sealed class AnimationEditorScreen : Screen
 		}
 		g.ClipRectangle = area;
 		AnimationFrameDocument frame = Frame;
+		AnimationDocument animation = Animation;
+		if (frame != null && _onionSkin && !_playing && animation.Frames.Count > 1)
+		{
+			// The previous frame, faint, to line up the frames
+			AnimationFrameDocument previous = animation.Frames[(_frameIndex - 1 + animation.Frames.Count) % animation.Frames.Count];
+			ITexture texture = previous.Texture >= 0 && previous.Texture < _textures.Count ? _textures[previous.Texture] : null;
+			if (texture != null)
+			{
+				g.Colour = new Colour(OnionOpacity, 1.0, 1.0, 1.0);
+				g.RenderTexture(texture, new Rectangle(previous.X, previous.Y, previous.Width, previous.Height), GetPreviewRectangle(previous, origin));
+				g.Colour = Colours.White;
+			}
+		}
 		if (frame != null)
 		{
-			Rectangle destination = new Rectangle(origin.X + (frame.OffsetX - frame.Width / 2.0) * Zoom, origin.Y + (frame.OffsetY - frame.Height / 2.0) * Zoom,
-				frame.Width * Zoom, frame.Height * Zoom);
+			Rectangle destination = GetPreviewRectangle(frame, origin);
 			DrawFrame(renderer, g, frame, destination);
 			g.RenderRectangle(FrameOutlineColour, destination, 1.0);
 		}
@@ -1052,6 +1455,63 @@ public sealed class AnimationEditorScreen : Screen
 		if (_textureTask != null && _ui.HasFont)
 		{
 			_ui.DrawLabel(renderer, g, "Loading the textures...", area.X + EditorUi.Padding, area.Y + EditorUi.Padding, EditorUi.TextColour);
+		}
+	}
+
+	/// <summary>The rectangle of the screen where the preview draws a frame: its centre is at the offset from the position of the object.</summary>
+	private Rectangle GetPreviewRectangle(AnimationFrameDocument frame, Vector2 origin)
+	{
+		return new Rectangle(origin.X + (frame.OffsetX - frame.Width / 2.0) * Zoom, origin.Y + (frame.OffsetY - frame.Height / 2.0) * Zoom,
+			frame.Width * Zoom, frame.Height * Zoom);
+	}
+
+	/// <summary>
+	/// The texture of the selected frame, with the rectangles of the frames of the animation that use it. The selected
+	/// rectangle has handles at its corners and edges.
+	/// </summary>
+	private void DrawTextureView(Renderer renderer, I2dRenderer g)
+	{
+		Rectangle area = PreviewArea;
+		g.RenderQuad(PreviewColour, area);
+		ITexture texture = FrameTexture;
+		AnimationFrameDocument frame = Frame;
+		g.ClipRectangle = area;
+		if (texture != null && frame != null)
+		{
+			Vector2 topLeft = TextureToScreen(0, 0);
+			Rectangle whole = new Rectangle(topLeft.X, topLeft.Y, texture.Width * TextureZoom, texture.Height * TextureZoom);
+			g.RenderQuad(GridColour, whole);
+			g.RenderTexture(texture, new Rectangle(0.0, 0.0, texture.Width, texture.Height), whole);
+			g.RenderRectangle(EditorUi.OutlineColour, whole, 1.0);
+			AnimationDocument animation = Animation;
+			for (int i = 0; i < animation.Frames.Count; i++)
+			{
+				AnimationFrameDocument other = animation.Frames[i];
+				if (i != _frameIndex && other.Texture == frame.Texture)
+				{
+					g.RenderRectangle(RectangleColour, TextureToScreen(other), 1.0);
+				}
+			}
+			Rectangle selected = TextureToScreen(frame);
+			g.RenderRectangle(EditorUi.ShadowColour, selected, 4.0);
+			g.RenderRectangle(SelectedRectangleColour, selected, 2.0);
+			foreach (Vector2 handle in new[]
+			{
+				new Vector2(selected.X, selected.Y), new Vector2(selected.Right, selected.Y), new Vector2(selected.X, selected.Bottom),
+				new Vector2(selected.Right, selected.Bottom), new Vector2(selected.X + selected.Width / 2.0, selected.Y),
+				new Vector2(selected.X + selected.Width / 2.0, selected.Bottom), new Vector2(selected.X, selected.Y + selected.Height / 2.0),
+				new Vector2(selected.Right, selected.Y + selected.Height / 2.0)
+			})
+			{
+				g.RenderQuad(SelectedRectangleColour, new Rectangle(handle.X - HandleSize / 2.0, handle.Y - HandleSize / 2.0, HandleSize, HandleSize));
+			}
+		}
+		renderer.DeativateRenderer();
+		g.ClipRectangle = new Rectangle(0.0, 0.0, ScreenWidth, ScreenHeight);
+		if (_ui.HasFont && area.Contains(_input.Mouse) && texture != null)
+		{
+			Vector2 point = ScreenToTexture(_input.Mouse);
+			_ui.DrawLabel(renderer, g, $"{Math.Floor(point.X)}, {Math.Floor(point.Y)}", area.X + EditorUi.Padding, area.Y + EditorUi.Padding, EditorUi.DimTextColour);
 		}
 	}
 
@@ -1068,6 +1528,7 @@ public sealed class AnimationEditorScreen : Screen
 			renderer.DeativateRenderer();
 			ICharacterRenderer characterRenderer = renderer.GetCharacterRenderer();
 			characterRenderer.ModelMatrix = Matrix4.Identity;
+			characterRenderer.ClipRectangle = g.ClipRectangle;
 			characterRenderer.RenderTexture(_textures[1], _textures[0], source, destination);
 			renderer.DeativateRenderer();
 			return;
@@ -1102,8 +1563,7 @@ public sealed class AnimationEditorScreen : Screen
 		for (int i = 0; i < animation.Frames.Count; i++)
 		{
 			double x = area.X + StripGap + i * (StripBoxWidth + StripGap) - _stripScroll;
-			// Only whole boxes: the renderer of the characters does not use the clip rectangle
-			if (x < area.X || x + StripBoxWidth > area.Right)
+			if (x + StripBoxWidth < area.X || x > area.Right)
 			{
 				continue;
 			}
@@ -1132,15 +1592,26 @@ public sealed class AnimationEditorScreen : Screen
 	{
 		g.RenderQuad(EditorUi.PanelColour, new Rectangle(0.0, 0.0, ScreenWidth, EditorUi.TopBarHeight));
 		Vector2 mouse = _input.Mouse;
+		double buttonsRight = 0.0;
 		foreach (Button button in GetTopBarButtons())
 		{
 			bool hover = button.Enabled && button.Bounds.Contains(mouse);
 			_ui.DrawButton(renderer, g, button.Bounds, button.Text, button.Active, hover, button.Enabled);
+			buttonsRight = Math.Max(buttonsRight, button.Bounds.Right);
 		}
+		// The title is the key of the group; a short name when the key does not fit next to the buttons
 		int unsaved = _dirty.Count;
-		string title = (_groupKey ?? "Animation editor") + (unsaved > 0 ? $"  ({unsaved} not saved)" : "");
-		_ui.DrawText(renderer, title, ScreenWidth - EditorUi.Padding - _ui.MeasureText(title), (EditorUi.TopBarHeight - _ui.TextHeight) / 2.0,
-			unsaved > 0 ? EditorUi.SelectionColour : EditorUi.DimTextColour);
+		string suffix = unsaved > 0 ? $"  ({unsaved} not saved)" : "";
+		string title = (_groupKey ?? "Animation editor") + suffix;
+		if (_groupKey != null && _ui.MeasureText(title) > ScreenWidth - EditorUi.Padding * 2.0 - buttonsRight)
+		{
+			title = ShortName(_groupKey) + suffix;
+		}
+		if (_ui.MeasureText(title) <= ScreenWidth - EditorUi.Padding * 2.0 - buttonsRight)
+		{
+			_ui.DrawText(renderer, title, ScreenWidth - EditorUi.Padding - _ui.MeasureText(title), (EditorUi.TopBarHeight - _ui.TextHeight) / 2.0,
+				unsaved > 0 ? EditorUi.SelectionColour : EditorUi.DimTextColour);
+		}
 	}
 
 	private void DrawGroupPanel(Renderer renderer, I2dRenderer g)
@@ -1243,7 +1714,9 @@ public sealed class AnimationEditorScreen : Screen
 			: $"Frame {_frameIndex + 1} of {animation.Frames.Count}   Animation {_animationIndex} of {_document.Animations.Count}";
 		double textY = top + (EditorUi.StatusBarHeight - _ui.TextHeight) / 2.0;
 		_ui.DrawText(renderer, left, EditorUi.Padding, textY, EditorUi.DimTextColour);
-		const string hint = "Space play   Left/Right frame   Up/Down animation   Insert add   Ctrl+D duplicate   Delete   Ctrl+Left/Right move   Ctrl+S save   Esc leave";
+		string hint = _view == View.Texture
+			? "Drag: move, resize or draw the rectangle   Right drag: pan   Wheel: zoom   Alt+arrows: move   Alt+Shift+arrows: size   T: preview"
+			: "Drag: offset (Ctrl: all frames)   Alt+arrows: offset   Space play   Left/Right frame   Up/Down animation   T: texture   O: onion skin   Ctrl+S save";
 		string right = _messageFrames > 0 ? _message : hint;
 		_ui.DrawText(renderer, right, ScreenWidth - EditorUi.Padding - _ui.MeasureText(right), textY, _messageFrames > 0 ? EditorUi.TextColour : EditorUi.DimTextColour);
 	}
