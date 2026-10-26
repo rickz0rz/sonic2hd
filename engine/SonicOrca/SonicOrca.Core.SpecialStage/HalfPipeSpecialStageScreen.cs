@@ -347,6 +347,25 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	private string _lastMessage;
 
+	/// <summary>
+	/// The poses of the players before the last logic tick. The logic runs each second frame, so the frame between two
+	/// ticks shows the players halfway between their poses, and the movement looks smooth at 60 frames each second.
+	/// </summary>
+	private PlayerPose _sonicPreviousPose;
+
+	private PlayerPose _tailsPreviousPose;
+
+	/// <summary>A position of a player in the pipe: from the centre, in pixels, the angle from the bottom and the lane.</summary>
+	private readonly record struct PlayerPose(double X, double Y, double Radians, double Radius)
+	{
+		public static PlayerPose Of(HalfPipePlayer player) =>
+			new PlayerPose(player.Position.X, player.Position.Y, HalfPipePlayer.ToRadiansFromBottom(player.Angle), player.Radius);
+
+		public static PlayerPose Lerp(PlayerPose a, PlayerPose b, double t) =>
+			new PlayerPose(a.X + (b.X - a.X) * t, a.Y + (b.Y - a.Y) * t, a.Radians + MathX.DifferenceRadians(a.Radians, b.Radians) * t,
+				a.Radius + (b.Radius - a.Radius) * t);
+	}
+
 	/// <summary>The logic tick at which the current message started.</summary>
 	private int _messageStartTick;
 
@@ -547,6 +566,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		_emeraldTexture = CreateEmeraldTexture(_graphicsContext, _stage);
 		_pipeBuffer = _graphicsContext.CreateVertexBuffer(3, 2);
 		FillPipeBuffer();
+		_originalArt?.UseSharpPixels();
 	}
 
 	public override void Update()
@@ -590,6 +610,11 @@ public class HalfPipeSpecialStageScreen : Screen
 			MoveTrack();
 			if (_frames % FramesPerLogicTick == 0)
 			{
+				_sonicPreviousPose = PlayerPose.Of(_player);
+				if (_tails != null)
+				{
+					_tailsPreviousPose = PlayerPose.Of(_tails);
+				}
 				UpdatePlayer();
 				UpdateObjects();
 				UpdateFlow();
@@ -1092,10 +1117,10 @@ public class HalfPipeSpecialStageScreen : Screen
 
 		List<TexturedQuad> quads = new List<TexturedQuad>();
 		AddObjectQuads(quads);
-		AddPlayerQuads(quads, _player, _sonicAnimation, SonicHeight);
+		AddPlayerQuads(quads, _player, GetDrawPose(_player, _sonicPreviousPose), _sonicAnimation, SonicHeight);
 		if (_tails != null)
 		{
-			AddPlayerQuads(quads, _tails, _tailsAnimation, TailsHeight);
+			AddPlayerQuads(quads, _tails, GetDrawPose(_tails, _tailsPreviousPose), _tailsAnimation, TailsHeight);
 		}
 		AddEmeraldQuad(quads);
 
@@ -1286,21 +1311,33 @@ public class HalfPipeSpecialStageScreen : Screen
 			new Rectanglei(0, 0, _emeraldTexture.Width, _emeraldTexture.Height)));
 	}
 
-	private void AddPlayerQuads(List<TexturedQuad> quads, HalfPipePlayer player, AnimationInstance animation, double spriteHeight)
+	/// <summary>
+	/// The pose to draw a player: halfway between the poses before and after the last logic tick on the frame after
+	/// the tick, else the pose after it. When the logic has stopped (the end of the stage), the pose does not change.
+	/// </summary>
+	private PlayerPose GetDrawPose(HalfPipePlayer player, PlayerPose previous)
+	{
+		PlayerPose current = PlayerPose.Of(player);
+		bool logicRuns = _results == null && _endFadeFrames < 0;
+		return logicRuns && _frames % FramesPerLogicTick == 1 ? PlayerPose.Lerp(previous, current, 0.5) : current;
+	}
+
+	private void AddPlayerQuads(List<TexturedQuad> quads, HalfPipePlayer player, PlayerPose pose, AnimationInstance animation, double spriteHeight)
 	{
 		// The players move with the camera, between the nodes
 		(Vector3 position, double yaw, _) = GetTrackPoint(PlayerTrackNode, PlayerTrackNode < _track.Nodes.Count - 1 ? _trackFraction : 0.0);
 		Matrix4 transform = Matrix4.Identity.RotateY(yaw).Translate(position);
-		(double x, double y) = player.Position;
+		double x = pose.X;
+		double y = pose.Y;
 		double distance = Math.Sqrt(x * x + y * y);
-		double angle = HalfPipePlayer.ToRadiansFromBottom(player.Angle);
+		double angle = pose.Radians;
 		// The outer lane is nearer to the camera, a little behind the inner lane
-		double lane = (player.Radius - HalfPipePlayer.InnerRadius) / (double)(HalfPipePlayer.OuterRadius - HalfPipePlayer.InnerRadius);
+		double lane = (pose.Radius - HalfPipePlayer.InnerRadius) / (HalfPipePlayer.OuterRadius - HalfPipePlayer.InnerRadius);
 		double depth = -lane * OuterLaneDepth;
 		if (player.InAir)
 		{
 			// The shadow falls on the wall below the player
-			double shadowAngle = Math.Asin(Math.Clamp(x / player.Radius, -1.0, 1.0));
+			double shadowAngle = Math.Asin(Math.Clamp(x / pose.Radius, -1.0, 1.0));
 			double shadowHeight = ShadowWidth * _shadowTexture.Height / _shadowTexture.Width;
 			quads.Add(CreateSprite(transform, shadowAngle, 0.0, ShadowWidth, shadowHeight, _shadowTexture, new Rectanglei(0, 0, _shadowTexture.Width, _shadowTexture.Height), depth: depth));
 		}
@@ -1312,7 +1349,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		Rectanglei source = animation.CurrentFrame.Source;
 		double width = spriteHeight * source.Width / source.Height;
 		// In the air the player is nearer to the centre than the surface
-		double height = Math.Max(0.0, (player.Radius - distance) * PixelsToUnits);
+		double height = Math.Max(0.0, (pose.Radius - distance) * PixelsToUnits);
 		// The hurt animation turns the sprite once
 		double spin = player.IsHurt ? player.HurtProgress * 2.0 * Math.PI : 0.0;
 		quads.Add(CreateSprite(transform, angle, height, width, spriteHeight, animation.CurrentTexture, source, spin, depth));

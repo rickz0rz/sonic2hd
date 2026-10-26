@@ -62,7 +62,11 @@ internal sealed class HalfPipeOriginalArt
 		Start = tree.GetLoadedResource<AnimationGroup>(StartKey);
 		Results = tree.GetLoadedResource<AnimationGroup>(ResultsKey);
 		Digits = tree.GetLoadedResource<AnimationGroup>(DigitsKey);
-		// Sharp pixels, as in the original
+	}
+
+	/// <summary>Draws the art with sharp pixels, as in the original. It calls OpenGL, so call it on the thread of the window.</summary>
+	public void UseSharpPixels()
+	{
 		foreach (ITexture texture in new[] { Messages, Start, Results, Digits }.SelectMany(group => group.Textures))
 		{
 			texture.Filtering = TextureFiltering.NearestNeighbour;
