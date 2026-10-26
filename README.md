@@ -354,6 +354,45 @@ move the file to `mods/editor`.
 
 The editor saves the map in a way that keeps all the other data of the map file.
 
+### Animation editor
+
+The animation editor changes the animations of the sprites. Start the game with `--animations`, and give the key of
+an animation group to open it:
+
+```sh
+publish/S2HD.app/Contents/MacOS/S2HD --animations SONICORCA/OBJECTS/SONIC/ANIGROUP
+```
+
+The left panel lists all the animation groups of the game and of the mods. Click the filter row and type to find a
+group. The centre plays the selected animation at the speed of the game, with a cross at the position of the object.
+The strip under it shows the frames, with the time of each frame in ticks (1/60 s). The right panel lists the
+animations of the group and the properties of the animation and of the selected frame. Click a property to type a
+new value, then press Enter.
+
+| Key | Action |
+|---|---|
+| Space | Play or stop the animation |
+| Left, Right | The previous or the next frame |
+| Up, Down | The previous or the next animation |
+| Insert | Add a frame after the selected frame |
+| Ctrl+D | Duplicate the selected frame |
+| Delete | Delete the selected frame |
+| Ctrl+Left, Ctrl+Right | Move the selected frame |
+| Mouse wheel on the centre, Z | Zoom |
+| Ctrl+Z, Ctrl+Y | Undo and redo |
+| Ctrl+S | Save |
+| Escape | Leave the editor |
+
+The game finds an animation by its number, not by its name. So the editor adds a new animation after the last one,
+and it can delete only the last animation. The name of an animation is the comment before it in the file. The loop
+frame of an animation is the frame that comes after its last frame. Without a loop frame, the game stays on the last
+frame, or goes to the next animation.
+
+Ctrl+S writes each changed group as a file into `mods/editor/animations/` in the user data folder, in the layout of
+`s2hd-data unpack`, for example `mods/editor/animations/SONICORCA/OBJECTS/SONIC/ANIGROUP.anigroup.xml`. The game
+loads this folder after the other mods. A level that starts later in the same session already has the changes. To
+remove the changes, delete the file.
+
 The behavior of levels and objects is C# code in `SONICORCA/`, not data. The `AREA.area.cs` and `.object.cs`
 resources only name the class to use.
 
@@ -364,6 +403,7 @@ resources only name the class to use.
 | `--level <zone> [--act <n>]` | Starts a level directly, for example `--level htz --act 2` |
 | `--protagonist <name>`, `--sidekick <name>` | Chooses the characters for `--level` (`sonic`, `tails`, `knuckles`) |
 | `--debug` | Starts the level with debug mode on |
+| `--animations [KEY]` | Opens the animation editor, for example `--animations SONICORCA/OBJECTS/SONIC/ANIGROUP` |
 | `--editor` | Turns on the level editor: F2 in a level opens it. With `--level`, the editor opens when the level starts |
 | `--physics original`, `--physics hd` | Plays the `--level` level with this physics, whatever the PHYSICS setting is |
 | `--demo` | Plays the attract demo (the demos of all zones that have one play in turn) |
@@ -449,6 +489,8 @@ The regression tests run the release build and save screenshots at fixed level t
   skipped.
 - Three tests open the level editor in Emerald Hill with scripted input. One adds a monitor and plays. One moves
   the start position marker and plays from the start. One paints tiles, draws a collision line and plays on it.
+- One test opens the animation editor on Sonic with scripted input. It changes the delay of a frame, adds a frame
+  and saves, and it checks the saved file.
 
 The tests compare the screenshots with golden screenshots. A run takes about 2 minutes. The golden screenshots come
 from the game files, so Git ignores them (`tests/golden/`). Record them once from a known-good build:

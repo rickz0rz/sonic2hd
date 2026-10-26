@@ -76,6 +76,33 @@ public sealed class RegressionTests
 	}
 
 	/// <summary>
+	/// Opens the animation editor on Sonic with scripted input. It selects the walk animation, clicks its third frame,
+	/// types a delay of 9, adds a frame after it and saves. The saved file must have the changes.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void AnimationEditor_MatchesGoldenScreenshots()
+	{
+		// The walk animation is row 7 of the animations, frame 2 is the third box of the strip, and the delay of the
+		// frame is row 14 of the properties. A click in the strip stops the playback.
+		const string script = "5:mouse 1600 303;6:down left;7:up left;10:mouse 760 950;11:down left;12:up left;" +
+			"14:mouse 1600 935;15:down left;16:up left;18:type 9;19:tap 40;22:tap 73;26:keydown 224;27:tap 22;28:keyup 224";
+		RunAndCompare("--animations SONICORCA/OBJECTS/SONIC/ANIGROUP", new[] { 10040 }, Path.Combine(TestPaths.GoldenDirectory, "animation-editor"), "animation-editor",
+			new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script },
+			checkUserData: userData =>
+			{
+				string path = Path.Combine(userData, "mods", "editor", "animations", "SONICORCA", "OBJECTS", "SONIC", "ANIGROUP.anigroup.xml");
+				Assert.True(File.Exists(path), "The animation editor did not save " + path);
+				SonicOrca.Core.Editor.AnimationGroupDocument document = SonicOrca.Core.Editor.AnimationGroupDocument.Parse(File.ReadAllText(path));
+				SonicOrca.Core.Editor.AnimationDocument walk = document.Animations[7];
+				Assert.Equal("walk", walk.Name);
+				Assert.Equal(17, walk.Frames.Count);
+				Assert.Equal(9, walk.Frames[2].Delay);
+				Assert.Equal(9, walk.Frames[3].Delay);
+			});
+	}
+
+	/// <summary>
 	/// Opens the markers tool of the level editor in Emerald Hill with scripted input. It moves the start position
 	/// marker, adds an area marker and plays from the start.
 	/// </summary>
@@ -143,8 +170,9 @@ public sealed class RegressionTests
 		RunAndCompare($"--level {level} --act {act}", LevelTicks, Path.Combine(TestPaths.GoldenDirectory, "levels-imported", name), name, withImportedMods: true);
 	}
 
+	/// <param name="checkUserData">Checks the user data folder after the game ends, for example a file that the game saved.</param>
 	private static void RunAndCompare(string arguments, int[] ticks, string goldenDirectory, string name, IReadOnlyDictionary<string, string> environment = null,
-		bool withImportedMods = false)
+		bool withImportedMods = false, Action<string> checkUserData = null)
 	{
 		string exe = TestPaths.GameExecutable;
 		if (!File.Exists(exe))
@@ -165,6 +193,7 @@ public sealed class RegressionTests
 		try
 		{
 			RunGame(exe, arguments, ticks, userData, environment);
+			checkUserData?.Invoke(userData);
 			if (record)
 			{
 				Directory.CreateDirectory(goldenDirectory);

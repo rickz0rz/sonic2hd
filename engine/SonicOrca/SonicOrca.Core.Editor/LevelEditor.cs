@@ -31,23 +31,21 @@ public enum EditorPlayRequest
 /// </summary>
 public sealed class LevelEditor : IDisposable
 {
-	private const string FontResourceKey = "SONICORCA/FONTS/SEGOEUI";
+	private const string FontResourceKey = EditorUi.FontResourceKey;
 
 	internal const double ScreenWidth = 1920.0;
 
 	internal const double ScreenHeight = 1080.0;
 
-	internal const double TopBarHeight = 48.0;
+	internal const double TopBarHeight = EditorUi.TopBarHeight;
 
-	internal const double StatusBarHeight = 36.0;
+	internal const double StatusBarHeight = EditorUi.StatusBarHeight;
 
-	internal const double PanelWidth = 460.0;
+	internal const double PanelWidth = EditorUi.PanelWidth;
 
-	internal const double RowHeight = 30.0;
+	internal const double RowHeight = EditorUi.RowHeight;
 
-	internal const double Padding = 10.0;
-
-	private const double TextScale = 0.5;
+	internal const double Padding = EditorUi.Padding;
 
 	/// <summary>The list uses the top part of the side panel, down to this y value. The properties use the rest.</summary>
 	private const double ListBottom = 500.0;
@@ -65,27 +63,27 @@ public sealed class LevelEditor : IDisposable
 
 	private static readonly double[] Zooms = { 1.0, 0.75, 0.5, 0.35, 0.25 };
 
-	internal static readonly Colour PanelColour = new Colour(0.96, 0.07, 0.08, 0.11);
+	internal static readonly Colour PanelColour = EditorUi.PanelColour;
 
-	internal static readonly Colour ButtonColour = new Colour(1.0, 0.18, 0.2, 0.26);
+	internal static readonly Colour ButtonColour = EditorUi.ButtonColour;
 
-	internal static readonly Colour ButtonHoverColour = new Colour(1.0, 0.27, 0.3, 0.38);
+	internal static readonly Colour ButtonHoverColour = EditorUi.ButtonHoverColour;
 
-	internal static readonly Colour AccentColour = new Colour(1.0, 0.16, 0.44, 0.82);
+	internal static readonly Colour AccentColour = EditorUi.AccentColour;
 
-	internal static readonly Colour TextColour = Colours.White;
+	internal static readonly Colour TextColour = EditorUi.TextColour;
 
-	internal static readonly Colour DimTextColour = new Colour(1.0, 0.62, 0.65, 0.7);
+	internal static readonly Colour DimTextColour = EditorUi.DimTextColour;
 
-	internal static readonly Colour OutlineColour = new Colour(0.45, 0.4, 0.85, 1.0);
+	internal static readonly Colour OutlineColour = EditorUi.OutlineColour;
 
-	internal static readonly Colour HoverColour = Colours.White;
+	internal static readonly Colour HoverColour = EditorUi.HoverColour;
 
-	internal static readonly Colour SelectionColour = new Colour(1.0, 1.0, 0.8, 0.1);
+	internal static readonly Colour SelectionColour = EditorUi.SelectionColour;
 
-	internal static readonly Colour SelectionFillColour = new Colour(0.18, 1.0, 0.8, 0.1);
+	internal static readonly Colour SelectionFillColour = EditorUi.SelectionFillColour;
 
-	internal static readonly Colour ShadowColour = new Colour(0.8, 0.0, 0.0, 0.0);
+	internal static readonly Colour ShadowColour = EditorUi.ShadowColour;
 
 	private readonly Level _level;
 
@@ -99,7 +97,11 @@ public sealed class LevelEditor : IDisposable
 
 	private ResourceSession _resourceSession;
 
-	private Font _font;
+	/// <summary>The look of the editor, with its font.</summary>
+	private readonly EditorUi _ui = new EditorUi();
+
+	/// <summary>The value that the user types into a property row.</summary>
+	private readonly EditorTextEntry _entry = new EditorTextEntry();
 
 	private EditorTool _tool;
 
@@ -117,13 +119,8 @@ public sealed class LevelEditor : IDisposable
 
 	private int _messageFrames;
 
-	/// <summary>The property row that the user types a value for, or null.</summary>
-	private string _editingRow;
 
-	private string _editText = "";
 
-	/// <summary>The first key that the user types replaces the old value.</summary>
-	private bool _replaceEditText;
 
 	private DragMode _drag;
 
@@ -211,7 +208,7 @@ public sealed class LevelEditor : IDisposable
 
 	internal bool IsMouseOverLevel => IsOverLevel(Mouse);
 
-	private bool HasFont => _font != null;
+	private bool HasFont => _ui.HasFont;
 
 	public LevelEditor(Level level)
 	{
@@ -227,7 +224,7 @@ public sealed class LevelEditor : IDisposable
 		_resourceSession = new ResourceSession(resourceTree);
 		_resourceSession.PushDependency(FontResourceKey);
 		await _resourceSession.LoadAsync(ct);
-		_font = resourceTree.GetLoadedResource<Font>(FontResourceKey);
+		_ui.Font = resourceTree.GetLoadedResource<Font>(FontResourceKey);
 	}
 
 	public void Dispose()
@@ -238,7 +235,7 @@ public sealed class LevelEditor : IDisposable
 		}
 		_resourceSession?.Dispose();
 		_resourceSession = null;
-		_font = null;
+		_ui.Font = null;
 	}
 
 	/// <summary>Opens the editor on the level as it is now. The view stays where the camera is.</summary>
@@ -248,7 +245,7 @@ public sealed class LevelEditor : IDisposable
 		_input.Begin(_gameContext);
 		_frames = 0;
 		_drag = DragMode.None;
-		_editingRow = null;
+		_entry.Cancel();
 		// The editor changes the map as it is in the file, without the layout changes of the play
 		LayoutChanges.Reset(_level.Map);
 		TileCollision ??= LoadTileCollision();
@@ -273,7 +270,7 @@ public sealed class LevelEditor : IDisposable
 		MouseWorld = ToWorld(Mouse);
 		if (!_gameContext.Console.IsOpen)
 		{
-			if (_editingRow != null)
+			if (_entry.IsActive)
 			{
 				UpdateTextEntry();
 			}
@@ -300,7 +297,7 @@ public sealed class LevelEditor : IDisposable
 	private bool IsKeyPressed(int key) => _input.IsKeyPressed(key);
 
 	/// <summary>A key for a command of a tool. It is false while the user types a value or the console is open.</summary>
-	internal bool IsCommandKeyPressed(int key) => _editingRow == null && !_gameContext.Console.IsOpen && !IsControlDown && IsKeyPressed(key);
+	internal bool IsCommandKeyPressed(int key) => !_entry.IsActive && !_gameContext.Console.IsOpen && !IsControlDown && IsKeyPressed(key);
 
 	private void UpdateKeyboard()
 	{
@@ -426,24 +423,13 @@ public sealed class LevelEditor : IDisposable
 
 	private void UpdateTextEntry()
 	{
-		string text = _input.TextInput;
-		if (!string.IsNullOrEmpty(text))
-		{
-			_editText = _replaceEditText ? text : _editText + text;
-			_replaceEditText = false;
-		}
-		if (IsKeyPressed(KeyboardState.KEY_BACKSPACE) && _editText.Length > 0)
-		{
-			_editText = _replaceEditText ? "" : _editText.Substring(0, _editText.Length - 1);
-			_replaceEditText = false;
-		}
-		if (IsKeyPressed(KeyboardState.KEY_RETURN) || IsKeyPressed(KeyboardState.KEY_KP_ENTER))
+		if (_entry.Update(_input))
 		{
 			CommitTextEntry();
 		}
 		else if (IsKeyPressed(KeyboardState.KEY_ESCAPE))
 		{
-			_editingRow = null;
+			_entry.Cancel();
 		}
 		else if (IsKeyPressed(KeyboardState.KEY_F5) || IsKeyPressed(KeyboardState.KEY_F2))
 		{
@@ -454,11 +440,12 @@ public sealed class LevelEditor : IDisposable
 
 	private void CommitTextEntry()
 	{
-		EditorPropertyRow row = _tool.GetPropertyRows().FirstOrDefault(r => r.Label == _editingRow);
-		_editingRow = null;
-		if (row?.Commit != null && !row.Commit(_editText))
+		EditorPropertyRow row = _tool.GetPropertyRows().FirstOrDefault(r => r.Label == _entry.Row);
+		string text = _entry.Text;
+		_entry.Cancel();
+		if (row?.Commit != null && !row.Commit(text))
 		{
-			ShowMessage("Value not accepted: " + _editText);
+			ShowMessage("Value not accepted: " + text);
 		}
 	}
 
@@ -475,7 +462,7 @@ public sealed class LevelEditor : IDisposable
 		}
 		if (_input.LeftPressed || _input.RightPressed)
 		{
-			if (_editingRow != null && !IsOverPropertyRow(_editingRow))
+			if (_entry.IsActive && !IsOverPropertyRow(_entry.Row))
 			{
 				CommitTextEntry();
 			}
@@ -611,7 +598,7 @@ public sealed class LevelEditor : IDisposable
 		{
 			return;
 		}
-		if (_editingRow != null)
+		if (_entry.IsActive)
 		{
 			CommitTextEntry();
 		}
@@ -625,7 +612,7 @@ public sealed class LevelEditor : IDisposable
 	private void RequestPlay(EditorPlayRequest request)
 	{
 		CompleteTraces();
-		if (_editingRow != null)
+		if (_entry.IsActive)
 		{
 			CommitTextEntry();
 		}
@@ -1141,9 +1128,7 @@ public sealed class LevelEditor : IDisposable
 		}
 		else if (row.Commit != null)
 		{
-			_editingRow = row.Label;
-			_editText = row.Value;
-			_replaceEditText = true;
+			_entry.Begin(row.Label, row.Value);
 		}
 	}
 
@@ -1224,23 +1209,10 @@ public sealed class LevelEditor : IDisposable
 		DrawLabel(renderer, g, "START", start.X + 10.0, start.Y - 40.0, TextColour);
 	}
 
-	internal static void DrawCross(I2dRenderer g, Vector2 centre, double size, Colour colour, double thickness)
-	{
-		g.RenderLine(colour, new Vector2(centre.X - size, centre.Y), new Vector2(centre.X + size, centre.Y), thickness);
-		g.RenderLine(colour, new Vector2(centre.X, centre.Y - size), new Vector2(centre.X, centre.Y + size), thickness);
-	}
+	internal static void DrawCross(I2dRenderer g, Vector2 centre, double size, Colour colour, double thickness) => EditorUi.DrawCross(g, centre, size, colour, thickness);
 
 	/// <summary>Draws a text on a dark box, for labels in the level.</summary>
-	internal void DrawLabel(Renderer renderer, I2dRenderer g, string text, double x, double y, Colour colour)
-	{
-		if (!HasFont)
-		{
-			return;
-		}
-		Rectangle box = new Rectangle(x, y, MeasureText(text) + Padding, RowHeight - 4.0);
-		g.RenderQuad(PanelColour, box);
-		DrawText(renderer, text, box.X + Padding / 2.0, box.Y + 2.0, colour);
-	}
+	internal void DrawLabel(Renderer renderer, I2dRenderer g, string text, double x, double y, Colour colour) => _ui.DrawLabel(renderer, g, text, x, y, colour);
 
 	/// <summary>Shows what is under the mouse, or what a click adds.</summary>
 	private void DrawCursorLabel(Renderer renderer, I2dRenderer g)
@@ -1262,8 +1234,7 @@ public sealed class LevelEditor : IDisposable
 		foreach (Button button in GetTopBarButtons())
 		{
 			bool hover = button.Enabled && button.Bounds.Contains(Mouse);
-			g.RenderQuad(button.Active ? AccentColour : (hover ? ButtonHoverColour : ButtonColour), button.Bounds);
-			DrawText(renderer, button.Text, button.Bounds.X + Padding, button.Bounds.Y + (button.Bounds.Height - TextHeight) / 2.0, button.Enabled ? TextColour : DimTextColour);
+			_ui.DrawButton(renderer, g, button.Bounds, button.Text, button.Active, hover, button.Enabled);
 		}
 		string title = GetZoneName() + (Dirty ? "  (not saved)" : "");
 		DrawText(renderer, title, ScreenWidth - Padding - MeasureText(title), (TopBarHeight - TextHeight) / 2.0, Dirty ? SelectionColour : DimTextColour);
@@ -1287,22 +1258,7 @@ public sealed class LevelEditor : IDisposable
 			{
 				continue;
 			}
-			EditorListRow listRow = listRows[i];
-			Rectangle row = new Rectangle(left, y, PanelWidth, RowHeight);
-			if (listRow.Active)
-			{
-				g.RenderQuad(AccentColour, row);
-			}
-			else if (row.Contains(Mouse))
-			{
-				g.RenderQuad(ButtonHoverColour, row);
-			}
-			double textY = y + (RowHeight - TextHeight) / 2.0;
-			DrawText(renderer, listRow.Text, left + Padding, textY, listRow.Dim ? DimTextColour : TextColour);
-			if (!string.IsNullOrEmpty(listRow.Detail))
-			{
-				DrawText(renderer, listRow.Detail, ScreenWidth - Padding - MeasureText(listRow.Detail), textY, DimTextColour);
-			}
+			_ui.DrawListRow(renderer, g, listRows[i], new Rectangle(left, y, PanelWidth, RowHeight), Mouse);
 		}
 		renderer.DeativateRenderer();
 		g.ClipRectangle = new Rectangle(0.0, 0.0, ScreenWidth, ScreenHeight);
@@ -1327,32 +1283,13 @@ public sealed class LevelEditor : IDisposable
 			{
 				continue;
 			}
-			EditorPropertyRow row = rows[i];
-			Rectangle bounds = new Rectangle(left, y, PanelWidth, RowHeight);
-			bool editing = row.Label == _editingRow;
-			bool changeable = row.Commit != null || row.Step != null;
-			if (editing)
-			{
-				g.RenderQuad(AccentColour, bounds);
-			}
-			else if (changeable && bounds.Contains(Mouse))
-			{
-				g.RenderQuad(ButtonHoverColour, bounds);
-			}
-			double textY = y + (RowHeight - TextHeight) / 2.0;
-			DrawText(renderer, row.Label, left + Padding, textY, row.IsHeading ? SelectionColour : DimTextColour);
-			string value = editing ? _editText + ((_frames / 30) % 2 == 0 ? "|" : "") : row.Value;
-			DrawText(renderer, value, left + PanelWidth * 0.45, textY, changeable || row.IsHeading ? TextColour : DimTextColour);
+			_ui.DrawPropertyRow(renderer, g, rows[i], new Rectangle(left, y, PanelWidth, RowHeight), Mouse, _entry, _frames);
 		}
 		renderer.DeativateRenderer();
 		g.ClipRectangle = new Rectangle(0.0, 0.0, ScreenWidth, ScreenHeight);
 	}
 
-	private void DrawHeading(Renderer renderer, I2dRenderer g, string text, double left, double top)
-	{
-		g.RenderQuad(ButtonColour, new Rectangle(left, top, PanelWidth, RowHeight));
-		DrawText(renderer, text, left + Padding, top + (RowHeight - TextHeight) / 2.0, TextColour);
-	}
+	private void DrawHeading(Renderer renderer, I2dRenderer g, string text, double left, double top) => _ui.DrawHeading(renderer, g, text, left, top);
 
 	private void DrawStatusBar(Renderer renderer, I2dRenderer g)
 	{
@@ -1374,23 +1311,11 @@ public sealed class LevelEditor : IDisposable
 		return parts.Length >= 2 ? $"{parts[parts.Length - 2]} editor" : "Level editor";
 	}
 
-	private double TextHeight => _font.Height * TextScale;
+	private double TextHeight => _ui.TextHeight;
 
-	internal double MeasureText(string text) => HasFont ? _font.MeasureString(text).Width * TextScale : text.Length * 10.0;
+	internal double MeasureText(string text) => _ui.MeasureText(text);
 
-	internal void DrawText(Renderer renderer, string text, double x, double y, Colour colour)
-	{
-		if (!HasFont)
-		{
-			return;
-		}
-		I2dRenderer g = renderer.Get2dRenderer();
-		using (g.BeginMatixState())
-		{
-			g.ModelMatrix = (g.ModelMatrix * Matrix4.CreateScale(TextScale, TextScale)).Translate(x, y);
-			renderer.GetFontRenderer().RenderString(text, default, FontAlignment.Left, _font, colour);
-		}
-	}
+	internal void DrawText(Renderer renderer, string text, double x, double y, Colour colour) => _ui.DrawText(renderer, text, x, y, colour);
 
 	#endregion
 }

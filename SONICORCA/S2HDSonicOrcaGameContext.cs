@@ -80,7 +80,7 @@ internal class S2HDSonicOrcaGameContext(IPlatform platform) : SonicOrcaGameConte
 			LoadResourceFiles(Path.Combine(contentDirectory, "mods"), folders: true);
 			LoadResourceFiles(Path.Combine(UserDataDirectory, "mods"), folders: true);
 			// The changes of the level editor load last. They load into memory, because the editor writes the files again.
-			LoadResourceFiles(EditorModFile.GetFolder(UserDataDirectory), inMemory: true);
+			LoadResourceFiles(EditorModFile.GetFolder(UserDataDirectory), inMemory: true, folders: true);
 		}
 		RenderFactory = DefaultRendererFactory.Create(Window.GraphicsContext);
 		_rootGameState = new RootGameState(this);
@@ -290,8 +290,9 @@ internal class S2HDSonicOrcaGameContext(IPlatform platform) : SonicOrcaGameConte
 	/// resources with the same key, so mods/ overrides data/, and mods/20-x.dat overrides mods/10-y.dat.
 	/// With <paramref name="folders"/>, each subfolder is also a mod: a folder of resource files as "s2hd-data
 	/// unpack" writes them, for example mods/my-mod/SONICORCA/OBJECTS/RING/TEXTURE.png. The game reads these files
-	/// from the disk, so a changed file needs no pack step, only a restart. The editor folder and the folders whose
-	/// names start with a dot are not mods.
+	/// from the disk, so a changed file needs no pack step, only a restart. The editor folder, its folder of unsaved
+	/// changes and the folders whose names start with a dot are not mods. The editor folder loads last, with its
+	/// folders: for example the folder of the animation editor.
 	/// </summary>
 	private void LoadResourceFiles(string inputDirectory, bool inMemory = false, bool folders = false)
 	{
@@ -303,7 +304,9 @@ internal class S2HDSonicOrcaGameContext(IPlatform platform) : SonicOrcaGameConte
 			paths = paths.Concat(Directory.GetDirectories(inputDirectory).Where(d =>
 			{
 				string name = Path.GetFileName(d);
-				return !name.StartsWith('.') && !name.Equals(EditorModFile.FolderName, StringComparison.OrdinalIgnoreCase);
+				// The editor folder loads last; in it, the changes that the user did not save do not load
+				return !name.StartsWith('.') && !name.Equals(EditorModFile.FolderName, StringComparison.OrdinalIgnoreCase) &&
+					!name.Equals(EditorModFile.UnsavedFolderName, StringComparison.OrdinalIgnoreCase);
 			}));
 		}
 		foreach (string path in paths.OrderBy(p => Path.GetFileName(p), StringComparer.OrdinalIgnoreCase))
