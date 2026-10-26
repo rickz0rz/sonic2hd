@@ -210,6 +210,12 @@ public class HalfPipeSpecialStageScreen : Screen
 	private const double EmeraldSize = 1.2;
 
 	/// <summary>
+	/// The step of the bob of the won emerald. The original moves the small sprite by one pixel, which is a large part
+	/// of its size; this is the same part of the size of the emerald here.
+	/// </summary>
+	private const double EmeraldBob = EmeraldSize * 0.08;
+
+	/// <summary>
 	/// The light, middle and dark colour of the emerald of each stage, from art/palettes/SS Emerald.bin in the Sonic 2
 	/// disassembly. Mega Drive colours: 0BGR, 3 bits for each channel.
 	/// </summary>
@@ -263,6 +269,9 @@ public class HalfPipeSpecialStageScreen : Screen
 	/// oval: short along the track.
 	/// </summary>
 	private const double ShadowWidth = 0.8;
+
+	/// <summary>The room for the ring count of Tails right of the word RINGS, in pixels of the screen.</summary>
+	private const double RingCountWidth = 120.0;
 
 	private const double ShadowLength = 0.55;
 
@@ -1336,7 +1345,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		// player and bobs: -1, 0, +1, 0 pixels, 4 frames each.
 		int node = Math.Max(_flow.EmeraldAppearNode, PlayerTrackNode + EmeraldStopOffset);
 		node = Math.Min(node, _track.Nodes.Count - 1);
-		double bob = _flow.EmeraldWon ? new[] { -1, 0, 1, 0 }[_flow.EmeraldWonFrames / 4 % 4] * PixelsToUnits : 0.0;
+		double bob = _flow.EmeraldWon ? new[] { -1, 0, 1, 0 }[_flow.EmeraldWonFrames / 4 % 4] * EmeraldBob : 0.0;
 		// The emerald floats at 3/4 of the pipe radius from the centre
 		double height = PipeRadius / 4.0 + bob;
 		quads.Add(CreateSurfaceShadow(GetNodeTransform(node), 0.0, EmeraldSize * 0.6, EmeraldSize * 0.6 * ObjectShadowSquash, 0.0, _ballShadowTexture));
@@ -1504,17 +1513,23 @@ public class HalfPipeSpecialStageScreen : Screen
 		}
 		else
 		{
-			// As in the original: the rings of Sonic on the left, the total in the centre, the rings of Tails on the right
-			g.RenderTexture(_sonicLabelTexture, new Rectangle(48.0, 40.0, _sonicLabelTexture.Width, _sonicLabelTexture.Height));
+			// As in the original: the rings of Sonic on the left, the total in the centre, the rings of Tails on the right.
+			// Under the name of each player, the yellow word RINGS and the count.
+			const double nameY = 24.0;
+			double ringsY = nameY + _sonicLabelTexture.Height + 4.0;
+			double tailsX = 1920.0 - 48.0 - _ringsLabelTexture.Width - RingCountWidth;
+			g.RenderTexture(_sonicLabelTexture, new Rectangle(48.0, nameY, _sonicLabelTexture.Width, _sonicLabelTexture.Height));
+			g.RenderTexture(_ringsLabelTexture, new Rectangle(48.0, ringsY, _ringsLabelTexture.Width, _ringsLabelTexture.Height));
 			g.RenderTexture(_totalLabelTexture, new Rectangle(960.0 - _totalLabelTexture.Width / 2.0, 24.0, _totalLabelTexture.Width, _totalLabelTexture.Height));
-			double tailsX = 1920.0 - 48.0 - _tailsLabelTexture.Width;
-			g.RenderTexture(_tailsLabelTexture, new Rectangle(tailsX, 40.0, _tailsLabelTexture.Width, _tailsLabelTexture.Height));
+			g.RenderTexture(_tailsLabelTexture, new Rectangle(tailsX, nameY, _tailsLabelTexture.Width, _tailsLabelTexture.Height));
+			g.RenderTexture(_ringsLabelTexture, new Rectangle(tailsX, ringsY, _ringsLabelTexture.Width, _ringsLabelTexture.Height));
 			g.Deactivate();
 			fontRenderer = renderer.GetFontRenderer();
-			fontRenderer.RenderString(_rings.ToString(), new Rectangle(48.0 + _sonicLabelTexture.Width / 2.0, 96.0, 0.0, 0.0), FontAlignment.MiddleX, _font, 0);
+			double countY = ringsY + _ringsLabelTexture.Height / 2.0 - 24.0;
+			fontRenderer.RenderString(_rings.ToString(), new Rectangle(48.0 + _ringsLabelTexture.Width + 16.0, countY, 0.0, 0.0), FontAlignment.Left, _font, 0);
 			// The total goes inside the box of the label
 			fontRenderer.RenderString(Rings.ToString(), new Rectangle(960.0, 24.0 + _totalLabelTexture.Height / 2.0 - 16.0, 0.0, 0.0), FontAlignment.MiddleX, _font, 0);
-			fontRenderer.RenderString(_tailsRings.ToString(), new Rectangle(tailsX + _tailsLabelTexture.Width / 2.0, 96.0, 0.0, 0.0), FontAlignment.MiddleX, _font, 0);
+			fontRenderer.RenderString(_tailsRings.ToString(), new Rectangle(tailsX + _ringsLabelTexture.Width + 16.0, countY, 0.0, 0.0), FontAlignment.Left, _font, 0);
 			counterY = 220.0;
 		}
 		if (_flow.Counter != null)
