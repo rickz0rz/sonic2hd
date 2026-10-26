@@ -158,8 +158,21 @@ public class HalfPipeSpecialStageScreen : Screen
 	/// <summary>The track nodes between the player and the won emerald.</summary>
 	private const int EmeraldStopOffset = 3;
 
-	/// <summary>After a failed emerald test, the track moves one node each 12 ticks (60 ticks for each track frame).</summary>
-	private const int SlowTrackTicks = 12;
+	/// <summary>
+	/// The original runs the logic of the stage (the players, the objects and the messages) once each second frame,
+	/// because the drawing of the track takes more than one frame. The results run each frame.
+	/// </summary>
+	private const int FramesPerLogicTick = 2;
+
+	/// <summary>
+	/// The track nodes that the track moves each frame. A track frame is <see cref="HalfPipeTrackBuilder.NodesPerTrackFrame"/>
+	/// nodes. The timer of the original asks for a track frame each 5 frames, but the drawing cannot keep up: a
+	/// recording of stage 1 shows a new track frame each 8 frames.
+	/// </summary>
+	private const double TrackNodesPerFrame = HalfPipeTrackBuilder.NodesPerTrackFrame / 8.0;
+
+	/// <summary>After a failed emerald test, the track moves one node each 12 frames (60 frames for each track frame).</summary>
+	private const double SlowTrackNodesPerFrame = 1.0 / 12.0;
 
 	/// <summary>The music fades out over this number of ticks.</summary>
 	private const int MusicFadeTicks = 30;
@@ -348,7 +361,14 @@ public class HalfPipeSpecialStageScreen : Screen
 	/// <summary>The quads of the whole pipe, made once. The quads between node i - 1 and node i come at (i - 1) * <see cref="QuadsPerNode"/>.</summary>
 	private VertexBuffer _pipeBuffer;
 
+	/// <summary>The logic ticks of the stage: one each <see cref="FramesPerLogicTick"/> frames.</summary>
 	private int _ticks;
+
+	/// <summary>The frames since the start of the stage.</summary>
+	private int _frames;
+
+	/// <summary>The fraction of a node that the track moved after <see cref="_currentTrackNode"/>, from 0 to 1.</summary>
+	private double _trackFraction;
 
 	private Vector3 _camera;
 
@@ -481,7 +501,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		{
 			_fov--;
 		}
-		if (_ticks == 0)
+		if (_frames == 0)
 		{
 			_musicInstance = new SampleInstance(_gameContext, _musicSampleInfo);
 			_musicInstance.Play();
@@ -494,27 +514,43 @@ public class HalfPipeSpecialStageScreen : Screen
 		}
 		else
 		{
-			UpdatePlayer();
-			// The track moves one node each tick (a track frame each 5 ticks), until the player reaches the end
-			bool moves = !_flow.TrackSlowed || _ticks % SlowTrackTicks == 0;
-			if (moves && PlayerTrackNode < _track.Nodes.Count - 1)
+			MoveTrack();
+			if (_frames % FramesPerLogicTick == 0)
 			{
-				_currentTrackNode++;
-			}
-			UpdateObjects();
-			UpdateFlow();
-		}
-
-		_ringAnimation.Animate();
-		foreach (HalfPipeObject used in _objects)
-		{
-			if (used.Used)
-			{
-				used.UsedTicks++;
+				UpdatePlayer();
+				UpdateObjects();
+				UpdateFlow();
+				_ringAnimation.Animate();
+				foreach (HalfPipeObject used in _objects)
+				{
+					if (used.Used)
+					{
+						used.UsedTicks++;
+					}
+				}
+				_ticks++;
 			}
 		}
 		UpdateCamera();
-		_ticks++;
+		_frames++;
+	}
+
+	/// <summary>Moves the track, until the player reaches the end.</summary>
+	private void MoveTrack()
+	{
+		_trackFraction += _flow.TrackSlowed ? SlowTrackNodesPerFrame : TrackNodesPerFrame;
+		while (_trackFraction >= 1.0)
+		{
+			_trackFraction -= 1.0;
+			if (PlayerTrackNode < _track.Nodes.Count - 1)
+			{
+				_currentTrackNode++;
+			}
+		}
+		if (PlayerTrackNode >= _track.Nodes.Count - 1)
+		{
+			_trackFraction = 0.0;
+		}
 	}
 
 	private void UpdatePlayer()
@@ -691,7 +727,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		if (_results.Update())
 		{
 			// The tally sound on every fourth step
-			if (_ticks % 4 == 0)
+			if (_frames % 4 == 0)
 			{
 				_gameContext.Audio.PlaySound(_tallySound);
 			}
@@ -774,17 +810,32 @@ public class HalfPipeSpecialStageScreen : Screen
 		_objectShader?.Dispose();
 	}
 
+	/// <summary>The camera follows the track smoothly: it is between the current node and the next node.</summary>
 	private void UpdateCamera()
 	{
-		HalfPipeTrackNode node = _track.Nodes[_currentTrackNode];
-		_camera = node.Position + new Vector3(0.0, CameraHeight, 0.0);
-		double pitch = node.Pitch - MathX.ToRadians(CameraTilt);
-		_cameraTarget = _camera + new Vector3(Math.Sin(node.Yaw) * Math.Cos(pitch), Math.Sin(pitch), Math.Cos(node.Yaw) * Math.Cos(pitch));
+		(Vector3 position, double yaw, double pitch) = GetTrackPoint(_currentTrackNode, _trackFraction);
+		_camera = position + new Vector3(0.0, CameraHeight, 0.0);
+		pitch -= MathX.ToRadians(CameraTilt);
+		_cameraTarget = _camera + new Vector3(Math.Sin(yaw) * Math.Cos(pitch), Math.Sin(pitch), Math.Cos(yaw) * Math.Cos(pitch));
+	}
+
+	/// <summary>The position and direction of the track at a fraction of the way from a node to the next node.</summary>
+	private (Vector3 Position, double Yaw, double Pitch) GetTrackPoint(int trackNode, double fraction)
+	{
+		HalfPipeTrackNode node = _track.Nodes[trackNode];
+		if (fraction <= 0.0 || trackNode + 1 >= _track.Nodes.Count)
+		{
+			return (node.Position, node.Yaw, node.Pitch);
+		}
+		HalfPipeTrackNode next = _track.Nodes[trackNode + 1];
+		return (node.Position + (next.Position - node.Position) * fraction,
+			node.Yaw + MathX.DifferenceRadians(node.Yaw, next.Yaw) * fraction,
+			node.Pitch + (next.Pitch - node.Pitch) * fraction);
 	}
 
 	public override void Draw(Renderer renderer)
 	{
-		SonicOrca.Core.Debugging.TestHooks.DrawnLevelTick = SonicOrca.Core.Debugging.TestHooks.SpecialStageCaptureOffset + _ticks;
+		SonicOrca.Core.Debugging.TestHooks.DrawnLevelTick = SonicOrca.Core.Debugging.TestHooks.SpecialStageCaptureOffset + _frames;
 		DrawBackground(renderer);
 		DrawScene(renderer);
 		DrawHud(renderer);
@@ -812,7 +863,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		program.SetUniform("ProjectionMatrix", _projectionMatrix);
 		program.SetUniform("ModelViewMatrix", _modelViewMatrix);
 		program.SetUniform("InputTexture", 0);
-		program.SetUniform("InputLightSource", _track.Nodes[_currentTrackNode].Position);
+		program.SetUniform("InputLightSource", GetTrackPoint(_currentTrackNode, _trackFraction).Position);
 		DrawPipe(program);
 
 		List<TexturedQuad> quads = new List<TexturedQuad>();
@@ -1013,7 +1064,9 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	private void AddPlayerQuads(List<TexturedQuad> quads, HalfPipePlayer player, AnimationInstance animation, double spriteHeight)
 	{
-		Matrix4 transform = GetNodeTransform(PlayerTrackNode);
+		// The players move with the camera, between the nodes
+		(Vector3 position, double yaw, _) = GetTrackPoint(PlayerTrackNode, PlayerTrackNode < _track.Nodes.Count - 1 ? _trackFraction : 0.0);
+		Matrix4 transform = Matrix4.Identity.RotateY(yaw).Translate(position);
 		(double x, double y) = player.Position;
 		double distance = Math.Sqrt(x * x + y * y);
 		double angle = HalfPipePlayer.ToRadiansFromBottom(player.Angle);
