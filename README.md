@@ -369,6 +369,14 @@ The strip under it shows the frames, with the time of each frame in ticks (1/60 
 animations of the group and the properties of the animation and of the selected frame. Click a property to type a
 new value, then press Enter.
 
+The centre has two views. The preview shows the frame at the position of the object, as in the game. Drag the frame
+to change its offset; with Ctrl, the offsets of all the frames of the animation move together. When the animation
+does not play, the previous frame shows faintly behind the frame (onion skin, O). The texture view (T) shows the
+texture of the frame, with the rectangles of the frames of the animation. Drag in the yellow rectangle of the
+selected frame to move it, drag an edge or a corner to change its size, or drag outside the rectangles to draw a new
+rectangle. Click the rectangle of another frame to select that frame. Drag with the right or the middle button to
+pan, and use the mouse wheel to zoom about the mouse. Each drag is one step of the undo history.
+
 | Key | Action |
 |---|---|
 | Space | Play or stop the animation |
@@ -378,6 +386,10 @@ new value, then press Enter.
 | Ctrl+D | Duplicate the selected frame |
 | Delete | Delete the selected frame |
 | Ctrl+Left, Ctrl+Right | Move the selected frame |
+| T | Change between the preview and the texture view |
+| O | Show or hide the onion skin |
+| Alt+arrows | Move the offset (preview) or the rectangle (texture view) by one pixel |
+| Alt+Shift+arrows | Change the size of the rectangle by one pixel (texture view) |
 | Mouse wheel on the centre, Z | Zoom |
 | Ctrl+Z, Ctrl+Y | Undo and redo |
 | Ctrl+S | Save |
@@ -489,8 +501,9 @@ The regression tests run the release build and save screenshots at fixed level t
   skipped.
 - Three tests open the level editor in Emerald Hill with scripted input. One adds a monitor and plays. One moves
   the start position marker and plays from the start. One paints tiles, draws a collision line and plays on it.
-- One test opens the animation editor on Sonic with scripted input. It changes the delay of a frame, adds a frame
-  and saves, and it checks the saved file.
+- Two tests open the animation editor on Sonic with scripted input. One changes the delay of a frame and adds a
+  frame. One drags the edge of a rectangle in the texture view and drags a frame in the preview. Both save, and
+  check the saved file.
 
 The tests compare the screenshots with golden screenshots. A run takes about 2 minutes. The golden screenshots come
 from the game files, so Git ignores them (`tests/golden/`). Record them once from a known-good build:
