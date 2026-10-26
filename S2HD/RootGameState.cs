@@ -5,6 +5,7 @@ using System.Linq;
 using S2HD.Menu;
 using SonicOrca;
 using SonicOrca.Core;
+using SonicOrca.Core.Editor;
 using SonicOrca.Core.SpecialStage;
 using SonicOrca.Geometry;
 using SonicOrca.Input;
@@ -72,6 +73,14 @@ internal class RootGameState : IGameState, IDisposable
 			else if (_cmdLineArgs.HasOption("options"))
 			{
 				ShowOptions();
+				foreach (UpdateResult updateResult in _currentGameState.Update())
+					yield return updateResult;
+			}
+			if (_cmdLineArgs.HasOption("animations"))
+			{
+				// The animation editor. "--animations SONICORCA/OBJECTS/SONIC/ANIGROUP" opens that animation group.
+				string[] values = _cmdLineArgs.GetOptionValues("animations");
+				ChangeGameState(new ScreenGameState(_gameContext, new AnimationEditorScreen(_gameContext, values.Length > 0 ? values[0] : null)));
 				foreach (UpdateResult updateResult in _currentGameState.Update())
 					yield return updateResult;
 			}
