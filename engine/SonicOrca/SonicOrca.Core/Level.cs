@@ -925,6 +925,10 @@ public class Level : IDisposable
 		Viewport viewport = new Viewport(new Rectangle(0.0, 0.0, ScreenWidth, ScreenHeight));
 		viewport.Bounds = _camera.Bounds;
 		_levelRenderer.Render(renderer, viewport, _layerViewOptions);
+		if (_layerViewOptions.ShowObjectCollision)
+		{
+			DrawObjectCollision(renderer, viewport);
+		}
 		if (State == LevelState.Editing)
 		{
 			_editor.Draw(renderer);
@@ -956,6 +960,34 @@ public class Level : IDisposable
 		// A positive value fades to white, a negative value to black
 		_fadeTransitionRenderer.Opacity = (float)(_fadeToWhite ? _fadeTransition.Opacity : 0.0 - _fadeTransition.Opacity);
 		_fadeTransitionRenderer.Render();
+	}
+
+	private static readonly Colour HitboxColour = new Colour(0.9, 1.0, 0.0, 0.0);
+
+	/// <summary>Draws the hit boxes of the active objects, for <see cref="LayerViewOptions.ShowObjectCollision"/>.</summary>
+	private void DrawObjectCollision(Renderer renderer, Viewport viewport)
+	{
+		I2dRenderer g = renderer.Get2dRenderer();
+		using (g.BeginMatixState())
+		{
+			// The level renderer leaves the scale of the zoom in the model matrix; the viewport gives the scale here
+			g.ModelMatrix = Matrix4.Identity;
+			g.BlendMode = BlendMode.Alpha;
+			Rectangle view = viewport.Bounds;
+			Vector2 scale = viewport.Scale;
+			foreach (ActiveObject activeObject in _objectManager.ActiveObjects)
+			{
+				foreach (Rectanglei hitbox in activeObject.Hitboxes)
+				{
+					Rectangle bounds = ((Rectangle)hitbox).OffsetBy(activeObject.Position);
+					if (bounds.IntersectsWith(view))
+					{
+						g.RenderRectangle(HitboxColour, new Rectangle((bounds.X - view.X) * scale.X, (bounds.Y - view.Y) * scale.Y, bounds.Width * scale.X, bounds.Height * scale.Y), 2.0);
+					}
+				}
+			}
+		}
+		renderer.DeativateRenderer();
 	}
 
 	private void DrawDebugThings(Renderer renderer)

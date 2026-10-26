@@ -197,6 +197,61 @@ public sealed class AnimationDocumentEditTests
 	}
 
 	[Fact]
+	public void ToAnimations_GivesTheFrames_AndKeepsTheAnimationsAfterTheDocument()
+	{
+		AnimationGroupDocument document = new AnimationGroupDocument();
+		AnimationDocument walk = Animation(2, loop: 1);
+		walk.Frames[1].Width = 30;
+		walk.Frames[1].OffsetY = -4;
+		walk.Frames[1].Delay = 3;
+		document.AddAnimation(walk);
+		SonicOrca.Graphics.Animation old = new SonicOrca.Graphics.Animation();
+		SonicOrca.Graphics.Animation extra = new SonicOrca.Graphics.Animation();
+
+		List<SonicOrca.Graphics.Animation> animations = document.ToAnimations(new[] { old, extra }, textureCount: 1);
+
+		Assert.Equal(2, animations.Count);
+		Assert.Same(extra, animations[1]);
+		SonicOrca.Graphics.Animation.Frame frame = animations[0].Frames[1];
+		Assert.Equal((1, 30, -4, 3), (frame.Source.X, frame.Source.Width, frame.Offset.Y, frame.Delay));
+		Assert.Equal(1, animations[0].LoopFrameIndex);
+	}
+
+	[Fact]
+	public void ToAnimations_MakesValuesThatWouldStopTheGameSafe()
+	{
+		AnimationGroupDocument document = new AnimationGroupDocument();
+		AnimationDocument broken = Animation(2, loop: 5);
+		broken.Next = 9;
+		broken.Frames[0].Texture = 4;
+		broken.Frames[1].Delay = -2;
+		document.AddAnimation(broken);
+		document.AddAnimation(new AnimationDocument());
+
+		List<SonicOrca.Graphics.Animation> animations = document.ToAnimations(Array.Empty<SonicOrca.Graphics.Animation>(), textureCount: 2);
+
+		Assert.Equal(1, animations[0].LoopFrameIndex);
+		Assert.Null(animations[0].NextFrameIndex);
+		Assert.Equal(1, animations[0].Frames[0].TextureIndex);
+		Assert.Equal(0, animations[0].Frames[1].Delay);
+		Assert.Single(animations[1].Frames);
+	}
+
+	[Fact]
+	public void AnimationInstance_AfterTheAnimationLosesFrames_ShowsTheFirstFrame()
+	{
+		SonicOrca.Graphics.Animation.Frame Frame(int x) => new SonicOrca.Graphics.Animation.Frame { Source = new SonicOrca.Geometry.Rectanglei(x, 0, 1, 1) };
+		SonicOrca.Graphics.AnimationGroup group = new SonicOrca.Graphics.AnimationGroup(Array.Empty<SonicOrca.Graphics.ITexture>(),
+			new[] { new SonicOrca.Graphics.Animation(new[] { Frame(0), Frame(1), Frame(2) }) });
+		SonicOrca.Graphics.AnimationInstance instance = new SonicOrca.Graphics.AnimationInstance(group) { CurrentFrameIndex = 2 };
+
+		group.Replace(group.Textures, new[] { new SonicOrca.Graphics.Animation(new[] { Frame(5) }) });
+		instance.Animate();
+
+		Assert.Equal(5, instance.CurrentFrame.Source.X);
+	}
+
+	[Fact]
 	public void RemoveLastAnimation_RemovesTheNextThatPointedToIt()
 	{
 		AnimationGroupDocument document = new AnimationGroupDocument();

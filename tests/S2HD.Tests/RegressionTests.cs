@@ -128,6 +128,24 @@ public sealed class RegressionTests
 	}
 
 	/// <summary>
+	/// Opens the level editor in Emerald Hill with scripted input. It shows the hit boxes (H) and opens the animation
+	/// editor on Sonic (N). In the preview, it drags all the frames of the animation 60 pixels up (Ctrl), goes back to
+	/// the level (Escape) and plays (F5). The level must show Sonic above his hit box, without a save.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void EditorAnimationPreview_MatchesGoldenScreenshots()
+	{
+		// H is scancode 11, N 17, Escape 41 and F5 62. The position of the object in the preview is at (960, 502).
+		const string script = "5:tap 11;8:tap 17;" +
+			"12:mouse 960 502;13:keydown 224;14:down left;16:mouse 960 472;18:mouse 960 442;20:up left;21:keyup 224;" +
+			"26:tap 41;32:tap 62";
+		RunAndCompare("--level ehz --editor", new[] { 10024, 10030, 300 }, Path.Combine(TestPaths.GoldenDirectory, "editor-animation-preview"),
+			"editor-animation-preview", new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script },
+			checkUserData: userData => Assert.False(Directory.Exists(Path.Combine(userData, "mods", "editor", "animations")), "The animation editor saved without Ctrl+S."));
+	}
+
+	/// <summary>
 	/// Opens the animation editor on the ring with scripted input. It adds a PNG file as a new texture of the group and
 	/// saves. The texture file must be in the folder of the editor, and the saved group must name it.
 	/// </summary>

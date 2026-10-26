@@ -2390,13 +2390,32 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		ObjectLink = vector.Owner;
 	}
 
+	/// <summary>
+	/// The box that touches the hit boxes of the other objects, relative to the precise position. It is 16 units
+	/// above the centre of a standing character of the default height (60). A taller character (Sonic in Original
+	/// physics) has the same box above the feet. In a roll the radius is the same in the two modes, so the box stays
+	/// 16 units above the centre.
+	/// </summary>
+	private Rectangle TouchBox
+	{
+		get
+		{
+			int offsetY = RectangleCollisionRadius.Y - (IsSpinball ? DefaultHeightRadius : NormalCollisionRadius.Y);
+			return Rectangle.FromLTRB(-RectangleCollisionRadius.X, -RectangleCollisionRadius.Y - offsetY, RectangleCollisionRadius.X, RectangleCollisionRadius.Y - offsetY);
+		}
+	}
+
+	public override IEnumerable<Rectanglei> Hitboxes
+	{
+		get
+		{
+			yield return TouchBox;
+		}
+	}
+
 	private void UpdateCollisionsWithObjects()
 	{
-		// The touch box is 16 units above the centre of a standing character of the default height (60). A taller
-		// character (Sonic in Original physics) has the same box above the feet. In a roll the radius is the same in
-		// the two modes, so the box stays 16 units above the centre.
-		int offsetY = RectangleCollisionRadius.Y - (IsSpinball ? DefaultHeightRadius : NormalCollisionRadius.Y);
-		Rectangle collisionArea = Rectangle.FromLTRB(PositionPrecise.X - RectangleCollisionRadius.X, PositionPrecise.Y - RectangleCollisionRadius.Y - offsetY, PositionPrecise.X + RectangleCollisionRadius.X, PositionPrecise.Y + RectangleCollisionRadius.Y - offsetY);
+		Rectangle collisionArea = TouchBox.OffsetBy(PositionPrecise);
 		foreach (ActiveObject activeObject in Level.ObjectManager.ActiveObjects)
 		{
 			CollisionRectangle[] collisionRectangles = activeObject.CollisionRectangles;

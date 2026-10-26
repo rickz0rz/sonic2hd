@@ -334,6 +334,8 @@ Use the mouse and the keyboard:
 | Ctrl+A | Selects all the items in the view |
 | G | Changes the grid size: 4, 16, 32, 64 or 128 (1 to 32 pixels of the original) |
 | Home | Moves the view to the start position |
+| N | Opens the animation editor for the selected object, or for Sonic (see "Animation editor") |
+| H | Shows or hides the hit boxes of the objects, in the editor and in the play |
 | F5 | Plays the level from the mouse position |
 | F2 or Shift+F5 | Plays the level from the start position |
 | Ctrl+S | Saves the level |
@@ -393,7 +395,8 @@ pan, and use the mouse wheel to zoom about the mouse. Each drag is one step of t
 | Mouse wheel on the centre, Z | Zoom |
 | Ctrl+Z, Ctrl+Y | Undo and redo |
 | Ctrl+S | Save |
-| Escape | Leave the editor |
+| Escape | Leave the editor, or go back to the level editor |
+| F5 | Play the level (from the level editor only) |
 
 The game finds an animation by its number, not by its name. So the editor adds a new animation after the last one,
 and it can delete only the last animation. The name of an animation is the comment before it in the file. The loop
@@ -407,6 +410,13 @@ level that starts later in the session uses it too. **Replace** and **Add textur
 copy it into the same folder; a new texture gets its name from the file name, and you set it on the frames that use
 it with the texture property of the frame. These files are written at once, so undo does not remove them. Delete a
 file to use the texture of the game again.
+
+To see an animation in a level, open the level editor (`--editor`, then F2) and press N. The animation editor opens
+for the selected object, or for Sonic when no object is selected. It shows the animation that the object plays now.
+The red boxes in the preview are the hit boxes of the object. Escape goes back to the level editor, and F5 plays the
+level from the view. The level shows the changes at once, saved or not. Press H to see the hit boxes of the objects
+in the play, then F2 to go back to the editor, and N to open the animation editor again. The animation editor keeps
+its changes and its undo history while the level is loaded.
 
 Ctrl+S writes each changed group as a file into `mods/editor/animations/` in the user data folder, in the layout of
 `s2hd-data unpack`, for example `mods/editor/animations/SONICORCA/OBJECTS/SONIC/ANIGROUP.anigroup.xml`. The game
