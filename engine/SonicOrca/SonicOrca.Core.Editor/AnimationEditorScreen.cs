@@ -22,7 +22,9 @@ namespace SonicOrca.Core.Editor;
 /// <para>
 /// The editor changes the timing and the order of the frames, and adds and removes frames and animations. In the
 /// preview, a drag moves the offset of the frame. The texture view (T) shows the texture of the frame with the
-/// rectangles of the frames: a drag moves, resizes or draws the rectangle of the selected frame. Ctrl+S
+/// rectangles of the frames: a drag moves, resizes or draws the rectangle of the selected frame. The textures section
+/// of the properties copies a texture into the folder of the editor, where an image editor can change it; the editor
+/// watches these files and shows a changed texture at once. Ctrl+S
 /// writes the changed groups into the folder mods/editor/animations of the user data folder, in the layout of
 /// "s2hd-data unpack". The game loads this folder after the other mods.
 /// </para>
@@ -46,6 +48,9 @@ public sealed class AnimationEditorScreen : Screen
 	private const double StripGap = 8.0;
 
 	private const int MessageFrames = 240;
+
+	/// <summary>The editor looks for changed texture files at this interval, in frames.</summary>
+	private const int WatchFrames = 30;
 
 	private static readonly double[] Zooms = { 0.5, 1.0, 2.0, 3.0, 4.0 };
 
@@ -109,6 +114,21 @@ public sealed class AnimationEditorScreen : Screen
 	private readonly EditorInput _input = new EditorInput();
 
 	private readonly string _initialKey;
+
+	/// <summary>The game read the texture files of the folder before this time; a file that changed later is reloaded.</summary>
+	private readonly DateTime _startTime = DateTime.UtcNow;
+
+	/// <summary>The time of the last change of each texture file that the editor read or wrote.</summary>
+	private readonly Dictionary<string, DateTime> _fileTimes = new Dictionary<string, DateTime>();
+
+	/// <summary>The textures that the editor loads from changed files.</summary>
+	private readonly List<Task<(string Key, ITexture Texture, byte[] Data)>> _reloads = new List<Task<(string, ITexture, byte[])>>();
+
+	/// <summary>The textures that the editor made from files. It disposes them when they are replaced.</summary>
+	private readonly HashSet<ITexture> _ownedTextures = new HashSet<ITexture>();
+
+	/// <summary>The keys of the textures of the group, in the order of <see cref="AnimationGroupDocument.Textures"/>.</summary>
+	private List<string> _textureKeys = new List<string>();
 
 	/// <summary>The keys of all the animation groups, in order.</summary>
 	private List<string> _groupKeys = new List<string>();
@@ -265,6 +285,11 @@ public sealed class AnimationEditorScreen : Screen
 
 	public override void Unload()
 	{
+		foreach (ITexture texture in _ownedTextures)
+		{
+			texture.Dispose();
+		}
+		_ownedTextures.Clear();
 		_textureSession?.Dispose();
 		_fontSession.Dispose();
 	}
@@ -306,6 +331,7 @@ public sealed class AnimationEditorScreen : Screen
 	{
 		Resource resource = _gameContext.ResourceTree[_groupKey]?.Resource;
 		List<string> keys = _document.Textures.Select(texture => resource?.GetAbsolutePath(texture)).ToList();
+		_textureKeys = keys;
 		ResourceSession session = new ResourceSession(_gameContext.ResourceTree);
 		foreach (string key in keys.Where(k => k != null && _gameContext.ResourceTree[k]?.Resource != null))
 		{
@@ -338,6 +364,196 @@ public sealed class AnimationEditorScreen : Screen
 		}
 		_textureTask = null;
 		old?.Dispose();
+		WatchTextureFiles();
+	}
+
+	/// <summary>The folder where the editor writes the files.</summary>
+	private string Folder => GetFolder(_gameContext.UserDataDirectory);
+
+	/// <summary>A path in the folder of the editor, from the user data folder, for the messages.</summary>
+	private string ShortPath(string path) => Path.GetRelativePath(_gameContext.UserDataDirectory, path).Replace('\\', '/');
+
+	/// <summary>Reloads each texture of the group whose file changed, or was written after the game read the files.</summary>
+	private void WatchTextureFiles()
+	{
+		if (_textureTask != null)
+		{
+			return;
+		}
+		foreach (string key in _textureKeys.Where(k => k != null))
+		{
+			string path = AnimationTextureFiles.GetPath(Folder, _gameContext.ResourceTree, key);
+			if (!File.Exists(path))
+			{
+				continue;
+			}
+			DateTime time = File.GetLastWriteTimeUtc(path);
+			bool known = _fileTimes.TryGetValue(path, out DateTime last);
+			if ((known && time != last) || (!known && time > _startTime))
+			{
+				ReloadTexture(key, path);
+			}
+			else if (!known)
+			{
+				_fileTimes[path] = time;
+			}
+		}
+	}
+
+	/// <summary>Reads a texture file and makes a texture from it in the background. A file that is not ready yet is read at the next look.</summary>
+	private void ReloadTexture(string key, string path)
+	{
+		DateTime time = File.GetLastWriteTimeUtc(path);
+		byte[] data = AnimationTextureFiles.TryRead(path);
+		if (data == null || !AnimationTextureFiles.IsPng(data))
+		{
+			return;
+		}
+		_fileTimes[path] = time;
+		ResourceTree tree = _gameContext.ResourceTree;
+		_reloads.Add(Task.Run(async () =>
+		{
+			Resource resource = new Resource(key, ResourceTypeIdentifier.TexturePNG, new MemoryResourceSource(data));
+			ILoadedResource texture = await ResourceType.FromIdentifier(ResourceTypeIdentifier.TexturePNG)
+				.LoadAsync(new ResourceLoadArgs(tree, resource, new MemoryStream(data)));
+			return (key, (ITexture)texture, data);
+		}));
+	}
+
+	/// <summary>Puts the textures that finished loading in place, and gives the game their new data for the later loads.</summary>
+	private void UpdateReloads()
+	{
+		for (int i = _reloads.Count - 1; i >= 0; i--)
+		{
+			Task<(string Key, ITexture Texture, byte[] Data)> task = _reloads[i];
+			if (!task.IsCompleted)
+			{
+				continue;
+			}
+			_reloads.RemoveAt(i);
+			if (task.IsFaulted)
+			{
+				ShowMessage("Cannot read the texture: " + task.Exception?.GetBaseException().Message);
+				continue;
+			}
+			(string key, ITexture texture, byte[] data) = task.Result;
+			SetResourceData(key, data);
+			int index = _textureKeys.IndexOf(key);
+			if (index < 0 || index >= _textures.Count)
+			{
+				texture.Dispose();
+				continue;
+			}
+			if (_textures[index] != null && _ownedTextures.Remove(_textures[index]))
+			{
+				_textures[index].Dispose();
+			}
+			_textures[index] = texture;
+			_ownedTextures.Add(texture);
+			ShowMessage($"Reloaded {key.Split('/')[^1]} ({texture.Width} x {texture.Height})");
+		}
+	}
+
+	/// <summary>Gives a texture resource of the game new data, or adds the resource.</summary>
+	private void SetResourceData(string key, byte[] data)
+	{
+		Resource resource = _gameContext.ResourceTree[key]?.Resource;
+		if (resource != null)
+		{
+			resource.Source = new MemoryResourceSource(data);
+		}
+		else
+		{
+			_gameContext.ResourceTree.SetOrAdd(key, new Resource(key, ResourceTypeIdentifier.TexturePNG, new MemoryResourceSource(data)));
+		}
+	}
+
+	/// <summary>
+	/// Copies a texture into the folder of the editor, when it is not there yet, and shows the file in the file
+	/// manager. An image editor can then change it: the editor shows the change when the file is saved.
+	/// </summary>
+	private void EditTexture(int index)
+	{
+		string key = index < _textureKeys.Count ? _textureKeys[index] : null;
+		Resource resource = key != null ? _gameContext.ResourceTree[key]?.Resource : null;
+		if (resource == null)
+		{
+			ShowMessage("The texture " + (key ?? index.ToString(CultureInfo.InvariantCulture)) + " is not in the game data");
+			return;
+		}
+		string path = AnimationTextureFiles.GetPath(Folder, _gameContext.ResourceTree, key);
+		try
+		{
+			if (!File.Exists(path))
+			{
+				using Stream source = resource.Source.ReadUncompressed();
+				using MemoryStream memory = new MemoryStream();
+				source.CopyTo(memory);
+				AnimationTextureFiles.Write(path, memory.ToArray());
+				_fileTimes[path] = File.GetLastWriteTimeUtc(path);
+			}
+		}
+		catch (IOException ex)
+		{
+			ShowMessage("Cannot write the texture: " + ex.Message);
+			return;
+		}
+		// Scripted tests do not open windows of the file manager
+		bool shown = TestHooks.EditorInput == null && AnimationTextureFiles.ShowInFileManager(path);
+		ShowMessage($"Edit {ShortPath(path)}{(shown ? "" : " in the user data folder")}: the editor shows the changes when you save the file");
+	}
+
+	/// <summary>Copies a PNG file over a texture of the group, in the folder of the editor.</summary>
+	private bool ReplaceTexture(int index, string source)
+	{
+		byte[] data = ReadPngFile(source);
+		string key = index < _textureKeys.Count ? _textureKeys[index] : null;
+		if (data == null || key == null)
+		{
+			return false;
+		}
+		string path = AnimationTextureFiles.GetPath(Folder, _gameContext.ResourceTree, key);
+		AnimationTextureFiles.Write(path, data);
+		ReloadTexture(key, path);
+		return true;
+	}
+
+	/// <summary>Adds a PNG file to the group as a new texture, in the folder of the editor. Its name comes from the file name.</summary>
+	private bool AddTexture(string source)
+	{
+		byte[] data = ReadPngFile(source);
+		Resource group = _gameContext.ResourceTree[_groupKey]?.Resource;
+		if (data == null || group == null)
+		{
+			return false;
+		}
+		string baseName = AnimationTextureFiles.MakeTextureName(source.Trim().Trim('"'));
+		string name = baseName;
+		for (int n = 2; _document.Textures.Contains("//" + name) || _gameContext.ResourceTree[group.GetAbsolutePath("//" + name)]?.Resource != null; n++)
+		{
+			name = baseName + "_" + n.ToString(CultureInfo.InvariantCulture);
+		}
+		string key = group.GetAbsolutePath("//" + name);
+		string path = AnimationTextureFiles.GetPath(Folder, _gameContext.ResourceTree, key);
+		AnimationTextureFiles.Write(path, data);
+		_fileTimes[path] = File.GetLastWriteTimeUtc(path);
+		SetResourceData(key, data);
+		Change(() => _document.Textures.Add("//" + name));
+		LoadTextures();
+		ShowMessage($"Added the texture {name} as texture {_document.Textures.Count - 1}: set it on the frames that use it");
+		return true;
+	}
+
+	private byte[] ReadPngFile(string source)
+	{
+		string path = source.Trim().Trim('"');
+		byte[] data = File.Exists(path) ? AnimationTextureFiles.TryRead(path) : null;
+		if (data == null || !AnimationTextureFiles.IsPng(data))
+		{
+			ShowMessage("Not a PNG file: " + path);
+			return null;
+		}
+		return data;
 	}
 
 	#endregion
@@ -353,6 +569,11 @@ public sealed class AnimationEditorScreen : Screen
 			_messageFrames--;
 		}
 		UpdateTextureLoad();
+		UpdateReloads();
+		if (_frames % WatchFrames == 0)
+		{
+			WatchTextureFiles();
+		}
 		if (_entry.IsActive)
 		{
 			UpdateTextEntry();
@@ -1072,12 +1293,17 @@ public sealed class AnimationEditorScreen : Screen
 		_entry.Cancel();
 		GetStack(to).Push(new Snapshot(_document.Clone(), _animationIndex, _frameIndex));
 		Snapshot snapshot = GetStack(from).Pop();
+		bool texturesChanged = !snapshot.Document.Textures.SequenceEqual(_document.Textures);
 		_document = snapshot.Document;
 		_documents[_groupKey] = _document;
 		_animationIndex = snapshot.Animation;
 		_frameIndex = snapshot.Frame;
 		_dirty.Add(_groupKey);
 		ClampSelection();
+		if (texturesChanged)
+		{
+			LoadTextures();
+		}
 		ShowMessage(name);
 	}
 
@@ -1209,10 +1435,40 @@ public sealed class AnimationEditorScreen : Screen
 		int length = animation.Frames.Sum(f => f.Delay + 1);
 		rows.Add(new EditorPropertyRow { Label = "Length", Value = $"{animation.Frames.Count} frames, {length} ticks" });
 		AnimationFrameDocument frame = Frame;
-		if (frame == null)
+		if (frame != null)
 		{
-			return rows;
+			AddFrameRows(rows, frame);
 		}
+		AddTextureRows(rows);
+		return rows;
+	}
+
+	/// <summary>
+	/// The textures of the group. "Edit" copies a texture into the folder of the editor and shows it in the file
+	/// manager; "Replace" and "Add texture" take the path of a PNG file.
+	/// </summary>
+	private void AddTextureRows(List<EditorPropertyRow> rows)
+	{
+		rows.Add(new EditorPropertyRow { Label = "Textures", IsHeading = true });
+		for (int i = 0; i < _document.Textures.Count; i++)
+		{
+			int index = i;
+			string key = i < _textureKeys.Count ? _textureKeys[i] : null;
+			ITexture texture = i < _textures.Count ? _textures[i] : null;
+			bool inFolder = key != null && File.Exists(AnimationTextureFiles.GetPath(Folder, _gameContext.ResourceTree, key));
+			rows.Add(new EditorPropertyRow
+			{
+				Label = $"Texture {i}",
+				Value = $"{_document.Textures[i]}{(texture != null ? $"  {texture.Width} x {texture.Height}" : "  missing")}{(inFolder ? "  (mod)" : "")}"
+			});
+			rows.Add(new EditorPropertyRow { Label = $"Edit {i}", Value = "copy to the mod folder", Step = _ => EditTexture(index) });
+			rows.Add(new EditorPropertyRow { Label = $"Replace {i}", Value = "type the path of a PNG", Commit = text => ReplaceTexture(index, text) });
+		}
+		rows.Add(new EditorPropertyRow { Label = "Add texture", Value = "type the path of a PNG", Commit = AddTexture });
+	}
+
+	private void AddFrameRows(List<EditorPropertyRow> rows, AnimationFrameDocument frame)
+	{
 		rows.Add(new EditorPropertyRow { Label = $"Frame {_frameIndex}", IsHeading = true });
 		string textureName = frame.Texture >= 0 && frame.Texture < _document.Textures.Count ? _document.Textures[frame.Texture] : "missing";
 		rows.Add(new EditorPropertyRow
@@ -1228,7 +1484,6 @@ public sealed class AnimationEditorScreen : Screen
 		rows.Add(IntRow("Offset X", frame.OffsetX, -16384, 16384, value => frame.OffsetX = value));
 		rows.Add(IntRow("Offset Y", frame.OffsetY, -16384, 16384, value => frame.OffsetY = value));
 		rows.Add(IntRow("Delay", frame.Delay, 0, 255, value => frame.Delay = value));
-		return rows;
 	}
 
 	private EditorPropertyRow IntRow(string label, int value, int min, int max, Action<int> set)
