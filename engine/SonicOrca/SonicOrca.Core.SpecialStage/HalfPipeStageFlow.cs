@@ -25,6 +25,12 @@ public sealed class HalfPipeStageFlow
 	/// <summary>The frames from the start until the first "GET xx RINGS!" (after the start banner of the original).</summary>
 	public const int FirstMessageFrame = 182;
 
+	/// <summary>The message after a checkpoint with enough rings.</summary>
+	public const string CheckpointPassedMessage = "COOL!";
+
+	/// <summary>The message after a checkpoint without enough rings, or after the emerald test fails.</summary>
+	public const string CheckpointFailedMessage = "NOT ENOUGH RINGS...";
+
 	/// <summary>The frames that a message stays: "GET xx RINGS!", "COOL!" and "NOT ENOUGH RINGS...".</summary>
 	public const int MessageFrames = 70;
 
@@ -198,12 +204,12 @@ public sealed class HalfPipeStageFlow
 		{
 			_nextCheckpoint++;
 			_counterZeroFrames = 0;
-			ShowMessage("COOL!", GetRingsMessage(CurrentGoal));
+			ShowMessage(CheckpointPassedMessage, GetRingsMessage(CurrentGoal));
 			events.Add(HalfPipeFlowEvent.CheckpointPassed);
 		}
 		else
 		{
-			ShowMessage("NOT ENOUGH RINGS...");
+			ShowMessage(CheckpointFailedMessage);
 			events.Add(HalfPipeFlowEvent.CheckpointFailed);
 			_checkpointFailed = true;
 			_endFrame = _frame + MessageFrames + FailEndFrames;
@@ -248,7 +254,7 @@ public sealed class HalfPipeStageFlow
 			else
 			{
 				TrackSlowed = true;
-				ShowMessage("NOT ENOUGH RINGS...");
+				ShowMessage(CheckpointFailedMessage);
 				_messageFramesLeft = EmeraldMissedFrames;
 				events.Add(HalfPipeFlowEvent.EmeraldMissed);
 				_endFrame = _frame + EmeraldMissedFrames;

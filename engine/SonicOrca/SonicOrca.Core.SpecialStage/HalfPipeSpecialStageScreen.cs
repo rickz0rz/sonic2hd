@@ -34,7 +34,9 @@ public class HalfPipeSpecialStageScreen : Screen
 		/// <summary>The yellow glow of a ring, added to the colours behind it.</summary>
 		Glow,
 		/// <summary>The red glow of a bomb, added to the colours behind it.</summary>
-		BombGlow
+		BombGlow,
+		/// <summary>A shadow on the pipe: it darkens the pipe below it.</summary>
+		Shadow
 	}
 
 	private struct TexturedQuad
@@ -78,6 +80,9 @@ public class HalfPipeSpecialStageScreen : Screen
 	private const string GlowResourceKey = "SONICORCA/PARTICLE/GLOW";
 
 	private const string ShadowResourceKey = "SONICORCA/SPECIALSTAGE/SHADOW";
+
+	/// <summary>The round shadow of the rings, the bombs and the emerald.</summary>
+	private const string BallShadowResourceKey = "SONICORCA/SPECIALSTAGE/BBSHADOW";
 
 	private const string RingsLabelResourceKey = "SONICORCA/SPECIALSTAGE/RINGS";
 
@@ -174,6 +179,31 @@ public class HalfPipeSpecialStageScreen : Screen
 	/// <summary>After a failed emerald test, the track moves one node each 12 frames (60 frames for each track frame).</summary>
 	private const double SlowTrackNodesPerFrame = 1.0 / 12.0;
 
+	/// <summary>The jingle of the results screen: the imported "End of Act" song, else the jingle of the HD game.</summary>
+	private const string ResultsJingleResourceKey = "SONICORCA/MUSIC/JINGLE/STAGECLEAR/S2/SAMPLE";
+
+	/// <summary>The frames of the fades from white at the start and to white at the end (Pal_FadeFromWhite, Pal_FadeToWhite).</summary>
+	private const int WhiteFadeFrames = 22;
+
+	/// <summary>The START banner falls one pixel each tick to this height, then waits, then breaks (Obj5F).</summary>
+	private const int BannerStopY = 0x48;
+
+	private const int BannerStartY = -0x40;
+
+	private const int BannerWaitTicks = 0xF;
+
+	/// <summary>The speed of the pieces of the banner, in pixels each tick.</summary>
+	private const int BannerPieceSpeed = 8;
+
+	/// <summary>The ticks that the pieces of the banner fly before they are off the screen.</summary>
+	private const int BannerPieceTicks = 40;
+
+	/// <summary>The height of the winged hand of the checkpoint messages, in pixels of the original (Obj5A).</summary>
+	private const int HandY = 0x48;
+
+	/// <summary>The speed of the text of the results screen, in pixels each frame (Obj34_MoveTowardsTargetPosition).</summary>
+	private const int ResultsTextSpeed = 0x10;
+
 	/// <summary>The music fades out over this number of ticks.</summary>
 	private const int MusicFadeTicks = 30;
 
@@ -228,7 +258,22 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	private const double EffectSize = 0.75;
 
-	private const double ShadowWidth = 0.75;
+	/// <summary>
+	/// The size of the shadow of a player across the pipe, and along the track. As in the original, a shadow is a flat
+	/// oval: short along the track.
+	/// </summary>
+	private const double ShadowWidth = 0.8;
+
+	private const double ShadowLength = 0.55;
+
+	/// <summary>The length of the round shadow of an object along the track, for each unit of its width.</summary>
+	private const double ObjectShadowSquash = 0.5;
+
+	/// <summary>The darkness of the shadows: the opacity of their black.</summary>
+	private const double ShadowOpacity = 0.45;
+
+	/// <summary>The shadows lie this far in front of the pipe surface, so the surface does not hide them.</summary>
+	private const double ShadowGap = 0.02;
 
 	/// <summary>Sprites stand this far above the surface, so the surface does not hide them.</summary>
 	private const double SurfaceGap = 0.05;
@@ -304,6 +349,48 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	private Sample _emeraldJingle;
 
+	private Sample _resultsJingle;
+
+	private ITexture _ballShadowTexture;
+
+	/// <summary>The art of the original, when a mod adds it, else null.</summary>
+	private HalfPipeOriginalArt _originalArt;
+
+	/// <summary>The emeralds that the player has before this stage, and the score, for the results screen.</summary>
+	private readonly int _startEmeralds;
+
+	private readonly int _startScore;
+
+	/// <summary>The frames of the fade to white after the end of the stage, or -1 before the end.</summary>
+	private int _endFadeFrames = -1;
+
+	/// <summary>The frames since the results screen started.</summary>
+	private int _resultsFrames;
+
+	private string _lastMessage;
+
+	/// <summary>
+	/// The poses of the players before the last logic tick. The logic runs each second frame, so the frame between two
+	/// ticks shows the players halfway between their poses, and the movement looks smooth at 60 frames each second.
+	/// </summary>
+	private PlayerPose _sonicPreviousPose;
+
+	private PlayerPose _tailsPreviousPose;
+
+	/// <summary>A position of a player in the pipe: from the centre, in pixels, the angle from the bottom and the lane.</summary>
+	private readonly record struct PlayerPose(double X, double Y, double Radians, double Radius)
+	{
+		public static PlayerPose Of(HalfPipePlayer player) =>
+			new PlayerPose(player.Position.X, player.Position.Y, HalfPipePlayer.ToRadiansFromBottom(player.Angle), player.Radius);
+
+		public static PlayerPose Lerp(PlayerPose a, PlayerPose b, double t) =>
+			new PlayerPose(a.X + (b.X - a.X) * t, a.Y + (b.Y - a.Y) * t, a.Radians + MathX.DifferenceRadians(a.Radians, b.Radians) * t,
+				a.Radius + (b.Radius - a.Radius) * t);
+	}
+
+	/// <summary>The logic tick at which the current message started.</summary>
+	private int _messageStartTick;
+
 	private ITexture _emeraldTexture;
 
 	private HalfPipeStageFlow _flow;
@@ -376,9 +463,13 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	/// <param name="stage">The special stage number, from 0 to 6. It selects the ring quotas.</param>
 	/// <param name="withTails">True to play with Tails. The ring quotas are then those of Sonic and Tails.</param>
-	public HalfPipeSpecialStageScreen(SonicOrcaGameContext gameContext, int stage = 0, bool withTails = false)
+	/// <param name="emeralds">The emeralds that the player has, for the results screen.</param>
+	/// <param name="score">The score of the player, for the results screen.</param>
+	public HalfPipeSpecialStageScreen(SonicOrcaGameContext gameContext, int stage = 0, bool withTails = false, int emeralds = 0, int score = 0)
 	{
 		_stage = stage;
+		_startEmeralds = emeralds;
+		_startScore = score;
 		if (withTails)
 		{
 			_tails = new HalfPipePlayer(outerLane: true);
@@ -410,7 +501,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		string[] keys =
 		{
 			FontResourceKey, BackgroundResourceKey, FloorResourceKey, SonicAnimationResourceKey, RingAnimationResourceKey,
-			RingEffectAnimationResourceKey, ExplosionAnimationResourceKey, BombResourceKey, ShadowResourceKey, GlowResourceKey,
+			RingEffectAnimationResourceKey, ExplosionAnimationResourceKey, BombResourceKey, ShadowResourceKey, BallShadowResourceKey, GlowResourceKey,
 			RingsLabelResourceKey, MusicResourceKey, RingSoundResourceKey, JumpSoundResourceKey, RingLossSoundResourceKey,
 			BombSoundResourceKey, CheckpointSoundResourceKey, ErrorSoundResourceKey, TallySoundResourceKey,
 			TallyEndSoundResourceKey, EmeraldMusicResourceKey,
@@ -426,6 +517,18 @@ public class HalfPipeSpecialStageScreen : Screen
 				_resourceSession.PushDependency(key);
 			}
 		}
+		// The art of the original and the results jingle are not in the game data. A mod can add them (see tools/s2hd-data).
+		ResourceTree resources = _gameContext.ResourceTree;
+		bool hasOriginalArt = HalfPipeOriginalArt.IsAvailable(resources);
+		if (hasOriginalArt)
+		{
+			foreach (string key in HalfPipeOriginalArt.ResourceKeys)
+			{
+				_resourceSession.PushDependency(key);
+			}
+		}
+		string resultsJingleKey = resources[ResultsJingleResourceKey]?.Resource != null ? ResultsJingleResourceKey : EmeraldMusicResourceKey;
+		_resourceSession.PushDependency(resultsJingleKey);
 		// The original layouts are not in the game data. A mod can add them (see tools/s2hd-data).
 		string stageKey = StageResourceKeyPrefix + (_stage + 1);
 		bool hasStage = _gameContext.ResourceTree[stageKey]?.Resource != null;
@@ -446,6 +549,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		_bombTexture = tree.GetLoadedResource<ITexture>(BombResourceKey);
 		_glowTexture = tree.GetLoadedResource<ITexture>(GlowResourceKey);
 		_shadowTexture = tree.GetLoadedResource<ITexture>(ShadowResourceKey);
+		_ballShadowTexture = tree.GetLoadedResource<ITexture>(BallShadowResourceKey);
 		_ringsLabelTexture = tree.GetLoadedResource<ITexture>(RingsLabelResourceKey);
 		_sonicAnimation = new AnimationInstance(tree, SonicAnimationResourceKey);
 		_ringAnimation = new AnimationInstance(tree, RingAnimationResourceKey);
@@ -461,6 +565,8 @@ public class HalfPipeSpecialStageScreen : Screen
 		_tallySound = tree.GetLoadedResource<Sample>(TallySoundResourceKey);
 		_tallyEndSound = tree.GetLoadedResource<Sample>(TallyEndSoundResourceKey);
 		_emeraldJingle = tree.GetLoadedResource<Sample>(EmeraldMusicResourceKey);
+		_resultsJingle = tree.GetLoadedResource<Sample>(resultsJingleKey);
+		_originalArt = hasOriginalArt ? new HalfPipeOriginalArt(tree) : null;
 		if (_tails != null)
 		{
 			_tailsAnimation = new AnimationInstance(tree, TailsAnimationResourceKey);
@@ -483,6 +589,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		_emeraldTexture = CreateEmeraldTexture(_graphicsContext, _stage);
 		_pipeBuffer = _graphicsContext.CreateVertexBuffer(3, 2);
 		FillPipeBuffer();
+		_originalArt?.UseSharpPixels();
 	}
 
 	public override void Update()
@@ -510,16 +617,35 @@ public class HalfPipeSpecialStageScreen : Screen
 		UpdateMusicFade();
 		if (_results != null)
 		{
+			_resultsFrames++;
 			UpdateResults();
+		}
+		else if (_endFadeFrames >= 0)
+		{
+			// The stage stops while it fades to white, then the results screen starts
+			if (++_endFadeFrames >= WhiteFadeFrames)
+			{
+				StartResults();
+			}
 		}
 		else
 		{
 			MoveTrack();
 			if (_frames % FramesPerLogicTick == 0)
 			{
+				_sonicPreviousPose = PlayerPose.Of(_player);
+				if (_tails != null)
+				{
+					_tailsPreviousPose = PlayerPose.Of(_tails);
+				}
 				UpdatePlayer();
 				UpdateObjects();
 				UpdateFlow();
+				if (_flow.Message != _lastMessage)
+				{
+					_lastMessage = _flow.Message;
+					_messageStartTick = _ticks;
+				}
 				_ringAnimation.Animate();
 				foreach (HalfPipeObject used in _objects)
 				{
@@ -716,10 +842,21 @@ public class HalfPipeSpecialStageScreen : Screen
 					break;
 			}
 		}
-		if (_flow.Finished)
+		if (_flow.Finished && _endFadeFrames < 0)
 		{
-			_results = new HalfPipeResults(Rings, _flow.EmeraldWon, _ringsCollected, _track.RingCount);
+			_endFadeFrames = 0;
 		}
+	}
+
+	/// <summary>Starts the results screen, with its jingle (MusID_EndLevel).</summary>
+	private void StartResults()
+	{
+		_results = new HalfPipeResults(Rings, _flow.EmeraldWon, _ringsCollected, _track.RingCount);
+		_resultsFrames = 0;
+		_musicInstance?.Stop();
+		_musicInstance?.Dispose();
+		_musicInstance = new SampleInstance(_gameContext, _resultsJingle);
+		_musicInstance.Play();
 	}
 
 	private void UpdateResults()
@@ -839,6 +976,141 @@ public class HalfPipeSpecialStageScreen : Screen
 		DrawBackground(renderer);
 		DrawScene(renderer);
 		DrawHud(renderer);
+		DrawWhiteFade(renderer);
+	}
+
+	/// <summary>The stage fades from white at the start and to white at the end, as in the original.</summary>
+	private void DrawWhiteFade(Renderer renderer)
+	{
+		double whiteness = 0.0;
+		if (_results == null && _endFadeFrames >= 0)
+		{
+			whiteness = _endFadeFrames / (double)WhiteFadeFrames;
+		}
+		else if (_results == null && _frames < WhiteFadeFrames)
+		{
+			whiteness = 1.0 - _frames / (double)WhiteFadeFrames;
+		}
+		if (whiteness <= 0.0)
+		{
+			return;
+		}
+		I2dRenderer g = renderer.Get2dRenderer();
+		g.BlendMode = BlendMode.Alpha;
+		g.RenderQuad(new Colour((byte)(Math.Min(1.0, whiteness) * 255), 255, 255, 255), new Rectangle(0.0, 0.0, 1920.0, 1080.0));
+		g.Deactivate();
+	}
+
+	/// <summary>True while a checkpoint message shows: the original shows the winged hand with it.</summary>
+	private bool ShowsHand => _originalArt != null && (_flow.Message == HalfPipeStageFlow.CheckpointPassedMessage || _flow.Message == HalfPipeStageFlow.CheckpointFailedMessage);
+
+	/// <summary>
+	/// The START banner of the original (Obj5F): it falls to its place, waits, then breaks into its pieces, which fly
+	/// away from the centre.
+	/// </summary>
+	private void DrawStartBanner(I2dRenderer g)
+	{
+		int breakTick = BannerStopY - BannerStartY + BannerWaitTicks;
+		if (_ticks >= breakTick + BannerPieceTicks)
+		{
+			return;
+		}
+		AnimationGroup start = _originalArt.Start;
+		const double x = 0x80;
+		if (_ticks < breakTick)
+		{
+			double y = Math.Min(BannerStopY, BannerStartY + _ticks);
+			HalfPipeOriginalArt.DrawFrame(g, start, HalfPipeOriginalArt.BannerFrame, HalfPipeOriginalArt.StageLeft, x, y);
+			return;
+		}
+		// Each piece flies along the line from a point $28 pixels below the banner through the piece (CalcAngle)
+		int[] pieceX = { -0x48, -0x28, -0x18, -8, 8, 0x18, 0x28 };
+		double distance = (_ticks - breakTick) * BannerPieceSpeed;
+		for (int i = 0; i < HalfPipeOriginalArt.BannerPieces; i++)
+		{
+			double angle = Math.Atan2(-0x28, pieceX[i]);
+			HalfPipeOriginalArt.DrawFrame(g, start, HalfPipeOriginalArt.FirstBannerPiece + i, HalfPipeOriginalArt.StageLeft,
+				x + Math.Cos(angle) * distance, BannerStopY + Math.Sin(angle) * distance);
+		}
+	}
+
+	/// <summary>
+	/// The winged hand of a checkpoint message (Obj5A_Handshake): the hand goes up and down by 4 pixels, one pixel each
+	/// tick. A failed checkpoint shows it upside down: thumb down.
+	/// </summary>
+	private void DrawHand(I2dRenderer g)
+	{
+		AnimationGroup messages = _originalArt.Messages;
+		const double x = 0x80;
+		HalfPipeOriginalArt.DrawFrame(g, messages, HalfPipeOriginalArt.WingsFrame, HalfPipeOriginalArt.StageLeft, x, HandY);
+		int phase = (_ticks - _messageStartTick) % 16;
+		int bounce = phase < 4 ? -phase : phase < 12 ? phase - 8 : 16 - phase;
+		bool failed = _flow.Message == HalfPipeStageFlow.CheckpointFailedMessage;
+		HalfPipeOriginalArt.DrawFrame(g, messages, HalfPipeOriginalArt.HandFrame, HalfPipeOriginalArt.StageLeft, x, HandY + bounce, flipY: failed);
+	}
+
+	/// <summary>
+	/// The results screen of the original (Obj6F): a white screen, the title, the emeralds of the player, the score and
+	/// the counters, which slide in from the sides. The numbers count down during the tally.
+	/// </summary>
+	private void DrawOriginalResults(I2dRenderer g)
+	{
+		g.RenderQuad(Colours.White, new Rectangle(0.0, 0.0, 1920.0, 1080.0));
+		AnimationGroup results = _originalArt.Results;
+		double left = HalfPipeOriginalArt.ResultsLeft;
+		const double centreX = 160.0;
+		const double centreY = 112.0;
+		// A text slides from its start towards the centre of the screen
+		double Slide(double start) => start > centreX
+			? Math.Max(centreX, start - _resultsFrames * ResultsTextSpeed)
+			: Math.Min(centreX, start + _resultsFrames * ResultsTextSpeed);
+		int emeralds = _startEmeralds + (_results.EmeraldWon ? 1 : 0);
+		bool allEmeralds = _results.EmeraldWon && emeralds >= HalfPipeLayout.StageCount;
+		int titleFrame = allEmeralds ? 25 : _results.EmeraldWon ? 4 : 0;
+		HalfPipeOriginalArt.DrawFrame(g, results, titleFrame, left, Slide(320 + 128), centreY - 70);
+		if (_results.EmeraldWon)
+		{
+			// "Sonic got a" or "Sonic has all the", from the left
+			HalfPipeOriginalArt.DrawFrame(g, results, allEmeralds ? 22 : 1, left, Slide(-128), centreY - 88);
+		}
+		// The emeralds that the player has, in a ring around the last one
+		(int X, int Y)[] emeraldPositions = { (-8, -44), (16, -32), (16, -8), (-8, 4), (-32, -8), (-32, -32), (-8, -20) };
+		for (int i = 0; i < emeraldPositions.Length; i++)
+		{
+			bool has = i < _startEmeralds || (_results.EmeraldWon && i == _stage);
+			if (has)
+			{
+				HalfPipeOriginalArt.DrawFrame(g, results, 5 + i, left, centreX + emeraldPositions[i].X, centreY + emeraldPositions[i].Y);
+			}
+		}
+		// The rings that are left to count, for each player
+		int ringsLeft = _results.RingBonus / HalfPipeResults.PointsPerRing;
+		int tailsRingsLeft = _tails != null ? Math.Min(_tailsRings, ringsLeft) : 0;
+		var rows = new List<(int Frame, int StartX, int Value)>
+		{
+			(12, 320 + 368, _startScore + _results.Total),
+			(13, 320 + 384, ringsLeft - tailsRingsLeft)
+		};
+		if (_tails != null)
+		{
+			rows.Add((15, 320 + 400, tailsRingsLeft));
+		}
+		if (_results.EmeraldWon)
+		{
+			rows.Add((16, 320 + 416, _results.GemsBonus));
+		}
+		if (_results.PerfectBonus > 0 || _results.Total >= HalfPipeResults.PerfectBonusPoints)
+		{
+			rows.Add((17, 320 + 432, _results.PerfectBonus));
+		}
+		for (int i = 0; i < rows.Count; i++)
+		{
+			double x = Slide(rows[i].StartX);
+			double y = centreY + 24 + i * 16;
+			HalfPipeOriginalArt.DrawFrame(g, results, rows[i].Frame, left, x, y);
+			// The numbers end 96 pixels right of the centre of the row
+			_originalArt.DrawNumber(g, rows[i].Value, left, x + 0x60, y);
+		}
 	}
 
 	private void DrawBackground(Renderer renderer)
@@ -868,10 +1140,10 @@ public class HalfPipeSpecialStageScreen : Screen
 
 		List<TexturedQuad> quads = new List<TexturedQuad>();
 		AddObjectQuads(quads);
-		AddPlayerQuads(quads, _player, _sonicAnimation, SonicHeight);
+		AddPlayerQuads(quads, _player, GetDrawPose(_player, _sonicPreviousPose), _sonicAnimation, SonicHeight);
 		if (_tails != null)
 		{
-			AddPlayerQuads(quads, _tails, _tailsAnimation, TailsHeight);
+			AddPlayerQuads(quads, _tails, GetDrawPose(_tails, _tailsPreviousPose), _tailsAnimation, TailsHeight);
 		}
 		AddEmeraldQuad(quads);
 
@@ -882,7 +1154,9 @@ public class HalfPipeSpecialStageScreen : Screen
 		ITexture texture = null;
 		QuadStyle style = QuadStyle.Lit;
 		_vertexBuffer.Begin();
-		foreach (TexturedQuad quad in quads.OrderByDescending(x => (_camera - x.Position[0]).Length))
+		// The shadows lie on the pipe, under everything else, so they come first. A sprite writes the depth of its whole
+		// quad, also where it is transparent, so a shadow after it would lose the part behind it.
+		foreach (TexturedQuad quad in quads.OrderBy(x => x.Style == QuadStyle.Shadow ? 0 : 1).ThenByDescending(x => (_camera - x.Position[0]).Length))
 		{
 			for (int corner = 0; corner < 4; corner++)
 			{
@@ -917,6 +1191,7 @@ public class HalfPipeSpecialStageScreen : Screen
 			{
 				QuadStyle.Glow => RingGlowColour,
 				QuadStyle.BombGlow => BombGlowColour,
+				QuadStyle.Shadow => new Vector4(1.0, 1.0, 1.0, ShadowOpacity),
 				_ => new Vector4(1.0, 1.0, 1.0, 1.0)
 			});
 			_graphicsContext.BlendMode = glow ? BlendMode.Additive : BlendMode.Alpha;
@@ -1015,6 +1290,12 @@ public class HalfPipeSpecialStageScreen : Screen
 			Matrix4 transform = GetNodeTransform(item.TrackNode);
 			if (!item.Used)
 			{
+				// The original gives a ring or a bomb a shadow only on the lower half of the pipe (loc_3529C)
+				if (Math.Abs(item.Angle) <= Math.PI / 2.0)
+				{
+					double shadowSize = (item.Kind == HalfPipeObjectKind.Ring ? RingSize : BombSize) * 0.8;
+					quads.Add(CreateSurfaceShadow(transform, item.Angle, shadowSize, shadowSize * ObjectShadowSquash, 0.0, _ballShadowTexture));
+				}
 				if (item.Kind == HalfPipeObjectKind.Ring)
 				{
 					// The glow is centred on the ring, so its bottom is below the surface, where the pipe hides it
@@ -1058,28 +1339,38 @@ public class HalfPipeSpecialStageScreen : Screen
 		double bob = _flow.EmeraldWon ? new[] { -1, 0, 1, 0 }[_flow.EmeraldWonFrames / 4 % 4] * PixelsToUnits : 0.0;
 		// The emerald floats at 3/4 of the pipe radius from the centre
 		double height = PipeRadius / 4.0 + bob;
+		quads.Add(CreateSurfaceShadow(GetNodeTransform(node), 0.0, EmeraldSize * 0.6, EmeraldSize * 0.6 * ObjectShadowSquash, 0.0, _ballShadowTexture));
 		quads.Add(CreateSprite(GetNodeTransform(node), 0.0, height, EmeraldSize, EmeraldSize, _emeraldTexture,
 			new Rectanglei(0, 0, _emeraldTexture.Width, _emeraldTexture.Height)));
 	}
 
-	private void AddPlayerQuads(List<TexturedQuad> quads, HalfPipePlayer player, AnimationInstance animation, double spriteHeight)
+	/// <summary>
+	/// The pose to draw a player: halfway between the poses before and after the last logic tick on the frame after
+	/// the tick, else the pose after it. When the logic has stopped (the end of the stage), the pose does not change.
+	/// </summary>
+	private PlayerPose GetDrawPose(HalfPipePlayer player, PlayerPose previous)
+	{
+		PlayerPose current = PlayerPose.Of(player);
+		bool logicRuns = _results == null && _endFadeFrames < 0;
+		return logicRuns && _frames % FramesPerLogicTick == 1 ? PlayerPose.Lerp(previous, current, 0.5) : current;
+	}
+
+	private void AddPlayerQuads(List<TexturedQuad> quads, HalfPipePlayer player, PlayerPose pose, AnimationInstance animation, double spriteHeight)
 	{
 		// The players move with the camera, between the nodes
 		(Vector3 position, double yaw, _) = GetTrackPoint(PlayerTrackNode, PlayerTrackNode < _track.Nodes.Count - 1 ? _trackFraction : 0.0);
 		Matrix4 transform = Matrix4.Identity.RotateY(yaw).Translate(position);
-		(double x, double y) = player.Position;
+		double x = pose.X;
+		double y = pose.Y;
 		double distance = Math.Sqrt(x * x + y * y);
-		double angle = HalfPipePlayer.ToRadiansFromBottom(player.Angle);
+		double angle = pose.Radians;
 		// The outer lane is nearer to the camera, a little behind the inner lane
-		double lane = (player.Radius - HalfPipePlayer.InnerRadius) / (double)(HalfPipePlayer.OuterRadius - HalfPipePlayer.InnerRadius);
+		double lane = (pose.Radius - HalfPipePlayer.InnerRadius) / (HalfPipePlayer.OuterRadius - HalfPipePlayer.InnerRadius);
 		double depth = -lane * OuterLaneDepth;
-		if (player.InAir)
-		{
-			// The shadow falls on the wall below the player
-			double shadowAngle = Math.Asin(Math.Clamp(x / player.Radius, -1.0, 1.0));
-			double shadowHeight = ShadowWidth * _shadowTexture.Height / _shadowTexture.Width;
-			quads.Add(CreateSprite(transform, shadowAngle, 0.0, ShadowWidth, shadowHeight, _shadowTexture, new Rectanglei(0, 0, _shadowTexture.Width, _shadowTexture.Height), depth: depth));
-		}
+		// The shadow is on the pipe, on the line from the centre through the player (Obj63). On the upper half of the
+		// pipe, it is on the lower half, below the player.
+		double shadowAngle = Math.Abs(angle) > Math.PI / 2.0 ? Math.Sign(angle) * (Math.PI - Math.Abs(angle)) : angle;
+		quads.Add(CreateSurfaceShadow(transform, shadowAngle, ShadowWidth, ShadowLength, depth, _shadowTexture));
 		// The player shows on alternate frames while flashing after a bomb
 		if (player.FlashFramesLeft > 0 && _ticks % 2 == 0)
 		{
@@ -1088,10 +1379,41 @@ public class HalfPipeSpecialStageScreen : Screen
 		Rectanglei source = animation.CurrentFrame.Source;
 		double width = spriteHeight * source.Width / source.Height;
 		// In the air the player is nearer to the centre than the surface
-		double height = Math.Max(0.0, (player.Radius - distance) * PixelsToUnits);
+		double height = Math.Max(0.0, (pose.Radius - distance) * PixelsToUnits);
 		// The hurt animation turns the sprite once
 		double spin = player.IsHurt ? player.HurtProgress * 2.0 * Math.PI : 0.0;
 		quads.Add(CreateSprite(transform, angle, height, width, spriteHeight, animation.CurrentTexture, source, spin, depth));
+	}
+
+	/// <summary>
+	/// Makes a shadow that lies on the pipe surface, centred at an angle from the bottom. It is <paramref name="width"/>
+	/// wide across the pipe and <paramref name="length"/> long along the track.
+	/// </summary>
+	private static TexturedQuad CreateSurfaceShadow(Matrix4 transform, double angle, double width, double length, double depth, ITexture texture)
+	{
+		double radius = PipeRadius - ShadowGap;
+		double halfAngle = width / 2.0 / radius;
+		// The whole shadow stays on the pipe: its centre is not nearer to the top edges than half its width
+		double maxAngle = Math.PI / 2.0 - halfAngle;
+		angle = Math.Clamp(angle, -maxAngle, maxAngle);
+		Vector3 Point(double theta, double z) => transform * new Vector3(-Math.Cos(theta) * radius * PipeWidthScale, -Math.Sin(theta) * radius, z);
+		// Theta is the angle of the cross section: 0 at the left edge, pi / 2 at the bottom, pi at the right edge
+		double theta = Math.PI / 2.0 + angle;
+		double near = depth - length / 2.0;
+		double far = depth + length / 2.0;
+		return new TexturedQuad(new[]
+		{
+			Point(theta - halfAngle, near),
+			Point(theta - halfAngle, far),
+			Point(theta + halfAngle, far),
+			Point(theta + halfAngle, near)
+		}, new[]
+		{
+			new Vector2(0.0, 1.0),
+			new Vector2(0.0, 0.0),
+			new Vector2(1.0, 0.0),
+			new Vector2(1.0, 1.0)
+		}, texture, QuadStyle.Shadow);
 	}
 
 	/// <summary>
@@ -1157,6 +1479,12 @@ public class HalfPipeSpecialStageScreen : Screen
 		I2dRenderer g = renderer.Get2dRenderer();
 		g.BlendMode = BlendMode.Alpha;
 		g.Colour = Colours.White;
+		if (_results != null && _originalArt != null)
+		{
+			DrawOriginalResults(g);
+			g.Deactivate();
+			return;
+		}
 		if (_results != null)
 		{
 			// The results: a dark screen with the bonuses
@@ -1195,7 +1523,21 @@ public class HalfPipeSpecialStageScreen : Screen
 		}
 		if (_flow.Message != null)
 		{
-			fontRenderer.RenderString(_flow.Message, new Rectangle(960.0, 440.0, 0.0, 0.0), FontAlignment.MiddleX, _font, 0);
+			// Under the winged hand, when it shows
+			double messageY = ShowsHand ? 560.0 : 440.0;
+			fontRenderer.RenderString(_flow.Message, new Rectangle(960.0, messageY, 0.0, 0.0), FontAlignment.MiddleX, _font, 0);
+		}
+		if (_originalArt != null)
+		{
+			I2dRenderer overlay = renderer.Get2dRenderer();
+			overlay.BlendMode = BlendMode.Alpha;
+			overlay.Colour = Colours.White;
+			DrawStartBanner(overlay);
+			if (ShowsHand)
+			{
+				DrawHand(overlay);
+			}
+			overlay.Deactivate();
 		}
 	}
 

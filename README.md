@@ -194,7 +194,9 @@ dotnet run --project tools/s2hd-data -- pack special-stages special-stages.dat -
 ```
 
 Put `special-stages.dat` in a `mods` folder. The 7 stages then have the original track segments, rings, bombs,
-checkpoints and emerald. The layouts are data from the original game, so do not commit them to this repository.
+checkpoints and emerald. The import also makes the art of the original that the demo data does not have: the START
+banner, the winged hand of the checkpoint messages, and the white results screen with the emeralds. Without it, the
+stage shows text messages and a dark results screen. The music import adds the jingle of the results screen. The layouts are data from the original game, so do not commit them to this repository.
 The tests use the disassembly when they find it next to the checkout or at `S2DISASM_DIR`.
 
 ### Level imports

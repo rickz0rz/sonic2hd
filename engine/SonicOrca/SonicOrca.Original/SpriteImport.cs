@@ -78,6 +78,9 @@ public static class SpriteImport
 
 	private const int BytesPerTile = 32;
 
+	/// <summary>The widest texture that the importer makes, in pixels.</summary>
+	private const int MaxTextureWidth = 4096;
+
 	/// <summary>Reads the frames of a mappings file of s2disasm (mappingsTable, spriteHeader and spritePiece macros).</summary>
 	/// <param name="tableLabel">The label of the table to read, when the source has more than one table, or null.</param>
 	public static List<List<SpritePiece>> ParseMappings(string source, string tableLabel = null)
@@ -87,6 +90,7 @@ public static class SpriteImport
 		bool inTable = tableLabel == null;
 		var frames = new Dictionary<string, List<SpritePiece>>(StringComparer.Ordinal);
 		List<SpritePiece> current = null;
+		var aliases = new List<string>();
 		foreach (string rawLine in source.Split('\n'))
 		{
 			string line = rawLine.Split(';')[0].Trim();
@@ -98,7 +102,8 @@ public static class SpriteImport
 			{
 				inTable = line.StartsWith(tableLabel + ":", StringComparison.Ordinal);
 			}
-			Match entry = Regex.Match(line, @"^(?:\w+:\s*)?mappingsTableEntry\.w\s+(\w+)");
+			// Labels can be local labels, which start with a dot
+			Match entry = Regex.Match(line, @"^(?:[.\w]+:\s*)?mappingsTableEntry\.w\s+([.\w]+)");
 			if (entry.Success)
 			{
 				if (inTable)
@@ -107,11 +112,23 @@ public static class SpriteImport
 				}
 				continue;
 			}
-			Match header = Regex.Match(line, @"^(\w+):\s*spriteHeader");
+			Match header = Regex.Match(line, @"^([.\w]+):\s*spriteHeader");
 			if (header.Success)
 			{
 				current = new List<SpritePiece>();
 				frames[header.Groups[1].Value] = current;
+				foreach (string alias in aliases)
+				{
+					frames[alias] = current;
+				}
+				aliases.Clear();
+				continue;
+			}
+			// A label alone on its line names the frame that follows it, for example ".frame2:" before ".frame1:"
+			Match label = Regex.Match(line, @"^([.\w]+):$");
+			if (label.Success)
+			{
+				aliases.Add(label.Groups[1].Value);
 				continue;
 			}
 			Match piece = Regex.Match(line, @"^spritePiece(2P)?\s+(.*)$");
@@ -142,6 +159,13 @@ public static class SpriteImport
 		return palette;
 	}
 
+	/// <summary>Reads a palette file of the disassembly into the palette, from the start of a palette line.</summary>
+	public static void ReadPaletteFile(string disassembly, string file, uint[] palette, int line)
+	{
+		uint[] colours = ReadColours(File.ReadAllBytes(Path.Combine(disassembly, file)));
+		Array.Copy(colours, 0, palette, line * 16, Math.Min(colours.Length, palette.Length - line * 16));
+	}
+
 	/// <summary>Converts Mega Drive colours (0BGR) to RGBA colours.</summary>
 	private static uint[] ReadColours(byte[] data)
 	{
@@ -159,7 +183,7 @@ public static class SpriteImport
 	}
 
 	/// <summary>Reads Nemesis art, Kosinski art (.kos) or uncompressed art (.bin).</summary>
-	private static byte[] ReadArt(string disassembly, string file)
+	public static byte[] ReadArt(string disassembly, string file)
 	{
 		byte[] data = File.ReadAllBytes(Path.Combine(disassembly, file));
 		if (file.EndsWith(".kos", StringComparison.OrdinalIgnoreCase))
@@ -199,7 +223,17 @@ public static class SpriteImport
 		}
 		string[] mappings = sprite.MappingsFile.Split('#');
 		List<List<SpritePiece>> frames = ParseMappings(File.ReadAllText(Path.Combine(disassembly, mappings[0])), mappings.Length > 1 ? mappings[1] : null);
-		int variants = sprite.PaletteLines.Count;
+		return Import(sprite.ObjectKey, art, frames, sprite.PaletteLines, sprite.SplitFrames, palette, scale);
+	}
+
+	/// <summary>
+	/// Converts frames of pieces into a texture at <paramref name="scale"/> times the size, and an animation group with
+	/// one animation for each frame and palette line. The art is the tiles as the video memory has them.
+	/// </summary>
+	public static ImportedSprite Import(string objectKey, byte[] art, List<List<SpritePiece>> frames, IReadOnlyList<int> paletteLines,
+		IReadOnlyList<int> splitFrames, uint[] palette, int scale)
+	{
+		OriginalSprite sprite = new OriginalSprite(objectKey, null, null, paletteLines) { SplitFrames = splitFrames };
 		// One row of the texture for each palette line, and one more for the pieces of the split frames
 		var rows = new List<List<(uint[] Pixels, int Width, int Height, int OriginX, int OriginY)>>();
 		foreach (int line in sprite.PaletteLines)
@@ -210,6 +244,8 @@ public static class SpriteImport
 		{
 			rows.Add(sprite.SplitFrames.SelectMany(f => frames[f]).Select(piece => Render(new List<SpritePiece> { piece }, art, palette, sprite.PaletteLines[0])).ToList());
 		}
+		// Long rows go on more rows, because GPUs limit the width of a texture. The frames keep their order.
+		rows = rows.SelectMany(row => SplitRow(row, MaxTextureWidth / scale)).ToList();
 		var images = rows.SelectMany(row => row).ToList();
 		int rowHeight = Math.Max(1, images.Max(i => i.Height));
 		int width = Math.Max(1, rows.Max(row => row.Sum(i => i.Width))) * scale;
@@ -255,6 +291,26 @@ public static class SpriteImport
 		anigroup.AppendLine("  </animations>");
 		anigroup.AppendLine("</anigroup>");
 		return new ImportedSprite(sprite.ObjectKey, EncodePng(pixels, width, height), anigroup.ToString());
+	}
+
+	/// <summary>Splits a row of frames into rows that are not wider than the width, except a frame that is wider alone.</summary>
+	private static IEnumerable<List<(uint[] Pixels, int Width, int Height, int OriginX, int OriginY)>> SplitRow(
+		List<(uint[] Pixels, int Width, int Height, int OriginX, int OriginY)> row, int maxWidth)
+	{
+		var current = new List<(uint[] Pixels, int Width, int Height, int OriginX, int OriginY)>();
+		int width = 0;
+		foreach (var image in row)
+		{
+			if (current.Count > 0 && width + image.Width > maxWidth)
+			{
+				yield return current;
+				current = new List<(uint[] Pixels, int Width, int Height, int OriginX, int OriginY)>();
+				width = 0;
+			}
+			current.Add(image);
+			width += image.Width;
+		}
+		yield return current;
 	}
 
 	/// <summary>Draws one frame. The first piece is in front, as on the Mega Drive.</summary>
