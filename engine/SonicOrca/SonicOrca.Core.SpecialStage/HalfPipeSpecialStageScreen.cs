@@ -34,7 +34,9 @@ public class HalfPipeSpecialStageScreen : Screen
 		/// <summary>The yellow glow of a ring, added to the colours behind it.</summary>
 		Glow,
 		/// <summary>The red glow of a bomb, added to the colours behind it.</summary>
-		BombGlow
+		BombGlow,
+		/// <summary>A shadow on the pipe: it darkens the pipe below it.</summary>
+		Shadow
 	}
 
 	private struct TexturedQuad
@@ -78,6 +80,9 @@ public class HalfPipeSpecialStageScreen : Screen
 	private const string GlowResourceKey = "SONICORCA/PARTICLE/GLOW";
 
 	private const string ShadowResourceKey = "SONICORCA/SPECIALSTAGE/SHADOW";
+
+	/// <summary>The round shadow of the rings, the bombs and the emerald.</summary>
+	private const string BallShadowResourceKey = "SONICORCA/SPECIALSTAGE/BBSHADOW";
 
 	private const string RingsLabelResourceKey = "SONICORCA/SPECIALSTAGE/RINGS";
 
@@ -253,7 +258,16 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	private const double EffectSize = 0.75;
 
+	/// <summary>The size of the shadow of a player across the pipe, and along the track.</summary>
 	private const double ShadowWidth = 0.75;
+
+	private const double ShadowLength = 1.1;
+
+	/// <summary>The darkness of the shadows: the opacity of their black.</summary>
+	private const double ShadowOpacity = 0.45;
+
+	/// <summary>The shadows lie this far in front of the pipe surface, so the surface does not hide them.</summary>
+	private const double ShadowGap = 0.02;
 
 	/// <summary>Sprites stand this far above the surface, so the surface does not hide them.</summary>
 	private const double SurfaceGap = 0.05;
@@ -330,6 +344,8 @@ public class HalfPipeSpecialStageScreen : Screen
 	private Sample _emeraldJingle;
 
 	private Sample _resultsJingle;
+
+	private ITexture _ballShadowTexture;
 
 	/// <summary>The art of the original, when a mod adds it, else null.</summary>
 	private HalfPipeOriginalArt _originalArt;
@@ -479,7 +495,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		string[] keys =
 		{
 			FontResourceKey, BackgroundResourceKey, FloorResourceKey, SonicAnimationResourceKey, RingAnimationResourceKey,
-			RingEffectAnimationResourceKey, ExplosionAnimationResourceKey, BombResourceKey, ShadowResourceKey, GlowResourceKey,
+			RingEffectAnimationResourceKey, ExplosionAnimationResourceKey, BombResourceKey, ShadowResourceKey, BallShadowResourceKey, GlowResourceKey,
 			RingsLabelResourceKey, MusicResourceKey, RingSoundResourceKey, JumpSoundResourceKey, RingLossSoundResourceKey,
 			BombSoundResourceKey, CheckpointSoundResourceKey, ErrorSoundResourceKey, TallySoundResourceKey,
 			TallyEndSoundResourceKey, EmeraldMusicResourceKey,
@@ -527,6 +543,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		_bombTexture = tree.GetLoadedResource<ITexture>(BombResourceKey);
 		_glowTexture = tree.GetLoadedResource<ITexture>(GlowResourceKey);
 		_shadowTexture = tree.GetLoadedResource<ITexture>(ShadowResourceKey);
+		_ballShadowTexture = tree.GetLoadedResource<ITexture>(BallShadowResourceKey);
 		_ringsLabelTexture = tree.GetLoadedResource<ITexture>(RingsLabelResourceKey);
 		_sonicAnimation = new AnimationInstance(tree, SonicAnimationResourceKey);
 		_ringAnimation = new AnimationInstance(tree, RingAnimationResourceKey);
@@ -1166,6 +1183,7 @@ public class HalfPipeSpecialStageScreen : Screen
 			{
 				QuadStyle.Glow => RingGlowColour,
 				QuadStyle.BombGlow => BombGlowColour,
+				QuadStyle.Shadow => new Vector4(1.0, 1.0, 1.0, ShadowOpacity),
 				_ => new Vector4(1.0, 1.0, 1.0, 1.0)
 			});
 			_graphicsContext.BlendMode = glow ? BlendMode.Additive : BlendMode.Alpha;
@@ -1264,6 +1282,12 @@ public class HalfPipeSpecialStageScreen : Screen
 			Matrix4 transform = GetNodeTransform(item.TrackNode);
 			if (!item.Used)
 			{
+				// The original gives a ring or a bomb a shadow only on the lower half of the pipe (loc_3529C)
+				if (Math.Abs(item.Angle) <= Math.PI / 2.0)
+				{
+					double shadowSize = (item.Kind == HalfPipeObjectKind.Ring ? RingSize : BombSize) * 0.8;
+					quads.Add(CreateSurfaceShadow(transform, item.Angle, shadowSize, shadowSize, 0.0, _ballShadowTexture));
+				}
 				if (item.Kind == HalfPipeObjectKind.Ring)
 				{
 					// The glow is centred on the ring, so its bottom is below the surface, where the pipe hides it
@@ -1307,6 +1331,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		double bob = _flow.EmeraldWon ? new[] { -1, 0, 1, 0 }[_flow.EmeraldWonFrames / 4 % 4] * PixelsToUnits : 0.0;
 		// The emerald floats at 3/4 of the pipe radius from the centre
 		double height = PipeRadius / 4.0 + bob;
+		quads.Add(CreateSurfaceShadow(GetNodeTransform(node), 0.0, EmeraldSize * 0.6, EmeraldSize * 0.6, 0.0, _ballShadowTexture));
 		quads.Add(CreateSprite(GetNodeTransform(node), 0.0, height, EmeraldSize, EmeraldSize, _emeraldTexture,
 			new Rectanglei(0, 0, _emeraldTexture.Width, _emeraldTexture.Height)));
 	}
@@ -1334,13 +1359,10 @@ public class HalfPipeSpecialStageScreen : Screen
 		// The outer lane is nearer to the camera, a little behind the inner lane
 		double lane = (pose.Radius - HalfPipePlayer.InnerRadius) / (HalfPipePlayer.OuterRadius - HalfPipePlayer.InnerRadius);
 		double depth = -lane * OuterLaneDepth;
-		if (player.InAir)
-		{
-			// The shadow falls on the wall below the player
-			double shadowAngle = Math.Asin(Math.Clamp(x / pose.Radius, -1.0, 1.0));
-			double shadowHeight = ShadowWidth * _shadowTexture.Height / _shadowTexture.Width;
-			quads.Add(CreateSprite(transform, shadowAngle, 0.0, ShadowWidth, shadowHeight, _shadowTexture, new Rectanglei(0, 0, _shadowTexture.Width, _shadowTexture.Height), depth: depth));
-		}
+		// The shadow is on the pipe, on the line from the centre through the player (Obj63). On the upper half of the
+		// pipe, it is on the lower half, below the player.
+		double shadowAngle = Math.Abs(angle) > Math.PI / 2.0 ? Math.Sign(angle) * (Math.PI - Math.Abs(angle)) : angle;
+		quads.Add(CreateSurfaceShadow(transform, shadowAngle, ShadowWidth, ShadowLength, depth, _shadowTexture));
 		// The player shows on alternate frames while flashing after a bomb
 		if (player.FlashFramesLeft > 0 && _ticks % 2 == 0)
 		{
@@ -1353,6 +1375,34 @@ public class HalfPipeSpecialStageScreen : Screen
 		// The hurt animation turns the sprite once
 		double spin = player.IsHurt ? player.HurtProgress * 2.0 * Math.PI : 0.0;
 		quads.Add(CreateSprite(transform, angle, height, width, spriteHeight, animation.CurrentTexture, source, spin, depth));
+	}
+
+	/// <summary>
+	/// Makes a shadow that lies on the pipe surface, centred at an angle from the bottom. It is <paramref name="width"/>
+	/// wide across the pipe and <paramref name="length"/> long along the track.
+	/// </summary>
+	private static TexturedQuad CreateSurfaceShadow(Matrix4 transform, double angle, double width, double length, double depth, ITexture texture)
+	{
+		double radius = PipeRadius - ShadowGap;
+		double halfAngle = width / 2.0 / radius;
+		Vector3 Point(double theta, double z) => transform * new Vector3(-Math.Cos(theta) * radius * PipeWidthScale, -Math.Sin(theta) * radius, z);
+		// Theta is the angle of the cross section: 0 at the left edge, pi / 2 at the bottom, pi at the right edge
+		double theta = Math.PI / 2.0 + angle;
+		double near = depth - length / 2.0;
+		double far = depth + length / 2.0;
+		return new TexturedQuad(new[]
+		{
+			Point(theta - halfAngle, near),
+			Point(theta - halfAngle, far),
+			Point(theta + halfAngle, far),
+			Point(theta + halfAngle, near)
+		}, new[]
+		{
+			new Vector2(0.0, 1.0),
+			new Vector2(0.0, 0.0),
+			new Vector2(1.0, 0.0),
+			new Vector2(1.0, 1.0)
+		}, texture, QuadStyle.Shadow);
 	}
 
 	/// <summary>
