@@ -232,6 +232,19 @@ public sealed class RegressionTests
 	}
 
 	/// <summary>
+	/// Plays the first special stage alone with no input and the imported art. The messages use the letters of the
+	/// original: "GET 30 RINGS!", its letters that fly away, "8 RINGS TO GO!" and "NOT ENOUGH RINGS...". The ring
+	/// counter uses the big digits of the original.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void SpecialStageMessages_MatchesGoldenScreenshots()
+	{
+		RunAndCompare("--halfpipe 1 --sidekick none", new[] { 20380, 20520, 21350, 21650 }, Path.Combine(TestPaths.GoldenDirectory, "special-stage-messages"),
+			"special-stage-messages", withImportedMods: true);
+	}
+
+	/// <summary>
 	/// Plays the first special stage with no input, so that the camera, the sizes and the track stay as in the
 	/// original. The special stage ticks are captured as 20000 plus the tick.
 	/// </summary>

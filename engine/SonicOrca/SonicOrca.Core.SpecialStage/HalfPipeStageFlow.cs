@@ -86,6 +86,9 @@ public sealed class HalfPipeStageFlow
 	/// <summary>The "xx RINGS TO GO!" counter, or null when it is hidden. It flashes: visible 6 of each 8 frames.</summary>
 	public string Counter { get; private set; }
 
+	/// <summary>The number of the "xx RINGS TO GO!" counter while it shows, or null.</summary>
+	public int? RingsToGo { get; private set; }
+
 	/// <summary>The rings needed at the next ring test, or 0 after the last one.</summary>
 	public int CurrentGoal => _nextCheckpoint < _track.Checkpoints.Count ? _track.Checkpoints[_nextCheckpoint].RingGoal : 0;
 
@@ -159,6 +162,7 @@ public sealed class HalfPipeStageFlow
 	private void UpdateCounter(int playerNode, int rings)
 	{
 		Counter = null;
+		RingsToGo = null;
 		// The counter hides at the ring test, and stays hidden after a failed one
 		if (_checkpointFailed || _nextCheckpoint >= _track.Checkpoints.Count || InputMasked && _nextCheckpoint < 2)
 		{
@@ -188,6 +192,7 @@ public sealed class HalfPipeStageFlow
 		if (_frame % 8 < 6)
 		{
 			Counter = toGo == 1 ? "1 RING TO GO!" : $"{toGo} RINGS TO GO!";
+			RingsToGo = toGo;
 		}
 	}
 

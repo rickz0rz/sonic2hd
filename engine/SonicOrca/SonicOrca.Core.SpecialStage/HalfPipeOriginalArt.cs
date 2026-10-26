@@ -9,7 +9,8 @@ namespace SonicOrca.Core.SpecialStage;
 
 /// <summary>
 /// The art of the special stage of the original game, which "s2hd-data import-special-stages" makes from the Sonic 2
-/// disassembly: the START banner, the winged hand of the checkpoint messages, and the results screen with its digits.
+/// disassembly: the START banner, the winged hand and the letters of the messages, the results screen with its digits,
+/// and the big digits of the ring counters and the messages.
 /// The game data does not have it, so the stage uses it only when a mod adds it. The sprites are at four times the
 /// size of the original, and this class draws them at that size, centred on the 1920 x 1080 screen.
 /// </summary>
@@ -21,6 +22,12 @@ internal sealed class HalfPipeOriginalArt
 	public const string DigitsKey = "SONICORCA/SPECIALSTAGE/ORIGINAL/DIGITS/ANIGROUP";
 
 	public static readonly IReadOnlyList<string> ResourceKeys = new[] { MessagesKey, StartKey, ResultsKey, DigitsKey };
+
+	/// <summary>
+	/// The big digits of the ring counters and of the messages (frames 0 to 9). An import before this art has the other
+	/// art without it, so the stage loads it when it is there, and draws the numbers with the HD font when it is not.
+	/// </summary>
+	public const string HudKey = "SONICORCA/SPECIALSTAGE/ORIGINAL/HUD/ANIGROUP";
 
 	/// <summary>The size of a pixel of the original.</summary>
 	public const double Scale = 4.0;
@@ -56,8 +63,12 @@ internal sealed class HalfPipeOriginalArt
 
 	public AnimationGroup Digits { get; }
 
+	/// <summary>The big digits of the counters and of the messages, or null (see <see cref="HudKey"/>).</summary>
+	public AnimationGroup Hud { get; }
+
 	public HalfPipeOriginalArt(ResourceTree tree)
 	{
+		Hud = tree.TryGetLoadedResource(HudKey, out AnimationGroup hud) ? hud : null;
 		Messages = tree.GetLoadedResource<AnimationGroup>(MessagesKey);
 		Start = tree.GetLoadedResource<AnimationGroup>(StartKey);
 		Results = tree.GetLoadedResource<AnimationGroup>(ResultsKey);
@@ -67,7 +78,7 @@ internal sealed class HalfPipeOriginalArt
 	/// <summary>Draws the art with sharp pixels, as in the original. It calls OpenGL, so call it on the thread of the window.</summary>
 	public void UseSharpPixels()
 	{
-		foreach (ITexture texture in new[] { Messages, Start, Results, Digits }.SelectMany(group => group.Textures))
+		foreach (ITexture texture in new[] { Messages, Start, Results, Digits, Hud }.Where(group => group != null).SelectMany(group => group.Textures))
 		{
 			texture.Filtering = TextureFiltering.NearestNeighbour;
 		}
@@ -91,6 +102,40 @@ internal sealed class HalfPipeOriginalArt
 		double centreY = ScreenTop + y * Scale + (flipY ? -frame.Offset.Y : frame.Offset.Y);
 		g.RenderTexture(group.Textures[frame.TextureIndex], new Rectangle(source.X, source.Y, source.Width, source.Height),
 			new Rectangle(centreX - source.Width / 2.0, centreY - source.Height / 2.0, source.Width, source.Height), flipy: flipY);
+	}
+
+	/// <summary>
+	/// Draws a letter or a digit of a message at a position on the screen of the stage. The messages art has the frames
+	/// of palette line 1 (the winged hand), then the same frames in palette line 2, which the letters use.
+	/// </summary>
+	public void DrawGlyph(I2dRenderer g, HalfPipeGlyph glyph, double x, double y)
+	{
+		if (glyph.Digit)
+		{
+			DrawFrame(g, Hud, glyph.Frame, StageLeft, x, y);
+		}
+		else
+		{
+			DrawFrame(g, Messages, Messages.Count / 2 + glyph.Frame, StageLeft, x, y);
+		}
+	}
+
+	/// <summary>
+	/// Draws a number with the big digits of the counters (<see cref="Hud"/>), in pixels of the 1920 x 1080 screen: from
+	/// its left edge, or about its centre. The digits are centred on <paramref name="centreY"/>.
+	/// </summary>
+	public void DrawHudNumber(I2dRenderer g, int value, double x, double centreY, bool centred = false)
+	{
+		string digits = Math.Max(0, value).ToString(System.Globalization.CultureInfo.InvariantCulture);
+		const double digitWidth = 8 * Scale;
+		double left = centred ? x - digits.Length * digitWidth / 2.0 : x;
+		for (int i = 0; i < digits.Length; i++)
+		{
+			Animation.Frame frame = Hud[digits[i] - '0'].Frames[0];
+			Rectanglei source = frame.Source;
+			g.RenderTexture(Hud.Textures[frame.TextureIndex], new Rectangle(source.X, source.Y, source.Width, source.Height),
+				new Rectangle(left + i * digitWidth, centreY - source.Height / 2.0, source.Width, source.Height));
+		}
 	}
 
 	/// <summary>Draws a number with its right edge at a position, without leading zeros, as the HUD code of the original does.</summary>
