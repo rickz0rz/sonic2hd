@@ -1,0 +1,23 @@
+<Project>
+
+  <!-- The short commit SHA of the build, for the title screen (TitleGameState) and the log. The desktop and the web
+       projects import this file. Without git, the title shows the build number of the version. Override with
+       -p:CommitSha=... -->
+  <Target Name="AddCommitSha" BeforeTargets="GetAssemblyAttributes">
+    <Exec Command="git rev-parse --short HEAD" Condition=" '$(CommitSha)' == '' " WorkingDirectory="$(MSBuildThisFileDirectory)"
+          ConsoleToMSBuild="true" IgnoreExitCode="true" StandardOutputImportance="low" StandardErrorImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_GitCommitSha" />
+      <Output TaskParameter="ExitCode" PropertyName="_GitExitCode" />
+    </Exec>
+    <PropertyGroup Condition=" '$(CommitSha)' == '' And '$(_GitExitCode)' == '0' ">
+      <CommitSha>$(_GitCommitSha)</CommitSha>
+    </PropertyGroup>
+    <ItemGroup Condition=" '$(CommitSha)' != '' ">
+      <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+        <_Parameter1>CommitSha</_Parameter1>
+        <_Parameter2>$(CommitSha)</_Parameter2>
+      </AssemblyAttribute>
+    </ItemGroup>
+  </Target>
+
+</Project>

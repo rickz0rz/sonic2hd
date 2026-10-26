@@ -19,6 +19,10 @@ public static class Program
 {
 	public const string BuildConfigurationName = "RELEASE";
 	public static Version AppVersion = Assembly.GetExecutingAssembly().GetName().Version;
+
+	/// <summary>The short commit SHA of the build (see AddCommitSha in S2HD.csproj), or null when the build had no git.</summary>
+	public static readonly string CommitSha = Assembly.GetExecutingAssembly().GetCustomAttributes<AssemblyMetadataAttribute>()
+		.FirstOrDefault(attribute => attribute.Key == "CommitSha")?.Value;
 	public static string AppArchitecture = Environment.Is64BitProcess ? "x64" : "x86";
 	public static Version AppMinOpenGLVersion = new Version(3, 3);
 	private static string IniConfigurationPath = "sonicorca.cfg";
@@ -176,7 +180,7 @@ public static class Program
 		Trace.Listeners.Add(new TextWriterTraceListener(LogPath));
 		Trace.Listeners.Add(new ConsoleTraceListener());
 		Trace.WriteLine(Environment.OSVersion);
-		Trace.WriteLine($"SonicOrca {AppVersion} [{BuildConfigurationName} {AppArchitecture}]");
+		Trace.WriteLine($"SonicOrca {AppVersion} {CommitSha} [{BuildConfigurationName} {AppArchitecture}]");
 		Trace.WriteLine(DateTime.Now.ToString("dd MMMM yyyy @ hh:mm tt"));
 		Trace.WriteLine(new string('-', 80));
 		Trace.Indent();
