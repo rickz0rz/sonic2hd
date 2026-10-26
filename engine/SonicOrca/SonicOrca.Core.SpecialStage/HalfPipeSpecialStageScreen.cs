@@ -110,6 +110,9 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	private const string TallyEndSoundResourceKey = "SONICORCA/SOUND/TALLY/END";
 
+	/// <summary>The sound when "PERFECT BONUS" shows (SndID_Signpost).</summary>
+	private const string PerfectSoundResourceKey = "SONICORCA/SOUND/SIGNPOST";
+
 	private const string EmeraldMusicResourceKey = "SONICORCA/MUSIC/JINGLE/STAGECLEAR/S1";
 
 	// SDL scan codes of the keys that change the field of view, and of Escape.
@@ -356,6 +359,8 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	private Sample _tallyEndSound;
 
+	private Sample _perfectSound;
+
 	private Sample _emeraldJingle;
 
 	private Sample _resultsJingle;
@@ -513,7 +518,7 @@ public class HalfPipeSpecialStageScreen : Screen
 			RingEffectAnimationResourceKey, ExplosionAnimationResourceKey, BombResourceKey, ShadowResourceKey, BallShadowResourceKey, GlowResourceKey,
 			RingsLabelResourceKey, MusicResourceKey, RingSoundResourceKey, JumpSoundResourceKey, RingLossSoundResourceKey,
 			BombSoundResourceKey, CheckpointSoundResourceKey, ErrorSoundResourceKey, TallySoundResourceKey,
-			TallyEndSoundResourceKey, EmeraldMusicResourceKey,
+			TallyEndSoundResourceKey, PerfectSoundResourceKey, EmeraldMusicResourceKey,
 		};
 		foreach (string key in keys)
 		{
@@ -573,6 +578,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		_errorSound = tree.GetLoadedResource<Sample>(ErrorSoundResourceKey);
 		_tallySound = tree.GetLoadedResource<Sample>(TallySoundResourceKey);
 		_tallyEndSound = tree.GetLoadedResource<Sample>(TallyEndSoundResourceKey);
+		_perfectSound = tree.GetLoadedResource<Sample>(PerfectSoundResourceKey);
 		_emeraldJingle = tree.GetLoadedResource<Sample>(EmeraldMusicResourceKey);
 		_resultsJingle = tree.GetLoadedResource<Sample>(resultsJingleKey);
 		_originalArt = hasOriginalArt ? new HalfPipeOriginalArt(tree) : null;
@@ -599,6 +605,11 @@ public class HalfPipeSpecialStageScreen : Screen
 		_pipeBuffer = _graphicsContext.CreateVertexBuffer(3, 2);
 		FillPipeBuffer();
 		_originalArt?.UseSharpPixels();
+		if (SonicOrca.Core.Debugging.TestHooks.SpecialStageResults is (int rings, bool emerald, bool perfect))
+		{
+			_rings = rings;
+			StartResults(emerald, perfect ? _track.RingCount : 0);
+		}
 	}
 
 	public override void Update()
@@ -617,7 +628,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		{
 			_fov--;
 		}
-		if (_frames == 0)
+		if (_frames == 0 && _results == null)
 		{
 			_musicInstance = new SampleInstance(_gameContext, _musicSampleInfo);
 			_musicInstance.Play();
@@ -634,7 +645,7 @@ public class HalfPipeSpecialStageScreen : Screen
 			// The stage stops while it fades to white, then the results screen starts
 			if (++_endFadeFrames >= WhiteFadeFrames)
 			{
-				StartResults();
+				StartResults(_flow.EmeraldWon, _ringsCollected);
 			}
 		}
 		else
@@ -858,9 +869,10 @@ public class HalfPipeSpecialStageScreen : Screen
 	}
 
 	/// <summary>Starts the results screen, with its jingle (MusID_EndLevel).</summary>
-	private void StartResults()
+	private void StartResults(bool emeraldWon, int ringsCollected)
 	{
-		_results = new HalfPipeResults(Rings, _flow.EmeraldWon, _ringsCollected, _track.RingCount);
+		bool allEmeralds = _startEmeralds + (emeraldWon ? 1 : 0) >= HalfPipeLayout.StageCount;
+		_results = new HalfPipeResults(Rings, emeraldWon, ringsCollected, _track.RingCount, allEmeralds);
 		_resultsFrames = 0;
 		_musicInstance?.Stop();
 		_musicInstance?.Dispose();
@@ -881,6 +893,10 @@ public class HalfPipeSpecialStageScreen : Screen
 		else if (_results.TallyJustEnded)
 		{
 			_gameContext.Audio.PlaySound(_tallyEndSound);
+		}
+		if (_results.PerfectJustShown)
+		{
+			_gameContext.Audio.PlaySound(_perfectSound);
 		}
 		if (_results.Finished)
 		{
@@ -1073,18 +1089,25 @@ public class HalfPipeSpecialStageScreen : Screen
 		double Slide(double start) => start > centreX
 			? Math.Max(centreX, start - _resultsFrames * ResultsTextSpeed)
 			: Math.Min(centreX, start + _resultsFrames * ResultsTextSpeed);
-		int emeralds = _startEmeralds + (_results.EmeraldWon ? 1 : 0);
-		bool allEmeralds = _results.EmeraldWon && emeralds >= HalfPipeLayout.StageCount;
+		bool allEmeralds = _results.SuperMessage;
 		int titleFrame = allEmeralds ? 25 : _results.EmeraldWon ? 4 : 0;
-		HalfPipeOriginalArt.DrawFrame(g, results, titleFrame, left, Slide(320 + 128), centreY - 70);
-		if (_results.EmeraldWon)
+		if (_results.Phase == HalfPipeResultsPhase.SuperMessage)
 		{
-			// "Sonic got a" or "Sonic has all the", from the left
-			HalfPipeOriginalArt.DrawFrame(g, results, allEmeralds ? 22 : 1, left, Slide(-128), centreY - 88);
+			DrawSuperMessage(g, results, left, titleFrame, centreY);
 		}
-		// The emeralds that the player has, in a ring around the last one
+		else
+		{
+			HalfPipeOriginalArt.DrawFrame(g, results, titleFrame, left, Slide(320 + 128), centreY - 70);
+			if (_results.EmeraldWon)
+			{
+				// "Sonic got a" or "Sonic has all the", from the left
+				HalfPipeOriginalArt.DrawFrame(g, results, allEmeralds ? 22 : 1, left, Slide(-128), centreY - 88);
+			}
+		}
+		// The emeralds that the player has, in a ring around the last one. They show on every second frame
+		// (Obj6F_Emerald0, bit 0 of Vint_runcount), which looks like half opacity at 60 frames a second.
 		(int X, int Y)[] emeraldPositions = { (-8, -44), (16, -32), (16, -8), (-8, 4), (-32, -8), (-32, -32), (-8, -20) };
-		for (int i = 0; i < emeraldPositions.Length; i++)
+		for (int i = 0; i < emeraldPositions.Length && _frames % 2 == 1; i++)
 		{
 			bool has = i < _startEmeralds || (_results.EmeraldWon && i == _stage);
 			if (has)
@@ -1092,34 +1115,59 @@ public class HalfPipeSpecialStageScreen : Screen
 				HalfPipeOriginalArt.DrawFrame(g, results, 5 + i, left, centreX + emeraldPositions[i].X, centreY + emeraldPositions[i].Y);
 			}
 		}
-		// The rings that are left to count, for each player
+		// The rows have the places of the original: the score at 24, the rings of the players at 40 and 56 (48 for one
+		// player), and the gems bonus at 72. "PERFECT BONUS" replaces the rings rows at 48 and flashes on bit 3 of
+		// the frame counter (Obj6F_PerfectBonus).
 		int ringsLeft = _results.RingBonus / HalfPipeResults.PointsPerRing;
 		int tailsRingsLeft = _tails != null ? Math.Min(_tailsRings, ringsLeft) : 0;
-		var rows = new List<(int Frame, int StartX, int Value)>
+		var rows = new List<(int Frame, int StartX, int Y, int Value)> { (12, 320 + 368, 24, _startScore + _results.Total) };
+		if (_results.PerfectShown)
 		{
-			(12, 320 + 368, _startScore + _results.Total),
-			(13, 320 + 384, ringsLeft - tailsRingsLeft)
-		};
-		if (_tails != null)
+			if (_frames % 16 < 8)
+			{
+				rows.Add((17, 320 + 384, 48, _results.PerfectBonus));
+			}
+		}
+		else
 		{
-			rows.Add((15, 320 + 400, tailsRingsLeft));
+			rows.Add((13, 320 + 384, _tails != null ? 40 : 48, ringsLeft - tailsRingsLeft));
+			if (_tails != null)
+			{
+				rows.Add((15, 320 + 400, 56, tailsRingsLeft));
+			}
 		}
 		if (_results.EmeraldWon)
 		{
-			rows.Add((16, 320 + 416, _results.GemsBonus));
+			rows.Add((16, 320 + 416, 72, _results.GemsBonus));
 		}
-		if (_results.PerfectBonus > 0 || _results.Total >= HalfPipeResults.PerfectBonusPoints)
+		foreach ((int frame, int startX, int y, int value) in rows)
 		{
-			rows.Add((17, 320 + 432, _results.PerfectBonus));
-		}
-		for (int i = 0; i < rows.Count; i++)
-		{
-			double x = Slide(rows[i].StartX);
-			double y = centreY + 24 + i * 16;
-			HalfPipeOriginalArt.DrawFrame(g, results, rows[i].Frame, left, x, y);
+			double x = Slide(startX);
+			HalfPipeOriginalArt.DrawFrame(g, results, frame, left, x, centreY + y);
 			// The numbers end 96 pixels right of the centre of the row
-			_originalArt.DrawNumber(g, rows[i].Value, left, x + 0x60, y);
+			_originalArt.DrawNumber(g, value, left, x + 0x60, centreY + y);
 		}
+	}
+
+	/// <summary>
+	/// The Super Sonic message of the original (Obj6F_InitAndMoveSuperMsg): the title leaves to the right and "Sonic
+	/// has all the" to the left. Then "NOW SONIC CAN" comes from the left, "CHANGE INTO" from the right, and "SUPER
+	/// SONIC" from the left.
+	/// </summary>
+	private void DrawSuperMessage(I2dRenderer g, AnimationGroup results, double left, int titleFrame, double centreY)
+	{
+		const double centreX = 160.0;
+		int frames = _results.PhaseFrames;
+		if (frames <= HalfPipeResults.SuperMessageLeaveFrames)
+		{
+			HalfPipeOriginalArt.DrawFrame(g, results, titleFrame, left, Math.Min(320 + 128, centreX + frames * HalfPipeResults.LeaveSpeed), centreY - 70);
+			HalfPipeOriginalArt.DrawFrame(g, results, 22, left, Math.Max(-128, centreX - frames * HalfPipeResults.LeaveSpeed), centreY - 88);
+			return;
+		}
+		int moved = (frames - HalfPipeResults.SuperMessageLeaveFrames) * HalfPipeResults.TextSpeed;
+		HalfPipeOriginalArt.DrawFrame(g, results, 26, left, Math.Min(centreX, -128 + moved), centreY - 96);
+		HalfPipeOriginalArt.DrawFrame(g, results, 27, left, Math.Max(centreX, 320 + 128 - moved), centreY - 78);
+		HalfPipeOriginalArt.DrawFrame(g, results, 28, left, Math.Min(centreX, -128 + moved), centreY - 60);
 	}
 
 	private void DrawBackground(Renderer renderer)
@@ -1576,9 +1624,13 @@ public class HalfPipeSpecialStageScreen : Screen
 		}
 		Line("RING BONUS", _results.RingBonus, 500.0);
 		Line("GEMS BONUS", _results.GemsBonus, 580.0);
-		if (_results.PerfectBonus > 0 || _results.Total >= HalfPipeResults.PerfectBonusPoints)
+		if (_results.PerfectShown)
 		{
 			Line("PERFECT BONUS", _results.PerfectBonus, 660.0);
+		}
+		if (_results.Phase == HalfPipeResultsPhase.SuperMessage)
+		{
+			fontRenderer.RenderString("NOW SONIC CAN CHANGE INTO SUPER SONIC", new Rectangle(960.0, 900.0, 0.0, 0.0), FontAlignment.MiddleX, _font, 0);
 		}
 		Line("TOTAL", _results.Total, 780.0);
 	}

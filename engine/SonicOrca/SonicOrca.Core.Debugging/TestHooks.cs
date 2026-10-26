@@ -15,6 +15,8 @@ namespace SonicOrca.Core.Debugging;
 /// <item>S2HD_TEST_START_RINGS=60: gives the player this number of rings when a level starts.</item>
 /// <item>S2HD_TEST_EMERALDS=7: gives the player this number of emeralds when a level starts.</item>
 /// <item>S2HD_TEST_SPECIAL_STAGE_AT_TICK=300: at this level tick, goes to the special stage as from a star circle.</item>
+/// <item>S2HD_TEST_SPECIAL_STAGE_RESULTS=30,1,1: the special stage goes to its results screen at once, with these rings,
+/// the emerald (1) or not (0), and all the rings collected (1) or not (0).</item>
 /// <item>S2HD_TEST_EDITOR_INPUT="5:mouse 900 500;6:down left;7:up left": replaces the mouse and keyboard of the level
 /// editor with these commands. Each command has the editor frame where it starts (counted over all the times that
 /// the editor opens) and one of: "mouse X Y" (1920 x 1080 screen), "down left|right|middle", "up left|right|middle",
@@ -51,8 +53,17 @@ public static class TestHooks
 	public static readonly int? SpecialStageAtTick =
 		int.TryParse(Environment.GetEnvironmentVariable("S2HD_TEST_SPECIAL_STAGE_AT_TICK"), out int tick) ? tick : null;
 
+	/// <summary>The results that the special stage shows at once, to test the results screen, or null.</summary>
+	public static readonly (int Rings, bool Emerald, bool Perfect)? SpecialStageResults = ParseSpecialStageResults(Environment.GetEnvironmentVariable("S2HD_TEST_SPECIAL_STAGE_RESULTS"));
+
 	/// <summary>Set when the special stage test hook was used, so that it runs once.</summary>
 	public static bool SpecialStageTestDone { get; set; }
+
+	private static (int, bool, bool)? ParseSpecialStageResults(string value)
+	{
+		string[] parts = value?.Split(',', StringSplitOptions.TrimEntries) ?? Array.Empty<string>();
+		return parts.Length == 3 && int.TryParse(parts[0], out int rings) ? (rings, parts[1] == "1", parts[2] == "1") : null;
+	}
 
 	/// <summary>The scripted input of the level editor, by editor frame, or null.</summary>
 	public static readonly IReadOnlyDictionary<int, string[]> EditorInput = ParseEditorInput(Environment.GetEnvironmentVariable("S2HD_TEST_EDITOR_INPUT"));

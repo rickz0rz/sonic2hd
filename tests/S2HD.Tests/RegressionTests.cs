@@ -219,6 +219,19 @@ public sealed class RegressionTests
 	}
 
 	/// <summary>
+	/// Shows the results screen of the seventh special stage at once (S2HD_TEST_SPECIAL_STAGE_RESULTS), with all the
+	/// rings and the last emerald. "PERFECT BONUS" replaces the ring rows, then the Super Sonic message shows. The
+	/// screenshots are on odd frames, when the emeralds show.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void SpecialStageResults_MatchesGoldenScreenshots()
+	{
+		RunAndCompare("--halfpipe 7", new[] { 20375, 20751 }, Path.Combine(TestPaths.GoldenDirectory, "special-stage-results"), "special-stage-results",
+			new Dictionary<string, string> { ["S2HD_TEST_SPECIAL_STAGE_RESULTS"] = "20,1,1", ["S2HD_TEST_EMERALDS"] = "6" }, withImportedMods: true);
+	}
+
+	/// <summary>
 	/// Plays the first special stage with no input, so that the camera, the sizes and the track stay as in the
 	/// original. The special stage ticks are captured as 20000 plus the tick.
 	/// </summary>

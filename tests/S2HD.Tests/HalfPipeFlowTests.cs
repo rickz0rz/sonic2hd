@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using SonicOrca.Core.SpecialStage;
 using Xunit;
@@ -176,8 +177,57 @@ public sealed class HalfPipeFlowTests
 		Assert.True(results.Finished);
 		Assert.Equal(75000, results.Total);
 		Assert.Equal(0, results.RingBonus + results.GemsBonus + results.PerfectBonus);
-		// 180 frames, the tally (the perfect bonus takes the longest: 500 steps), then 120 frames
-		Assert.InRange(frames, 180 + 500 + 120, 180 + 500 + 121);
+		// 180 frames; the tally of the rings (150 steps and the frame that ends it); 90 + 90 frames; the tally of the
+		// perfect bonus (250 steps and the end frame); then 120 frames
+		Assert.Equal(180 + 151 + 90 + 90 + 251 + 120, frames);
+	}
+
+	[Fact]
+	public void Results_PerfectBonus_ShowsAfterTheTally_WithItsSound_AndTalliesAt200PointsAFrame()
+	{
+		var results = new HalfPipeResults(rings: 10, emeraldWon: false, ringsCollected: 50, ringsInStage: 50);
+		int Run(Func<bool> until)
+		{
+			int count = 0;
+			while (!until() && count < 2000)
+			{
+				results.Update();
+				count++;
+			}
+			return count;
+		}
+
+		Run(() => results.TallyJustEnded);
+		Assert.Equal(1000, results.Total);
+		Assert.Equal(HalfPipeResultsPhase.PerfectWait, results.Phase);
+		Assert.False(results.PerfectShown);
+
+		Assert.Equal(90, Run(() => results.PerfectJustShown));
+		Assert.True(results.PerfectShown);
+		Run(() => results.Phase == HalfPipeResultsPhase.PerfectTally);
+		results.Update();
+		Assert.Equal(HalfPipeResults.PerfectBonusPoints - 200, results.PerfectBonus);
+		Assert.Equal(1200, results.Total);
+	}
+
+	[Fact]
+	public void Results_WithTheSeventhEmerald_ShowTheSuperSonicMessage_AfterTheTally()
+	{
+		var results = new HalfPipeResults(rings: 10, emeraldWon: true, ringsCollected: 20, ringsInStage: 50, allEmeralds: true);
+		bool sawMessage = false;
+		int frames = 0;
+		while (!results.Finished && frames < 2000)
+		{
+			results.Update();
+			sawMessage |= results.Phase == HalfPipeResultsPhase.SuperMessage;
+			Assert.NotEqual(HalfPipeResultsPhase.End, results.Phase);
+			frames++;
+		}
+
+		Assert.True(sawMessage);
+		// 180 frames, the tally of the gems bonus (100 steps and the end frame), then the message
+		Assert.Equal(180 + 101 + HalfPipeResults.SuperMessageFrames, frames);
+		Assert.False(new HalfPipeResults(rings: 10, emeraldWon: false, ringsCollected: 20, ringsInStage: 50, allEmeralds: true).SuperMessage);
 	}
 
 	[Fact]
