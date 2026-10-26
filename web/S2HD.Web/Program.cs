@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices.JavaScript;
 using SonicOrca;
@@ -26,6 +27,10 @@ public static partial class Program
 
 	public static Version AppVersion = typeof(Program).Assembly.GetName().Version;
 
+	/// <summary>The short commit SHA of the build (see CommitSha.targets), or null when the build had no git.</summary>
+	public static readonly string CommitSha = typeof(Program).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
+		.FirstOrDefault(attribute => attribute.Key == "CommitSha")?.Value;
+
 	public static string AppArchitecture = "wasm";
 
 	public static Version AppMinOpenGLVersion = new Version(3, 3);
@@ -40,7 +45,7 @@ public static partial class Program
 	{
 		Trace.AutoFlush = true;
 		Trace.Listeners.Add(new ConsoleTraceListener());
-		Trace.WriteLine($"SonicOrca {AppVersion} [web {AppArchitecture}], .NET {Environment.Version}");
+		Trace.WriteLine($"SonicOrca {AppVersion} {CommitSha} [web {AppArchitecture}], .NET {Environment.Version}");
 	}
 
 	public static void ShowErrorMessageBox(string text)

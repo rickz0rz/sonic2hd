@@ -77,4 +77,6 @@
     <ZipDirectory SourceDirectory="$(GameDataStaging)" DestinationFile="$(GameDataZip)" Overwrite="true" Condition=" '$(BundleGameData)' == 'true' " />
   </Target>
 
+  <Import Project="$(RepoRoot)CommitSha.targets" />
+
 </Project>

@@ -69,7 +69,7 @@ internal class TitleGameState : IGameState, IDisposable
 	{
 		_gameContext = gameContext;
 		Version appVersion = Program.AppVersion;
-		_versionText = $"Version {appVersion.Major}.{appVersion.Minor} Demo Build {appVersion.Build}";
+		_versionText = $"Version {appVersion.Major}.{appVersion.Minor} Build {Program.CommitSha ?? appVersion.Build.ToString()}";
 	}
 
 	private void LoadResources()
