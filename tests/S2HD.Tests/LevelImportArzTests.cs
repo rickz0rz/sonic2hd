@@ -28,6 +28,15 @@ public sealed class LevelImportArzTests
 	}
 
 	[Fact]
+	public void Arz_PutsTheSignpostOnTheGround()
+	{
+		// The original signpost of act 1 is at (10636, 944). The post of the HD sprite is 32 shorter below the position.
+		ObjectPlacement signpost = Arz.Value.Binding.ObjectPlacements.Single(p => p.Key == "SONICORCA/OBJECTS/SIGNPOST");
+
+		Assert.Equal(new Vector2i(10636 * 4, 944 * 4 + 32), signpost.Position);
+	}
+
+	[Fact]
 	public void Arz_HasTheStartPositions_TheBounds_AndTheWaterOfBothActs()
 	{
 		// Both acts start at (96, 894). Act 2 is at block (704, 4) of the map.

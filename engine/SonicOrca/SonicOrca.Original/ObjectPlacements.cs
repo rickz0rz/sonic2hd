@@ -199,6 +199,9 @@ public static class ObjectPlacements
 				break;
 			case 13:
 				key = "SONICORCA/OBJECTS/SIGNPOST";
+				// The post of the original sprite ends 32 pixels below the position (128 in HD), and the post of the HD
+				// sprite ends 96 below it. So the HD signpost goes 32 down to stand on the ground, as in the HD zones.
+				position.Y += 32;
 				break;
 			case 20:
 				key = "SONICORCA/OBJECTS/HTZSEESAW";
