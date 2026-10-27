@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using SonicOrca.Resources;
 
 namespace SonicOrca.Audio;
@@ -52,6 +53,15 @@ public class Sample : ILoadedResource, IDisposable
 
 	public void Dispose()
 	{
+	}
+
+	/// <summary>
+	/// Opens a stream of the PCM data. When the sample has a loop point, reads past the end continue from the loop
+	/// point. A sample that makes its sound while it plays gives its own stream.
+	/// </summary>
+	public virtual Stream OpenStream(int? loopSampleIndex)
+	{
+		return new SampleStream(this, loopSampleIndex);
 	}
 
 	public long GetPcmDataOffset(int sampleIndex)

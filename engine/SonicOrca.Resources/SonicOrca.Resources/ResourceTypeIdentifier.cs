@@ -13,6 +13,7 @@ public enum ResourceTypeIdentifier : ushort
 	SampleWAV = 529,
 	SampleMP3 = 530,
 	SampleOGG = 531,
+	SampleSMPS = 532,
 	Font = 769,
 	VideoH264 = 1025,
 	AnimationGroup = 4097,

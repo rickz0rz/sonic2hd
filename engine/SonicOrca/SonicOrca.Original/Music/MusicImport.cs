@@ -60,37 +60,35 @@ public static class MusicImport
 
 	/// <summary>
 	/// Imports one song: the sample KEY/SAMPLE.ogg and the sample info KEY/_.sampleinfo.xml. Without ffmpeg (the web
-	/// build), the sample is KEY/SAMPLE.wav at half the sample rate, which is four times the size of the Ogg file.
+	/// build), the sample is KEY/SAMPLE.smps: the song and its drums, which the game plays live on the emulated chips.
 	/// Returns a line that tells the length and the loop point of the song.
 	/// </summary>
 	/// <param name="song">The song, from <see cref="Songs"/>.</param>
 	/// <param name="disassembly">The folder of the disassembly.</param>
 	/// <param name="folder">The output folder.</param>
-	/// <param name="ffmpeg">The ffmpeg program, or null for a WAVE sample.</param>
+	/// <param name="ffmpeg">The ffmpeg program, or null for a song that plays live.</param>
 	public static string ImportSong((string File, string Key) song, string disassembly, string folder, string ffmpeg)
 	{
 		Stopwatch stopwatch = Stopwatch.StartNew();
 		SmpsSong smps = SmpsSong.FromFile(Path.Combine(disassembly, MusicFolder, song.File));
-		RenderedSong rendered = SongRenderer.Render(smps, Path.Combine(disassembly, DacFolder));
 		string keyFolder = Path.Combine(new[] { folder }.Concat(song.Key.Split('/')).ToArray());
 		Directory.CreateDirectory(keyFolder);
-		string wave = Path.Combine(keyFolder, "SAMPLE.wav");
 		if (ffmpeg == null)
 		{
-			rendered = rendered.HalfRate();
-			rendered.WriteWave(wave);
+			SmpsResourceType.Write(Path.Combine(keyFolder, "SAMPLE.smps"), smps, SongRenderer.LoadDrums(Path.Combine(disassembly, DacFolder)));
+			WriteSampleInfo(Path.Combine(keyFolder, "_.sampleinfo.xml"), null);
+			return string.Format(CultureInfo.InvariantCulture, "{0}: plays live ({1:0.0} s to make)", song.Key, stopwatch.Elapsed.TotalSeconds);
 		}
-		else
+		RenderedSong rendered = SongRenderer.Render(smps, Path.Combine(disassembly, DacFolder));
+		string wave = Path.Combine(keyFolder, "SAMPLE.wav");
+		rendered.WriteWave(wave);
+		try
 		{
-			rendered.WriteWave(wave);
-			try
-			{
-				Encode(ffmpeg, wave, Path.Combine(keyFolder, "SAMPLE.ogg"));
-			}
-			finally
-			{
-				File.Delete(wave);
-			}
+			Encode(ffmpeg, wave, Path.Combine(keyFolder, "SAMPLE.ogg"));
+		}
+		finally
+		{
+			File.Delete(wave);
 		}
 		WriteSampleInfo(Path.Combine(keyFolder, "_.sampleinfo.xml"), rendered.LoopSample);
 		string loop = rendered.LoopSample is int sample

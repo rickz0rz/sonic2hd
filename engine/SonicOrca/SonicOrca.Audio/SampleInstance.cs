@@ -82,7 +82,7 @@ public class SampleInstance : IDisposable, ISampleProvider
 
 	private void CreateSampleInputStream()
 	{
-		_sampleInputStream = new SampleStream(_sample, _loopSampleIndex);
+		_sampleInputStream = _sample.OpenStream(_loopSampleIndex);
 		if (_sample.SampleRate != OutputSampleRate)
 		{
 			_sampleInputStream = new ResamplerStream(_sampleInputStream, _sample.SampleRate, OutputSampleRate);

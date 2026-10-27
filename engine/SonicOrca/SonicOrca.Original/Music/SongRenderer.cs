@@ -6,18 +6,15 @@ using System.Text;
 namespace SonicOrca.Original.Music;
 
 /// <summary>
-/// Plays a <see cref="SmpsSong"/> with the <see cref="SmpsDriver"/> and the chip emulators, and gives the sound as
-/// samples. The renderer finds the loop of a song: the first frame where the state of the driver is the same as at
-/// an earlier frame. The sound then ends one full loop after the start of the loop, and the loop point is the start
-/// of the second loop. So the end of the sound continues into the loop point without a click.
+/// Plays a <see cref="SmpsSong"/> with a <see cref="SongPlayer"/>, and gives the sound as samples. The renderer finds
+/// the loop of a song: the first frame where the state of the driver is the same as at an earlier frame. The sound
+/// then ends one full loop after the start of the loop, and the loop point is the start of the second loop. So the
+/// end of the sound continues into the loop point without a click.
 /// </summary>
 public static class SongRenderer
 {
 	/// <summary>The output sample rate. The music of the HD game is 48000 Hz.</summary>
 	public const int SampleRate = 48000;
-
-	/// <summary>The time that a song without a loop plays after its last track stops, in seconds.</summary>
-	private const double TailSeconds = 2.0;
 
 	/// <summary>The longest time that the renderer plays a song while it looks for the loop, in seconds.</summary>
 	private const double MaxSeconds = 900.0;
@@ -28,30 +25,20 @@ public static class SongRenderer
 	/// <summary>The length of a looping song is a multiple of this number of samples.</summary>
 	private const int EncoderBlockSamples = 64;
 
-	/// <summary>The volume of the mix. It keeps the loudest songs below full scale.</summary>
-	private const float Gain = 1.6f;
-
 	/// <summary>Plays a song.</summary>
 	/// <param name="song">The song.</param>
 	/// <param name="dacFolder">The folder of the DAC drums (sound/DAC of the disassembly), or null for no drums.</param>
 	public static RenderedSong Render(SmpsSong song, string dacFolder)
 	{
 		Dictionary<DacSample, (byte[] Samples, int Rate)> drums = dacFolder != null ? LoadDrums(dacFolder) : new Dictionary<DacSample, (byte[], int)>();
-		Ym2612 fm = new Ym2612(SampleRate);
-		Sn76489 psg = new Sn76489(SampleRate);
-		SmpsDriver driver = new SmpsDriver(song, fm, psg);
-		double samplesPerFrame = SampleRate / SmpsDriver.FrameRate;
+		SongPlayer player = new SongPlayer(song, drums, SampleRate);
+		SmpsDriver driver = player.Driver;
 		int maxFrames = (int)(MaxSeconds * SmpsDriver.FrameRate);
 		Dictionary<string, int> states = new Dictionary<string, int>();
 		List<int> tickFrames = new List<int>();
 		List<int> frameStarts = new List<int>();
 		List<float> left = new List<float>();
 		List<float> right = new List<float>();
-		float[] frameLeft = new float[(int)samplesPerFrame + 2];
-		float[] frameRight = new float[(int)samplesPerFrame + 2];
-		byte[] dac = null;
-		double dacPosition = 0;
-		double dacStep = 0;
 		int loopPointFrame = -1;
 		int endTick = -1;
 		int endFrame = -1;
@@ -82,50 +69,17 @@ public static class SongRenderer
 					}
 				}
 			}
-			driver.UpdateFrame();
-			if (driver.DacRequest is (DacSample sample, double scale) && drums.TryGetValue(sample, out (byte[] Samples, int Rate) drum))
-			{
-				(byte[] samples, int rate) = drum;
-				dac = samples;
-				dacPosition = 0;
-				dacStep = SmpsDriver.GetDacRate(rate, scale) / SampleRate;
-			}
-			int count = (int)((frame + 1) * samplesPerFrame) - (int)(frame * samplesPerFrame);
-			Span<float> l = frameLeft.AsSpan(0, count);
-			Span<float> r = frameRight.AsSpan(0, count);
-			l.Clear();
-			r.Clear();
-			if (dac != null)
-			{
-				// The Z80 writes the drum to the DAC between the frames: one write before each output sample.
-				for (int i = 0; i < count; i++)
-				{
-					int index = (int)dacPosition;
-					if (dac != null && index < dac.Length)
-					{
-						fm.Write(0, 0x2A, dac[index]);
-						dacPosition += dacStep;
-					}
-					else
-					{
-						dac = null;
-					}
-					fm.Render(l.Slice(i, 1), r.Slice(i, 1));
-				}
-			}
-			else
-			{
-				fm.Render(l, r);
-			}
-			psg.Render(l, r);
+			int count = player.PlayFrame();
+			ReadOnlySpan<float> l = player.Left;
+			ReadOnlySpan<float> r = player.Right;
 			for (int i = 0; i < count; i++)
 			{
-				left.Add(l[i] * Gain);
-				right.Add(r[i] * Gain);
+				left.Add(l[i]);
+				right.Add(r[i]);
 			}
 			if (loopPointFrame < 0 && endFrame < 0 && !driver.IsPlaying)
 			{
-				endFrame = frame + 1 + (int)(TailSeconds * SmpsDriver.FrameRate);
+				endFrame = frame + 1 + (int)(SongPlayer.TailSeconds * SmpsDriver.FrameRate);
 			}
 		}
 		int length = left.Count;
@@ -158,9 +112,10 @@ public static class SongRenderer
 		return new RenderedSong(interleaved, SampleRate, loopSample);
 	}
 
-	private static Dictionary<DacSample, (byte[], int)> LoadDrums(string folder)
+	/// <summary>Reads the DAC drums from the folder sound/DAC of the disassembly.</summary>
+	public static Dictionary<DacSample, (byte[] Samples, int Rate)> LoadDrums(string folder)
 	{
-		Dictionary<DacSample, (byte[], int)> drums = new Dictionary<DacSample, (byte[], int)>();
+		Dictionary<DacSample, (byte[] Samples, int Rate)> drums = new Dictionary<DacSample, (byte[], int)>();
 		foreach (DacSample sample in Enum.GetValues<DacSample>())
 		{
 			drums[sample] = ReadWave8(Path.Combine(folder, sample + ".wav"));
@@ -212,22 +167,6 @@ public sealed record RenderedSong(float[] Samples, int SampleRate, int? LoopSamp
 {
 	/// <summary>The number of samples of each channel.</summary>
 	public int Length => Samples.Length / 2;
-
-	/// <summary>
-	/// Returns the sound at half the sample rate. Each new sample is the mean of two samples, which also weakens the
-	/// sounds above the new frequency limit. The loop point is halved.
-	/// </summary>
-	public RenderedSong HalfRate()
-	{
-		int length = Length / 2;
-		float[] samples = new float[length * 2];
-		for (int i = 0; i < length; i++)
-		{
-			samples[2 * i] = (Samples[4 * i] + Samples[4 * i + 2]) / 2f;
-			samples[2 * i + 1] = (Samples[4 * i + 1] + Samples[4 * i + 3]) / 2f;
-		}
-		return new RenderedSong(samples, SampleRate / 2, LoopSample / 2);
-	}
 
 	/// <summary>Writes the sound as a 16-bit stereo WAVE file.</summary>
 	public void WriteWave(string path)
