@@ -1,3 +1,4 @@
+using System;
 using SonicOrca.Core;
 using SonicOrca.Core.Objects.Base;
 using SonicOrca.Extensions;
@@ -10,7 +11,8 @@ namespace SONICORCA.OBJECTS.SONIC;
 /// Sonic, a playable character. The Character base class has the movement. This class sets the sprites, draws the
 /// body with the character shader, and plays the peel-out sounds in the winning pose. Sonic can become Super Sonic.
 /// The HD data has no Super Sonic art, so the shader colours the skin texture gold. With the original sprites from the
-/// import, Super Sonic uses them instead. The setting original_super_sonic in the graphics section turns this off.
+/// import, Super Sonic uses them instead, with the palette cycle and the stars of the original. The setting
+/// original_super_sonic in the graphics section turns this off.
 /// </summary>
 public class SonicInstance : Character
 {
@@ -37,10 +39,41 @@ public class SonicInstance : Character
 
 	private const int OriginalSpinballCollisionRadiusY = 56;
 
+	/// <summary>The stars (Obj7E) show their mapping frames 0 to 5, and then start again.</summary>
+	private const int StarsFrames = 6;
+
+	/// <summary>The stars come when the ground speed is at least $800.</summary>
+	private const double StarsSpeed = 32.0;
+
 	private int _winningTicks;
 
 	/// <summary>The animation of the original sprites of Super Sonic, or null without them.</summary>
 	private AnimationInstance _superAnimation;
+
+	/// <summary>
+	/// The palette cycle of the original sprites of Super Sonic, or null without it. Sonic makes it when he first
+	/// becomes Super Sonic, because it reads the PNG of the sprites.
+	/// </summary>
+	private SuperSonicPalette _superPalette;
+
+	private bool _wasSuper;
+
+	/// <summary>The animation of the stars, or null without them. Animation N shows mapping frame N of Obj7E.</summary>
+	private AnimationInstance _starsAnimation;
+
+	/// <summary>objoff_30 of Obj7E: the stars show their frames.</summary>
+	private bool _starsActive;
+
+	/// <summary>objoff_31 of Obj7E: the stars came again, so they stay where they start.</summary>
+	private bool _starsRepeat;
+
+	private bool _starsVisible;
+
+	private int _starsFrame;
+
+	private int _starsTimer;
+
+	private Vector2 _starsPosition;
 
 	protected override void OnStart()
 	{
@@ -57,7 +90,16 @@ public class SonicInstance : Character
 			ResourceTree.TryGetLoadedResource(SonicType.SuperAnimationGroupResourceKey, out AnimationGroup superAnimationGroup))
 		{
 			_superAnimation = new AnimationInstance(superAnimationGroup);
+			if (ResourceTree.TryGetLoadedResource(SonicType.SuperStarsAnimationGroupResourceKey, out AnimationGroup starsAnimationGroup))
+				_starsAnimation = new AnimationInstance(starsAnimationGroup);
 		}
+	}
+
+	protected override void OnStop()
+	{
+		base.OnStop();
+		_superPalette?.Dispose();
+		_superPalette = null;
 	}
 
 	protected override void OnUpdate()
@@ -65,6 +107,22 @@ public class SonicInstance : Character
 		base.OnUpdate();
 		if (_superAnimation != null && IsSuper)
 			UpdateSuperAnimation();
+		if (IsSuper && !_wasSuper)
+		{
+			if (_superAnimation != null && _superPalette == null)
+				_superPalette = SuperSonicPalette.Create(Level.GameContext.Window.GraphicsContext, _superAnimation.AnimationGroup);
+			_superPalette?.Start();
+			_starsActive = false;
+			_starsRepeat = false;
+			_starsTimer = 0;
+		}
+		_wasSuper = IsSuper;
+		if (IsSuper)
+		{
+			_superPalette?.Update();
+			if (_starsAnimation != null)
+				UpdateStars();
+		}
 		if (IsWinning)
 		{
 			if (_winningTicks == 0)
@@ -103,6 +161,45 @@ public class SonicInstance : Character
 	}
 
 	/// <summary>
+	/// Runs the stars of Super Sonic (Obj7E) for one tick. At a high speed, the stars show their frames at Sonic. When
+	/// they come again while the speed stays high, they stay where they start, so they make a trail.
+	/// </summary>
+	private void UpdateStars()
+	{
+		_starsVisible = false;
+		if (_starsActive)
+		{
+			if (--_starsTimer < 0)
+			{
+				_starsTimer = 1;
+				if (++_starsFrame >= StarsFrames)
+				{
+					_starsFrame = 0;
+					_starsActive = false;
+					_starsRepeat = true;
+					return;
+				}
+			}
+		}
+		else if (!IsObjectControlled && !IsTransformingToSuper && Math.Abs(GroundVelocity) >= StarsSpeed)
+		{
+			_starsFrame = 0;
+			_starsActive = true;
+			_starsPosition = PositionPrecise;
+			_starsVisible = true;
+			return;
+		}
+		else
+		{
+			_starsRepeat = false;
+			return;
+		}
+		if (!_starsRepeat)
+			_starsPosition = PositionPrecise;
+		_starsVisible = true;
+	}
+
+	/// <summary>
 	/// Draws the original sprite of Super Sonic. The original art faces right, and the HD art faces left. The sprite
 	/// lines up with the collision box of the original, so it moves by the difference to the box of the character.
 	/// </summary>
@@ -114,7 +211,10 @@ public class SonicInstance : Character
 			if (DrawBodyRotated)
 				objectRenderer.ModelMatrix *= Matrix4.CreateRotationZ(ShowAngle);
 			double offsetY = IsSpinball ? SpinballCollisionRadius.Y - OriginalSpinballCollisionRadiusY : NormalCollisionRadius.Y - OriginalCollisionRadiusY;
-			objectRenderer.RenderOriginal(_superAnimation, new Vector2(0.0, offsetY), IsFacingLeft);
+			if (_superPalette != null)
+				_superPalette.Render(objectRenderer, _superAnimation, new Vector2(0.0, offsetY), IsFacingLeft);
+			else
+				objectRenderer.RenderOriginal(_superAnimation, new Vector2(0.0, offsetY), IsFacingLeft);
 		}
 	}
 
@@ -159,5 +259,11 @@ public class SonicInstance : Character
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 	{
 		base.OnDraw(renderer, viewOptions);
+		// Obj7E has a higher priority than Sonic, so the stars are in front of him
+		if (_starsAnimation != null && IsSuper && _starsVisible && !viewOptions.Shadows)
+		{
+			_starsAnimation.Index = _starsFrame;
+			renderer.GetObjectRenderer().RenderOriginal(_starsAnimation, _starsPosition - PositionPrecise);
+		}
 	}
 }

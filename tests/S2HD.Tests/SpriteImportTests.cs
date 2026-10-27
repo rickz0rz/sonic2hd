@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Xml.Linq;
 using SonicOrca.Original;
@@ -95,5 +96,36 @@ public sealed class SpriteImportTests
 		// Each frame has pixels: its tiles come from its DPLC
 		Assert.All(animations.SelectMany(animation => animation.Elements("frame")), frame => Assert.True(int.Parse(frame.Attribute("w").Value) > 4));
 		Assert.Equal("SONICORCA/OBJECTS/SONIC/SUPER", sprite.ObjectKey);
+		Assert.Equal(new[] { "//TEXTURE", "//PALETTE" }, XDocument.Parse(sprite.AnimationGroup).Descendants("texture").Select(texture => texture.Value));
+	}
+
+	[Fact]
+	public void SuperSonicArt_PaletteHasARowForEachFrameOfTheCycle()
+	{
+		string disassembly = SpecialStageImportTests.FindDisassembly();
+
+		byte[] png = SuperSonicArt.ImportPalette(disassembly);
+
+		var reader = new Hjg.Pngcs.PngReader(new MemoryStream(png));
+		Assert.Equal(SuperSonicArt.CycledColourCount, reader.ImgInfo.Cols);
+		// CyclingPal_SSTransformation has 16 frames, from $00 to $78
+		Assert.Equal(16, reader.ImgInfo.Rows);
+		// Row 0 is the blue of Sonic, which the sprites have. The game finds the colours by their value, so they must differ.
+		byte[] row = reader.ReadRowByte(0).ScanlineB;
+		reader.End();
+		var colours = Enumerable.Range(0, SuperSonicArt.CycledColourCount).Select(i => (row[i * 4], row[i * 4 + 1], row[i * 4 + 2])).ToArray();
+		Assert.Equal(colours.Length, colours.Distinct().Count());
+		Assert.Equal((36, 36, 182), ((int)colours[0].Item1, (int)colours[0].Item2, (int)colours[0].Item3));
+	}
+
+	[Fact]
+	public void SuperSonicArt_StarsHaveTheSixFramesOfObj7E()
+	{
+		string disassembly = SpecialStageImportTests.FindDisassembly();
+
+		ImportedSprite stars = SuperSonicArt.ImportStars(disassembly);
+
+		Assert.Equal(SuperSonicArt.StarsObjectKey, stars.ObjectKey);
+		Assert.Equal(6, XDocument.Parse(stars.AnimationGroup).Descendants("animation").Count());
 	}
 }

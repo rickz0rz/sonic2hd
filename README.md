@@ -300,8 +300,10 @@ Sonic is faster, jumps higher and cannot be hurt. A pit, a crush or drowning can
 each second. He becomes normal again when he has no rings, at the end of the act or when he dies. Tails cannot
 become super. The data has no Super Sonic art, so the game colours Sonic gold. The import (`import-super-sonic`, or
 `./tools/import-all.sh`) makes the sprites of Super Sonic from the art of Sonic in the disassembly. With them,
-Super Sonic uses the original sprites and the animations of the original. To use the gold HD sprites instead, add
-this to `sonicorca.cfg`:
+Super Sonic uses the original sprites and the animations of the original. His colours fade in from blue and then
+cycle, as in the original. At high speed, he leaves a trail of stars. An import from before import version 5 has
+no colour cycle and no stars. Run the import again to get them. To use the gold HD sprites instead, add this to
+`sonicorca.cfg`:
 
 ```ini
 [graphics]
