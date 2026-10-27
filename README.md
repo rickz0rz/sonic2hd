@@ -187,8 +187,9 @@ The script finds the disassembly at `S2DISASM_DIR`, `../s2disasm` or `../../soni
 
 ### Music
 
-The demo data has no music for ARZ, CNZ, MCZ, OOZ, SCZ, WFZ and DEZ. The import command makes this music from the
-songs of the disassembly (`sound/music`):
+The demo data has no music for ARZ, CNZ, MCZ, OOZ, SCZ, WFZ and DEZ. It also has no Super Sonic music and no sound
+for the transformation into Super Sonic. The import command makes this music from the songs of the disassembly
+(`sound/music`), and the sound from the sound effects (`sound/sfx`):
 
 ```sh
 dotnet run --project tools/s2hd-data -- import-music ../s2disasm music
@@ -199,7 +200,7 @@ The command plays each song with a copy of the Sonic 2 sound driver in C#. The d
 YM2612 (FM) and SN76489 (PSG) chips, and the DAC drums come from `sound/DAC`. The command finds the point where the
 song repeats, and `ffmpeg` encodes the sound as Ogg Vorbis at 48000 Hz. The sample info of each song gives the loop
 point, so the game repeats the song without a gap. It takes about 10 seconds. The songs use the fixes of
-`FixMusicAndSFXDataBugs`, so they play as their composers meant.
+`FixMusicAndSFXDataBugs`, so they play as their composers meant. A sound effect has no loop point.
 
 Put `music.dat` in the `mods` folder. The music comes from the original game, so do not commit it.
 
@@ -297,8 +298,11 @@ has separate rings, and the goals use the total. A jump or a bomb changes the la
 With 7 emeralds and 50 rings or more, Sonic becomes Super Sonic at the top of a jump, as in the original. Super
 Sonic is faster, jumps higher and cannot be hurt. A pit, a crush or drowning can still kill him. He loses 1 ring
 each second. He becomes normal again when he has no rings, at the end of the act or when he dies. Tails cannot
-become super. The data has no Super Sonic art, music or sound, so the game colours Sonic gold and the level music
-continues. Super Sonic has the values of the original in the two physics modes.
+become super. The data has no Super Sonic art, so the game colours Sonic gold. The data also has no Super Sonic
+music or sound. With the music import (see [Music](#music)), the transformation plays the sound of the original, and
+the Super Sonic music replaces the level music. As in the original, the Super Sonic music continues after Sonic
+becomes normal again. Without the import, the level music continues. Super Sonic has the values of the original in
+the two physics modes.
 
 ### Level editor
 

@@ -8,10 +8,10 @@ using System.Text.RegularExpressions;
 namespace SonicOrca.Original.Music;
 
 /// <summary>
-/// A song of the Sonic 2 sound driver, assembled from its SMPS2ASM source file of the disassembly (for example
-/// "sound/music/86 - HTZ.asm"). The assembler knows the macros of sound/_smps2asm_inc.asm for the Sonic 2 driver. It
-/// writes the same bytes as the build of the disassembly, except that a pointer is an offset in <see cref="Data"/>, in
-/// the byte order of the Z80.
+/// A song or a sound effect of the Sonic 2 sound driver, assembled from its SMPS2ASM source file of the disassembly
+/// (for example "sound/music/86 - HTZ.asm" or "sound/sfx/DF - Super Transform.asm"). The assembler knows the macros
+/// of sound/_smps2asm_inc.asm for the Sonic 2 driver. It writes the same bytes as the build of the disassembly, except
+/// that a pointer is an offset in <see cref="Data"/>, in the byte order of the Z80.
 /// </summary>
 public sealed class SmpsSong
 {
@@ -40,6 +40,9 @@ public sealed class SmpsSong
 	/// <summary>The bytes of the song. The header is at offset 0.</summary>
 	public byte[] Data { get; private set; }
 
+	/// <summary>True for a sound effect, which has the header of zPlaySound. A song has the header of zBGMLoad.</summary>
+	public bool IsSoundEffect { get; private set; }
+
 	/// <summary>The offset of each label of the source file.</summary>
 	public IReadOnlyDictionary<string, int> Labels => _labels;
 
@@ -55,9 +58,9 @@ public sealed class SmpsSong
 	}
 
 	/// <summary>Makes a song from the bytes of an assembled song (<see cref="Data"/>). The song has no labels.</summary>
-	public static SmpsSong FromData(byte[] data)
+	public static SmpsSong FromData(byte[] data, bool isSoundEffect = false)
 	{
-		return new SmpsSong { Data = data };
+		return new SmpsSong { Data = data, IsSoundEffect = isSoundEffect };
 	}
 
 	/// <summary>Assembles the text of a song file.</summary>
@@ -208,6 +211,22 @@ public sealed class SmpsSong
 				Pointer(args[0]);
 				Byte(Evaluate(args[1]));
 				Byte(Evaluate(args[2]));
+				break;
+			case "smpsHeaderTempoSFX":
+				IsSoundEffect = true;
+				Byte(Evaluate(args[0]));
+				break;
+			case "smpsHeaderChanSFX":
+				Byte(Evaluate(args[0]));
+				break;
+			case "smpsHeaderSFXChannel":
+				// The playback control byte, the channel, the pointer, the pitch and the volume. The pitch of a PSG
+				// channel needs no conversion, because the source and the driver are both for Sonic 2.
+				Byte(0x80);
+				Byte(Evaluate(args[0]));
+				Pointer(args[1]);
+				Byte(Evaluate(args[2]));
+				Byte(Evaluate(args[3]));
 				break;
 			case "smpsHeaderPSG":
 				Pointer(args[0]);
@@ -465,6 +484,18 @@ public sealed class SmpsSong
 				return 0x40;
 			case "panLeft":
 				return 0x80;
+			case "cFM3":
+				return 0x02;
+			case "cFM4":
+				return 0x04;
+			case "cFM5":
+				return 0x05;
+			case "cPSG1":
+				return 0x80;
+			case "cPSG2":
+				return 0xA0;
+			case "cPSG3":
+				return 0xC0;
 			case "panCentre":
 			case "panCenter":
 				return 0xC0;

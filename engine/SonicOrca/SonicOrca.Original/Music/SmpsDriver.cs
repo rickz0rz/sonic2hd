@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 
 namespace SonicOrca.Original.Music;
 
@@ -127,6 +128,7 @@ public sealed class SmpsDriver
 	private int _currentTempo;
 	private bool _dacUpdating;
 	private int _voiceTablePointer;
+	private bool _soundEffect;
 
 	/// <summary>A drum that the DAC track started in the last frame, or null.</summary>
 	public (DacSample Sample, double Scale)? DacRequest { get; private set; }
@@ -147,18 +149,28 @@ public sealed class SmpsDriver
 		}
 	}
 
-	/// <summary>Starts a song, as zBGMLoad does.</summary>
+	/// <summary>Starts a song, as zBGMLoad does, or a sound effect, as zPlaySound does.</summary>
 	public SmpsDriver(SmpsSong song, Ym2612 fm, Sn76489 psg)
 	{
 		_data = song.Data;
 		_fm = fm;
 		_psg = psg;
 		ClearTrackPlaybackMem();
-		LoadSong();
+		if (song.IsSoundEffect)
+		{
+			LoadSoundEffect();
+		}
+		else
+		{
+			LoadSong();
+		}
 	}
 
-	/// <summary>True when the next frame moves the music on: the tempo counter overflows (see TempoWait).</summary>
-	public bool NextFrameTicks => _currentTempo + _tempoTimeout > 0xFF;
+	/// <summary>
+	/// True when the next frame moves the music on: the tempo counter overflows (see TempoWait). A sound effect
+	/// moves on each frame.
+	/// </summary>
+	public bool NextFrameTicks => _soundEffect || _currentTempo + _tempoTimeout > 0xFF;
 
 	/// <summary>
 	/// Copies the state of the driver: the memory of the tracks that play, and the tempo. The tempo counter is not
@@ -185,7 +197,10 @@ public sealed class SmpsDriver
 	public void UpdateFrame()
 	{
 		DacRequest = null;
-		TempoWait();
+		if (!_soundEffect)
+		{
+			TempoWait();
+		}
 		_dacUpdating = true;
 		_ix = DacTrack * TrackLength;
 		if ((Get(PlaybackControl) & Playing) != 0)
@@ -376,6 +391,51 @@ public sealed class SmpsDriver
 		{
 			_ix = track * TrackLength;
 			PsgNoteOff();
+		}
+	}
+
+	/// <summary>
+	/// zPlaySound: each track of a sound effect names its channel. The driver puts the track into the memory of the
+	/// music track of that channel. The real driver keeps the tracks of the sound effects in separate memory. It also
+	/// stops the music on their channels. Here, no music plays. All the tracks use the voices of the sound effect.
+	/// </summary>
+	private void LoadSoundEffect()
+	{
+		_soundEffect = true;
+		_voiceTablePointer = Read(0) | (Read(1) << 8);
+		int tempoDivider = Read(2);
+		int count = Read(3);
+		int header = 4;
+		for (int i = 0; i < count; i++)
+		{
+			int channel = Read(header + 1);
+			bool psg = (channel & 0x80) != 0;
+			int track = psg ? FirstPsgTrack + ((channel >> 5) & 3) : Array.IndexOf(FmDacInitBytes, (byte)channel, FirstFmTrack);
+			if (track < 0 || track >= TrackCount)
+			{
+				throw new InvalidDataException($"A sound effect cannot use the channel ${channel:X2}.");
+			}
+			if (channel == 0xC0)
+			{
+				// PSG3: silence the tone channel and the noise channel
+				WritePsg(0xDF);
+				WritePsg(0xFF);
+			}
+			_ix = track * TrackLength;
+			Set(PlaybackControl, Read(header));
+			Set(VoiceControl, channel);
+			Set(TempoDivider, tempoDivider);
+			Set(DurationTimeout, 1);
+			Set(StackPointer, GoSubStack);
+			Set(DataPointerLow, Read(header + 2));
+			Set(DataPointerLow + 1, Read(header + 3));
+			Set(Transpose, Read(header + 4));
+			Set(Volume, Read(header + 5));
+			if (!psg)
+			{
+				Set(AmsFmsPan, 0xC0);
+			}
+			header += 6;
 		}
 	}
 

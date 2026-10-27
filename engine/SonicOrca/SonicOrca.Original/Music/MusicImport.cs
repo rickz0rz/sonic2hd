@@ -9,14 +9,18 @@ using System.Threading.Tasks;
 namespace SonicOrca.Original.Music;
 
 /// <summary>
-/// Makes the music that the HD demo data does not have from the songs of the Sonic 2 disassembly. Each song plays
-/// on the emulated sound chips (see <see cref="SongRenderer"/>). ffmpeg encodes the sound as Ogg Vorbis, and a
-/// sample info file gives the loop point. The music comes from the original game, so it stays local.
+/// Makes the music and the sounds that the HD demo data does not have. They come from the songs and the sound
+/// effects of the Sonic 2 disassembly. Each song plays on the emulated sound chips (see <see cref="SongRenderer"/>). ffmpeg encodes
+/// the sound as Ogg Vorbis, and a sample info file gives the loop point of a song. The music comes from the original
+/// game, so it stays local.
 /// </summary>
 public static class MusicImport
 {
 	/// <summary>The folder of the songs in the disassembly.</summary>
 	public const string MusicFolder = "sound/music";
+
+	/// <summary>The folder of the sound effects in the disassembly.</summary>
+	public const string SoundFolder = "sound/sfx";
 
 	/// <summary>The folder of the DAC drums in the disassembly.</summary>
 	public const string DacFolder = "sound/DAC";
@@ -32,15 +36,24 @@ public static class MusicImport
 		("8F - WFZ.asm", "SONICORCA/MUSIC/LEVELS/WFZ"),
 		("8A - DEZ.asm", "SONICORCA/MUSIC/LEVELS/DEZ"),
 		// The jingle of the results screen of the special stage (MusID_EndLevel)
-		("9A - End of Act.asm", "SONICORCA/MUSIC/JINGLE/STAGECLEAR/S2")
+		("9A - End of Act.asm", "SONICORCA/MUSIC/JINGLE/STAGECLEAR/S2"),
+		// The music of Super Sonic (MusID_SuperSonic)
+		("96 - Super Sonic.asm", "SONICORCA/MUSIC/JINGLE/SUPER")
+	};
+
+	/// <summary>The sound effects to import: the file in <see cref="SoundFolder"/> and the resource key of the sound.</summary>
+	public static readonly IReadOnlyList<(string File, string Key)> Sounds = new[]
+	{
+		// The sound of the transformation into Super Sonic (SndID_SuperTransform)
+		("DF - Super Transform.asm", "SONICORCA/SOUND/SUPERTRANSFORM")
 	};
 
 	/// <summary>The quality of the Vorbis encoder.</summary>
 	private const string EncoderArguments = "-c:a vorbis -strict experimental -b:a 160k";
 
 	/// <summary>
-	/// Imports the songs into a folder in the layout of "s2hd-data unpack": for each key, the sample KEY/SAMPLE.ogg
-	/// and the sample info KEY/_.sampleinfo.xml.
+	/// Imports the songs and the sounds into a folder in the layout of "s2hd-data unpack": for each song, the sample
+	/// KEY/SAMPLE.ogg and the sample info KEY/_.sampleinfo.xml, and for each sound, the sample KEY.ogg.
 	/// </summary>
 	/// <param name="disassembly">The folder of the disassembly.</param>
 	/// <param name="folder">The output folder.</param>
@@ -48,9 +61,11 @@ public static class MusicImport
 	/// <param name="log">Gets a line for each song.</param>
 	public static void Import(string disassembly, string folder, string ffmpeg, Action<string> log)
 	{
-		Parallel.ForEach(Songs, song =>
+		IEnumerable<Func<string>> imports = Songs.Select(song => (Func<string>)(() => ImportSong(song, disassembly, folder, ffmpeg)))
+			.Concat(Sounds.Select(sound => (Func<string>)(() => ImportSound(sound, disassembly, folder, ffmpeg))));
+		Parallel.ForEach(imports, import =>
 		{
-			string line = ImportSong(song, disassembly, folder, ffmpeg);
+			string line = import();
 			lock (log)
 			{
 				log(line);
@@ -96,6 +111,44 @@ public static class MusicImport
 			: "none";
 		return string.Format(CultureInfo.InvariantCulture, "{0}: {1:0.0} s, loop at {2} ({3:0.0} s to make)",
 			song.Key, rendered.Length / (double)rendered.SampleRate, loop, stopwatch.Elapsed.TotalSeconds);
+	}
+
+	/// <summary>
+	/// Imports one sound effect: the sample KEY.ogg, or without ffmpeg (the web build) KEY.smps, which the game plays
+	/// live. A sound effect has no DAC drums. Returns a line that tells the length of the sound.
+	/// </summary>
+	/// <param name="sound">The sound, from <see cref="Sounds"/>.</param>
+	/// <param name="disassembly">The folder of the disassembly.</param>
+	/// <param name="folder">The output folder.</param>
+	/// <param name="ffmpeg">The ffmpeg program, or null for a sound that plays live.</param>
+	public static string ImportSound((string File, string Key) sound, string disassembly, string folder, string ffmpeg)
+	{
+		Stopwatch stopwatch = Stopwatch.StartNew();
+		SmpsSong smps = SmpsSong.FromFile(Path.Combine(disassembly, SoundFolder, sound.File));
+		if (!smps.IsSoundEffect)
+		{
+			throw new InvalidDataException($"{sound.File} is not a sound effect.");
+		}
+		string file = Path.Combine(new[] { folder }.Concat(sound.Key.Split('/')).ToArray());
+		Directory.CreateDirectory(Path.GetDirectoryName(file));
+		if (ffmpeg == null)
+		{
+			SmpsResourceType.Write(file + ".smps", smps, new Dictionary<DacSample, (byte[], int)>());
+			return string.Format(CultureInfo.InvariantCulture, "{0}: plays live ({1:0.0} s to make)", sound.Key, stopwatch.Elapsed.TotalSeconds);
+		}
+		RenderedSong rendered = SongRenderer.Render(smps, null);
+		string wave = file + ".wav";
+		rendered.WriteWave(wave);
+		try
+		{
+			Encode(ffmpeg, wave, file + ".ogg");
+		}
+		finally
+		{
+			File.Delete(wave);
+		}
+		return string.Format(CultureInfo.InvariantCulture, "{0}: {1:0.0} s ({2:0.0} s to make)",
+			sound.Key, rendered.Length / (double)rendered.SampleRate, stopwatch.Elapsed.TotalSeconds);
 	}
 
 	/// <summary>Writes a sample info file for the sample SAMPLE next to it.</summary>

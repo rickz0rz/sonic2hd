@@ -13,8 +13,9 @@ using Xunit;
 namespace S2HD.Tests;
 
 /// <summary>
-/// Tests the music import: the SMPS assembler, the driver and the renderer with a small song, and the import of a
-/// song from the Sonic 2 disassembly. The tests with the disassembly are skipped when it is not found.
+/// Tests the music import: the SMPS assembler, the driver and the renderer with a small song and a small sound effect,
+/// and the import of a song and a sound effect from the Sonic 2 disassembly. The tests with the disassembly are
+/// skipped when it is not found.
 /// </summary>
 public sealed class MusicImportTests
 {
@@ -57,6 +58,24 @@ public sealed class MusicImportTests
 			smpsVcTotalLevel    $7F, $7F, $7F, $00
 		""";
 
+	/// <summary>A sound effect on FM5 that plays A4 for 48 frames, with the sine voice of <see cref="SineSong"/>.</summary>
+	private static readonly string SineSound = """
+		Test_Header:
+			smpsHeaderStartSong 2
+			smpsHeaderVoice     Test_Voices
+			smpsHeaderTempoSFX  $01
+			smpsHeaderChanSFX   $01
+
+			smpsHeaderSFXChannel cFM5, Test_FM5, $00, $00
+
+		; FM5 data
+		Test_FM5:
+			smpsSetvoice        $00
+			dc.b	nA4, $30
+			smpsStop
+
+		""" + SineSong.Substring(SineSong.IndexOf("Test_Voices:", StringComparison.Ordinal));
+
 	[Fact]
 	public void Assemble_WritesTheHeaderAndTheTrackData()
 	{
@@ -93,6 +112,75 @@ public sealed class MusicImportTests
 		}
 		double frequency = crossings / 2.0 / (count / (double)rendered.SampleRate);
 		Assert.InRange(frequency, 435.0, 445.0);
+	}
+
+	[Fact]
+	public void Assemble_SoundEffect_WritesTheHeaderOfZPlaySound()
+	{
+		SmpsSong sound = SmpsSong.FromText(SineSound);
+
+		byte[] data = sound.Data;
+		Assert.True(sound.IsSoundEffect);
+		Assert.False(SmpsSong.FromText(SineSong).IsSoundEffect);
+		Assert.Equal(sound.Labels["Test_Voices"], data[0] | (data[1] << 8));
+		// The tempo divider and the number of channels, then the playback control and the channel (cFM5 is 5)
+		Assert.Equal(new byte[] { 1, 1, 0x80, 5 }, data.Skip(2).Take(4).ToArray());
+		Assert.Equal(sound.Labels["Test_FM5"], data[6] | (data[7] << 8));
+	}
+
+	[Fact]
+	public void Render_SoundEffect_PlaysA4WithoutTheTempoOfASong()
+	{
+		RenderedSong rendered = SongRenderer.Render(SmpsSong.FromText(SineSound), null);
+
+		Assert.Null(rendered.LoopSample);
+		// The note takes 48 frames (0.8 s), then the tail is 2 s
+		Assert.InRange(rendered.Length / (double)rendered.SampleRate, 2.7, 2.9);
+		short[] samples = rendered.Samples.Select(sample => (short)(sample * 32767f)).ToArray();
+		Assert.InRange(MeasureFrequency(samples, rendered.SampleRate / 20, rendered.SampleRate / 2, rendered.SampleRate), 435.0, 445.0);
+		// The note ends after 0.8 s, and only its release is left
+		float notePeak = rendered.Samples.Skip(2 * rendered.SampleRate / 2).Take(rendered.SampleRate / 5).Max(Math.Abs);
+		float endPeak = rendered.Samples.Skip(2 * rendered.SampleRate * 2).Take(rendered.SampleRate / 5).Max(Math.Abs);
+		Assert.True(notePeak > 0.1f, $"The note is silent ({notePeak}).");
+		Assert.True(endPeak < 0.01f, $"The note continues ({endPeak}).");
+	}
+
+	[Fact]
+	public void SongSample_SoundEffect_KeepsItsTypeInTheFile()
+	{
+		SongSample sample = LoadSongSample(SineSound);
+		using Stream stream = sample.OpenStream(null);
+
+		short[] samples = ReadSamples(stream, sample.SampleRate / 2);
+
+		Assert.InRange(MeasureFrequency(samples, sample.SampleRate / 20, sample.SampleRate / 3, sample.SampleRate), 435.0, 445.0);
+	}
+
+	[Fact]
+	public void Render_SuperTransform_PlaysOnceAndStaysBelowFullScale()
+	{
+		string disassembly = SpecialStageImportTests.FindDisassembly();
+		SmpsSong sound = SmpsSong.FromFile(Path.Combine(disassembly, MusicImport.SoundFolder, "DF - Super Transform.asm"));
+
+		RenderedSong rendered = SongRenderer.Render(sound, null);
+
+		Assert.True(sound.IsSoundEffect);
+		Assert.Null(rendered.LoopSample);
+		Assert.InRange(rendered.Length / (double)rendered.SampleRate, 2.5, 6.0);
+		float peak = rendered.Samples.Max(Math.Abs);
+		Assert.InRange(peak, 0.1f, 1.0f);
+	}
+
+	[Fact]
+	public void Render_SuperSonic_Loops()
+	{
+		string disassembly = SpecialStageImportTests.FindDisassembly();
+		SmpsSong song = SmpsSong.FromFile(Path.Combine(disassembly, MusicImport.MusicFolder, "96 - Super Sonic.asm"));
+
+		RenderedSong rendered = SongRenderer.Render(song, Path.Combine(disassembly, MusicImport.DacFolder));
+
+		Assert.NotNull(rendered.LoopSample);
+		Assert.InRange(rendered.Length / (double)rendered.SampleRate, 10.0, 300.0);
 	}
 
 	[Fact]
