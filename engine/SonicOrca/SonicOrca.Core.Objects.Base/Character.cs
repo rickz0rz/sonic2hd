@@ -1065,7 +1065,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	}
 
 	/// <summary>True while the transformation to a super character holds the character in place.</summary>
-	private bool IsTransformingToSuper => IsSuper && _superTransformTicks > 0;
+	protected bool IsTransformingToSuper => IsSuper && _superTransformTicks > 0;
 
 	public bool IsCharging
 	{

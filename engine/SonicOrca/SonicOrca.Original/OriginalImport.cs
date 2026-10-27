@@ -17,7 +17,7 @@ public sealed record OriginalImportStep(string Mod, string Description, Action<s
 
 /// <summary>
 /// Makes the mods that come from the Sonic 2 disassembly (github.com/sonicretro/s2disasm): the zones that the demo
-/// data does not have, the special stages, the attract demos and the music. tools/s2hd-data and the web build use
+/// data does not have, the special stages, the sprites of Super Sonic, the attract demos and the music. tools/s2hd-data and the web build use
 /// these steps. The data comes from the original game, so it stays local.
 /// </summary>
 public static class OriginalImport
@@ -26,7 +26,7 @@ public static class OriginalImport
 	/// The version of the import. Change it when a change of the importers changes the mods, so that the web build
 	/// makes its stored mods again.
 	/// </summary>
-	public const int Version = 3;
+	public const int Version = 4;
 
 	/// <summary>The zones that the import makes, in the order of tools/import-all.sh.</summary>
 	public static readonly IReadOnlyList<string> Zones = new[] { "arz", "cnz", "mcz", "ooz", "mtz", "scz", "wfz", "dez" };
@@ -49,6 +49,7 @@ public static class OriginalImport
 			steps.Add(new OriginalImportStep(zone, originalZone.Name, (disassembly, folder) => ImportLevel(originalZone, disassembly, folder, log)));
 		}
 		steps.Add(new OriginalImportStep("special-stages", "Special stages", (disassembly, folder) => ImportSpecialStages(disassembly, folder, log)));
+		steps.Add(new OriginalImportStep("super-sonic", "Super Sonic", (disassembly, folder) => ImportSuperSonic(disassembly, folder, log)));
 		steps.Add(new OriginalImportStep("demos", "Demos", (disassembly, folder) => ImportDemos(disassembly, folder, log)));
 		foreach ((string File, string Key) song in MusicImport.Songs)
 		{
@@ -140,6 +141,17 @@ public static class OriginalImport
 		// The art of the messages, the START banner and the results screen, which the game data does not have
 		WriteSprites(folder, SpecialStageArt.Import(disassembly));
 		log($"Wrote {stages.Count} special stages and their art to {output}.");
+	}
+
+	/// <summary>Makes the sprites of Super Sonic, which the game data does not have.</summary>
+	public static void ImportSuperSonic(string disassembly, string folder, Action<string> log)
+	{
+		if (!File.Exists(Path.Combine(disassembly, "art/uncompressed/Sonic's art.bin")))
+		{
+			throw new IOException($"The folder {disassembly} does not contain the art of Sonic of s2disasm.");
+		}
+		WriteSprites(folder, new[] { SuperSonicArt.Import(disassembly) });
+		log($"Wrote the sprites of Super Sonic to {KeyFolder(folder, SuperSonicArt.ObjectKey)}.");
 	}
 
 	/// <summary>Makes the recordings of the attract demos.</summary>

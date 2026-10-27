@@ -40,4 +40,7 @@ public class SonicType : ObjectType
 	public const string PeeloutChargeSoundResourceKey = "SONICORCA/SOUND/PEELOUT/CHARGE";
 	[Dependency]
 	public const string PeeloutReleaseSoundResourceKey = "SONICORCA/SOUND/PEELOUT/RELEASE";
+	/// <summary>The original sprites of Super Sonic. Only the import of tools/s2hd-data makes them (SuperSonicArt).</summary>
+	[Dependency(Optional = true)]
+	public const string SuperAnimationGroupResourceKey = "SONICORCA/OBJECTS/SONIC/SUPER/ANIGROUP";
 }

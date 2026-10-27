@@ -13,7 +13,7 @@
 // the original, which gives a small file for the game's mods folder. import-special-stages converts the special
 // stage layouts of the original game from a Sonic 2 disassembly (github.com/sonicretro/s2disasm) into that folder.
 // import-level makes the map (with collision) and the object binding of a zone, for example CNZ, from the same
-// disassembly. import-music plays the songs and the sounds that the demo data does not have on emulated sound chips,
+// disassembly. import-super-sonic makes the sprites of Super Sonic from the art of Sonic. import-music plays the songs and the sounds that the demo data does not have on emulated sound chips,
 // and uses ffmpeg (or S2HD_FFMPEG) to encode them as Ogg Vorbis. Each song gets a loop point.
 using System;
 using System.Collections.Generic;
@@ -39,6 +39,7 @@ try
 		["import-special-stages", string disassembly, string folder] => ImportSpecialStages(disassembly, folder),
 		["import-level", string zone, string disassembly, string folder] => ImportLevel(zone, disassembly, folder),
 		["import-demos", string disassembly, string folder] => ImportDemos(disassembly, folder),
+		["import-super-sonic", string disassembly, string folder] => ImportSuperSonic(disassembly, folder),
 		["import-music", string disassembly, string folder] => ImportMusic(disassembly, folder),
 		_ => Usage(),
 	};
@@ -149,6 +150,12 @@ static int ImportSpecialStages(string disassembly, string folder)
 	return 0;
 }
 
+static int ImportSuperSonic(string disassembly, string folder)
+{
+	OriginalImport.ImportSuperSonic(disassembly, folder, Console.WriteLine);
+	return 0;
+}
+
 static int ImportDemos(string disassembly, string folder)
 {
 	OriginalImport.ImportDemos(disassembly, folder, Console.WriteLine);
@@ -200,6 +207,7 @@ static int Usage()
 		  s2hd-data import-special-stages <s2disasm folder> <folder>
 		  s2hd-data import-level <zone> <s2disasm folder> <folder>
 		  s2hd-data import-demos <s2disasm folder> <folder>
+		  s2hd-data import-super-sonic <s2disasm folder> <folder>
 		  s2hd-data import-music <s2disasm folder> <folder>
 		""");
 	return 2;

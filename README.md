@@ -173,7 +173,7 @@ game data or of an import. To share the mod as one file, pack the folder with `-
 ### Import all
 
 The build does not make the data of the missing zones. One script makes all the mods that come from the
-disassembly: the zones, their music, the special stage layouts and the demos. The music needs `ffmpeg` on the
+disassembly: the zones, their music, the special stage layouts, the sprites of Super Sonic and the demos. The music needs `ffmpeg` on the
 `PATH` (or set `S2HD_FFMPEG`). The sections below tell what each import does.
 
 ```sh
@@ -298,11 +298,20 @@ has separate rings, and the goals use the total. A jump or a bomb changes the la
 With 7 emeralds and 50 rings or more, Sonic becomes Super Sonic at the top of a jump, as in the original. Super
 Sonic is faster, jumps higher and cannot be hurt. A pit, a crush or drowning can still kill him. He loses 1 ring
 each second. He becomes normal again when he has no rings, at the end of the act or when he dies. Tails cannot
-become super. The data has no Super Sonic art, so the game colours Sonic gold. The data also has no Super Sonic
-music or sound. With the music import (see [Music](#music)), the transformation plays the sound of the original, and
-the Super Sonic music replaces the level music. As in the original, the Super Sonic music continues after Sonic
-becomes normal again. Without the import, the level music continues. Super Sonic has the values of the original in
-the two physics modes.
+become super. The data has no Super Sonic art, so the game colours Sonic gold. The import (`import-super-sonic`, or
+`./tools/import-all.sh`) makes the sprites of Super Sonic from the art of Sonic in the disassembly. With them,
+Super Sonic uses the original sprites and the animations of the original. To use the gold HD sprites instead, add
+this to `sonicorca.cfg`:
+
+```ini
+[graphics]
+original_super_sonic=0
+```
+
+The data also has no Super Sonic music or sound. With the music import (see [Music](#music)), the transformation
+plays the sound of the original, and the Super Sonic music replaces the level music. As in the original, the Super
+Sonic music continues after Sonic becomes normal again. Without the import, the level music continues. Super Sonic
+has the values of the original in the two physics modes.
 
 ### Level editor
 
