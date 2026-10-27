@@ -26,7 +26,7 @@ public static class OriginalImport
 	/// The version of the import. Change it when a change of the importers changes the mods, so that the web build
 	/// makes its stored mods again.
 	/// </summary>
-	public const int Version = 1;
+	public const int Version = 2;
 
 	/// <summary>The zones that the import makes, in the order of tools/import-all.sh.</summary>
 	public static readonly IReadOnlyList<string> Zones = new[] { "arz", "cnz", "mcz", "ooz", "mtz", "scz", "wfz", "dez" };
@@ -38,7 +38,7 @@ public static class OriginalImport
 	/// Returns the steps of a full import, in order. The steps of one mod follow each other. The demos of ARZ and CNZ
 	/// need the imports of these zones in the game, so the demos come after the zones.
 	/// </summary>
-	/// <param name="ffmpeg">The ffmpeg program for the music, or null for WAVE samples (see <see cref="MusicImport.ImportSong"/>).</param>
+	/// <param name="ffmpeg">The ffmpeg program for the music, or null for songs that play live (see <see cref="MusicImport.ImportSong"/>).</param>
 	/// <param name="log">Gets the notes of the steps.</param>
 	public static IReadOnlyList<OriginalImportStep> GetSteps(string ffmpeg, Action<string> log)
 	{

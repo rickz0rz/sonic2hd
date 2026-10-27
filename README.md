@@ -112,8 +112,9 @@ When a new version of the site changes the importers (`OriginalImport.Version`),
 the stored zip. **Delete stored files** removes the zip and the mods. Mods in the `mods/` folder of the game data have
 priority over the import.
 
-The browser has no ffmpeg, so the web import keeps the music as 16-bit WAVE samples at 24 kHz, half the rate of the
-renderer. The music mod is then about 75 MB, against 21 MB of Ogg Vorbis on the desktop.
+The browser has no ffmpeg, so the web import does not make Ogg Vorbis samples. It keeps each song and its drums
+(`SAMPLE.smps`), and the game plays the song live on the emulated sound chips. The music mod is then about 150 KB,
+against 21 MB of Ogg Vorbis on the desktop. The desktop keeps the Ogg Vorbis samples, which use less processor time.
 
 For tests, `?disasm=<url>` stores a zip of the disassembly from the same site, as the button does.
 

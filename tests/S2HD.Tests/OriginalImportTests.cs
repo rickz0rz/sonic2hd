@@ -22,18 +22,6 @@ public sealed class OriginalImportTests
 	}
 
 	[Fact]
-	public void RenderedSong_HalfRate_AveragesPairsAndHalvesTheLoop()
-	{
-		RenderedSong song = new RenderedSong(new[] { 0.2f, -0.2f, 0.4f, -0.4f, 1f, 0f, 0f, 1f }, 48000, 2);
-
-		RenderedSong half = song.HalfRate();
-
-		Assert.Equal(24000, half.SampleRate);
-		Assert.Equal(1, half.LoopSample);
-		Assert.Equal(new[] { 0.3f, -0.3f, 0.5f, 0.5f }, half.Samples, (x, y) => System.Math.Abs(x - y) < 1e-6f);
-	}
-
-	[Fact]
 	public void GetSteps_MakesEachModWithConsecutiveSteps()
 	{
 		var steps = OriginalImport.GetSteps(null, _ => { });

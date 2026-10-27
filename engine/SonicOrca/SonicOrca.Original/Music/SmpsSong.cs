@@ -54,6 +54,12 @@ public sealed class SmpsSong
 		return FromText(File.ReadAllText(path), fixDataBugs);
 	}
 
+	/// <summary>Makes a song from the bytes of an assembled song (<see cref="Data"/>). The song has no labels.</summary>
+	public static SmpsSong FromData(byte[] data)
+	{
+		return new SmpsSong { Data = data };
+	}
+
 	/// <summary>Assembles the text of a song file.</summary>
 	public static SmpsSong FromText(string text, bool fixDataBugs = true)
 	{

@@ -1,10 +1,13 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using SonicOrca.Audio;
 using SonicOrca.HelperLibraries.OggVorbis;
 using SonicOrca.Original.Music;
+using SonicOrca.Resources;
 using Xunit;
 
 namespace S2HD.Tests;
@@ -152,6 +155,97 @@ public sealed class MusicImportTests
 		{
 			Directory.Delete(folder, recursive: true);
 		}
+	}
+
+	[Fact]
+	public void SongSample_LoadsTheFileAndPlaysA4Live()
+	{
+		SongSample sample = LoadSongSample(SineSong);
+		using Stream stream = sample.OpenStream(null);
+
+		short[] samples = ReadSamples(stream, sample.SampleRate);
+
+		Assert.Equal(SongSample.OutputSampleRate, sample.SampleRate);
+		Assert.Equal(sample.SampleRate * 2, samples.Length);
+		Assert.InRange(MeasureFrequency(samples, sample.SampleRate / 20, sample.SampleRate / 2, sample.SampleRate), 435.0, 445.0);
+	}
+
+	[Fact]
+	public void SongSample_SeekBackStartsTheSongAgain()
+	{
+		using Stream stream = LoadSongSample(SineSong).OpenStream(null);
+		short[] first = ReadSamples(stream, 20000);
+
+		stream.Position = 0;
+		short[] again = ReadSamples(stream, 20000);
+		stream.Position = 4 * 5000;
+		short[] skipped = ReadSamples(stream, 15000);
+
+		Assert.Equal(first, again);
+		Assert.Equal(first.Skip(2 * 5000), skipped);
+	}
+
+	[Fact]
+	public void SongSample_SongWithoutLoopEndsAfterItsTail()
+	{
+		string song = SineSong.Replace("smpsJump            Test_Loop", "smpsStop");
+		using Stream stream = LoadSongSample(song).OpenStream(null);
+
+		byte[] buffer = new byte[4096];
+		long total = 0;
+		int read;
+		while ((read = stream.Read(buffer, 0, buffer.Length)) > 0 && total < 60L * 4 * SongSample.OutputSampleRate)
+		{
+			total += read;
+		}
+
+		// The note and the rest take 30 ticks at tempo $80 (60 frames), and the tail is 2 s
+		Assert.InRange(total / 4.0 / SongSample.OutputSampleRate, 2.5, 4.0);
+	}
+
+	/// <summary>Writes a song as a .smps file and loads it with the resource type of the game.</summary>
+	private static SongSample LoadSongSample(string text)
+	{
+		ResourceType.RegisterTypesFrom(typeof(SongSample).Assembly);
+		string path = Path.GetTempFileName();
+		try
+		{
+			SmpsResourceType.Write(path, SmpsSong.FromText(text), new Dictionary<DacSample, (byte[], int)>
+			{
+				[DacSample.Kick] = (new byte[] { 0x80, 0x90, 0x70 }, 8000)
+			});
+			using FileStream input = File.OpenRead(path);
+			ResourceType type = ResourceType.FromIdentifier(ResourceTypeIdentifier.SampleSMPS);
+			return (SongSample)type.LoadAsync(new ResourceLoadArgs(null, null, input)).GetAwaiter().GetResult();
+		}
+		finally
+		{
+			File.Delete(path);
+		}
+	}
+
+	/// <summary>Reads 16-bit stereo samples: two values for each sample.</summary>
+	private static short[] ReadSamples(Stream stream, int count)
+	{
+		byte[] bytes = new byte[count * 4];
+		stream.ReadExactly(bytes);
+		short[] samples = new short[count * 2];
+		Buffer.BlockCopy(bytes, 0, samples, 0, bytes.Length);
+		return samples;
+	}
+
+	/// <summary>Measures the frequency of the left channel from its zero crossings.</summary>
+	private static double MeasureFrequency(short[] samples, int start, int count, int sampleRate)
+	{
+		int crossings = 0;
+		for (int i = start + 1; i < start + count; i++)
+		{
+			if ((samples[(i - 1) * 2] < 0) != (samples[i * 2] < 0))
+			{
+				crossings++;
+			}
+		}
+		return crossings / 2.0 / (count / (double)sampleRate);
 	}
 
 	private static bool RunFfmpeg(string arguments)
