@@ -213,6 +213,22 @@ public sealed record RenderedSong(float[] Samples, int SampleRate, int? LoopSamp
 	/// <summary>The number of samples of each channel.</summary>
 	public int Length => Samples.Length / 2;
 
+	/// <summary>
+	/// Returns the sound at half the sample rate. Each new sample is the mean of two samples, which also weakens the
+	/// sounds above the new frequency limit. The loop point is halved.
+	/// </summary>
+	public RenderedSong HalfRate()
+	{
+		int length = Length / 2;
+		float[] samples = new float[length * 2];
+		for (int i = 0; i < length; i++)
+		{
+			samples[2 * i] = (Samples[4 * i] + Samples[4 * i + 2]) / 2f;
+			samples[2 * i + 1] = (Samples[4 * i + 1] + Samples[4 * i + 3]) / 2f;
+		}
+		return new RenderedSong(samples, SampleRate / 2, LoopSample / 2);
+	}
+
 	/// <summary>Writes the sound as a 16-bit stereo WAVE file.</summary>
 	public void WriteWave(string path)
 	{
