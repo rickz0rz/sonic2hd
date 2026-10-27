@@ -106,6 +106,17 @@ public static class HalfPipeLayout
 	public static HalfPipeStageData CreateGenerated()
 	{
 		var stage = new HalfPipeStageData();
+		// The lead-in of stages 1 and 2: segments with no objects, so that the first rings come after the START
+		// banner and the first message
+		HalfPipeSegmentType[] leadIn =
+		{
+			HalfPipeSegmentType.Straight, HalfPipeSegmentType.Straight, HalfPipeSegmentType.Straight,
+			HalfPipeSegmentType.StraightThenTurn, HalfPipeSegmentType.TurnThenStraight,
+		};
+		foreach (HalfPipeSegmentType type in leadIn)
+		{
+			stage.Segments.Add(new HalfPipeSegment { Type = type, Objects = new List<HalfPipeObjectEntry>() });
+		}
 		HalfPipeSegmentType[] block =
 		{
 			HalfPipeSegmentType.Straight, HalfPipeSegmentType.Straight, HalfPipeSegmentType.StraightThenTurn,
@@ -127,7 +138,7 @@ public static class HalfPipeLayout
 				Type = type,
 				// Turn the other way in every second block
 				Flip = i / block.Length % 2 == 1,
-				Objects = i < 1 ? new List<HalfPipeObjectEntry>() : CreateGroup(i, HalfPipeTrackBuilder.GetLength(block[(i + 1) % block.Length])),
+				Objects = CreateGroup(i, HalfPipeTrackBuilder.GetLength(block[(i + 1) % block.Length])),
 				Marker = markers.TryGetValue(i, out HalfPipeMarker marker) ? marker : HalfPipeMarker.None,
 			});
 		}

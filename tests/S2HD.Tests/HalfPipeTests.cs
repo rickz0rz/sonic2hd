@@ -50,6 +50,17 @@ public sealed class HalfPipeTests
 	}
 
 	[Fact]
+	public void GeneratedStage_ShowsNoObjectsBeforeTheFirstMessage()
+	{
+		HalfPipeTrack track = HalfPipeTrackBuilder.Build(HalfPipeLayout.CreateGenerated(), HalfPipeLayout.GetRingQuotas(0, duo: false));
+
+		// The player moves one node each tick, and the screen shows the objects up to ObjectDrawDistance nodes ahead
+		int firstNode = track.Objects.Min(o => o.TrackNode);
+		Assert.True(firstNode > HalfPipeStageFlow.FirstMessageFrame + HalfPipeSpecialStageScreen.ObjectDrawDistance,
+			$"The first object is at node {firstNode}, in view before the first message.");
+	}
+
+	[Fact]
 	public void OriginalStages_HaveThreeRingTests_WithEnoughRingsBeforeEach()
 	{
 		var stages = SpecialStageLayouts.ReadFromDisassembly(SpecialStageImportTests.FindDisassembly());

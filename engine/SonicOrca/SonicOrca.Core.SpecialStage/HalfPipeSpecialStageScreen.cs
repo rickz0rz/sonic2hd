@@ -131,7 +131,7 @@ public class HalfPipeSpecialStageScreen : Screen
 	private const int DrawDistanceBehind = 16;
 
 	/// <summary>The number of track nodes in front of the camera that objects are drawn.</summary>
-	private const int ObjectDrawDistance = 180;
+	public const int ObjectDrawDistance = 180;
 
 	/// <summary>
 	/// The number of track nodes between the camera and the player. With <see cref="CameraHeight"/> and
