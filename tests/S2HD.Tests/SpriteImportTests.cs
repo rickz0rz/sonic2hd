@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.Linq;
+using System.Xml.Linq;
 using SonicOrca.Original;
 using Xunit;
 
@@ -53,5 +55,45 @@ public sealed class SpriteImportTests
 		// The vertical flip puts tile 1 on top
 		Assert.Equal(0x00FF00FFu, pixels[0]);
 		Assert.Equal(0xFF0000FFu, pixels[15 * width]);
+	}
+
+	[Fact]
+	public void ParseDplc_ReadsTheEntriesInTableOrder()
+	{
+		const string dplc = """
+			.offsets:	mappingsTable
+				mappingsTableEntry.w	.frame1
+				mappingsTableEntry.w	.frame0
+
+			.frame0:	dplcHeader
+			.frame0_End
+
+			.frame1:	dplcHeader
+				dplcEntry	$C, $7E2
+				dplcEntry	2, 4 ; a comment
+			.frame1_End
+			""";
+
+		List<List<(int Tiles, int Offset)>> frames = SuperSonicArt.ParseDplc(dplc);
+
+		Assert.Equal(2, frames.Count);
+		Assert.Equal(new[] { (0xC, 0x7E2), (2, 4) }, frames[0]);
+		Assert.Empty(frames[1]);
+	}
+
+	[Fact]
+	public void SuperSonicArt_HasAnAnimationForEachCharacterAnimationAndTheTransformation()
+	{
+		string disassembly = SpecialStageImportTests.FindDisassembly();
+
+		ImportedSprite sprite = SuperSonicArt.Import(disassembly);
+
+		XElement[] animations = XDocument.Parse(sprite.AnimationGroup).Descendants("animation").ToArray();
+		Assert.Equal(System.Enum.GetValues<SonicOrca.Core.Objects.Base.CharacterAnimation>().Length, SuperSonicArt.TransformAnimation);
+		Assert.Equal(SuperSonicArt.TransformAnimation + 1, animations.Length);
+		Assert.All(animations, animation => Assert.NotEmpty(animation.Elements("frame")));
+		// Each frame has pixels: its tiles come from its DPLC
+		Assert.All(animations.SelectMany(animation => animation.Elements("frame")), frame => Assert.True(int.Parse(frame.Attribute("w").Value) > 4));
+		Assert.Equal("SONICORCA/OBJECTS/SONIC/SUPER", sprite.ObjectKey);
 	}
 }

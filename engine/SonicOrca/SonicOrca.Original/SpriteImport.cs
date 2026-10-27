@@ -167,7 +167,7 @@ public static class SpriteImport
 	}
 
 	/// <summary>Converts Mega Drive colours (0BGR) to RGBA colours.</summary>
-	private static uint[] ReadColours(byte[] data)
+	internal static uint[] ReadColours(byte[] data)
 	{
 		var palette = new uint[data.Length / 2];
 		for (int i = 0; i < palette.Length; i++)

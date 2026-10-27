@@ -9,7 +9,8 @@ namespace SONICORCA.OBJECTS.SONIC;
 /// <summary>
 /// Sonic, a playable character. The Character base class has the movement. This class sets the sprites, draws the
 /// body with the character shader, and plays the peel-out sounds in the winning pose. Sonic can become Super Sonic.
-/// There is no Super Sonic art, so the shader colours the skin texture gold.
+/// The HD data has no Super Sonic art, so the shader colours the skin texture gold. With the original sprites from the
+/// import, Super Sonic uses them instead. The setting original_super_sonic in the graphics section turns this off.
 /// </summary>
 public class SonicInstance : Character
 {
@@ -25,7 +26,21 @@ public class SonicInstance : Character
 	/// </summary>
 	private const int HDCollisionRadiusY = 60;
 
+	/// <summary>The animation in the original sprites of Super Sonic after the 30 values of CharacterAnimation.</summary>
+	private const int SuperTransformAnimation = 30;
+
+	/// <summary>
+	/// The height radius of the original Sonic, at four times the size: y_radius $13, and $E in a roll. The original
+	/// sprites line up with these.
+	/// </summary>
+	private const int OriginalCollisionRadiusY = 76;
+
+	private const int OriginalSpinballCollisionRadiusY = 56;
+
 	private int _winningTicks;
+
+	/// <summary>The animation of the original sprites of Super Sonic, or null without them.</summary>
+	private AnimationInstance _superAnimation;
 
 	protected override void OnStart()
 	{
@@ -38,11 +53,18 @@ public class SonicInstance : Character
 			SpinballCollisionRadius = new Vector2i(28, 56);
 		}
 		base.OnStart();
+		if (Level.GameContext.Configuration.GetPropertyBoolean("graphics", "original_super_sonic", true) &&
+			ResourceTree.TryGetLoadedResource(SonicType.SuperAnimationGroupResourceKey, out AnimationGroup superAnimationGroup))
+		{
+			_superAnimation = new AnimationInstance(superAnimationGroup);
+		}
 	}
 
 	protected override void OnUpdate()
 	{
 		base.OnUpdate();
+		if (_superAnimation != null && IsSuper)
+			UpdateSuperAnimation();
 		if (IsWinning)
 		{
 			if (_winningTicks == 0)
@@ -55,8 +77,54 @@ public class SonicInstance : Character
 			_winningTicks = 0;
 	}
 
+	/// <summary>
+	/// Plays the same animation as the HD sprites in the original sprites. The animations have the same index, but
+	/// their frames differ, so the original sprites have their own animation instance.
+	/// </summary>
+	private void UpdateSuperAnimation()
+	{
+		if (IsTransformingToSuper)
+		{
+			_superAnimation.Index = SuperTransformAnimation;
+			_superAnimation.Animate();
+			return;
+		}
+		_superAnimation.Index = Animation.Index;
+		if (Animation.Index == AnimationTumble)
+		{
+			// The tumble frame comes from the tumble angle: use the same part of the animation
+			int hdFrames = Animation.AnimationGroup[Animation.Index].Frames.Count;
+			int superFrames = _superAnimation.AnimationGroup[AnimationTumble].Frames.Count;
+			_superAnimation.CurrentFrameIndex = hdFrames > 1 ? Animation.CurrentFrameIndex * (superFrames - 1) / (hdFrames - 1) : 0;
+			return;
+		}
+		_superAnimation.OverrideDelay = Animation.OverrideDelay;
+		_superAnimation.Animate();
+	}
+
+	/// <summary>
+	/// Draws the original sprite of Super Sonic. The original art faces right, and the HD art faces left. The sprite
+	/// lines up with the collision box of the original, so it moves by the difference to the box of the character.
+	/// </summary>
+	private void DrawOriginalSuperSonic(Renderer renderer)
+	{
+		IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
+		using (objectRenderer.BeginMatixState())
+		{
+			if (DrawBodyRotated)
+				objectRenderer.ModelMatrix *= Matrix4.CreateRotationZ(ShowAngle);
+			double offsetY = IsSpinball ? SpinballCollisionRadius.Y - OriginalSpinballCollisionRadiusY : NormalCollisionRadius.Y - OriginalCollisionRadiusY;
+			objectRenderer.RenderOriginal(_superAnimation, new Vector2(0.0, offsetY), IsFacingLeft);
+		}
+	}
+
 	protected override void DrawBody(Renderer renderer, LayerViewOptions viewOptions)
 	{
+		if (_superAnimation != null && IsSuper)
+		{
+			DrawOriginalSuperSonic(renderer);
+			return;
+		}
 		I2dRenderer renderer2d = renderer.Get2dRenderer();
 		ICharacterRenderer characterRenderer = renderer.GetCharacterRenderer();
 		characterRenderer.ModelMatrix = renderer2d.ModelMatrix;
