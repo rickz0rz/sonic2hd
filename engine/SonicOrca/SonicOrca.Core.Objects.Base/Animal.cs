@@ -85,6 +85,14 @@ public abstract class Animal : ActiveObject
 
 	protected override void OnUpdate()
 	{
+		// The original deletes an animal when it leaves the screen (MarkObjGone). The object manager keeps an object
+		// while the place where it was created is in range. That place can stay on the screen, for example at a
+		// capsule, so the animal finishes itself. A capsule of the original physics waits until no animal is left.
+		if (!Level.ObjectManager.IsInLifetimeArea(LifetimeArea))
+		{
+			FinishForever();
+			return;
+		}
 		if (_delay > 0)
 		{
 			Priority = WaitingPriority;
