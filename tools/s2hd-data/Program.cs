@@ -19,8 +19,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using SonicOrca.Core;
-using SonicOrca.Core.SpecialStage;
 using SonicOrca.HelperLibraries.Png;
 using SonicOrca.Original;
 using SonicOrca.Original.Music;
@@ -129,16 +127,11 @@ static int Pack(string folder, string file, string baseFile)
 		return 1;
 	}
 	var skipped = new List<string>();
-	ResourceTree tree = ResourceDirectory.Import(folder, skipped);
+	int count = OriginalImport.Pack(folder, file, baseFile != null ? Scan(baseFile) : null, skipped);
 	foreach (string path in skipped)
 	{
 		Console.Error.WriteLine($"Warning: Not packed, unknown file type: {path}");
 	}
-	if (baseFile != null)
-	{
-		tree = ResourceComparison.GetChanges(tree, Scan(baseFile));
-	}
-	int count = tree.GetResourceListing().Count;
 	if (count == 0)
 	{
 		Console.Error.WriteLine(baseFile != null
@@ -146,53 +139,19 @@ static int Pack(string folder, string file, string baseFile)
 			: "Error: The folder has no resources. The tool did not write a file.");
 		return 1;
 	}
-	new ResourceFile(file).Write(tree);
 	Console.WriteLine($"Wrote {count} resources to {file}.");
 	return 0;
 }
 
 static int ImportSpecialStages(string disassembly, string folder)
 {
-	if (!File.Exists(Path.Combine(disassembly, SpecialStageLayouts.LayoutsFile)) || !File.Exists(Path.Combine(disassembly, SpecialStageLayouts.ObjectsFile)))
-	{
-		Console.Error.WriteLine($"Error: The folder {disassembly} does not contain the special stage data of s2disasm.");
-		return 1;
-	}
-	List<HalfPipeStageData> stages = SpecialStageLayouts.ReadFromDisassembly(disassembly);
-	string output = Path.Combine(folder, "SONICORCA", "SPECIALSTAGE");
-	Directory.CreateDirectory(output);
-	for (int i = 0; i < stages.Count; i++)
-	{
-		using var writer = new StreamWriter(Path.Combine(output, $"STAGE{i + 1}.xml"));
-		stages[i].WriteXml(writer);
-	}
-	// The art of the messages, the START banner and the results screen, which the game data does not have
-	foreach (ImportedSprite sprite in SpecialStageArt.Import(disassembly))
-	{
-		string spriteFolder = Path.Combine(new[] { folder }.Concat(sprite.ObjectKey.Split('/')).ToArray());
-		Directory.CreateDirectory(spriteFolder);
-		File.WriteAllBytes(Path.Combine(spriteFolder, "TEXTURE.png"), sprite.Texture);
-		File.WriteAllText(Path.Combine(spriteFolder, "ANIGROUP.anigroup.xml"), sprite.AnimationGroup);
-	}
-	Console.WriteLine($"Wrote {stages.Count} special stages and their art to {output}.");
+	OriginalImport.ImportSpecialStages(disassembly, folder, Console.WriteLine);
 	return 0;
 }
 
 static int ImportDemos(string disassembly, string folder)
 {
-	if (!File.Exists(Path.Combine(disassembly, "s2.asm")))
-	{
-		Console.Error.WriteLine($"Error: The folder {disassembly} does not contain s2.asm.");
-		return 1;
-	}
-	string output = Path.Combine(folder, "SONICORCA", "RECORDINGS");
-	Directory.CreateDirectory(output);
-	foreach ((string zone, string label) in OriginalDemos.All)
-	{
-		byte[] recording = OriginalDemos.ToRecording(OriginalDemos.ReadButtons(disassembly, label));
-		File.WriteAllBytes(Path.Combine(output, zone + ".rec"), recording);
-	}
-	Console.WriteLine($"Wrote {OriginalDemos.All.Count} demos to {output}.");
+	OriginalImport.ImportDemos(disassembly, folder, Console.WriteLine);
 	return 0;
 }
 
@@ -216,56 +175,7 @@ static int ImportLevel(string zoneName, string disassembly, string folder)
 		Console.Error.WriteLine($"Error: The zone {zoneName} is not known. Known zones: {string.Join(", ", OriginalZone.All.Keys)}.");
 		return 1;
 	}
-	if (!File.Exists(Path.Combine(disassembly, zone.ChunksFile)))
-	{
-		Console.Error.WriteLine($"Error: The folder {disassembly} does not contain the level data of s2disasm.");
-		return 1;
-	}
-	ImportedLevel level = LevelImport.Import(zone, disassembly);
-	string output = Path.Combine(new[] { folder }.Concat(zone.Key.Split('/')).ToArray());
-	Directory.CreateDirectory(output);
-	new LevelMapWriter(level.Map).Save(Path.Combine(output, "MAP.map.xml"));
-	new LevelBindingWriter(level.Binding).Save(Path.Combine(output, "BINDING.binding.xml"));
-	// The collision data of the original, so that the level editor can trace the collision again
-	if (level.TileCollision != null)
-	{
-		File.WriteAllBytes(Path.Combine(output, TileCollision.ResourceName + ".xml"), level.TileCollision.ToXml());
-	}
-	// The tiles in front of the characters: a new tile set that adds them to the HD tiles
-	if (level.TileSet != null)
-	{
-		string tileSetFolder = Path.Combine(output, "TILESET");
-		Directory.CreateDirectory(tileSetFolder);
-		File.WriteAllText(Path.Combine(tileSetFolder, "_.tileset.xml"), level.TileSet);
-		File.WriteAllBytes(Path.Combine(tileSetFolder, "PRIORITY.png"), level.PriorityTexture);
-	}
-	// The art of the objects that the game data does not have
-	string KeyFolder(string key) => Path.Combine(new[] { folder }.Concat(key.Split('/')).ToArray());
-	foreach (ImportedSprite sprite in level.Sprites)
-	{
-		string spriteFolder = KeyFolder(sprite.ObjectKey);
-		Directory.CreateDirectory(spriteFolder);
-		File.WriteAllBytes(Path.Combine(spriteFolder, "TEXTURE.png"), sprite.Texture);
-		File.WriteAllText(Path.Combine(spriteFolder, "ANIGROUP.anigroup.xml"), sprite.AnimationGroup);
-	}
-	foreach ((string key, byte[] texture) in level.Textures ?? new Dictionary<string, byte[]>())
-	{
-		string file = KeyFolder(key) + ".png";
-		Directory.CreateDirectory(Path.GetDirectoryName(file));
-		File.WriteAllBytes(file, texture);
-	}
-	// A resource that names the code of each new object: in its folder when it has art, else next to the folder
-	foreach ((string key, string codeNamespace) in level.NewObjects)
-	{
-		string resourceFile = Directory.Exists(KeyFolder(key)) ? Path.Combine(KeyFolder(key), "_.object.cs") : KeyFolder(key) + ".object.cs";
-		Directory.CreateDirectory(Path.GetDirectoryName(resourceFile));
-		File.WriteAllText(resourceFile, "#use " + codeNamespace);
-	}
-	Console.WriteLine($"Wrote {zone.Name} to {output}: {level.Map.CollisionVectors.Count} collision lines, {level.Binding.ObjectPlacements.Count} objects.");
-	foreach (string note in level.Notes)
-	{
-		Console.WriteLine("  " + note);
-	}
+	OriginalImport.ImportLevel(zone, disassembly, folder, Console.WriteLine);
 	return 0;
 }
 

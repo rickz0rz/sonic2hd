@@ -8,6 +8,9 @@ using System.Reflection;
 using System.Runtime.InteropServices.JavaScript;
 using SonicOrca;
 using SonicOrca.Graphics;
+using SonicOrca.HelperLibraries.Png;
+using SonicOrca.Original;
+using SonicOrca.Resources;
 using SonicOrca.Web;
 
 namespace S2HD;
@@ -20,6 +23,19 @@ namespace S2HD;
 public static partial class Program
 {
 	private const string ContentPath = "/content";
+
+	/// <summary>The folder for the files of the Sonic 2 disassembly during an import.</summary>
+	private const string DisassemblyPath = "/s2disasm";
+
+	/// <summary>The folder for the resource files of the mods during an import.</summary>
+	private const string ImportPath = "/tmp/imports";
+
+	private static string _disassembly;
+
+	private static IReadOnlyList<OriginalImportStep> _importSteps;
+
+	/// <summary>The resources of the game data, which the packed mods are compared with.</summary>
+	private static ResourceTree _baseTree;
 
 	private static S2HDSonicOrcaGameContext _game;
 
@@ -96,6 +112,101 @@ public static partial class Program
 		}
 		return null;
 	}
+
+	/// <summary>The version of the import. The page makes its stored mods again when the version changes.</summary>
+	[JSExport]
+	public static int GetImportVersion() => OriginalImport.Version;
+
+	/// <summary>
+	/// Returns the names of the mods that the import from the disassembly makes and that the game data does not have,
+	/// separated by spaces. The page writes the mods into /content/mods/NAME.dat.
+	/// </summary>
+	[JSExport]
+	public static string GetMissingMods()
+	{
+		return string.Join(" ", ImportModNames().Where(mod => !File.Exists(GetModPath(mod))));
+	}
+
+	/// <summary>Returns the names of all the mods that the import from the disassembly makes, separated by spaces.</summary>
+	[JSExport]
+	public static string GetImportMods() => string.Join(" ", ImportModNames());
+
+	/// <summary>
+	/// Extracts the zip of the Sonic 2 disassembly (for example a GitHub download of sonicretro/s2disasm), which the
+	/// page wrote to the file system, and prepares the steps that make the missing mods. Returns the number of steps,
+	/// or -1 when the zip does not contain the disassembly. The game data must be in place first.
+	/// </summary>
+	[JSExport]
+	public static int PrepareImport(string zipPath)
+	{
+		if (Directory.Exists(DisassemblyPath))
+			Directory.Delete(DisassemblyPath, recursive: true);
+		ZipFile.ExtractToDirectory(zipPath, DisassemblyPath);
+		File.Delete(zipPath);
+		_disassembly = OriginalImport.FindDisassembly(DisassemblyPath);
+		if (_disassembly == null)
+		{
+			FinishImport();
+			return -1;
+		}
+		ResourceType.RegisterTypesFrom(typeof(PngResourceType).Assembly);
+		_baseTree = new ResourceFile(Path.Combine(ContentPath, "data", "sonicorca.dat")).Scan();
+		HashSet<string> missing = new HashSet<string>(GetMissingMods().Split(' ', StringSplitOptions.RemoveEmptyEntries));
+		// Without ffmpeg, the music is WAVE samples at half the sample rate
+		_importSteps = OriginalImport.GetSteps(null, line => Trace.WriteLine(line)).Where(step => missing.Contains(step.Mod)).ToArray();
+		return _importSteps.Count;
+	}
+
+	/// <summary>Returns the text for the progress of an import step.</summary>
+	[JSExport]
+	public static string GetImportStepDescription(int index) => _importSteps[index].Description;
+
+	/// <summary>
+	/// Runs one step of the import. After the last step of a mod, packs the mod into /content/mods. Returns an error
+	/// message, or null on success.
+	/// </summary>
+	[JSExport]
+	public static string RunImportStep(int index)
+	{
+		try
+		{
+			OriginalImportStep step = _importSteps[index];
+			string folder = Path.Combine(ImportPath, step.Mod);
+			step.Run(_disassembly, folder);
+			if (index == _importSteps.Count - 1 || _importSteps[index + 1].Mod != step.Mod)
+			{
+				Directory.CreateDirectory(Path.Combine(ContentPath, "mods"));
+				int count = OriginalImport.Pack(folder, GetModPath(step.Mod), _baseTree);
+				Trace.WriteLine($"Packed {count} resources into {step.Mod}.dat");
+				Directory.Delete(folder, recursive: true);
+			}
+			return null;
+		}
+		catch (Exception ex)
+		{
+			Console.Error.WriteLine(ex);
+			return ex.Message;
+		}
+	}
+
+	/// <summary>Deletes the files of the disassembly and of the import, to free the memory.</summary>
+	[JSExport]
+	public static void FinishImport()
+	{
+		foreach (string folder in new[] { DisassemblyPath, ImportPath })
+		{
+			if (Directory.Exists(folder))
+				Directory.Delete(folder, recursive: true);
+		}
+		_disassembly = null;
+		_importSteps = null;
+		_baseTree = null;
+	}
+
+	/// <summary>The names of the mods of a full import, in order.</summary>
+	private static IEnumerable<string> ImportModNames() => OriginalImport.GetSteps(null, _ => { }).Select(step => step.Mod).Distinct();
+
+	private static string GetModPath(string mod) => Path.Combine(ContentPath, "mods", mod + ".dat");
 
 	/// <summary>
 	/// Initialises the game. Returns an error message, or null on success. The arguments are the options of the

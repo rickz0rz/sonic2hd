@@ -48,15 +48,40 @@ public static class MusicImport
 	/// <param name="log">Gets a line for each song.</param>
 	public static void Import(string disassembly, string folder, string ffmpeg, Action<string> log)
 	{
-		string dacFolder = Path.Combine(disassembly, DacFolder);
 		Parallel.ForEach(Songs, song =>
 		{
-			Stopwatch stopwatch = Stopwatch.StartNew();
-			SmpsSong smps = SmpsSong.FromFile(Path.Combine(disassembly, MusicFolder, song.File));
-			RenderedSong rendered = SongRenderer.Render(smps, dacFolder);
-			string keyFolder = Path.Combine(new[] { folder }.Concat(song.Key.Split('/')).ToArray());
-			Directory.CreateDirectory(keyFolder);
-			string wave = Path.Combine(keyFolder, "SAMPLE.wav");
+			string line = ImportSong(song, disassembly, folder, ffmpeg);
+			lock (log)
+			{
+				log(line);
+			}
+		});
+	}
+
+	/// <summary>
+	/// Imports one song: the sample KEY/SAMPLE.ogg and the sample info KEY/_.sampleinfo.xml. Without ffmpeg (the web
+	/// build), the sample is KEY/SAMPLE.wav at half the sample rate, which is four times the size of the Ogg file.
+	/// Returns a line that tells the length and the loop point of the song.
+	/// </summary>
+	/// <param name="song">The song, from <see cref="Songs"/>.</param>
+	/// <param name="disassembly">The folder of the disassembly.</param>
+	/// <param name="folder">The output folder.</param>
+	/// <param name="ffmpeg">The ffmpeg program, or null for a WAVE sample.</param>
+	public static string ImportSong((string File, string Key) song, string disassembly, string folder, string ffmpeg)
+	{
+		Stopwatch stopwatch = Stopwatch.StartNew();
+		SmpsSong smps = SmpsSong.FromFile(Path.Combine(disassembly, MusicFolder, song.File));
+		RenderedSong rendered = SongRenderer.Render(smps, Path.Combine(disassembly, DacFolder));
+		string keyFolder = Path.Combine(new[] { folder }.Concat(song.Key.Split('/')).ToArray());
+		Directory.CreateDirectory(keyFolder);
+		string wave = Path.Combine(keyFolder, "SAMPLE.wav");
+		if (ffmpeg == null)
+		{
+			rendered = rendered.HalfRate();
+			rendered.WriteWave(wave);
+		}
+		else
+		{
 			rendered.WriteWave(wave);
 			try
 			{
@@ -66,16 +91,13 @@ public static class MusicImport
 			{
 				File.Delete(wave);
 			}
-			WriteSampleInfo(Path.Combine(keyFolder, "_.sampleinfo.xml"), rendered.LoopSample);
-			string loop = rendered.LoopSample is int sample
-				? (sample / (double)rendered.SampleRate).ToString("0.00", CultureInfo.InvariantCulture) + " s"
-				: "none";
-			lock (log)
-			{
-				log(string.Format(CultureInfo.InvariantCulture, "{0}: {1:0.0} s, loop at {2} ({3:0.0} s to make)",
-					song.Key, rendered.Length / (double)rendered.SampleRate, loop, stopwatch.Elapsed.TotalSeconds));
-			}
-		});
+		}
+		WriteSampleInfo(Path.Combine(keyFolder, "_.sampleinfo.xml"), rendered.LoopSample);
+		string loop = rendered.LoopSample is int sample
+			? (sample / (double)rendered.SampleRate).ToString("0.00", CultureInfo.InvariantCulture) + " s"
+			: "none";
+		return string.Format(CultureInfo.InvariantCulture, "{0}: {1:0.0} s, loop at {2} ({3:0.0} s to make)",
+			song.Key, rendered.Length / (double)rendered.SampleRate, loop, stopwatch.Elapsed.TotalSeconds);
 	}
 
 	/// <summary>Writes a sample info file for the sample SAMPLE next to it.</summary>

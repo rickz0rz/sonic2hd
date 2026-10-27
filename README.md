@@ -96,6 +96,27 @@ where you have permission. A publish without the property removes `game.zip`.
 
 When players choose their own files, the page also loads the `.dat` files in a `mods/` folder of the zip or folder.
 
+### Parts from the Sonic 2 disassembly
+
+The demo data has only Emerald Hill, Chemical Plant and Hill Top. On the desktop, `tools/import-all.sh` makes the
+other zones, the special stages, the attract demos and the music from the Sonic 2 disassembly. On the web, the page
+does the same import in the browser:
+
+1. Download the disassembly as a zip from https://github.com/sonicretro/s2disasm (Code, Download ZIP).
+2. On the page, choose this zip with **Choose s2disasm zip**, before the game data.
+3. Choose the game data.
+
+The page makes the mods (about 20 seconds in Chrome on an Apple silicon Mac). It keeps them and the zip in the
+browser storage (IndexedDB). On later visits, the page uses the stored mods, and only the game data is necessary.
+When a new version of the site changes the importers (`OriginalImport.Version`), the page makes the mods again from
+the stored zip. **Delete stored files** removes the zip and the mods. Mods in the `mods/` folder of the game data have
+priority over the import.
+
+The browser has no ffmpeg, so the web import keeps the music as 16-bit WAVE samples at 24 kHz, half the rate of the
+renderer. The music mod is then about 75 MB, against 21 MB of Ogg Vorbis on the desktop.
+
+For tests, `?disasm=<url>` stores a zip of the disassembly from the same site, as the button does.
+
 ## Modding
 
 The game data is in `data/sonicorca.dat`. This file holds 841 resources: PNG images, OGG music and XML files for

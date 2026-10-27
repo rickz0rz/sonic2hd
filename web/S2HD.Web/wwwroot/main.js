@@ -114,6 +114,116 @@ const game = (await runtime.getAssemblyExports(runtime.getConfig().mainAssemblyN
 const FS = runtime.Module.FS;
 setStatus('Choose the game data to start.');
 
+// Browser storage (IndexedDB) for the zip of the Sonic 2 disassembly and the mods that the page makes from it. The
+// files stay in this browser. 'mods' holds { version, files: { name: Uint8Array } }
+const storage = {
+  db: new Promise((resolve, reject) => {
+    const request = indexedDB.open('s2hd', 1);
+    request.onupgradeneeded = () => request.result.createObjectStore('files');
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  }),
+  async run(mode, action) {
+    const db = await this.db;
+    return new Promise((resolve, reject) => {
+      const request = action(db.transaction('files', mode).objectStore('files'));
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  },
+  get(key) { return this.run('readonly', (store) => store.get(key)); },
+  put(key, value) { return this.run('readwrite', (store) => store.put(value, key)); },
+  clear() { return this.run('readwrite', (store) => store.clear()); },
+};
+const storedText = document.getElementById('stored');
+const forget = document.getElementById('forget');
+
+async function showStored() {
+  try {
+    const disasm = await storage.get('s2disasm.zip');
+    const mods = await storage.get('mods');
+    const count = mods ? Object.keys(mods.files).length : 0;
+    const parts = [];
+    if (disasm) parts.push(`the disassembly zip (${(disasm.size / 1048576).toFixed(0)} MB)`);
+    if (count) parts.push(`${count} imported mods`);
+    storedText.textContent = parts.length ? `Stored in this browser: ${parts.join(' and ')}.` : 'No disassembly is stored.';
+    forget.hidden = parts.length === 0;
+    console.log(storedText.textContent);
+  } catch (e) {
+    storedText.textContent = `Browser storage is not available: ${e}`;
+  }
+}
+showStored();
+
+// The chosen zip of the disassembly, also when the browser cannot store it (for example in some private windows)
+let disasmZip = null;
+document.getElementById('disasm').addEventListener('change', async (e) => {
+  disasmZip = e.target.files[0];
+  if (!disasmZip) return;
+  try {
+    await storage.put('s2disasm.zip', disasmZip);
+    await showStored();
+    setStatus('The disassembly is stored. Choose the game data to start.');
+  } catch (error) {
+    setStatus(`The browser cannot store the disassembly (${error}). It is used for this visit only. Choose the game data to start.`);
+  }
+});
+forget.addEventListener('click', async () => {
+  await storage.clear();
+  await showStored();
+  setStatus('The stored files are deleted.');
+});
+
+// Writes the stored mods that the game data does not have. When mods are still missing, makes them from the stored
+// disassembly, which takes a minute or two, and stores them. The game starts without the parts that are missing
+async function prepareMods() {
+  const version = game.GetImportVersion();
+  const missing = () => game.GetMissingMods().split(' ').filter(Boolean);
+  if (missing().length === 0) return;
+  const stored = await storage.get('mods').catch(() => null);
+  if (stored?.version === version) {
+    for (const name of missing()) {
+      if (stored.files[name]) writeFile(`/content/mods/${name}.dat`, stored.files[name]);
+    }
+  }
+  if (missing().length === 0) return;
+  const disasm = disasmZip ?? await storage.get('s2disasm.zip').catch(() => null);
+  if (!disasm) {
+    console.log(`Starting without the parts from the disassembly: ${missing().join(', ')}`);
+    return;
+  }
+  setStatus('Reading the disassembly…');
+  writeFile('/tmp/s2disasm.zip', new Uint8Array(await disasm.arrayBuffer()));
+  await new Promise(requestAnimationFrame);
+  const steps = game.PrepareImport('/tmp/s2disasm.zip');
+  if (steps < 0) {
+    setStatus('The stored zip does not contain the Sonic 2 disassembly (s2.asm). Starting without it…');
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    return;
+  }
+  const t0 = performance.now();
+  for (let i = 0; i < steps; i++) {
+    setStatus(`Making the parts from the disassembly (${i + 1} of ${steps}): ${game.GetImportStepDescription(i)}…`);
+    await new Promise(requestAnimationFrame);
+    const error = game.RunImportStep(i);
+    if (error) {
+      setStatus(`The import failed: ${error}. Starting without the missing parts…`);
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      break;
+    }
+  }
+  game.FinishImport();
+  console.log(`Import took ${((performance.now() - t0) / 1000).toFixed(1)} s`);
+  // Keep the stored mods of this version, and add the new ones
+  const files = stored?.version === version ? stored.files : {};
+  for (const name of game.GetImportMods().split(' ')) {
+    const path = `/content/mods/${name}.dat`;
+    if (FS.analyzePath(path).exists) files[name] = FS.readFile(path);
+  }
+  await storage.put('mods', { version, files }).catch((e) => console.warn(`Cannot store the mods: ${e}`));
+  await showStored();
+}
+
 function writeFile(path, data) {
   FS.mkdirTree(path.substring(0, path.lastIndexOf('/')));
   FS.writeFile(path, data);
@@ -126,6 +236,7 @@ async function loadZip(blob) {
   await new Promise(requestAnimationFrame);
   const count = game.ImportZip('/tmp/game.zip');
   console.log(`Extracted ${count} files`);
+  await prepareMods();
   start();
 }
 
@@ -140,6 +251,7 @@ async function loadFolder(files) {
     count++;
   }
   console.log(`Copied ${count} files`);
+  await prepareMods();
   start();
 }
 
@@ -166,9 +278,11 @@ async function downloadZip(url) {
 
 document.getElementById('zip').addEventListener('change', (e) => e.target.files[0] && loadZip(e.target.files[0]));
 document.getElementById('folder').addEventListener('change', (e) => loadFolder(e.target.files));
+// ?disasm=<url> stores a zip of the disassembly from the site first, as the button does, for tests.
 // ?data=<url> loads a zip from the site. Otherwise game.zip is loaded when the site was published with
 // -p:BundleGameData=true, and the player is asked for the files when it is not there
-downloadZip(params.get('data') || 'game.zip')
+(params.has('disasm') ? downloadZip(params.get('disasm')).then((blob) => (disasmZip = blob) && storage.put('s2disasm.zip', blob)) : Promise.resolve())
+  .then(() => downloadZip(params.get('data') || 'game.zip'))
   .then((blob) => blob ? loadZip(blob) : params.has('data') && setStatus(`Could not download ${params.get('data')}.`))
   .catch((e) => console.warn(`Game data download failed: ${e}`));
 if (params.has('shadertest')) { report(game.CompileAllShaders()); report('DONE'); }

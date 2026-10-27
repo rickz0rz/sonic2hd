@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Dynamic;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Text;
 using SonicOrca.Core;
 using SonicOrca.Core.Collision;
@@ -1062,7 +1061,7 @@ public static class LevelImport
 	/// <summary>A stable unique ID, so that an import gives the same file each time.</summary>
 	private static Guid MakeUid(OriginalZone zone, string kind, OriginalAct act, int index)
 	{
-		byte[] hash = MD5.HashData(Encoding.UTF8.GetBytes($"{zone.Key}/{kind}/{act.Number}/{index}"));
+		byte[] hash = Md5.HashData(Encoding.UTF8.GetBytes($"{zone.Key}/{kind}/{act.Number}/{index}"));
 		return new Guid(hash);
 	}
 }

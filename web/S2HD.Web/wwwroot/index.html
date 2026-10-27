@@ -14,8 +14,11 @@
     .card { max-width: 32rem; padding: 1.5rem 2rem; border: 1px solid #333; border-radius: 8px; background: #111; }
     .card h1 { margin: 0 0 .5rem; font-size: 1.4rem; color: #fff; }
     .buttons { display: flex; gap: .75rem; flex-wrap: wrap; margin: 1rem 0 .5rem; }
-    label.button { padding: .5rem 1rem; border-radius: 6px; background: #1f5fd1; color: #fff; cursor: pointer; }
+    label.button, button.button { padding: .5rem 1rem; border-radius: 6px; background: #1f5fd1; color: #fff; cursor: pointer; }
     label.button input { display: none; }
+    .button.secondary { background: #2a2f3a; border: 0; font: inherit; }
+    a { color: #8bf; }
+    #stored { color: #ccc; }
     #status { min-height: 1.5em; color: #9ab; }
     #hud { position: fixed; top: 6px; left: 8px; font: 12px ui-monospace, monospace; color: #8f8; text-shadow: 0 0 3px #000; pointer-events: none; }
   </style>
@@ -32,6 +35,15 @@
         <label class="button">Choose zip<input id="zip" type="file" accept=".zip"></label>
         <label class="button">Choose folder<input id="folder" type="file" webkitdirectory multiple></label>
       </div>
+      <p>Optional: the demo has only Emerald Hill, Chemical Plant and Hill Top. To add the other zones, the original
+        special stages, the demos and the music, choose a zip of the
+        <a href="https://github.com/sonicretro/s2disasm">Sonic 2 disassembly</a> (Code, Download ZIP) before the
+        game data. The page makes these parts from it in your browser and keeps them for your next visits.</p>
+      <div class="buttons">
+        <label class="button secondary">Choose s2disasm zip<input id="disasm" type="file" accept=".zip"></label>
+        <button id="forget" class="button secondary" hidden>Delete stored files</button>
+      </div>
+      <div id="stored"></div>
       <div id="status">Loading runtime…</div>
     </div>
   </div>
