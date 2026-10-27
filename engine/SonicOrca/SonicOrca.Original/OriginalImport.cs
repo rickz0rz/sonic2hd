@@ -26,7 +26,7 @@ public static class OriginalImport
 	/// The version of the import. Change it when a change of the importers changes the mods, so that the web build
 	/// makes its stored mods again.
 	/// </summary>
-	public const int Version = 2;
+	public const int Version = 3;
 
 	/// <summary>The zones that the import makes, in the order of tools/import-all.sh.</summary>
 	public static readonly IReadOnlyList<string> Zones = new[] { "arz", "cnz", "mcz", "ooz", "mtz", "scz", "wfz", "dez" };
@@ -54,6 +54,11 @@ public static class OriginalImport
 		{
 			steps.Add(new OriginalImportStep("music", "Music " + Path.GetFileNameWithoutExtension(song.File),
 				(disassembly, folder) => log(MusicImport.ImportSong(song, disassembly, folder, ffmpeg))));
+		}
+		foreach ((string File, string Key) sound in MusicImport.Sounds)
+		{
+			steps.Add(new OriginalImportStep("music", "Sound " + Path.GetFileNameWithoutExtension(sound.File),
+				(disassembly, folder) => log(MusicImport.ImportSound(sound, disassembly, folder, ffmpeg))));
 		}
 		return steps;
 	}

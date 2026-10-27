@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using SonicOrca.Audio;
 using SonicOrca.Core.Collision;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
@@ -474,6 +475,12 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	private const string DrownWarningSoundResourceKey = "SONICORCA/SOUND/DROWNWARNING";
 
 	private const string DrownSoundResourceKey = "SONICORCA/SOUND/DROWN";
+
+	/// <summary>The music of a super character (MusID_SuperSonic). Only the music import of tools/s2hd-data makes it.</summary>
+	public const string SuperMusicResourceKey = "SONICORCA/MUSIC/JINGLE/SUPER";
+
+	/// <summary>The sound of the transformation (SndID_SuperTransform). Only the music import of tools/s2hd-data makes it.</summary>
+	public const string SuperTransformSoundResourceKey = "SONICORCA/SOUND/SUPERTRANSFORM";
 
 	private static readonly IReadOnlyCollection<int> BreathLeftWarnings = new int[3] { 1500, 1200, 900 };
 
@@ -3424,11 +3431,19 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	}
 
 	/// <summary>
-	/// Makes the character super. The original also plays a sound and the Super Sonic music. The HD data has neither,
-	/// so the level music continues. As in revision 1 of the original, the character stays in a roll.
+	/// Makes the character super, and plays the sound of the transformation and the Super Sonic music. The HD data has
+	/// neither. Without the music import, the level music continues. The music continues after the character becomes
+	/// normal, because Sonic_RevertToNormal does not change it. As in revision 1 of the original, the character stays
+	/// in a roll.
 	/// </summary>
 	private void BecomeSuper()
 	{
+		Level.SoundManager.PlaySound(this, SuperTransformSoundResourceKey);
+		if (Level.GameContext.ResourceTree.TryGetLoadedResource(SuperMusicResourceKey, out SampleInfo superMusic))
+		{
+			Level.SoundManager.SetJingle(JingleType.Super, superMusic);
+			Level.SoundManager.PlayJingle(JingleType.Super);
+		}
 		IsSuper = true;
 		_superTransformTicks = SuperTransformTicks;
 		_superPaletteTicks = 0;

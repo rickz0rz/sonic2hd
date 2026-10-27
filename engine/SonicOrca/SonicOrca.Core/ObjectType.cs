@@ -31,6 +31,8 @@ public abstract class ObjectType : ILoadedResource, IDisposable
 
 	private readonly string[] _dependencies;
 
+	private readonly string[] _optionalDependencies;
+
 	private readonly IReadOnlyCollection<ObjectEditorProperty> _editorProperties;
 
 	public Resource Resource { get; set; }
@@ -55,6 +57,9 @@ public abstract class ObjectType : ILoadedResource, IDisposable
 	public ObjectClassification Classification => _classification;
 
 	public IReadOnlyCollection<string> Dependencies => _dependencies;
+
+	/// <summary>The resources that the object type uses when the resources have them.</summary>
+	public IReadOnlyCollection<string> OptionalDependencies => _optionalDependencies;
 
 	public IReadOnlyCollection<ObjectEditorProperty> EditorProperties => _editorProperties;
 
@@ -85,6 +90,7 @@ public abstract class ObjectType : ILoadedResource, IDisposable
 			_classification = classificationAttribute.Classification;
 		}
 		_dependencies = DependencyAttribute.GetDependencies(this).ToArray();
+		_optionalDependencies = DependencyAttribute.GetOptionalDependencies(this).ToArray();
 	}
 
 	public void OnLoaded()

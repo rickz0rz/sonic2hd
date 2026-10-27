@@ -13,8 +13,8 @@
 // the original, which gives a small file for the game's mods folder. import-special-stages converts the special
 // stage layouts of the original game from a Sonic 2 disassembly (github.com/sonicretro/s2disasm) into that folder.
 // import-level makes the map (with collision) and the object binding of a zone, for example CNZ, from the same
-// disassembly. import-music plays the songs that the demo data does not have on emulated sound chips, and uses
-// ffmpeg (or S2HD_FFMPEG) to encode them as Ogg Vorbis with a loop point.
+// disassembly. import-music plays the songs and the sounds that the demo data does not have on emulated sound chips,
+// and uses ffmpeg (or S2HD_FFMPEG) to encode them as Ogg Vorbis. Each song gets a loop point.
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -157,14 +157,15 @@ static int ImportDemos(string disassembly, string folder)
 
 static int ImportMusic(string disassembly, string folder)
 {
-	if (!Directory.Exists(Path.Combine(disassembly, MusicImport.MusicFolder)) || !Directory.Exists(Path.Combine(disassembly, MusicImport.DacFolder)))
+	if (!Directory.Exists(Path.Combine(disassembly, MusicImport.MusicFolder)) || !Directory.Exists(Path.Combine(disassembly, MusicImport.SoundFolder))
+		|| !Directory.Exists(Path.Combine(disassembly, MusicImport.DacFolder)))
 	{
 		Console.Error.WriteLine($"Error: The folder {disassembly} does not contain the songs of s2disasm.");
 		return 1;
 	}
 	string ffmpeg = Environment.GetEnvironmentVariable("S2HD_FFMPEG") ?? "ffmpeg";
 	MusicImport.Import(disassembly, folder, ffmpeg, Console.WriteLine);
-	Console.WriteLine($"Wrote {MusicImport.Songs.Count} songs to {folder}.");
+	Console.WriteLine($"Wrote {MusicImport.Songs.Count} songs and {MusicImport.Sounds.Count} sounds to {folder}.");
 	return 0;
 }
 

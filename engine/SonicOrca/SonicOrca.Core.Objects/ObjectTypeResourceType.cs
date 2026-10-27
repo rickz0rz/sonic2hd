@@ -38,6 +38,7 @@ internal class ObjectTypeResourceType : ResourceType
 		ObjectType objectType = (ObjectType)Activator.CreateInstance(objectTypeClass);
 		objectType.Resource = e.Resource;
 		e.PushDependencies(objectType.Dependencies.Select(x => e.GetAbsolutePath(x)));
+		e.PushDependencies(objectType.OptionalDependencies.Select(x => e.GetAbsolutePath(x)).Where(key => e.ResourceTree[key]?.Resource != null));
 		return objectType;
 	}
 }

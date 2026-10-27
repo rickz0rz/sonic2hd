@@ -9,13 +9,16 @@ namespace SonicOrca.Original.Music;
 
 /// <summary>
 /// Loads a ".smps" file into a <see cref="SongSample"/>. The file has the bytes of an assembled <see cref="SmpsSong"/>
-/// and the DAC drums. <see cref="Write"/> makes the file.
+/// and the DAC drums. Version 2 also tells if the song is a sound effect. <see cref="Write"/> makes the file.
 /// </summary>
 public sealed class SmpsResourceType : ResourceType
 {
 	private const string Signature = "SMPS";
 
-	private const int FormatVersion = 1;
+	private const int FormatVersion = 2;
+
+	/// <summary>The bit of the flags (from version 2) for a sound effect.</summary>
+	private const int SoundEffectFlag = 1;
 
 	public override string Name => "smps";
 
@@ -34,11 +37,17 @@ public sealed class SmpsResourceType : ResourceType
 		{
 			// The reader is not disposed because that would close the input stream.
 			BinaryReader reader = new BinaryReader(e.InputStream);
-			if (Encoding.ASCII.GetString(reader.ReadBytes(Signature.Length)) != Signature || reader.ReadInt32() != FormatVersion)
+			if (Encoding.ASCII.GetString(reader.ReadBytes(Signature.Length)) != Signature)
 			{
 				throw new ResourceException("Invalid smps signature.");
 			}
-			SmpsSong song = SmpsSong.FromData(reader.ReadBytes(reader.ReadInt32()));
+			int version = reader.ReadInt32();
+			if (version < 1 || version > FormatVersion)
+			{
+				throw new ResourceException($"Unknown smps version {version}.");
+			}
+			int flags = version >= 2 ? reader.ReadByte() : 0;
+			SmpsSong song = SmpsSong.FromData(reader.ReadBytes(reader.ReadInt32()), (flags & SoundEffectFlag) != 0);
 			Dictionary<DacSample, (byte[] Samples, int Rate)> drums = new Dictionary<DacSample, (byte[], int)>();
 			int drumCount = reader.ReadByte();
 			for (int i = 0; i < drumCount; i++)
@@ -57,6 +66,7 @@ public sealed class SmpsResourceType : ResourceType
 		using BinaryWriter writer = new BinaryWriter(File.Create(path));
 		writer.Write(Encoding.ASCII.GetBytes(Signature));
 		writer.Write(FormatVersion);
+		writer.Write((byte)(song.IsSoundEffect ? SoundEffectFlag : 0));
 		writer.Write(song.Data.Length);
 		writer.Write(song.Data);
 		writer.Write((byte)drums.Count);

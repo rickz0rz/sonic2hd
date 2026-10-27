@@ -1,4 +1,5 @@
 using SonicOrca.Core;
+using SonicOrca.Core.Objects.Base;
 using SonicOrca.Core.Objects.Metadata;
 
 namespace SONICORCA.OBJECTS.SONIC;
@@ -28,6 +29,9 @@ namespace SONICORCA.OBJECTS.SONIC;
 [Dependency("SONICORCA/SOUND/SPLASH")]
 [Dependency("SONICORCA/SOUND/DROWNWARNING")]
 [Dependency("SONICORCA/SOUND/DROWN")]
+// Only the music import of tools/s2hd-data makes these resources
+[Dependency(Character.SuperMusicResourceKey, Optional = true)]
+[Dependency(Character.SuperTransformSoundResourceKey, Optional = true)]
 public class SonicType : ObjectType
 {
 	[Dependency]
