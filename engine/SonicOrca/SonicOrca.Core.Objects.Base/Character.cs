@@ -1807,16 +1807,32 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	/// <summary>
 	/// Moves the character to the next connected vector when it goes past an end of the ground vector.
 	/// </summary>
+	/// <remarks>
+	/// At a convex join, the character can be past the end of both vectors for some ticks. The character must not
+	/// go back to the vector that it left in that time. If it goes back, it cannot go forward again, because the
+	/// next vector is the last vector of that direction, and the character falls off the join. A character that
+	/// moves back can go back.
+	/// </remarks>
 	private void ConstrainToPath()
 	{
 		CollisionVector nextVector = null;
 		bool isBeyondPath = true;
+		bool towardsB = false;
 		if (IsBeyondPathEnd(useLedgeSensor: false))
 		{
+			towardsB = true;
+			if (IsMovingTowardsGroundVectorEnd(towardsB: true))
+			{
+				_lastLeftVector = null;
+			}
 			nextVector = FindClosestConnectedVector(towardsB: true, ref _lastLeftVector);
 		}
 		else if (IsBeyondPathStart(useLedgeSensor: false))
 		{
+			if (IsMovingTowardsGroundVectorEnd(towardsB: false))
+			{
+				_lastRightVector = null;
+			}
 			nextVector = FindClosestConnectedVector(towardsB: false, ref _lastRightVector);
 		}
 		else
@@ -1829,6 +1845,14 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		{
 			if (!nextVector.Flags.HasFlag(CollisionFlags.NoPathFollowing))
 			{
+				if (towardsB)
+				{
+					_lastRightVector = GroundVector;
+				}
+				else
+				{
+					_lastLeftVector = GroundVector;
+				}
 				PositionPrecise = GetAlignmentForVector2(nextVector, PositionPrecise, GroundAngle);
 				AcquireVector(nextVector);
 			}
@@ -1852,6 +1876,16 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 				LeaveGround();
 			}
 		}
+	}
+
+	/// <summary>
+	/// Returns true when the character moved towards the B end (or the A end) of the ground vector in this tick.
+	/// </summary>
+	private bool IsMovingTowardsGroundVectorEnd(bool towardsB)
+	{
+		Vector2 ab = GroundVector.AbsoluteB - GroundVector.AbsoluteA;
+		double distance = (PositionPrecise - LastPositionPrecise).Dot(ab);
+		return towardsB ? distance > 0.0 : distance < 0.0;
 	}
 
 	/// <summary>
