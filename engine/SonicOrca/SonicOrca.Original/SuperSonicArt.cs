@@ -13,8 +13,9 @@ namespace SonicOrca.Original;
 /// Makes the sprites of Super Sonic from the art of Sonic in the disassembly. The HD data has no Super Sonic art. The
 /// animation group has one animation for each value of CharacterAnimation, in the same order, and then the
 /// transformation. Each animation follows the script of SuperSonicAniData in s2.asm. Where Super Sonic has no script
-/// of his own, the original uses the script of Sonic, so the group does the same. All frames use the palette of Super
-/// Sonic.
+/// of his own, the original uses the script of Sonic, so the group does the same. The frames use the normal palette
+/// of Sonic. The game changes the 4 blue colours to the colours of PalCycle_SuperSonic, which are in the second
+/// texture of the group, PALETTE. The stars (Obj7E) are a second group.
 /// </summary>
 public static class SuperSonicArt
 {
@@ -23,6 +24,15 @@ public static class SuperSonicArt
 
 	/// <summary>The object folder of the sprites.</summary>
 	public const string ObjectKey = "SONICORCA/OBJECTS/SONIC/SUPER";
+
+	/// <summary>
+	/// The colours of PalCycle_SuperSonic, one row of 4 colours for each frame of CyclingPal_SSTransformation. Row 0
+	/// is the normal palette of Sonic, which the sprites use.
+	/// </summary>
+	public const string PaletteKey = "SONICORCA/OBJECTS/SONIC/SUPER/PALETTE";
+
+	/// <summary>The object folder of the stars. Animation N of its group shows mapping frame N of Obj7E.</summary>
+	public const string StarsObjectKey = "SONICORCA/OBJECTS/SONIC/SUPER/STARS";
 
 	/// <summary>The index of the transformation in the animation group, after the 30 values of CharacterAnimation.</summary>
 	public const int TransformAnimation = 30;
@@ -37,11 +47,12 @@ public static class SuperSonicArt
 
 	private const string SuperPaletteFile = "art/palettes/Super Sonic transformation.bin";
 
-	/// <summary>
-	/// The frame of CyclingPal_SSTransformation that the palette uses, in bytes. PalCycle_SuperSonic starts the
-	/// normal cycle at $30, after the fade-in.
-	/// </summary>
-	private const int SuperPaletteFrame = 0x30;
+	private const string StarsArtFile = "art/nemesis/Super Sonic stars.nem";
+
+	private const string StarsMappingsFile = "mappings/sprite/obj7E.asm";
+
+	/// <summary>PalCycle_SuperSonic writes 4 colours from Normal_palette+4: colours 2 to 5 of line 0.</summary>
+	public const int CycledColourCount = 4;
 
 	/// <summary>The delay of the frames of a script whose speed depends on the speed of the character ($FF, $FE, $FD).</summary>
 	private const int SpeedDelay = 4;
@@ -104,10 +115,6 @@ public static class SuperSonicArt
 		List<List<SpritePiece>> mappings = SpriteImport.ParseMappings(File.ReadAllText(Path.Combine(disassembly, MappingsFile)));
 		List<List<(int Tiles, int Offset)>> dplcs = ParseDplc(File.ReadAllText(Path.Combine(disassembly, DplcFile)));
 		uint[] palette = SpriteImport.ReadPalette(disassembly, PaletteFile);
-		byte[] superPalette = File.ReadAllBytes(Path.Combine(disassembly, SuperPaletteFile));
-		// PalCycle_SuperSonic writes 4 colours from Normal_palette+4: colours 2 to 5 of line 0
-		uint[] superColours = SpriteImport.ReadColours(superPalette.AsSpan(SuperPaletteFrame, 8).ToArray());
-		Array.Copy(superColours, 0, palette, 2, superColours.Length);
 
 		// Each frame gets its own tiles: the DPLC of the frame loads them to the start of the video memory of Sonic
 		int[] frameIds = Scripts.SelectMany(script => script.Frames).Distinct().OrderBy(id => id).ToArray();
@@ -131,6 +138,7 @@ public static class SuperSonicArt
 		anigroup.AppendLine("<anigroup>");
 		anigroup.AppendLine("  <textures>");
 		anigroup.AppendLine("    <texture>//TEXTURE</texture>");
+		anigroup.AppendLine("    <texture>//PALETTE</texture>");
 		anigroup.AppendLine("  </textures>");
 		anigroup.AppendLine("  <animations>");
 		foreach ((string name, int delay, int[] scriptFrames, AnimationEnd end) in Scripts)
@@ -149,6 +157,31 @@ public static class SuperSonicArt
 		anigroup.AppendLine("  </animations>");
 		anigroup.AppendLine("</anigroup>");
 		return sprite with { AnimationGroup = anigroup.ToString() };
+	}
+
+	/// <summary>Makes the image of the colours of PalCycle_SuperSonic: 4 colours wide, with one row for each frame.</summary>
+	public static byte[] ImportPalette(string disassembly)
+	{
+		uint[] colours = SpriteImport.ReadColours(File.ReadAllBytes(Path.Combine(disassembly, SuperPaletteFile)));
+		int rows = colours.Length / CycledColourCount;
+		var pixels = new byte[rows * CycledColourCount * 4];
+		for (int i = 0; i < rows * CycledColourCount; i++)
+		{
+			pixels[i * 4] = (byte)(colours[i] >> 24);
+			pixels[i * 4 + 1] = (byte)(colours[i] >> 16);
+			pixels[i * 4 + 2] = (byte)(colours[i] >> 8);
+			pixels[i * 4 + 3] = (byte)colours[i];
+		}
+		return SpriteImport.EncodePng(pixels, CycledColourCount, rows);
+	}
+
+	/// <summary>Makes the texture and the animation group of the stars of Super Sonic (Obj7E), at four times the size.</summary>
+	public static ImportedSprite ImportStars(string disassembly)
+	{
+		byte[] art = SpriteImport.ReadArt(disassembly, StarsArtFile);
+		List<List<SpritePiece>> frames = SpriteImport.ParseMappings(File.ReadAllText(Path.Combine(disassembly, StarsMappingsFile)));
+		uint[] palette = SpriteImport.ReadPalette(disassembly, PaletteFile);
+		return SpriteImport.Import(StarsObjectKey, art, frames, new[] { 0 }, Array.Empty<int>(), palette, 4);
 	}
 
 	/// <summary>Reads the frames of a DPLC file of s2disasm (dplcHeader and dplcEntry macros): the tiles and the first tile of each entry.</summary>

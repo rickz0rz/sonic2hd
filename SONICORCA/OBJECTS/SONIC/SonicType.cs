@@ -43,4 +43,7 @@ public class SonicType : ObjectType
 	/// <summary>The original sprites of Super Sonic. Only the import of tools/s2hd-data makes them (SuperSonicArt).</summary>
 	[Dependency(Optional = true)]
 	public const string SuperAnimationGroupResourceKey = "SONICORCA/OBJECTS/SONIC/SUPER/ANIGROUP";
+	/// <summary>The original stars of Super Sonic (Obj7E), from the same import.</summary>
+	[Dependency(Optional = true)]
+	public const string SuperStarsAnimationGroupResourceKey = "SONICORCA/OBJECTS/SONIC/SUPER/STARS/ANIGROUP";
 }

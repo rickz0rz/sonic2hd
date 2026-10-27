@@ -26,7 +26,7 @@ public static class OriginalImport
 	/// The version of the import. Change it when a change of the importers changes the mods, so that the web build
 	/// makes its stored mods again.
 	/// </summary>
-	public const int Version = 4;
+	public const int Version = 5;
 
 	/// <summary>The zones that the import makes, in the order of tools/import-all.sh.</summary>
 	public static readonly IReadOnlyList<string> Zones = new[] { "arz", "cnz", "mcz", "ooz", "mtz", "scz", "wfz", "dez" };
@@ -150,7 +150,8 @@ public static class OriginalImport
 		{
 			throw new IOException($"The folder {disassembly} does not contain the art of Sonic of s2disasm.");
 		}
-		WriteSprites(folder, new[] { SuperSonicArt.Import(disassembly) });
+		WriteSprites(folder, new[] { SuperSonicArt.Import(disassembly), SuperSonicArt.ImportStars(disassembly) });
+		File.WriteAllBytes(Path.Combine(KeyFolder(folder, SuperSonicArt.ObjectKey), "PALETTE.png"), SuperSonicArt.ImportPalette(disassembly));
 		log($"Wrote the sprites of Super Sonic to {KeyFolder(folder, SuperSonicArt.ObjectKey)}.");
 	}
 
