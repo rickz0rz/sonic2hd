@@ -12,6 +12,8 @@ public enum HalfPipeFlowEvent
 	/// <summary>The emerald is near: the music fades out.</summary>
 	EmeraldNear,
 	EmeraldWon,
+	/// <summary>The won emerald is at its nearest: the emerald jingle plays (MusID_Emerald).</summary>
+	EmeraldJingle,
 	EmeraldMissed
 }
 
@@ -43,8 +45,26 @@ public sealed class HalfPipeStageFlow
 	/// <summary>The frames after the emerald appears until the music fades out.</summary>
 	public const int EmeraldNearFrames = 49;
 
-	/// <summary>The frames that the won emerald stays before the stage ends.</summary>
-	public const int EmeraldWonEndFrames = 100;
+	/// <summary>The frames after the emerald appears until its ring test (Obj59 animation 6).</summary>
+	public const int EmeraldTestFrames = 57;
+
+	/// <summary>The depth of the emerald when it appears (Obj59 objoff_30).</summary>
+	public const int EmeraldStartDepth = 0x36;
+
+	/// <summary>The emerald comes nearer by this depth each frame ($CCCC in 16.16 fixed point).</summary>
+	public const double EmeraldDepthPerFrame = 0.8;
+
+	/// <summary>
+	/// The frames after the emerald is won until the emerald jingle plays. Obj59 tests the rings at animation 6 and
+	/// plays the jingle at animation 9. The depth gets to these animations 57 and 64 frames after the emerald appears.
+	/// </summary>
+	public const int EmeraldJingleFrames = 7;
+
+	/// <summary>
+	/// The frames that the won emerald stays before the stage ends. Obj59 waits $63 frames after the jingle, and the
+	/// stage ends on the next frame.
+	/// </summary>
+	public const int EmeraldWonEndFrames = EmeraldJingleFrames + 100;
 
 	/// <summary>The frames that "NOT ENOUGH RINGS..." stays after the emerald test fails.</summary>
 	public const int EmeraldMissedFrames = 80;
@@ -57,6 +77,8 @@ public sealed class HalfPipeStageFlow
 	private int _frame;
 
 	private int _nextCheckpoint;
+
+	private int _emeraldWonFrame = -1;
 
 	private string _message;
 
@@ -100,8 +122,11 @@ public sealed class HalfPipeStageFlow
 
 	public bool EmeraldVisible => _emeraldStartFrame >= 0 && _frame >= _emeraldStartFrame + EmeraldAppearFrames;
 
-	/// <summary>The track node where the emerald appeared, ahead of the player.</summary>
-	public int EmeraldAppearNode { get; private set; } = -1;
+	/// <summary>
+	/// The distance of the emerald ahead of the player, in the depth units of the original. A track frame is 4 depth
+	/// units. The emerald moves on its own timer, as Obj59 does, and not with the track.
+	/// </summary>
+	public double EmeraldDepth { get; private set; } = EmeraldStartDepth;
 
 	public bool EmeraldWon { get; private set; }
 
@@ -113,8 +138,7 @@ public sealed class HalfPipeStageFlow
 
 	/// <param name="playerNode">The track node of the player.</param>
 	/// <param name="rings">The rings of the players together.</param>
-	/// <param name="emeraldAppearOffset">The track nodes ahead of the player where the emerald appears.</param>
-	public List<HalfPipeFlowEvent> Update(int playerNode, int rings, int emeraldAppearOffset)
+	public List<HalfPipeFlowEvent> Update(int playerNode, int rings)
 	{
 		var events = new List<HalfPipeFlowEvent>();
 		if (Finished)
@@ -130,7 +154,7 @@ public sealed class HalfPipeStageFlow
 		}
 		UpdateCounter(playerNode, rings);
 		UpdateCheckpoints(playerNode, rings, events);
-		UpdateEmerald(playerNode, rings, emeraldAppearOffset, events);
+		UpdateEmerald(playerNode, rings, events);
 		if (EmeraldWon)
 		{
 			EmeraldWonFrames++;
@@ -221,7 +245,7 @@ public sealed class HalfPipeStageFlow
 		}
 	}
 
-	private void UpdateEmerald(int playerNode, int rings, int emeraldAppearOffset, List<HalfPipeFlowEvent> events)
+	private void UpdateEmerald(int playerNode, int rings, List<HalfPipeFlowEvent> events)
 	{
 		if (_track.EmeraldNode < 0 || _checkpointFailed)
 		{
@@ -237,23 +261,33 @@ public sealed class HalfPipeStageFlow
 			return;
 		}
 		int sinceMarker = _frame - _emeraldStartFrame;
-		if (sinceMarker == EmeraldAppearFrames)
+		int sinceAppear = sinceMarker - EmeraldAppearFrames;
+		if (sinceAppear == 0)
 		{
-			EmeraldAppearNode = playerNode + emeraldAppearOffset;
 			events.Add(HalfPipeFlowEvent.EmeraldAppeared);
+		}
+		// The emerald stops after the jingle (Obj59 routine 8), or after a failed ring test (routine 6)
+		if (sinceAppear >= 0 && (EmeraldWon ? sinceAppear <= EmeraldTestFrames + EmeraldJingleFrames : sinceAppear <= EmeraldTestFrames))
+		{
+			EmeraldDepth = EmeraldStartDepth - EmeraldDepthPerFrame * sinceAppear;
 		}
 		if (!_emeraldNear && sinceMarker >= EmeraldAppearFrames + EmeraldNearFrames)
 		{
 			_emeraldNear = true;
 			events.Add(HalfPipeFlowEvent.EmeraldNear);
 		}
-		if (_nextCheckpoint == 2 && _endFrame < 0 && playerNode >= _track.Checkpoints[2].TrackNode)
+		if (EmeraldWon && _frame == _emeraldWonFrame + EmeraldJingleFrames)
+		{
+			events.Add(HalfPipeFlowEvent.EmeraldJingle);
+		}
+		if (_nextCheckpoint == 2 && _endFrame < 0 && sinceAppear == EmeraldTestFrames)
 		{
 			_nextCheckpoint = 3;
 			if (rings >= _track.Checkpoints[2].RingGoal)
 			{
 				EmeraldWon = true;
 				events.Add(HalfPipeFlowEvent.EmeraldWon);
+				_emeraldWonFrame = _frame;
 				_endFrame = _frame + EmeraldWonEndFrames;
 			}
 			else
