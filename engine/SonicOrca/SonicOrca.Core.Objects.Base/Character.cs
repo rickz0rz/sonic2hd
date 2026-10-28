@@ -1877,12 +1877,37 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		}
 		else
 		{
+			if (Level.OriginalPhysics)
+			{
+				AlignToGroundVector();
+			}
 			PlayerShouldLand();
 			if (CheckIgnoreFlag(GroundVector))
 			{
 				LeaveGround();
 			}
 		}
+	}
+
+	/// <summary>
+	/// Moves the character back to the surface of the ground vector, along the vertical axis on a floor or a ceiling
+	/// and along the horizontal axis on a wall, as AnglePos does after each move. In Original physics, the velocity
+	/// of a roll can go off the slope (see <see cref="GetGroundVelocityVector"/>). Without this, the character goes
+	/// into a long steep slope until the next vector aligns it again.
+	/// </summary>
+	private void AlignToGroundVector()
+	{
+		Vector2 projection = GetProjectedPointOnLine(GroundVector.AbsoluteA, GroundVector.AbsoluteB, PositionPrecise);
+		Vector2 normal = (GetAlignmentForVector2(GroundVector, PositionPrecise, GroundAngle) - projection) / CollisionRadius.Y;
+		double error = CollisionRadius.Y - (PositionPrecise - projection).Dot(normal);
+		bool vertical = Mode == CollisionMode.Top || Mode == CollisionMode.Bottom;
+		double axisDotNormal = Math.Abs(vertical ? normal.Y : normal.X);
+		if (axisDotNormal < 0.5)
+		{
+			return;
+		}
+		Vector2 axis = vertical ? new Vector2(0.0, Math.Sign(normal.Y)) : new Vector2(Math.Sign(normal.X), 0.0);
+		PositionPrecise += axis * (error / axisDotNormal);
 	}
 
 	/// <summary>
