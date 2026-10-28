@@ -11,8 +11,8 @@ namespace SonicOrca.Original;
 
 /// <summary>
 /// Makes the sprites of Super Sonic from the art of Sonic in the disassembly. The HD data has no Super Sonic art. The
-/// animation group has one animation for each value of CharacterAnimation, in the same order, and then the
-/// transformation. Each animation follows the script of SuperSonicAniData in s2.asm. Where Super Sonic has no script
+/// animation group has one animation for each value of CharacterAnimation, in the same order, then the
+/// transformation, and then the walk variant. Each animation follows the script of SuperSonicAniData in s2.asm. Where Super Sonic has no script
 /// of his own, the original uses the script of Sonic, so the group does the same. The frames use the normal palette
 /// of Sonic. The game changes the 4 blue colours to the colours of PalCycle_SuperSonic, which are in the second
 /// texture of the group, PALETTE. The stars (Obj7E) are a second group.
@@ -36,6 +36,15 @@ public static class SuperSonicArt
 
 	/// <summary>The index of the transformation in the animation group, after the 30 values of CharacterAnimation.</summary>
 	public const int TransformAnimation = 30;
+
+	/// <summary>
+	/// The index of the walk variant in the animation group. SAnim_SuperWalk adds $20 to the mapping frame of the walk
+	/// on each fourth frame. The variant has those frames, in the order of the walk.
+	/// </summary>
+	public const int WalkVariantAnimation = 31;
+
+	/// <summary>SAnim_SuperWalk adds this number to a walk frame to get its variant.</summary>
+	private const int WalkVariantFrameOffset = 0x20;
 
 	private const string ArtFile = "art/uncompressed/Sonic's art.bin";
 
@@ -97,6 +106,7 @@ public static class SuperSonicArt
 		("Mach1", SpeedDelay, new[] { 0xB5, 0xB9 }, AnimationEnd.Loop),
 		("Mach1ToRun", SpeedDelay, new[] { 0xB5, 0xB9 }, AnimationEnd.Loop),
 		("Transform", 2, new[] { 0x6D, 0x6D, 0x6E, 0x6E, 0x6F, 0x70, 0x71, 0x70, 0x71, 0x70, 0x71, 0x70, 0x71 }, AnimationEnd.HoldLast), // SupSonAni_Transform
+		("WalkVariant", SpeedDelay, new[] { 0x77, 0x78, 0x79, 0x7A, 0x7B, 0x7C, 0x75, 0x76 }.Select(id => id + WalkVariantFrameOffset).ToArray(), AnimationEnd.Loop),
 	};
 
 	private enum AnimationEnd
