@@ -32,6 +32,15 @@ public class SonicInstance : Character
 	private const int SuperTransformAnimation = 30;
 
 	/// <summary>
+	/// The animation in the original sprites of Super Sonic after the transformation: the walk frames plus $20.
+	/// SAnim_SuperWalk shows them on each fourth frame. The sprites of an import before version 6 do not have it.
+	/// </summary>
+	private const int SuperWalkVariantAnimation = 31;
+
+	/// <summary>SAnim_SuperWalk shows the walk variant when the level frame counter is a multiple of this number.</summary>
+	private const int SuperWalkVariantTicks = 4;
+
+	/// <summary>
 	/// The height radius of the original Sonic, at four times the size: y_radius $13, and $E in a roll. The original
 	/// sprites line up with these.
 	/// </summary>
@@ -49,6 +58,9 @@ public class SonicInstance : Character
 
 	/// <summary>The animation of the original sprites of Super Sonic, or null without them.</summary>
 	private AnimationInstance _superAnimation;
+
+	/// <summary>The walk variant of the original sprites of Super Sonic, or null without it.</summary>
+	private AnimationInstance _superWalkVariant;
 
 	/// <summary>
 	/// The palette cycle of the original sprites of Super Sonic, or null without it. Sonic makes it when he first
@@ -90,6 +102,8 @@ public class SonicInstance : Character
 			ResourceTree.TryGetLoadedResource(SonicType.SuperAnimationGroupResourceKey, out AnimationGroup superAnimationGroup))
 		{
 			_superAnimation = new AnimationInstance(superAnimationGroup);
+			if (superAnimationGroup.Count > SuperWalkVariantAnimation)
+				_superWalkVariant = new AnimationInstance(superAnimationGroup) { Index = SuperWalkVariantAnimation };
 			if (ResourceTree.TryGetLoadedResource(SonicType.SuperStarsAnimationGroupResourceKey, out AnimationGroup starsAnimationGroup))
 				_starsAnimation = new AnimationInstance(starsAnimationGroup);
 		}
@@ -161,6 +175,19 @@ public class SonicInstance : Character
 	}
 
 	/// <summary>
+	/// Gets the animation instance that shows the current frame of Super Sonic. SAnim_SuperWalk adds $20 to the walk
+	/// frame when the level frame counter is a multiple of 4, so the walk then shows the frame of the variant.
+	/// </summary>
+	private AnimationInstance GetSuperAnimationToDraw()
+	{
+		bool walk = _superAnimation.Index == (int)CharacterAnimation.Walk || _superAnimation.Index == (int)CharacterAnimation.Postspring;
+		if (_superWalkVariant == null || !walk || IsTransformingToSuper || Level.Ticks % SuperWalkVariantTicks != 0)
+			return _superAnimation;
+		_superWalkVariant.CurrentFrameIndex = _superAnimation.CurrentFrameIndex;
+		return _superWalkVariant;
+	}
+
+	/// <summary>
 	/// Runs the stars of Super Sonic (Obj7E) for one tick. At a high speed, the stars show their frames at Sonic. When
 	/// they come again while the speed stays high, they stay where they start, so they make a trail.
 	/// </summary>
@@ -211,10 +238,11 @@ public class SonicInstance : Character
 			if (DrawBodyRotated)
 				objectRenderer.ModelMatrix *= Matrix4.CreateRotationZ(ShowAngle);
 			double offsetY = IsSpinball ? SpinballCollisionRadius.Y - OriginalSpinballCollisionRadiusY : NormalCollisionRadius.Y - OriginalCollisionRadiusY;
+			AnimationInstance animation = GetSuperAnimationToDraw();
 			if (_superPalette != null)
-				_superPalette.Render(objectRenderer, _superAnimation, new Vector2(0.0, offsetY), IsFacingLeft);
+				_superPalette.Render(objectRenderer, animation, new Vector2(0.0, offsetY), IsFacingLeft);
 			else
-				objectRenderer.RenderOriginal(_superAnimation, new Vector2(0.0, offsetY), IsFacingLeft);
+				objectRenderer.RenderOriginal(animation, new Vector2(0.0, offsetY), IsFacingLeft);
 		}
 	}
 

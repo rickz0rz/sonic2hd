@@ -83,7 +83,7 @@ public sealed class SpriteImportTests
 	}
 
 	[Fact]
-	public void SuperSonicArt_HasAnAnimationForEachCharacterAnimationAndTheTransformation()
+	public void SuperSonicArt_HasAnAnimationForEachCharacterAnimationTheTransformationAndTheWalkVariant()
 	{
 		string disassembly = SpecialStageImportTests.FindDisassembly();
 
@@ -91,7 +91,10 @@ public sealed class SpriteImportTests
 
 		XElement[] animations = XDocument.Parse(sprite.AnimationGroup).Descendants("animation").ToArray();
 		Assert.Equal(System.Enum.GetValues<SonicOrca.Core.Objects.Base.CharacterAnimation>().Length, SuperSonicArt.TransformAnimation);
-		Assert.Equal(SuperSonicArt.TransformAnimation + 1, animations.Length);
+		Assert.Equal(SuperSonicArt.TransformAnimation + 1, SuperSonicArt.WalkVariantAnimation);
+		Assert.Equal(SuperSonicArt.WalkVariantAnimation + 1, animations.Length);
+		int walk = (int)SonicOrca.Core.Objects.Base.CharacterAnimation.Walk;
+		Assert.Equal(animations[walk].Elements("frame").Count(), animations[SuperSonicArt.WalkVariantAnimation].Elements("frame").Count());
 		Assert.All(animations, animation => Assert.NotEmpty(animation.Elements("frame")));
 		// Each frame has pixels: its tiles come from its DPLC
 		Assert.All(animations.SelectMany(animation => animation.Elements("frame")), frame => Assert.True(int.Parse(frame.Attribute("w").Value) > 4));
