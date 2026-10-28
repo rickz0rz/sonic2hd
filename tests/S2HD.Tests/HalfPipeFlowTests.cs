@@ -33,7 +33,7 @@ public sealed class HalfPipeFlowTests
 		while (node < targetNode && !flow.Finished)
 		{
 			node++;
-			events.AddRange(flow.Update(node, rings, 67));
+			events.AddRange(flow.Update(node, rings));
 		}
 		return events;
 	}
@@ -117,7 +117,7 @@ public sealed class HalfPipeFlowTests
 	}
 
 	[Fact]
-	public void Emerald_MasksTheInput_Appears60FramesLater_AndIsWon()
+	public void Emerald_MasksTheInput_Appears60FramesLater_AndIsWon_WithTheJingle7FramesLater()
 	{
 		var flow = new HalfPipeStageFlow(CreateTrack());
 		int node = 0;
@@ -129,16 +129,43 @@ public sealed class HalfPipeFlowTests
 		var appear = RunTo(flow, ref node, 660, 200);
 		Assert.Contains(HalfPipeFlowEvent.EmeraldAppeared, appear);
 		Assert.True(flow.EmeraldVisible);
-		Assert.Equal(660 + 67, flow.EmeraldAppearNode);
+		Assert.Equal(0x36, flow.EmeraldDepth);
 
 		var won = RunTo(flow, ref node, 717, 200);
 		Assert.Contains(HalfPipeFlowEvent.EmeraldNear, won);
 		Assert.Contains(HalfPipeFlowEvent.EmeraldWon, won);
-		RunTo(flow, ref node, 717 + 99, 200);
+		Assert.DoesNotContain(HalfPipeFlowEvent.EmeraldJingle, won);
+		Assert.DoesNotContain(HalfPipeFlowEvent.EmeraldJingle, RunTo(flow, ref node, 717 + 6, 200));
+		Assert.Contains(HalfPipeFlowEvent.EmeraldJingle, RunTo(flow, ref node, 717 + 7, 200));
+		// The emerald stops at the jingle, 64 frames after it appeared
+		Assert.Equal(0x36 - 0.8 * 64, flow.EmeraldDepth, 6);
+		Assert.DoesNotContain(HalfPipeFlowEvent.EmeraldJingle, RunTo(flow, ref node, 717 + 106, 200));
 		Assert.False(flow.Finished);
-		RunTo(flow, ref node, 717 + 100, 200);
+		RunTo(flow, ref node, 717 + 107, 200);
 		Assert.True(flow.Finished);
 		Assert.True(flow.EmeraldWon);
+	}
+
+	[Fact]
+	public void Emerald_WithAFasterTrack_FadesTheMusicBeforeTheTestAndTheJingle()
+	{
+		// The game moves the track 1.25 nodes each frame. The emerald must keep the timing of Obj59.
+		var flow = new HalfPipeStageFlow(CreateTrack());
+		var frames = new Dictionary<HalfPipeFlowEvent, int>();
+		double node = 0.0;
+		for (int frame = 1; frame < 2000 && !flow.Finished; frame++)
+		{
+			node += 1.25;
+			foreach (HalfPipeFlowEvent flowEvent in flow.Update((int)node, 200))
+			{
+				frames.TryAdd(flowEvent, frame);
+			}
+		}
+
+		int appeared = frames[HalfPipeFlowEvent.EmeraldAppeared];
+		Assert.Equal(appeared + 49, frames[HalfPipeFlowEvent.EmeraldNear]);
+		Assert.Equal(appeared + 57, frames[HalfPipeFlowEvent.EmeraldWon]);
+		Assert.Equal(appeared + 64, frames[HalfPipeFlowEvent.EmeraldJingle]);
 	}
 
 	[Fact]
@@ -151,6 +178,7 @@ public sealed class HalfPipeFlowTests
 		var events = RunTo(flow, ref node, 717, 100);
 
 		Assert.Contains(HalfPipeFlowEvent.EmeraldMissed, events);
+		Assert.DoesNotContain(HalfPipeFlowEvent.EmeraldJingle, RunTo(flow, ref node, 717 + 20, 100));
 		Assert.True(flow.TrackSlowed);
 		Assert.Equal("NOT ENOUGH RINGS...", flow.Message);
 		RunTo(flow, ref node, 717 + 80, 100);

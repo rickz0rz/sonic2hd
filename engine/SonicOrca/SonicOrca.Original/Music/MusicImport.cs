@@ -35,6 +35,8 @@ public static class MusicImport
 		("8D - SCZ.asm", "SONICORCA/MUSIC/LEVELS/SCZ"),
 		("8F - WFZ.asm", "SONICORCA/MUSIC/LEVELS/WFZ"),
 		("8A - DEZ.asm", "SONICORCA/MUSIC/LEVELS/DEZ"),
+		// The jingle when the player wins the emerald of a special stage (MusID_Emerald)
+		("9D - Got Emerald.asm", "SONICORCA/MUSIC/JINGLE/EMERALD"),
 		// The jingle of the results screen of the special stage (MusID_EndLevel)
 		("9A - End of Act.asm", "SONICORCA/MUSIC/JINGLE/STAGECLEAR/S2"),
 		// The music of Super Sonic (MusID_SuperSonic)

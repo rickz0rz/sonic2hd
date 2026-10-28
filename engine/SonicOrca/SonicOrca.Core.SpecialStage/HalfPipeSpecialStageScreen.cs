@@ -113,7 +113,11 @@ public class HalfPipeSpecialStageScreen : Screen
 	/// <summary>The sound when "PERFECT BONUS" shows (SndID_Signpost).</summary>
 	private const string PerfectSoundResourceKey = "SONICORCA/SOUND/SIGNPOST";
 
+	/// <summary>The jingle of the HD game. It plays for the emerald and the results when the music import is not in the game.</summary>
 	private const string EmeraldMusicResourceKey = "SONICORCA/MUSIC/JINGLE/STAGECLEAR/S1";
+
+	/// <summary>The imported "Got Emerald" song (MusID_Emerald), else the jingle of the HD game.</summary>
+	private const string GotEmeraldJingleResourceKey = "SONICORCA/MUSIC/JINGLE/EMERALD/SAMPLE";
 
 	// SDL scan codes of the keys that change the field of view, and of Escape.
 	private const int ScancodeMinus = 45;
@@ -160,11 +164,8 @@ public class HalfPipeSpecialStageScreen : Screen
 	/// <summary>Converts pixels in the pipe of the original (radius $6E) to track units (radius 4).</summary>
 	private const double PixelsToUnits = PipeRadius / HalfPipePlayer.InnerRadius;
 
-	/// <summary>The track nodes ahead of the player where the emerald appears: depth $36 at 4 depth units per track frame.</summary>
-	private const int EmeraldAppearOffset = 0x36 * HalfPipeTrackBuilder.NodesPerTrackFrame / 4;
-
-	/// <summary>The track nodes between the player and the won emerald.</summary>
-	private const int EmeraldStopOffset = 3;
+	/// <summary>The track nodes of one depth unit of the emerald: a track frame is 4 depth units.</summary>
+	private const double EmeraldNodesPerDepth = HalfPipeTrackBuilder.NodesPerTrackFrame / 4.0;
 
 	/// <summary>
 	/// The original runs the logic of the stage (the players, the objects and the messages) once each second frame,
@@ -563,6 +564,8 @@ public class HalfPipeSpecialStageScreen : Screen
 		}
 		string resultsJingleKey = resources[ResultsJingleResourceKey]?.Resource != null ? ResultsJingleResourceKey : EmeraldMusicResourceKey;
 		_resourceSession.PushDependency(resultsJingleKey);
+		string emeraldJingleKey = resources[GotEmeraldJingleResourceKey]?.Resource != null ? GotEmeraldJingleResourceKey : EmeraldMusicResourceKey;
+		_resourceSession.PushDependency(emeraldJingleKey);
 		// The original layouts are not in the game data. A mod can add them (see tools/s2hd-data).
 		string stageKey = StageResourceKeyPrefix + (_stage + 1);
 		bool hasStage = _gameContext.ResourceTree[stageKey]?.Resource != null;
@@ -599,7 +602,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		_tallySound = tree.GetLoadedResource<Sample>(TallySoundResourceKey);
 		_tallyEndSound = tree.GetLoadedResource<Sample>(TallyEndSoundResourceKey);
 		_perfectSound = tree.GetLoadedResource<Sample>(PerfectSoundResourceKey);
-		_emeraldJingle = tree.GetLoadedResource<Sample>(EmeraldMusicResourceKey);
+		_emeraldJingle = tree.GetLoadedResource<Sample>(emeraldJingleKey);
 		_resultsJingle = tree.GetLoadedResource<Sample>(resultsJingleKey);
 		_originalArt = hasOriginalArt ? new HalfPipeOriginalArt(tree) : null;
 		if (_tails != null)
@@ -906,7 +909,7 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	private void UpdateFlow()
 	{
-		foreach (HalfPipeFlowEvent flowEvent in _flow.Update(PlayerTrackNode, Rings, EmeraldAppearOffset))
+		foreach (HalfPipeFlowEvent flowEvent in _flow.Update(PlayerTrackNode, Rings))
 		{
 			switch (flowEvent)
 			{
@@ -920,7 +923,7 @@ public class HalfPipeSpecialStageScreen : Screen
 				case HalfPipeFlowEvent.EmeraldNear:
 					_musicFadeTicksLeft = MusicFadeTicks;
 					break;
-				case HalfPipeFlowEvent.EmeraldWon:
+				case HalfPipeFlowEvent.EmeraldJingle:
 					_musicInstance?.Stop();
 					_musicInstance?.Dispose();
 					_musicInstance = new SampleInstance(_gameContext, _emeraldJingle);
@@ -1458,15 +1461,16 @@ public class HalfPipeSpecialStageScreen : Screen
 		{
 			return;
 		}
-		// The emerald stays where it appeared until it reaches the player. A won emerald then stays in front of the
-		// player and bobs: -1, 0, +1, 0 pixels, 4 frames each.
-		int node = Math.Max(_flow.EmeraldAppearNode, PlayerTrackNode + EmeraldStopOffset);
-		node = Math.Min(node, _track.Nodes.Count - 1);
+		// The emerald comes nearer to the player on its own timer, then stays in front of the player. A won emerald
+		// bobs: -1, 0, +1, 0 pixels, 4 frames each.
+		double place = Math.Min(PlayerTrackNode + _trackFraction + _flow.EmeraldDepth * EmeraldNodesPerDepth, _track.Nodes.Count - 1);
+		(Vector3 position, double yaw, _) = GetTrackPoint((int)place, place - (int)place);
+		Matrix4 transform = Matrix4.Identity.RotateY(yaw).Translate(position);
 		double bob = _flow.EmeraldWon ? new[] { -1, 0, 1, 0 }[_flow.EmeraldWonFrames / 4 % 4] * EmeraldBob : 0.0;
 		// The emerald floats at 3/4 of the pipe radius from the centre
 		double height = PipeRadius / 4.0 + bob;
-		quads.Add(CreateSurfaceShadow(GetNodeTransform(node), 0.0, EmeraldSize * 0.6, EmeraldSize * 0.6 * ObjectShadowSquash, 0.0, _ballShadowTexture));
-		quads.Add(CreateSprite(GetNodeTransform(node), 0.0, height, EmeraldSize, EmeraldSize, _emeraldTexture,
+		quads.Add(CreateSurfaceShadow(transform, 0.0, EmeraldSize * 0.6, EmeraldSize * 0.6 * ObjectShadowSquash, 0.0, _ballShadowTexture));
+		quads.Add(CreateSprite(transform, 0.0, height, EmeraldSize, EmeraldSize, _emeraldTexture,
 			new Rectanglei(0, 0, _emeraldTexture.Width, _emeraldTexture.Height)));
 	}
 
