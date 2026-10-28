@@ -29,6 +29,9 @@ public class SoundManager
 
 	private readonly SampleInfo[] _jingleSampleInfo = new SampleInfo[EnumHelpers.GetEnumCount(typeof(JingleType))];
 
+	/// <summary>The copy of each jingle at the tempo of the speed shoes, or null.</summary>
+	private readonly SampleInfo[] _spedUpJingleSampleInfo = new SampleInfo[EnumHelpers.GetEnumCount(typeof(JingleType))];
+
 	private readonly SampleInstance[] _jingleInstance = new SampleInstance[EnumHelpers.GetEnumCount(typeof(JingleType))];
 
 	private readonly List<JingleType> _jingleOrder = new List<JingleType>();
@@ -56,6 +59,9 @@ public class SoundManager
 	private double _musicFadeVolume;
 
 	private double _musicFadeAmount;
+
+	/// <summary>SpeedUpFlag in the original: a jingle with a fast copy plays the fast copy.</summary>
+	private bool _spedUp;
 
 	public SampleInstance MusicInstance => _musicInstance;
 
@@ -286,6 +292,93 @@ public class SoundManager
 	public void SetJingle(JingleType jingleType, SampleInfo si)
 	{
 		_jingleSampleInfo[(int)jingleType] = si;
+		_spedUpJingleSampleInfo[(int)jingleType] = null;
+	}
+
+	/// <summary>Sets a jingle and its copy at the tempo of the speed shoes (see <see cref="SpeedUpMusic"/>).</summary>
+	public void SetJingle(JingleType jingleType, SampleInfo si, SampleInfo spedUp)
+	{
+		_jingleSampleInfo[(int)jingleType] = si;
+		_spedUpJingleSampleInfo[(int)jingleType] = spedUp;
+	}
+
+	/// <summary>
+	/// MusID_SpeedUp: the jingles that have a fast copy play the fast copy, at the same point of the song. This
+	/// includes the jingles that start later. Returns true if the newest music jingle has a fast copy. Otherwise, the
+	/// caller plays the speed shoes jingle.
+	/// </summary>
+	public bool SpeedUpMusic()
+	{
+		_spedUp = true;
+		ChangeAllJingleTempos();
+		// The extra life jingle only mutes the music, and the music continues after it.
+		JingleType music = _jingleOrder.LastOrDefault(jingleType => jingleType != JingleType.Life);
+		return music != JingleType.None && _spedUpJingleSampleInfo[(int)music] != null;
+	}
+
+	/// <summary>MusID_SlowDown: the jingles play at their normal tempo again, at the same point of the song.</summary>
+	public void SlowDownMusic()
+	{
+		_spedUp = false;
+		ChangeAllJingleTempos();
+	}
+
+	private void ChangeAllJingleTempos()
+	{
+		foreach (JingleType jingleType in _jingleOrder.ToArray())
+		{
+			ChangeJingleTempo(jingleType);
+		}
+	}
+
+	/// <summary>Returns the normal jingle or its fast copy, as <see cref="_spedUp"/> tells.</summary>
+	private SampleInfo GetJingleSampleInfo(int index)
+	{
+		return (_spedUp ? _spedUpJingleSampleInfo[index] : null) ?? _jingleSampleInfo[index];
+	}
+
+	/// <summary>
+	/// Changes a playing jingle to the sample that <see cref="GetJingleSampleInfo"/> gives. A song that plays live
+	/// changes its tempo. Another jingle starts the other sample at the same point of the song.
+	/// </summary>
+	private void ChangeJingleTempo(JingleType jingleType)
+	{
+		int index = (int)jingleType;
+		SampleInstance instance = _jingleInstance[index];
+		if (instance == null || _spedUpJingleSampleInfo[index] == null)
+		{
+			return;
+		}
+		SampleInfo current = instance.Sample == _spedUpJingleSampleInfo[index].Sample ? _spedUpJingleSampleInfo[index] : _jingleSampleInfo[index];
+		SampleInfo next = GetJingleSampleInfo(index);
+		if (next == current || instance.TryChangeTempo(next))
+		{
+			return;
+		}
+		SampleInstance nextInstance = new SampleInstance(_gameContext, next);
+		nextInstance.Classification = SampleInstanceClassification.Music;
+		nextInstance.Volume = instance.Volume;
+		nextInstance.SeekTo(instance.Position * GetDurationRatio(current, next));
+		if (instance.Playing)
+		{
+			nextInstance.Play();
+		}
+		instance.Stop();
+		instance.Dispose();
+		_jingleInstance[index] = nextInstance;
+	}
+
+	/// <summary>
+	/// Returns the duration of a song at another tempo divided by its duration at this tempo. The loop points give
+	/// the ratio, because the samples continue past the loop point.
+	/// </summary>
+	private static double GetDurationRatio(SampleInfo from, SampleInfo to)
+	{
+		if (from.HasLoopPoint && to.HasLoopPoint && from.LoopSampleIndex > 0)
+		{
+			return to.LoopSampleIndex / (double)from.LoopSampleIndex;
+		}
+		return to.Sample.SampleCount / (double)Math.Max(1, from.Sample.SampleCount);
 	}
 
 	public void PlayJingleOnce(Sample sample)
@@ -298,7 +391,8 @@ public class SoundManager
 
 	public void PlayJingle(JingleType jingleType)
 	{
-		if (_jingleSampleInfo[(int)jingleType] == null)
+		SampleInfo jingleSampleInfo = GetJingleSampleInfo((int)jingleType);
+		if (jingleSampleInfo == null)
 		{
 			return;
 		}
@@ -327,14 +421,16 @@ public class SoundManager
 			}
 		}
 		int index = (int)jingleType;
+		if (_jingleInstance[index] != null && _jingleInstance[index].Sample != jingleSampleInfo.Sample)
+		{
+			// The jingle plays at the other tempo.
+			StopJingleInstance(index);
+		}
 		if (_jingleInstance[index] == null)
 		{
-			_jingleInstance[index] = new SampleInstance(_gameContext, _jingleSampleInfo[index]);
+			_jingleInstance[index] = new SampleInstance(_gameContext, jingleSampleInfo);
 		}
-		else
-		{
-			_jingleOrder.Remove(jingleType);
-		}
+		_jingleOrder.Remove(jingleType);
 		_jingleOrder.Add(jingleType);
 		_jingleInstance[index].Classification = SampleInstanceClassification.Music;
 		_jingleInstance[index].Volume = 1.0;
@@ -349,9 +445,7 @@ public class SoundManager
 		{
 			return;
 		}
-		_jingleInstance[index].Stop();
-		_jingleInstance[index].Dispose();
-		_jingleInstance[index] = null;
+		StopJingleInstance(index);
 		_jingleOrder.Remove(jingleType);
 		if (_jingleOrder.Count == 0)
 		{
@@ -377,6 +471,13 @@ public class SoundManager
 			JingleType newestJingle = _jingleOrder.Last();
 			_jingleInstance[(int)newestJingle].Volume = 1.0;
 		}
+	}
+
+	private void StopJingleInstance(int index)
+	{
+		_jingleInstance[index].Stop();
+		_jingleInstance[index].Dispose();
+		_jingleInstance[index] = null;
 	}
 
 	public void StopAllJingles()

@@ -214,7 +214,11 @@ public class Player
 	{
 		SpeedShoesTicks = PowerupTicks;
 		Protagonist.HasSpeedShoes = true;
-		_level.SoundManager.PlayJingle(JingleType.SpeedShoes);
+		// The original only speeds up the music that plays. The HD data has a fast copy of the level music only.
+		if (!_level.SoundManager.SpeedUpMusic())
+		{
+			_level.SoundManager.PlayJingle(JingleType.SpeedShoes);
+		}
 	}
 
 	public void RemoveSpeedShoes()
@@ -223,6 +227,7 @@ public class Player
 		{
 			Protagonist.HasSpeedShoes = false;
 		}
+		_level.SoundManager.SlowDownMusic();
 		_level.SoundManager.StopJingle(JingleType.SpeedShoes);
 	}
 

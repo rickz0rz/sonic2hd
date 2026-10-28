@@ -41,6 +41,16 @@ public static class MusicImport
 		("96 - Super Sonic.asm", "SONICORCA/MUSIC/JINGLE/SUPER")
 	};
 
+	/// <summary>
+	/// The songs to import a second time at the tempo of the speed shoes (zSpedUpTempoTable): the file in
+	/// <see cref="MusicFolder"/>, the resource key of the fast music, and the tempo. The original changes only the
+	/// tempo of the song that plays. A song that plays live does the same (see <see cref="SongSample"/>).
+	/// </summary>
+	public static readonly IReadOnlyList<(string File, string Key, int Tempo)> SpedUpSongs = new[]
+	{
+		("96 - Super Sonic.asm", "SONICORCA/MUSIC/JINGLE/SUPER/FAST", 0xFF)
+	};
+
 	/// <summary>The sound effects to import: the file in <see cref="SoundFolder"/> and the resource key of the sound.</summary>
 	public static readonly IReadOnlyList<(string File, string Key)> Sounds = new[]
 	{
@@ -62,6 +72,7 @@ public static class MusicImport
 	public static void Import(string disassembly, string folder, string ffmpeg, Action<string> log)
 	{
 		IEnumerable<Func<string>> imports = Songs.Select(song => (Func<string>)(() => ImportSong(song, disassembly, folder, ffmpeg)))
+			.Concat(SpedUpSongs.Select(song => (Func<string>)(() => ImportSong((song.File, song.Key), disassembly, folder, ffmpeg, song.Tempo))))
 			.Concat(Sounds.Select(sound => (Func<string>)(() => ImportSound(sound, disassembly, folder, ffmpeg))));
 		Parallel.ForEach(imports, import =>
 		{
@@ -82,10 +93,15 @@ public static class MusicImport
 	/// <param name="disassembly">The folder of the disassembly.</param>
 	/// <param name="folder">The output folder.</param>
 	/// <param name="ffmpeg">The ffmpeg program, or null for a song that plays live.</param>
-	public static string ImportSong((string File, string Key) song, string disassembly, string folder, string ffmpeg)
+	/// <param name="tempo">The main tempo of the song, or null for the tempo of the song file.</param>
+	public static string ImportSong((string File, string Key) song, string disassembly, string folder, string ffmpeg, int? tempo = null)
 	{
 		Stopwatch stopwatch = Stopwatch.StartNew();
 		SmpsSong smps = SmpsSong.FromFile(Path.Combine(disassembly, MusicFolder, song.File));
+		if (tempo is int mainTempo)
+		{
+			smps = smps.WithTempo(mainTempo);
+		}
 		string keyFolder = Path.Combine(new[] { folder }.Concat(song.Key.Split('/')).ToArray());
 		Directory.CreateDirectory(keyFolder);
 		if (ffmpeg == null)

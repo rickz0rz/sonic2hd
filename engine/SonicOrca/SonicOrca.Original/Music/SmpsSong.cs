@@ -18,6 +18,9 @@ public sealed class SmpsSong
 	/// <summary>The PSG note that the songs use for the highest PSG frequency (nMaxPSG in SMPS2ASM).</summary>
 	private const int MaxPsgNote = 0xC6;
 
+	/// <summary>The offset of the main tempo in the header of a song.</summary>
+	public const int MainTempoOffset = 5;
+
 	private static readonly string[] NoteNames = { "C", "Cs", "D", "Ds", "E", "F", "Fs", "G", "Gs", "A", "As", "B" };
 
 	private static readonly Dictionary<string, string> NoteAliases = new Dictionary<string, string>
@@ -61,6 +64,16 @@ public sealed class SmpsSong
 	public static SmpsSong FromData(byte[] data, bool isSoundEffect = false)
 	{
 		return new SmpsSong { Data = data, IsSoundEffect = isSoundEffect };
+	}
+
+	/// <summary>
+	/// Returns a copy of a song with another main tempo (the second value of smpsHeaderTempo). The copy has no labels.
+	/// </summary>
+	public SmpsSong WithTempo(int tempo)
+	{
+		byte[] data = (byte[])Data.Clone();
+		data[MainTempoOffset] = (byte)tempo;
+		return FromData(data, IsSoundEffect);
 	}
 
 	/// <summary>Assembles the text of a song file.</summary>

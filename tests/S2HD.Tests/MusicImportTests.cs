@@ -184,6 +184,21 @@ public sealed class MusicImportTests
 	}
 
 	[Fact]
+	public void Render_SuperSonicAtTheSpeedShoesTempo_LoopsSooner()
+	{
+		string disassembly = SpecialStageImportTests.FindDisassembly();
+		SmpsSong song = SmpsSong.FromFile(Path.Combine(disassembly, MusicImport.MusicFolder, "96 - Super Sonic.asm"));
+		var spedUp = MusicImport.SpedUpSongs.Single(s => s.File == "96 - Super Sonic.asm");
+
+		RenderedSong normal = SongRenderer.Render(song, Path.Combine(disassembly, MusicImport.DacFolder));
+		RenderedSong fast = SongRenderer.Render(song.WithTempo(spedUp.Tempo), Path.Combine(disassembly, MusicImport.DacFolder));
+
+		// The song moves on in 250 of 256 frames at tempo $FA, and in 255 of 256 frames at tempo $FF
+		Assert.Equal(0xFF, spedUp.Tempo);
+		Assert.InRange(fast.LoopSample.Value / (double)normal.LoopSample.Value, 250.0 / 255.0 - 0.005, 250.0 / 255.0 + 0.005);
+	}
+
+	[Fact]
 	public void Render_AquaticRuin_LoopsAndStaysBelowFullScale()
 	{
 		string disassembly = SpecialStageImportTests.FindDisassembly();
@@ -271,6 +286,41 @@ public sealed class MusicImportTests
 
 		Assert.Equal(first, again);
 		Assert.Equal(first.Skip(2 * 5000), skipped);
+	}
+
+	[Fact]
+	public void WithTempo_ChangesOnlyTheMainTempo()
+	{
+		SmpsSong song = SmpsSong.FromText(SineSong);
+
+		SmpsSong fast = song.WithTempo(0xFF);
+
+		Assert.Equal(0x80, song.Data[SmpsSong.MainTempoOffset]);
+		Assert.Equal(0xFF, fast.Data[SmpsSong.MainTempoOffset]);
+		Assert.Equal(song.Data.Where((_, i) => i != SmpsSong.MainTempoOffset), fast.Data.Where((_, i) => i != SmpsSong.MainTempoOffset));
+	}
+
+	[Fact]
+	public void SongSample_ChangeTempo_ContinuesAtTheNewTempoAndStartsTheCopyAgain()
+	{
+		SongSample normal = LoadSongSample(SineSong);
+		SongSample fast = LoadSongSample(SineSong.Replace("smpsHeaderTempo     $01, $80", "smpsHeaderTempo     $01, $FF"));
+		using Stream stream = normal.OpenStream(null);
+		using Stream normalStream = normal.OpenStream(null);
+		using Stream fastStream = fast.OpenStream(null);
+		short[] start = ReadSamples(stream, 20000);
+
+		bool changed = ((ITempoStream)stream).ChangeTempo(fast);
+		short[] changedRest = ReadSamples(stream, 3 * SongSample.OutputSampleRate);
+		short[] normalRest = ReadSamples(normalStream, 20000 + 3 * SongSample.OutputSampleRate).Skip(2 * 20000).ToArray();
+		stream.Position = 0;
+		short[] again = ReadSamples(stream, 20000);
+
+		Assert.True(changed);
+		Assert.False(((ITempoStream)stream).ChangeTempo(new Sample(new byte[4], 16, SongSample.OutputSampleRate, 2)));
+		Assert.Equal(ReadSamples(normal.OpenStream(null), 20000), start);
+		Assert.NotEqual(normalRest, changedRest);
+		Assert.Equal(ReadSamples(fastStream, 20000), again);
 	}
 
 	[Fact]
