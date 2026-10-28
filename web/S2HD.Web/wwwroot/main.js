@@ -112,7 +112,7 @@ runtime.setModuleImports('host', {
 await runtime.runMain();
 const game = (await runtime.getAssemblyExports(runtime.getConfig().mainAssemblyName)).S2HD.Program;
 const FS = runtime.Module.FS;
-setStatus('Choose the game data to start.');
+setStatus('Choose the game data, then click Go.');
 
 // Browser storage (IndexedDB) for the zip of the Sonic 2 disassembly and the mods that the page makes from it. The
 // files stay in this browser. 'mods' holds { version, files: { name: Uint8Array } }
@@ -163,9 +163,9 @@ document.getElementById('disasm').addEventListener('change', async (e) => {
   try {
     await storage.put('s2disasm.zip', disasmZip);
     await showStored();
-    setStatus('The disassembly is stored. Choose the game data to start.');
+    setStatus(`The disassembly is stored. ${nextStep()}`);
   } catch (error) {
-    setStatus(`The browser cannot store the disassembly (${error}). It is used for this visit only. Choose the game data to start.`);
+    setStatus(`The browser cannot store the disassembly (${error}). It is used for this visit only. ${nextStep()}`);
   }
 });
 forget.addEventListener('click', async () => {
@@ -276,14 +276,42 @@ async function downloadZip(url) {
   return new Blob(chunks);
 }
 
-document.getElementById('zip').addEventListener('change', (e) => e.target.files[0] && loadZip(e.target.files[0]));
-document.getElementById('folder').addEventListener('change', (e) => loadFolder(e.target.files));
+// The player chooses the game data and the disassembly in any order. Go loads the game data and starts the game
+const go = document.getElementById('go');
+const chosenText = document.getElementById('chosen');
+let loadChosen = null;
+const nextStep = () => loadChosen ? 'Click Go to start.' : 'Choose the game data, then click Go.';
+function choose(text, load) {
+  chosenText.textContent = `Game data: ${text}.`;
+  loadChosen = load;
+  go.disabled = false;
+  setStatus(disasmZip ? 'Click Go to start.' : 'Click Go to start, or choose the s2disasm zip first.');
+}
+go.addEventListener('click', () => {
+  if (!loadChosen) return;
+  go.disabled = true;
+  for (const input of panel.querySelectorAll('input, button')) input.disabled = true;
+  loadChosen();
+});
+document.getElementById('zip').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (file) choose(`${file.name} (${(file.size / 1048576).toFixed(0)} MB)`, () => loadZip(file));
+});
+document.getElementById('folder').addEventListener('change', (e) => {
+  const files = [...e.target.files];
+  if (files.length) choose(`the folder ${files[0].webkitRelativePath.split('/')[0]}`, () => loadFolder(files));
+});
 // ?disasm=<url> stores a zip of the disassembly from the site first, as the button does, for tests.
-// ?data=<url> loads a zip from the site. Otherwise game.zip is loaded when the site was published with
-// -p:BundleGameData=true, and the player is asked for the files when it is not there
+// ?data=<url> loads a zip from the site and starts at once, for tests. Otherwise game.zip is chosen when the site
+// was published with -p:BundleGameData=true, and the player is asked for the files when it is not there
 (params.has('disasm') ? downloadZip(params.get('disasm')).then((blob) => (disasmZip = blob) && storage.put('s2disasm.zip', blob)) : Promise.resolve())
   .then(() => downloadZip(params.get('data') || 'game.zip'))
-  .then((blob) => blob ? loadZip(blob) : params.has('data') && setStatus(`Could not download ${params.get('data')}.`))
+  .then((blob) => {
+    if (blob && params.has('data')) loadZip(blob);
+    else if (blob) choose('the game data of this site', () => loadZip(blob));
+    else if (params.has('data')) setStatus(`Could not download ${params.get('data')}.`);
+    else if (!loadChosen) setStatus(nextStep());
+  })
   .catch((e) => console.warn(`Game data download failed: ${e}`));
 if (params.has('shadertest')) { report(game.CompileAllShaders()); report('DONE'); }
 
