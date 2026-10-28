@@ -173,6 +173,14 @@ public sealed class SmpsDriver
 	public bool NextFrameTicks => _soundEffect || _currentTempo + _tempoTimeout > 0xFF;
 
 	/// <summary>
+	/// zSpeedUpMusic and zSlowDownMusic: the song continues at another main tempo. The tempo counter does not change.
+	/// </summary>
+	public void SetTempo(int tempo)
+	{
+		_currentTempo = tempo;
+	}
+
+	/// <summary>
 	/// Copies the state of the driver: the memory of the tracks that play, and the tempo. The tempo counter is not
 	/// part of the state. When the state before a tick is the same as before an earlier tick, the song repeats from
 	/// that tick.

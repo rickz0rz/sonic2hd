@@ -14,7 +14,7 @@ public class SampleInstance : IDisposable, ISampleProvider
 
 	private readonly AudioContext _audioAdapter;
 
-	private readonly Sample _sample;
+	private Sample _sample;
 
 	private Stream _sampleInputStream;
 
@@ -124,6 +124,20 @@ public class SampleInstance : IDisposable, ISampleProvider
 	public void SeekTo(double time)
 	{
 		SeekTo((int)(time * _sample.SampleRate));
+	}
+
+	/// <summary>
+	/// Plays the rest of a song that plays live at the tempo of a copy of the song (see <see cref="ITempoStream"/>).
+	/// Returns false if the stream cannot change its tempo.
+	/// </summary>
+	public bool TryChangeTempo(SampleInfo copy)
+	{
+		if (_sampleInputStream is ITempoStream stream && stream.ChangeTempo(copy.Sample))
+		{
+			_sample = copy.Sample;
+			return true;
+		}
+		return false;
 	}
 
 	public int Read(byte[] buffer, int offset, int count)

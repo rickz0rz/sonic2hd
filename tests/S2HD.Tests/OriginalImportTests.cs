@@ -36,6 +36,6 @@ public sealed class OriginalImportTests
 				Assert.DoesNotContain(steps.Take(i), step => step.Mod == steps[i].Mod);
 			}
 		}
-		Assert.Equal(MusicImport.Songs.Count + MusicImport.Sounds.Count, steps.Count(step => step.Mod == "music"));
+		Assert.Equal(MusicImport.Songs.Count + MusicImport.SpedUpSongs.Count + MusicImport.Sounds.Count, steps.Count(step => step.Mod == "music"));
 	}
 }

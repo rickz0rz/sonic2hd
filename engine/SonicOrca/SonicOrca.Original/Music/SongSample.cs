@@ -24,9 +24,17 @@ public sealed class SongSample : Sample
 		_drums = drums;
 	}
 
+	/// <summary>The main tempo of the song.</summary>
+	internal int Tempo => _song.Data[SmpsSong.MainTempoOffset];
+
 	/// <summary>Starts the song. The loop point is not used, because the driver follows the loop of the song.</summary>
 	public override Stream OpenStream(int? loopSampleIndex)
 	{
-		return new SongStream(() => new SongPlayer(_song, _drums, OutputSampleRate));
+		return new SongStream(StartPlayer);
+	}
+
+	internal SongPlayer StartPlayer()
+	{
+		return new SongPlayer(_song, _drums, OutputSampleRate);
 	}
 }

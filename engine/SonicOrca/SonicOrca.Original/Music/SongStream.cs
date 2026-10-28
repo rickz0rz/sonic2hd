@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using SonicOrca.Audio;
 
 namespace SonicOrca.Original.Music;
 
@@ -8,11 +9,11 @@ namespace SonicOrca.Original.Music;
 /// with a loop plays without end, because the driver follows the loop of the song. A song without a loop ends after
 /// its tail. A seek back starts the song again and plays it to the new position.
 /// </summary>
-internal sealed class SongStream : Stream
+internal sealed class SongStream : Stream, ITempoStream
 {
 	private const int BytesPerFrame = 4;
 
-	private readonly Func<SongPlayer> _start;
+	private Func<SongPlayer> _start;
 	private SongPlayer _player;
 	private int _frameSample;
 	private int _frameLength;
@@ -82,6 +83,21 @@ internal sealed class SongStream : Stream
 		short value = (short)Math.Clamp((int)Math.Round(sample * 32767f), short.MinValue, short.MaxValue);
 		buffer[offset] = (byte)value;
 		buffer[offset + 1] = (byte)(value >> 8);
+	}
+
+	/// <summary>
+	/// Continues the song at the tempo of the copy, as zSpeedUpMusic and zSlowDownMusic in the original. A seek back
+	/// starts the copy.
+	/// </summary>
+	public bool ChangeTempo(Sample copy)
+	{
+		if (copy is not SongSample song)
+		{
+			return false;
+		}
+		_start = song.StartPlayer;
+		_player.Driver.SetTempo(song.Tempo);
+		return true;
 	}
 
 	public override long Seek(long offset, SeekOrigin origin)

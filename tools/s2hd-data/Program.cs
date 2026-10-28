@@ -172,7 +172,7 @@ static int ImportMusic(string disassembly, string folder)
 	}
 	string ffmpeg = Environment.GetEnvironmentVariable("S2HD_FFMPEG") ?? "ffmpeg";
 	MusicImport.Import(disassembly, folder, ffmpeg, Console.WriteLine);
-	Console.WriteLine($"Wrote {MusicImport.Songs.Count} songs and {MusicImport.Sounds.Count} sounds to {folder}.");
+	Console.WriteLine($"Wrote {MusicImport.Songs.Count + MusicImport.SpedUpSongs.Count} songs and {MusicImport.Sounds.Count} sounds to {folder}.");
 	return 0;
 }
 
