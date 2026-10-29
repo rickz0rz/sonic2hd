@@ -210,7 +210,8 @@ internal class UserInterface
 		_effectEventManager.Update();
 		HandleInput();
 		++_ticks;
-		if (_demoTimeout.HasValue)
+		// The demo does not start while the level select is open
+		if (_demoTimeout.HasValue && !_levelSelectEnabled)
 		{
 			_demoTimeout--;
 			if (_demoTimeout <= 0)
@@ -287,6 +288,9 @@ internal class UserInterface
 				return;
 			_gameContext.Audio.PlaySound(_sampleNavigateBack);
 			_levelSelectEnabled = false;
+			// The time to the demo starts again when the level select closes
+			if (_demoTimeout.HasValue)
+				_demoTimeout = DemoInitialTimeout;
 		}
 		else if (_pressStartActive)
 		{
@@ -763,19 +767,32 @@ internal class UserInterface
 		g.BlendMode = BlendMode.Alpha;
 		g.RenderQuad(new Colour(0.8, 0.0, 0.0, 0.0), new Rectangle(0.0, 0.0, 1920.0, 1080.0));
 		int x = 660;
-		int y = 400;
-		int index = 0;
+		// A list that scrolls starts lower, so that the mark above the first item has room
+		bool scrolls = _levelSelectItems.Length > LevelSelectVisibleItems;
+		int y = scrolls ? 430 : 400;
+		Colour dim = new Colour(0.5, 1.0, 1.0, 1.0);
 		fontRenderer.RenderStringWithShadow("LEVEL SELECT", new Rectangle(x, 330.0, 0.0, 0.0), FontAlignment.MiddleY, _fontImpactRegular, 0);
-		foreach (LevelSelectItem levelSelectItem in _levelSelectItems)
+		// The list shows the items around the selected item, so that a long list stays on the screen
+		int first = Math.Clamp(_levelSelectSelectionIndex - LevelSelectVisibleItems / 2, 0, Math.Max(0, _levelSelectItems.Length - LevelSelectVisibleItems));
+		int last = Math.Min(_levelSelectItems.Length, first + LevelSelectVisibleItems);
+		if (first > 0)
+			fontRenderer.RenderStringWithShadow("...", new Rectangle(x, y - LevelSelectItemHeight, 0.0, 0.0), FontAlignment.MiddleY, _fontImpactRegular, dim, 0);
+		for (int index = first; index < last; index++)
 		{
 			bool selected = _levelSelectSelectionIndex == index;
 			int overlay = selected ? 1 : 0;
-			Colour colour = selected ? Colours.White : new Colour(0.5, 1.0, 1.0, 1.0);
-			fontRenderer.RenderStringWithShadow(levelSelectItem.Text, new Rectangle(x, y, 0.0, 0.0), FontAlignment.MiddleY, _fontImpactRegular, colour, new int?(overlay));
-			y += 50;
-			++index;
+			Colour colour = selected ? Colours.White : dim;
+			fontRenderer.RenderStringWithShadow(_levelSelectItems[index].Text, new Rectangle(x, y, 0.0, 0.0), FontAlignment.MiddleY, _fontImpactRegular, colour, new int?(overlay));
+			y += LevelSelectItemHeight;
 		}
+		if (last < _levelSelectItems.Length)
+			fontRenderer.RenderStringWithShadow("...", new Rectangle(x, y - LevelSelectItemHeight / 2, 0.0, 0.0), FontAlignment.MiddleY, _fontImpactRegular, dim, 0);
 	}
+
+	/// <summary>The number of level select items on the screen, and the distance between two items.</summary>
+	private const int LevelSelectVisibleItems = 11;
+
+	private const int LevelSelectItemHeight = 50;
 
 	/// <summary>Returns x modulo divisor in the range 0 to divisor - 1, also when x is negative.</summary>
 	private static int NegMod(int x, int divisor)
