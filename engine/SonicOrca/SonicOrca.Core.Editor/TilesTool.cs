@@ -121,7 +121,8 @@ internal sealed class TilesTool : EditorTool
 	{
 		_painting = false;
 		_capturing = false;
-		if (_layerIndex < 0 || _layerIndex >= Layers.Count)
+		// The editor opens with all layers in view, so a background layer that showed alone is not kept
+		if (_layerIndex < 0 || _layerIndex >= Layers.Count || EditorLayerView.IsShifted(Layer))
 		{
 			IList<int> collisionLayers = Editor.Level.Map.CollisionPathLayers;
 			_layerIndex = collisionLayers.Count > 0 ? collisionLayers[0] : Math.Max(0, Layers.Count - 1);
@@ -178,13 +179,7 @@ internal sealed class TilesTool : EditorTool
 			_brush = null;
 			if (EditorLayerView.IsShifted(Layer))
 			{
-				// The layer shows from the top left of the level. Go there when the layer is not in view.
-				Rectangle area = new Rectangle(0.0, 0.0, Layer.Columns * TileSize, Layer.Rows * TileSize);
-				Rectangle view = Editor.Camera.Bounds;
-				if (view.Right <= area.Left || view.Left >= area.Right || view.Bottom <= area.Top || view.Top >= area.Bottom)
-				{
-					Editor.CentreOn(new Vector2(view.Width / 2.0, view.Height / 2.0));
-				}
+				Editor.ShowLayerAlone(new Rectangle(0.0, 0.0, Layer.Columns * TileSize, Layer.Rows * TileSize));
 				Editor.ShowMessage($"Layer {Layer.Name} shows alone, from the top left of the level, without parallax.");
 			}
 		}
