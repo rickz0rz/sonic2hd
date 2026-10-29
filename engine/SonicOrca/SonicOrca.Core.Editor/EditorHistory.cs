@@ -53,6 +53,13 @@ public sealed class EditorHistory
 
 	public bool CanRedo => _redo.Count > 0;
 
+	/// <summary>Removes all steps, for example after a change that the history cannot undo.</summary>
+	public void Clear()
+	{
+		_undo.Clear();
+		_redo.Clear();
+	}
+
 	/// <summary>Keeps the state before a change. A new change removes the redo steps.</summary>
 	public void Record(EditorSnapshot before)
 	{

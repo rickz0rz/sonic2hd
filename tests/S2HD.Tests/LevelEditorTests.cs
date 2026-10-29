@@ -294,6 +294,84 @@ public sealed class LevelEditorTests
 	}
 
 	[Fact]
+	public void LayerList_Insert_MovesThePathsAndTheShadows_AndPutsTheLayerInTheGroup()
+	{
+		(_, LevelMap map) = LoadTestMap();
+		LevelLayerGroup group = new LevelLayerGroup("front");
+		map.LayerTree.Children.Add(map.Layers[0]);
+		map.LayerTree.Children.Add(group);
+		group.Children.Add(map.Layers[1]);
+		LevelLayer shadows = new LevelLayer(map) { Name = "shadows" };
+		shadows.Shadows.Add(new LevelLayerShadow { LayerIndexOffset = -1 });
+		map.Layers.Add(shadows);
+		group.Children.Add(shadows);
+		map.CollisionPathLayers.Add(1);
+		map.Layers[0].ParallaxY = 0.5;
+
+		LevelLayer added = EditorLayerList.CreateLayerLike(map, map.Layers[0]);
+		int[] newIndices = EditorLayerList.Insert(map, 1, added);
+
+		Assert.Equal("layer_1", added.Name);
+		Assert.Equal(0.5, added.ParallaxY);
+		Assert.Equal((2, 2), (added.Columns, added.Rows));
+		Assert.Equal(new[] { 0, 2, 3 }, newIndices);
+		Assert.Equal(new[] { "back", "layer_1", "fg", "shadows" }, map.Layers.Select(l => l.Name));
+		Assert.Equal(new[] { 2 }, map.CollisionPathLayers);
+		// The shadow layer still casts from the layer before it
+		Assert.Equal(-1, shadows.Shadows[0].LayerIndexOffset);
+		Assert.Same(added, map.LayerTree.Children[1]);
+
+		// A new layer between a shadow and its caster keeps the shadow on its caster
+		EditorLayerList.Insert(map, 3, EditorLayerList.CreateLayerLike(map, map.Layers[2]));
+		Assert.Equal(-2, shadows.Shadows[0].LayerIndexOffset);
+		Assert.Equal(new object[] { map.Layers[2], map.Layers[3], shadows }, group.Children);
+	}
+
+	[Fact]
+	public void LayerList_Remove_MovesThePaths_AndRemovesTheShadowsOfTheLayer()
+	{
+		(_, LevelMap map) = LoadTestMap();
+		map.LayerTree.Children.Add(map.Layers[0]);
+		map.LayerTree.Children.Add(map.Layers[1]);
+		map.Layers[1].Shadows.Add(new LevelLayerShadow { LayerIndexOffset = -1 });
+		map.CollisionPathLayers.Add(1);
+		map.CollisionPathLayers.Add(1);
+
+		int[] newIndices = EditorLayerList.Remove(map, 0);
+
+		Assert.Equal(new[] { -1, 0 }, newIndices);
+		Assert.Equal("fg", Assert.Single(map.Layers).Name);
+		Assert.Equal(new[] { 0, 0 }, map.CollisionPathLayers);
+		Assert.Empty(map.Layers[0].Shadows);
+		Assert.Single(map.LayerTree.Children);
+	}
+
+	[Fact]
+	public void MapPatch_WritesTheNewLayers_AndRemovesTheOldLayers()
+	{
+		(System.Xml.XmlDocument document, LevelMap map) = LoadTestMap();
+		LevelLayer[] documentLayers = map.Layers.ToArray();
+		LevelLayer first = new LevelLayer(map) { Name = "first" };
+		LevelLayer middle = new LevelLayer(map) { Name = "middle", WrapX = true };
+		middle.Resize(1, 1);
+		middle.Tiles[0, 0] = 9;
+		map.Layers.Insert(1, middle);
+		map.Layers.RemoveAt(0);
+		map.Layers.Insert(0, first);
+		map.Layers[2].Shadows.Add(new LevelLayerShadow { LayerIndexOffset = -1 });
+
+		new LevelMapWriter(map).Patch(document, tiles: true, collision: false, markers: false, documentLayers: documentLayers);
+
+		string[] names = document.SelectNodes("map/tiles//layer").OfType<System.Xml.XmlNode>().Select(n => n.Attributes["name"].Value).ToArray();
+		Assert.Equal(new[] { "first", "middle", "fg" }, names);
+		Assert.Equal("9", document.SelectSingleNode("map/tiles/layer[@name='middle']/tiles/row").InnerText);
+		Assert.Equal("true", document.SelectSingleNode("map/tiles/layer[@name='middle']/tiles/@wrap_x").Value);
+		Assert.Equal("-1", document.SelectSingleNode("map/tiles/layergroup/layer[@name='fg']/shadows/shadow/@layerIndexOffset").Value);
+		// The old layer keeps the content that the patch does not write
+		Assert.Equal("inside", document.SelectSingleNode("map/tiles/layergroup/layer[@name='fg']/lighting/@type").Value);
+	}
+
+	[Fact]
 	public void MapPatch_RemovesAnEmptySection()
 	{
 		(System.Xml.XmlDocument document, LevelMap map) = LoadTestMap();

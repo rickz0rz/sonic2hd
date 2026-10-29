@@ -177,6 +177,15 @@ public sealed class LevelEditor : IDisposable
 	/// <summary>The scroll settings of a layer changed (see <see cref="EditorLayerScroll"/>).</summary>
 	public bool ScrollDirty { get; private set; }
 
+	/// <summary>The user added or removed a layer.</summary>
+	public bool LayersDirty { get; private set; }
+
+	/// <summary>
+	/// The layers of the map file, in the order of its layer elements. A save writes the elements of the new layers and
+	/// removes the elements of the removed layers.
+	/// </summary>
+	private LevelLayer[] _documentLayers;
+
 	/// <summary>The collision lines of the map have changes that are not saved.</summary>
 	public bool CollisionDirty { get; private set; }
 
@@ -184,7 +193,7 @@ public sealed class LevelEditor : IDisposable
 	public bool SolidityDirty { get; private set; }
 
 	/// <summary>There are changes that are not saved.</summary>
-	public bool Dirty => BindingDirty || MarkersDirty || TilesDirty || ScrollDirty || CollisionDirty || SolidityDirty;
+	public bool Dirty => BindingDirty || MarkersDirty || TilesDirty || ScrollDirty || LayersDirty || CollisionDirty || SolidityDirty;
 
 	public EditorPlayRequest PlayRequest { get; private set; }
 
@@ -271,6 +280,7 @@ public sealed class LevelEditor : IDisposable
 		// The editor changes the map as it is in the file, without the layout changes of the play
 		LayoutChanges.Reset(_level.Map);
 		TileCollision ??= LoadTileCollision();
+		_documentLayers ??= _level.Map.Layers.ToArray();
 		_viewBeforeLayerAlone = null;
 		foreach (EditorTool tool in _tools)
 		{
@@ -805,6 +815,8 @@ public sealed class LevelEditor : IDisposable
 			MarkersDirty = false;
 			TilesDirty = false;
 			ScrollDirty = false;
+			LayersDirty = false;
+			_documentLayers = _level.Map.Layers.ToArray();
 			CollisionDirty = false;
 			SolidityDirty = false;
 			ShowMessage("Saved to " + path);
@@ -846,9 +858,10 @@ public sealed class LevelEditor : IDisposable
 		{
 			changes.Add(EditorModFile.Change.ForBinding(_level.Binding));
 		}
-		if (MarkersDirty || TilesDirty || ScrollDirty || CollisionDirty)
+		if (MarkersDirty || TilesDirty || ScrollDirty || LayersDirty || CollisionDirty)
 		{
-			changes.Add(EditorModFile.Change.ForMap(_level.Map, tiles: TilesDirty, collision: CollisionDirty, markers: MarkersDirty, scroll: ScrollDirty));
+			changes.Add(EditorModFile.Change.ForMap(_level.Map, tiles: TilesDirty, collision: CollisionDirty, markers: MarkersDirty, scroll: ScrollDirty,
+				documentLayers: LayersDirty ? _documentLayers : null));
 		}
 		if (SolidityDirty && TileCollision != null && GetTileCollisionResource() is Resource resource)
 		{
@@ -976,6 +989,39 @@ public sealed class LevelEditor : IDisposable
 	internal void MarkTilesChanged() => TilesDirty = true;
 
 	internal void MarkScrollChanged() => ScrollDirty = true;
+
+	/// <summary>
+	/// Adds or removes layers with <see cref="EditorLayerList"/>, then gives the placements and the tile collision their
+	/// new layer indices. The undo history keeps tile edits by layer index, so it cannot undo the change, and the
+	/// change clears it.
+	/// </summary>
+	/// <param name="change">The change. It gives the new index of each old index.</param>
+	internal void ChangeLayers(Func<LevelMap, int[]> change)
+	{
+		CompleteTraces();
+		int[] newIndices = change(_level.Map);
+		int NewIndex(int index) => index >= 0 && index < newIndices.Length && newIndices[index] >= 0 ? newIndices[index] : index;
+		for (int i = 0; i < Placements.Count; i++)
+		{
+			ObjectPlacement placement = Placements[i];
+			if (NewIndex(placement.Layer) != placement.Layer)
+			{
+				Placements[i] = placement.With(placement.Uid, placement.Position, NewIndex(placement.Layer), placement.Behaviour);
+			}
+		}
+		if (TileCollision != null && NewIndex(TileCollision.Layer) != TileCollision.Layer)
+		{
+			TileCollision = TileCollision.WithLayer(NewIndex(TileCollision.Layer));
+			SolidityDirty = true;
+		}
+		// The map file keeps the paths and the markers by layer index, so the save writes them again
+		LayersDirty = true;
+		CollisionDirty = true;
+		MarkersDirty = true;
+		_history.Clear();
+		_level.LevelRenderer.Initialise();
+		MarkBindingChanged();
+	}
 
 	internal void MarkCollisionChanged() => CollisionDirty = true;
 
