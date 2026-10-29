@@ -249,8 +249,9 @@ internal class RootGameState : IGameState, IDisposable
 		if (areaResourceKey == null)
 			return null;
 		int levelNumber = Levels.GetLevelIndex(mnemonic, _gameContext.ResourceTree);
+		// A mod level is not in the story, so the game does not go on to another level after it (number 0)
 		if (levelNumber == -1)
-			levelNumber = 1;
+			levelNumber = Levels.GetAreaResourceKey(mnemonic) == null ? 0 : 1;
 		LevelPrepareSettings settingsFromCommandLine = new LevelPrepareSettings()
 		{
 			Act = 1,
