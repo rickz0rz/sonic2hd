@@ -129,7 +129,14 @@ public abstract class ActiveObject : IActiveObject
 		CameraProperties.Delay = new Vector2i(0, 0);
 		CameraProperties.MaxVelocity = new Vector2(64.0, 64.0);
 		CameraProperties.Offset = new Vector2(0.0, 0.0);
-		StateVariableAttribute.SetObjectState(this, Entry.State);
+		if (this is IStateTable table)
+		{
+			table.CopyStateFrom(Entry.State);
+		}
+		else
+		{
+			StateVariableAttribute.SetObjectState(this, Entry.State);
+		}
 		ShadowInfo = new ShadowInfo
 		{
 			OcclusionSize = new Vector2i(16),

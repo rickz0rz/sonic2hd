@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<anigroup>
+  <textures>
+    <texture>//TEXTURE</texture>
+  </textures>
+  <animations>
+    <!-- 0: spin -->
+    <animation>
+      <frame delay="3" texture="0" x="0" y="0" w="64" h="96" />
+      <frame delay="3" texture="0" x="64" y="0" w="64" h="96" />
+      <frame delay="3" texture="0" x="128" y="0" w="64" h="96" />
+      <frame delay="3" texture="0" x="192" y="0" w="64" h="96" />
+    </animation>
+  </animations>
+</anigroup>

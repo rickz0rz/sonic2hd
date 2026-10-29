@@ -69,7 +69,7 @@ internal sealed class ObjectsTool : EditorTool
 		_moving = false;
 		GiveUniqueIds();
 		_allTypeKeys = Editor.GameContext.ResourceTree.GetResourceListing()
-			.Where(x => x.Value.Identifier == ResourceTypeIdentifier.Object && x.Key.StartsWith(ObjectKeyPrefix, StringComparison.OrdinalIgnoreCase))
+			.Where(x => (x.Value.Identifier == ResourceTypeIdentifier.Object || x.Value.Identifier == ResourceTypeIdentifier.LuaObject) && x.Key.StartsWith(ObjectKeyPrefix, StringComparison.OrdinalIgnoreCase))
 			.Select(x => x.Key)
 			.OrderBy(ShortName, StringComparer.Ordinal)
 			.ToArray();

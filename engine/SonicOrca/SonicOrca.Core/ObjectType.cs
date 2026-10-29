@@ -23,17 +23,17 @@ public abstract class ObjectType : ILoadedResource, IDisposable
 
 	private static readonly Lockable<List<ObjectType>> LoadedTypeList = new Lockable<List<ObjectType>>(new List<ObjectType>());
 
-	private readonly string _name;
+	private string _name;
 
-	private readonly string _description;
+	private string _description;
 
-	private readonly ObjectClassification _classification;
+	private ObjectClassification _classification;
 
-	private readonly string[] _dependencies;
+	private string[] _dependencies;
 
-	private readonly string[] _optionalDependencies;
+	private string[] _optionalDependencies;
 
-	private readonly IReadOnlyCollection<ObjectEditorProperty> _editorProperties;
+	private IReadOnlyCollection<ObjectEditorProperty> _editorProperties;
 
 	public Resource Resource { get; set; }
 
@@ -53,6 +53,8 @@ public abstract class ObjectType : ILoadedResource, IDisposable
 	public string ResourceKey => Resource.FullKeyPath;
 
 	public string Name => _name;
+
+	public string Description => _description;
 
 	public ObjectClassification Classification => _classification;
 
@@ -93,22 +95,45 @@ public abstract class ObjectType : ILoadedResource, IDisposable
 		_optionalDependencies = DependencyAttribute.GetOptionalDependencies(this).ToArray();
 	}
 
+	/// <summary>
+	/// Sets the data that the attributes of a C# type give, for a type without attributes, for example a script type.
+	/// </summary>
+	protected void SetMetadata(string name, string description, ObjectClassification classification, IEnumerable<string> dependencies,
+		IEnumerable<ObjectEditorProperty> editorProperties)
+	{
+		_name = name;
+		_description = description;
+		_classification = classification;
+		_dependencies = dependencies.ToArray();
+		_optionalDependencies = Array.Empty<string>();
+		_editorProperties = editorProperties.ToArray();
+	}
+
+	/// <summary>
+	/// True when the other type is this type: the same class, and for a class that many types share (a script type),
+	/// the same resource.
+	/// </summary>
+	private bool IsSameType(ObjectType other)
+	{
+		return other.GetType() == GetType() && (this is not IStateTableType || other.Resource?.FullKeyPath == Resource?.FullKeyPath);
+	}
+
 	public void OnLoaded()
 	{
 		lock (LoadedTypeList.Sync)
 		{
-			if (!LoadedTypeList.Instance.Exists(ot => ot.GetType() == GetType()))
+			if (!LoadedTypeList.Instance.Exists(IsSameType))
 			{
 				LoadedTypeList.Instance.Add(this);
 			}
 		}
 	}
 
-	public void Dispose()
+	public virtual void Dispose()
 	{
 		lock (LoadedTypeList.Sync)
 		{
-			if (LoadedTypeList.Instance.Exists(ot => ot.GetType() == GetType()))
+			if (LoadedTypeList.Instance.Exists(IsSameType))
 			{
 				LoadedTypeList.Instance.Remove(this);
 			}

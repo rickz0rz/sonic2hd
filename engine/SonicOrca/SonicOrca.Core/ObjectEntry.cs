@@ -119,7 +119,14 @@ public class ObjectEntry
 		_level = level;
 		_type = level.GameContext.ResourceTree.GetLoadedResource<ObjectType>(_key);
 		CreateState();
-		if (placement.Behaviour.Count > 0)
+		if (placement.Behaviour.Count > 0 && _state is IStateTable table)
+		{
+			foreach (KeyValuePair<string, object> pair in placement.Behaviour)
+			{
+				table.SetStateValue(pair.Key, Convert.ToString(pair.Value, CultureInfo.InvariantCulture));
+			}
+		}
+		else if (placement.Behaviour.Count > 0)
 		{
 			SetKeyValuePairReflection(placement.Behaviour, _state);
 		}
@@ -135,8 +142,7 @@ public class ObjectEntry
 
 	private void CreateState()
 	{
-		Type objectInstanceType = (ObjectInstanceAttribute.FromObject(_type) ?? throw new Exception()).ObjectInstanceType;
-		_state = Activator.CreateInstance(objectInstanceType) as ActiveObject;
+		_state = _type.CreateInstance();
 	}
 
 	public void Finish()

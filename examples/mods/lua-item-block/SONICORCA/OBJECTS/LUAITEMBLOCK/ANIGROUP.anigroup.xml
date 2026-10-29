@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<anigroup>
+  <textures>
+    <texture>//TEXTURE</texture>
+  </textures>
+  <animations>
+    <!-- 0: ready -->
+    <animation>
+      <frame texture="0" x="0" y="0" w="128" h="128" />
+    </animation>
+    <!-- 1: hit. The block moves up and down, then shows as used (animation 2). -->
+    <animation next="2">
+      <frame delay="1" texture="0" x="128" y="0" w="128" h="128" offset_y="-12" />
+      <frame delay="1" texture="0" x="128" y="0" w="128" h="128" offset_y="-24" />
+      <frame delay="1" texture="0" x="128" y="0" w="128" h="128" offset_y="-12" />
+      <frame delay="1" texture="0" x="128" y="0" w="128" h="128" />
+    </animation>
+    <!-- 2: used -->
+    <animation>
+      <frame texture="0" x="128" y="0" w="128" h="128" />
+    </animation>
+  </animations>
+</anigroup>

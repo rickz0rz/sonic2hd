@@ -9,6 +9,8 @@
     <ProjectReference Include="../SonicOrca.Resources/SonicOrca.Resources.csproj" />
     <!-- Video decoding for FilmBuffer (FFmpeg 7.1 native libraries are shipped in the ffmpeg folder) -->
     <PackageReference Include="FFMediaToolkit" Version="4.8.1" />
+    <!-- Lua for the script objects of mods: a pure C# interpreter, so it also runs in the web build -->
+    <PackageReference Include="LuaCSharp" Version="0.5.8" />
   </ItemGroup>
 
 </Project>
