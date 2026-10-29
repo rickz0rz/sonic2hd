@@ -137,8 +137,11 @@ public sealed class HalfPipeFlowTests
 		Assert.DoesNotContain(HalfPipeFlowEvent.EmeraldJingle, won);
 		Assert.DoesNotContain(HalfPipeFlowEvent.EmeraldJingle, RunTo(flow, ref node, 717 + 6, 200));
 		Assert.Contains(HalfPipeFlowEvent.EmeraldJingle, RunTo(flow, ref node, 717 + 7, 200));
-		// The emerald stops at the jingle, 64 frames after it appeared
+		// The emerald stops at the jingle, 64 frames after it appeared. It bobs from the next frame on.
 		Assert.Equal(0x36 - 0.8 * 64, flow.EmeraldDepth, 6);
+		Assert.Equal(0, flow.EmeraldBobFrames);
+		RunTo(flow, ref node, 717 + 8, 200);
+		Assert.Equal(1, flow.EmeraldBobFrames);
 		Assert.DoesNotContain(HalfPipeFlowEvent.EmeraldJingle, RunTo(flow, ref node, 717 + 106, 200));
 		Assert.False(flow.Finished);
 		RunTo(flow, ref node, 717 + 107, 200);

@@ -214,10 +214,10 @@ public class HalfPipeSpecialStageScreen : Screen
 	private const double EmeraldSize = 1.2;
 
 	/// <summary>
-	/// The step of the bob of the won emerald. The original moves the small sprite by one pixel, which is a large part
-	/// of its size; this is the same part of the size of the emerald here.
+	/// The step of the bob of the won emerald. The original moves its sprite of 24 pixels (Obj59 frame 9) by one
+	/// pixel. This is the same part of the size of the emerald here.
 	/// </summary>
-	private const double EmeraldBob = EmeraldSize * 0.08;
+	private const double EmeraldBob = EmeraldSize / 24.0;
 
 	/// <summary>
 	/// The light, middle and dark colour of the emerald of each stage, from art/palettes/SS Emerald.bin in the Sonic 2
@@ -1461,12 +1461,12 @@ public class HalfPipeSpecialStageScreen : Screen
 		{
 			return;
 		}
-		// The emerald comes nearer to the player on its own timer, then stays in front of the player. A won emerald
-		// bobs: -1, 0, +1, 0 pixels, 4 frames each.
+		// The emerald comes nearer to the player on its own timer, then stays in front of the player. After the
+		// jingle, a won emerald bobs: -1, 0, +1, 0 pixels, 4 frames each (byte_361C8).
 		double place = Math.Min(PlayerTrackNode + _trackFraction + _flow.EmeraldDepth * EmeraldNodesPerDepth, _track.Nodes.Count - 1);
 		(Vector3 position, double yaw, _) = GetTrackPoint((int)place, place - (int)place);
 		Matrix4 transform = Matrix4.Identity.RotateY(yaw).Translate(position);
-		double bob = _flow.EmeraldWon ? new[] { -1, 0, 1, 0 }[_flow.EmeraldWonFrames / 4 % 4] * EmeraldBob : 0.0;
+		double bob = _flow.EmeraldBobFrames > 0 ? new[] { -1, 0, 1, 0 }[_flow.EmeraldBobFrames / 4 % 4] * EmeraldBob : 0.0;
 		// The emerald floats at 3/4 of the pipe radius from the centre
 		double height = PipeRadius / 4.0 + bob;
 		quads.Add(CreateSurfaceShadow(transform, 0.0, EmeraldSize * 0.6, EmeraldSize * 0.6 * ObjectShadowSquash, 0.0, _ballShadowTexture));
