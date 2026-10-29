@@ -100,6 +100,34 @@ public static partial class Program
 		return count;
 	}
 
+	/// <summary>
+	/// Extracts a zip of a mod folder, which the page wrote to the file system, into the mods folder of the user data:
+	/// /userdata/mods/NAME. The files of the mod start at a folder SONICORCA, at any depth in the zip, for example
+	/// lua-item-block/SONICORCA/OBJECTS/LUACOIN/_.object.lua. Returns the number of files extracted.
+	/// </summary>
+	[JSExport]
+	public static int ImportModZip(string zipPath, string name)
+	{
+		int count = 0;
+		string modPath = Path.Combine(UserDataDirectory, "mods", name);
+		using (ZipArchive zip = ZipFile.OpenRead(zipPath))
+		{
+			foreach (ZipArchiveEntry entry in zip.Entries)
+			{
+				string entryPath = entry.FullName.Replace('\\', '/');
+				int root = ("/" + entryPath).IndexOf("/SONICORCA/", StringComparison.OrdinalIgnoreCase);
+				if (root < 0 || entryPath.EndsWith('/'))
+					continue;
+				string destination = Path.Combine(modPath, entryPath.Substring(root));
+				Directory.CreateDirectory(Path.GetDirectoryName(destination));
+				entry.ExtractToFile(destination, overwrite: true);
+				count++;
+			}
+		}
+		File.Delete(zipPath);
+		return count;
+	}
+
 	/// <summary>"data" or "mods" for a .dat file in one of those folders (at any depth in the zip), else null.</summary>
 	private static string GetDatFolder(string path)
 	{

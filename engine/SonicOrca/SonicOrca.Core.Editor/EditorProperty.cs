@@ -38,6 +38,10 @@ public sealed class EditorProperty
 	/// <summary>Gives the state variables of the instances of an object type, in the order of the instance class.</summary>
 	public static IReadOnlyList<EditorProperty> For(ObjectType objectType)
 	{
+		if (objectType is IStateTableType tableType)
+		{
+			return tableType.StateProperties.Select(p => new EditorProperty(p.Name, p.Type, p.DefaultValue)).ToArray();
+		}
 		ObjectInstanceAttribute instanceAttribute = ObjectInstanceAttribute.FromObject(objectType);
 		if (instanceAttribute == null)
 		{

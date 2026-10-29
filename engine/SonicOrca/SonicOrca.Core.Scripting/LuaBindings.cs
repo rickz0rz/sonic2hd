@@ -1,0 +1,239 @@
+using Lua;
+using SonicOrca.Core.Collision;
+using SonicOrca.Core.Objects;
+using SonicOrca.Geometry;
+using SonicOrca.Graphics;
+
+namespace SonicOrca.Core.Scripting;
+
+// The classes that a script sees. The Lua source generator makes their bindings when the game builds, so they do
+// not need reflection at run time. Scripts see only these classes, never the classes of the engine. Thus a change in
+// the engine does not break a script.
+
+/// <summary>The part of <c>self</c> that the engine keeps (see <see cref="LuaPrelude"/>).</summary>
+[LuaObject]
+public sealed partial class LuaNativeObject
+{
+	private readonly LuaActiveObject _owner;
+
+	internal LuaNativeObject(LuaActiveObject owner)
+	{
+		_owner = owner;
+	}
+
+	[LuaMember("x")]
+	public double X
+	{
+		get => _owner.PositionPrecise.X;
+		set => _owner.PositionPrecise = new Vector2(value, _owner.PositionPrecise.Y);
+	}
+
+	[LuaMember("y")]
+	public double Y
+	{
+		get => _owner.PositionPrecise.Y;
+		set => _owner.PositionPrecise = new Vector2(_owner.PositionPrecise.X, value);
+	}
+
+	/// <summary>The index of the layer of the object in the map.</summary>
+	[LuaMember("layer")]
+	public int Layer
+	{
+		get => _owner.Level.Map.Layers.IndexOf(_owner.Layer);
+		set => _owner.Layer = _owner.Level.Map.Layers[value];
+	}
+
+	[LuaMember("priority")]
+	public int Priority
+	{
+		get => _owner.Priority;
+		set => _owner.Priority = value;
+	}
+
+	[LuaMember("lock_lifetime")]
+	public bool LockLifetime
+	{
+		get => _owner.LockLifetime;
+		set => _owner.LockLifetime = value;
+	}
+
+	[LuaMember("move")]
+	public void Move(double x, double y) => _owner.MovePrecise(x, y);
+
+	[LuaMember("animation")]
+	public LuaAnimation Animation(string dependency, int index) => _owner.CreateAnimation(dependency, index);
+
+	[LuaMember("draw")]
+	public void Draw(LuaAnimation animation) => _owner.DrawAnimation(animation.Instance);
+
+	[LuaMember("set_design_bounds")]
+	public void SetDesignBounds(int x, int y, int width, int height) => _owner.SetDesignBounds(new Rectanglei(x, y, width, height));
+
+	/// <summary>
+	/// Makes the object a solid box. <paramref name="ids"/> can give an ID to each side, for example
+	/// <c>{ bottom = 1 }</c>. The collision event then gives the ID of the side that a character touched.
+	/// </summary>
+	[LuaMember("set_solid_box")]
+	public void SetSolidBox(int x, int y, int width, int height, LuaValue ids)
+	{
+		CollisionVector[] vectors = CollisionVector.FromRectangle(_owner, new Rectanglei(x, y, width, height));
+		if (ids.TryRead(out LuaTable table))
+		{
+			// The order of FromRectangle: left, top, right, bottom
+			string[] sides = { "left", "top", "right", "bottom" };
+			for (int i = 0; i < sides.Length; i++)
+			{
+				if (table[sides[i]].TryRead(out double id))
+				{
+					vectors[i].Id = (int)id;
+				}
+			}
+		}
+		_owner.SetCollisionVectors(vectors);
+	}
+
+	[LuaMember("clear_solid")]
+	public void ClearSolid() => _owner.SetCollisionVectors(new CollisionVector[0]);
+
+	/// <summary>Adds a box that gives a collision event with its ID when an object touches it.</summary>
+	[LuaMember("add_hitbox")]
+	public void AddHitbox(int id, int x, int y, int width, int height) => _owner.AddHitbox(new CollisionRectangle(_owner, id, x, y, width, height));
+
+	[LuaMember("clear_hitboxes")]
+	public void ClearHitboxes() => _owner.CollisionRectangles = new CollisionRectangle[0];
+
+	[LuaMember("play_sound")]
+	public void PlaySound(string dependency) => _owner.Level.SoundManager.PlaySound(_owner, _owner.LuaType.GetDependencyKey(dependency));
+
+	/// <summary>Makes an object of a type at a position, on the layer of this object.</summary>
+	[LuaMember("spawn")]
+	public void Spawn(string dependency, double x, double y) => _owner.Spawn(_owner.LuaType.GetDependencyKey(dependency), new Vector2i((int)x, (int)y));
+
+	[LuaMember("finish")]
+	public void Finish() => _owner.Finish();
+
+	/// <summary>Removes the object, and it does not come back when the level shows its area again.</summary>
+	[LuaMember("finish_forever")]
+	public void FinishForever() => _owner.FinishForever();
+
+	[LuaMember("get_saved")]
+	public LuaValue GetSaved(string name) => _owner.GetSaved(name);
+
+	[LuaMember("set_saved")]
+	public void SetSaved(string name, LuaValue value) => _owner.SetSaved(name, value);
+}
+
+/// <summary>An animation of an object. The engine moves it to its next frame on each tick.</summary>
+[LuaObject]
+public sealed partial class LuaAnimation
+{
+	internal AnimationInstance Instance { get; }
+
+	internal LuaAnimation(AnimationInstance instance)
+	{
+		Instance = instance;
+	}
+
+	/// <summary>The index of the animation in its group.</summary>
+	[LuaMember("index")]
+	public int Index
+	{
+		get => Instance.Index;
+		set => Instance.Index = value;
+	}
+
+	/// <summary>The number of times that the animation got to its end.</summary>
+	[LuaMember("cycles")]
+	public int Cycles => Instance.Cycles;
+}
+
+/// <summary>A touch between this object and another object.</summary>
+[LuaObject]
+public sealed partial class LuaCollisionEvent
+{
+	private readonly LuaCharacter _character;
+
+	internal LuaCollisionEvent(CollisionEvent e)
+	{
+		Id = e.Id;
+		OtherKey = e.ActiveObject.Type?.ResourceKey;
+		if (e.ActiveObject is ICharacter character)
+		{
+			_character = new LuaCharacter(character);
+		}
+	}
+
+	/// <summary>The ID of the solid side or of the hit box that the other object touched.</summary>
+	[LuaMember("id")]
+	public int Id { get; }
+
+	/// <summary>The other object when it is a character, or nil.</summary>
+	[LuaMember("character")]
+	public LuaValue Character => _character == null ? LuaValue.Nil : _character;
+
+	/// <summary>The resource key of the type of the other object.</summary>
+	[LuaMember("other_key")]
+	public string OtherKey { get; }
+
+	/// <summary>Set it to keep the velocity that the script gave the character. Else the collision stops the character.</summary>
+	[LuaMember("maintain_velocity")]
+	public bool MaintainVelocity { get; set; }
+
+	/// <summary>Set it to let the other object go through this object.</summary>
+	[LuaMember("ignore")]
+	public bool Ignore { get; set; }
+}
+
+/// <summary>A character, for example Sonic or Tails.</summary>
+[LuaObject]
+public sealed partial class LuaCharacter
+{
+	private readonly ICharacter _character;
+
+	internal LuaCharacter(ICharacter character)
+	{
+		_character = character;
+	}
+
+	[LuaMember("x")]
+	public double X => _character.PositionPrecise.X;
+
+	[LuaMember("y")]
+	public double Y => _character.PositionPrecise.Y;
+
+	[LuaMember("velocity_x")]
+	public double VelocityX
+	{
+		get => _character.Velocity.X;
+		set => _character.Velocity = new Vector2(value, _character.Velocity.Y);
+	}
+
+	[LuaMember("velocity_y")]
+	public double VelocityY
+	{
+		get => _character.Velocity.Y;
+		set => _character.Velocity = new Vector2(_character.Velocity.X, value);
+	}
+
+	[LuaMember("is_airborne")]
+	public bool IsAirborne => _character.IsAirborne;
+
+	[LuaMember("is_spinball")]
+	public bool IsSpinball => _character.IsSpinball;
+
+	[LuaMember("is_sidekick")]
+	public bool IsSidekick => _character.IsSidekick;
+
+	[LuaMember("is_debug")]
+	public bool IsDebug => _character.IsDebug;
+
+	[LuaMember("gain_rings")]
+	public void GainRings(int count) => _character.Player?.GainRings(count);
+
+	[LuaMember("gain_score")]
+	public void GainScore(int points) => _character.Player?.GainScore(points);
+
+	/// <summary>Hurts the character. The direction is -1 to push it left or 1 to push it right.</summary>
+	[LuaMember("hurt")]
+	public void Hurt(int direction) => _character.Hurt(direction);
+}

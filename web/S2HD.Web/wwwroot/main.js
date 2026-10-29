@@ -257,6 +257,21 @@ function writeFile(path, data) {
   FS.writeFile(path, data);
 }
 
+// The mods that the player chose: .dat files go to /content/mods, and zips of mod folders to /userdata/mods
+let modFiles = [];
+async function installMods() {
+  for (const file of modFiles) {
+    const data = new Uint8Array(await file.arrayBuffer());
+    if (/\.dat$/i.test(file.name)) {
+      writeFile(`/content/mods/${file.name}`, data);
+    } else {
+      writeFile('/tmp/mod.zip', data);
+      const count = game.ImportModZip('/tmp/mod.zip', file.name.replace(/\.zip$/i, ''));
+      console.log(`Mod ${file.name}: ${count} files`);
+    }
+  }
+}
+
 async function loadZip(blob) {
   setStatus(`Reading ${(blob.size / 1048576).toFixed(0)} MB zip…`);
   writeFile('/tmp/game.zip', new Uint8Array(await blob.arrayBuffer()));
@@ -265,6 +280,7 @@ async function loadZip(blob) {
   const count = game.ImportZip('/tmp/game.zip');
   console.log(`Extracted ${count} files`);
   await prepareMods();
+  await installMods();
   start();
 }
 
@@ -280,6 +296,7 @@ async function loadFolder(files) {
   }
   console.log(`Copied ${count} files`);
   await prepareMods();
+  await installMods();
   start();
 }
 
@@ -325,14 +342,22 @@ document.getElementById('zip').addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (file) choose(`${file.name} (${(file.size / 1048576).toFixed(0)} MB)`, () => loadZip(file));
 });
+document.getElementById('mods').addEventListener('change', (e) => {
+  modFiles = [...e.target.files];
+  document.getElementById('mods-chosen').textContent = modFiles.length ? `Mods: ${modFiles.map((f) => f.name).join(', ')}.` : '';
+});
 document.getElementById('folder').addEventListener('change', (e) => {
   const files = [...e.target.files];
   if (files.length) choose(`the folder ${files[0].webkitRelativePath.split('/')[0]}`, () => loadFolder(files));
 });
 // ?disasm=<url> stores a zip of the disassembly from the site first, as the button does, for tests.
+// ?mods=<url>,<url> adds mods from the site, as the Choose mods button does, for tests.
 // ?data=<url> loads a zip from the site and starts at once, for tests. Otherwise game.zip is chosen when the site
 // was published with -p:BundleGameData=true, and the player is asked for the files when it is not there
-(params.has('disasm') ? downloadZip(params.get('disasm')).then((blob) => (disasmZip = blob) && storage.put('s2disasm.zip', blob)) : Promise.resolve())
+Promise.all((params.get('mods') || '').split(',').filter(Boolean).map(async (url) => {
+  const response = await fetch(url);
+  if (response.ok) modFiles.push(new File([await response.blob()], url.split('/').pop()));
+})).then(() => params.has('disasm') ? downloadZip(params.get('disasm')).then((blob) => (disasmZip = blob) && storage.put('s2disasm.zip', blob)) : Promise.resolve())
   .then(() => downloadZip(params.get('data') || 'game.zip'))
   .then((blob) => {
     if (blob && params.has('data')) loadZip(blob);

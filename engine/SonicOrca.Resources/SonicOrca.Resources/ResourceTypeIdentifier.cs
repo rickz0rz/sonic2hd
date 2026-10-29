@@ -25,5 +25,6 @@ public enum ResourceTypeIdentifier : ushort
 	Object = 4356,
 	Binding = 4357,
 	LevelDependencies = 4358,
+	LuaObject = 4359,
 	InputRecording = 4608
 }
