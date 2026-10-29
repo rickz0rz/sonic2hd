@@ -17,7 +17,7 @@ The first test of the API is a level from Super Mario World. Its most important 
 1. Sonic jumps and hits the block from below. A hit from the top or the sides does nothing.
 2. The block bounces Sonic down, and plays a short "hit" animation.
 3. The block makes a new object on its top, for example a coin or a mushroom.
-4. The block changes to a used block. A used block does not react to more hits.
+4. The block changes to a used block. A used block is still solid: Sonic can stand on it, and it stops him. It does not react to more hits.
 5. The block stays used when it goes out of view and comes back.
 
 The monitor of Sonic 2 already does steps 1 to 5 in C#. Thus the engine has all the parts, and the API must make them available:
@@ -106,7 +106,7 @@ The level editor makes its property rows from the state variables. Thus the `sta
 | `Layer` | 46 | The layer that the object draws on |
 | `ParentObject` | 42 | The object that made this sub-object |
 | `Entry` | 14 | The placement of the object in the level |
-| `Entry.State` | 4 objects | A state that stays after the object goes out of view, for example a broken monitor or an open capsule. The game makes the object again from this state when it comes back into view. |
+| `Entry.State` | 4 objects | A state that stays after the object goes out of view, for example a broken monitor or an open capsule. The game makes the object again from this state when it comes back into view. A Lua object keeps this state in its `saved` table. |
 
 ### 4. Collision
 
@@ -296,8 +296,10 @@ object {
     animations = "/ANIGROUP",
     sound = "SONICORCA/SOUND/BLOCKHIT",
   },
-  -- The level editor shows these values. "used" stays when the block goes out of view.
-  state = { contents = "MODS/SMW/OBJECTS/COIN", used = false },
+  -- The level editor shows these values
+  state = { contents = "MODS/SMW/OBJECTS/COIN" },
+  -- These values stay when the block goes out of view. The editor does not show them.
+  saved = { used = false },
 }
 
 local SIZE = 128
@@ -306,20 +308,20 @@ local ANIMATION_READY, ANIMATION_HIT, ANIMATION_USED = 0, 1, 2
 
 function start(self)
   self.design_bounds = { -SIZE / 2, -SIZE / 2, SIZE, SIZE }
-  self.sprite = self:animation("animations", self.state.used and ANIMATION_USED or ANIMATION_READY)
+  self.sprite = self:animation("animations", self.saved.used and ANIMATION_USED or ANIMATION_READY)
   -- A solid square. The bottom line has an ID, so that a hit from below is known.
   self:set_solid_box(-SIZE / 2, -SIZE / 2, SIZE, SIZE, { bottom = BOTTOM })
 end
 
 function collision(self, event)
   local character = event.other.character
-  if self.state.used or not character or event.line_id ~= BOTTOM then
+  if self.saved.used or not character or event.line_id ~= BOTTOM then
     return
   end
   -- Bounce the character down, as the monitor does
   character.velocity = { character.velocity.x, -character.velocity.y }
   event.maintain_velocity = true
-  self.state.used = true
+  self.saved.used = true
   self.sprite.index = ANIMATION_HIT
   sound.play("sound")
   objects.add(self.state.contents, { self.position.x, self.position.y - SIZE }, self.layer)
@@ -337,7 +339,9 @@ function draw(self)
 end
 ```
 
-The used block keeps its solid lines, so Sonic can stand on it. The line ID check stops the reaction to more hits.
+The used block keeps its solid lines, so Sonic can stand on it. The `used` check stops the reaction to more hits.
+
+A level designer who wants a used block places a separate "used block" object. Thus `used` is not a property in the editor.
 
 ## Open questions
 
@@ -345,8 +349,11 @@ The used block keeps its solid lines, so Sonic can stand on it. The line ID chec
 2. Do scripts get coroutines, for example `wait(30)` for 30 ticks? This makes timed behavior simple, and it stays deterministic.
 3. Does a Lua object get a C# base class by name, or does each base get a Lua version?
 4. Which Lua version does the API use? The engine choice sets this.
-5. Is a used block still solid? The sketch keeps it solid, as in Super Mario World. An object can also remove its solid lines, as the broken monitor does.
-6. Does `Entry.State` keep the values of the `state` table? This makes a script simple, but the editor then shows `used` as a property. A second table for values that the editor does not show is an option.
+
+## Decisions
+
+- A used block is still solid. Only its reaction to hits stops.
+- A script has two tables. The editor shows `state`, and the placement keeps it. `saved` stays when the object goes out of view, and the editor does not show it.
 
 ## Next step
 
