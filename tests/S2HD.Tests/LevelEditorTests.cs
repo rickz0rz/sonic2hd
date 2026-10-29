@@ -159,6 +159,47 @@ public sealed class LevelEditorTests
 	}
 
 	[Fact]
+	public void LayerView_ABackgroundLayer_ShowsAlone_AtItsLevelPositions()
+	{
+		LevelMap map = new LevelMap();
+		LevelLayer sky = new LevelLayer(map) { Name = "sky", ParallaxY = 0.1 };
+		LevelLayer far = new LevelLayer(map) { Name = "far", ParallaxY = 0.25, WrapX = true };
+		LevelLayer front = new LevelLayer(map) { Name = "front" };
+		LevelLayer high = new LevelLayer(map) { Name = "front_high" };
+		map.Layers.Add(sky);
+		map.Layers.Add(far);
+		map.Layers.Add(front);
+		map.Layers.Add(high);
+
+		Assert.True(EditorLayerView.Apply(map.Layers, 1));
+		Assert.True(far.Editing);
+		Assert.False(far.HiddenInEditor);
+		Assert.False(sky.Editing);
+		Assert.True(sky.HiddenInEditor);
+		Assert.True(front.HiddenInEditor);
+		Assert.True(high.HiddenInEditor);
+
+		// The front layer is not shifted, so all layers show as in the game
+		Assert.False(EditorLayerView.Apply(map.Layers, 2));
+		Assert.All(map.Layers, layer => Assert.False(layer.Editing || layer.HiddenInEditor));
+
+		EditorLayerView.Apply(map.Layers, 1);
+		Assert.False(EditorLayerView.Apply(map.Layers, -1));
+		Assert.All(map.Layers, layer => Assert.False(layer.Editing || layer.HiddenInEditor));
+	}
+
+	[Fact]
+	public void LayerView_ALayerWithScrollingRows_IsShifted()
+	{
+		LevelMap map = new LevelMap();
+		LevelLayer layer = new LevelLayer(map) { Name = "clouds" };
+		Assert.False(EditorLayerView.IsShifted(layer));
+
+		layer.LayerRowDefinitions.Add(new LayerRowDefinition { Height = 64, Parallax = 0.5 });
+		Assert.True(EditorLayerView.IsShifted(layer));
+	}
+
+	[Fact]
 	public void MapPatch_WritesTheMarkers_AndKeepsTheRestOfTheFile()
 	{
 		(System.Xml.XmlDocument document, LevelMap map) = LoadTestMap();

@@ -111,6 +111,9 @@ public sealed class LevelEditor : IDisposable
 
 	private int _zoomIndex;
 
+	/// <summary>The centre of the view before it went to a layer that shows alone, or null.</summary>
+	private Vector2? _viewBeforeLayerAlone;
+
 	private double _listScroll;
 
 	private double _propertyScroll;
@@ -265,6 +268,7 @@ public sealed class LevelEditor : IDisposable
 		// The editor changes the map as it is in the file, without the layout changes of the play
 		LayoutChanges.Reset(_level.Map);
 		TileCollision ??= LoadTileCollision();
+		_viewBeforeLayerAlone = null;
 		foreach (EditorTool tool in _tools)
 		{
 			tool.Begin();
@@ -277,6 +281,11 @@ public sealed class LevelEditor : IDisposable
 	public void Update()
 	{
 		_frames++;
+		// The tiles tool paints at level positions. Thus a background layer shows at these positions while the tool paints on it.
+		if (!EditorLayerView.Apply(_level.Map.Layers, _tool is TilesTool tiles ? tiles.LayerIndex : -1))
+		{
+			RestoreViewBeforeLayerAlone();
+		}
 		if (_messageFrames > 0)
 		{
 			_messageFrames--;
@@ -645,8 +654,38 @@ public sealed class LevelEditor : IDisposable
 		{
 			CommitTextEntry();
 		}
-		PlayPosition = IsOverLevel(Mouse) ? Snap(MouseWorld) : (Vector2i)Camera.Bounds.Centre;
+		EditorLayerView.Apply(_level.Map.Layers, -1);
+		// The mouse is not at a level position while a background layer shows alone
+		bool restored = RestoreViewBeforeLayerAlone();
+		PlayPosition = IsOverLevel(Mouse) && !restored ? Snap(MouseWorld) : (Vector2i)Camera.Bounds.Centre;
 		PlayRequest = request;
+	}
+
+	/// <summary>
+	/// Goes to the area of a layer that shows alone, when the area is not in view. The view before is kept, so that
+	/// the view goes back when all layers show again.
+	/// </summary>
+	internal void ShowLayerAlone(Rectangle area)
+	{
+		Rectangle view = Camera.Bounds;
+		if (view.Right > area.Left && view.Left < area.Right && view.Bottom > area.Top && view.Top < area.Bottom)
+		{
+			return;
+		}
+		_viewBeforeLayerAlone ??= view.Centre;
+		CentreOn(new Vector2(view.Width / 2.0, view.Height / 2.0));
+	}
+
+	/// <returns>True when the view went back.</returns>
+	private bool RestoreViewBeforeLayerAlone()
+	{
+		if (_viewBeforeLayerAlone is not Vector2 centre)
+		{
+			return false;
+		}
+		_viewBeforeLayerAlone = null;
+		CentreOn(centre);
+		return true;
 	}
 
 	#region Animation editor

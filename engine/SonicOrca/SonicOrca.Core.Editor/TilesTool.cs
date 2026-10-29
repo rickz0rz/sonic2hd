@@ -96,7 +96,12 @@ internal sealed class TilesTool : EditorTool
 		? "Click a tile in the palette, or Ctrl+drag in the level to take tiles. Then click or drag to paint."
 		: "Click or drag: paint.  Ctrl+drag: take tiles.  X, Y: flip the brush.  Esc: no brush.";
 
-	public override string Status => _layerIndex >= 0 ? $"Layer {Layer.Name}   Brush {(_brush == null ? "none" : $"{_brush.Columns} x {_brush.Rows}")}" : "";
+	public override string Status => _layerIndex >= 0
+		? $"Layer {Layer.Name}{(EditorLayerView.IsShifted(Layer) ? " (alone, without parallax)" : "")}   Brush {(_brush == null ? "none" : $"{_brush.Columns} x {_brush.Rows}")}"
+		: "";
+
+	/// <summary>The layer that the tool paints on, or -1.</summary>
+	public int LayerIndex => _layerIndex;
 
 	public override string ListHeading => "Layers (click to paint on a layer)";
 
@@ -116,7 +121,8 @@ internal sealed class TilesTool : EditorTool
 	{
 		_painting = false;
 		_capturing = false;
-		if (_layerIndex < 0 || _layerIndex >= Layers.Count)
+		// The editor opens with all layers in view, so a background layer that showed alone is not kept
+		if (_layerIndex < 0 || _layerIndex >= Layers.Count || EditorLayerView.IsShifted(Layer))
 		{
 			IList<int> collisionLayers = Editor.Level.Map.CollisionPathLayers;
 			_layerIndex = collisionLayers.Count > 0 ? collisionLayers[0] : Math.Max(0, Layers.Count - 1);
@@ -171,6 +177,11 @@ internal sealed class TilesTool : EditorTool
 		{
 			_layerIndex = index;
 			_brush = null;
+			if (EditorLayerView.IsShifted(Layer))
+			{
+				Editor.ShowLayerAlone(new Rectangle(0.0, 0.0, Layer.Columns * TileSize, Layer.Rows * TileSize));
+				Editor.ShowMessage($"Layer {Layer.Name} shows alone, from the top left of the level, without parallax.");
+			}
 		}
 	}
 
@@ -421,7 +432,7 @@ internal sealed class TilesTool : EditorTool
 	private void Paint(int layerIndex, int column, int row, int tile, byte oldSolidity, byte newSolidity)
 	{
 		LevelLayer layer = Layers[layerIndex];
-		if (column >= layer.Columns || row >= layer.Rows)
+		if (column < 0 || row < 0 || column >= layer.Columns || row >= layer.Rows)
 		{
 			return;
 		}

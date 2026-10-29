@@ -172,7 +172,7 @@ public class LevelRenderer : ILevelRenderer, IDisposable
 		{
 			RenderingLayer renderingLayer = _renderingLayers[i];
 			renderingLayer.Clear();
-			if (renderingLayer.Layer.Visible)
+			if (renderingLayer.Layer.Visible && !renderingLayer.Layer.HiddenInEditor)
 			{
 				_tiler.PrepareTiles(renderingLayer, canvasViewport, layerViewOptions);
 			}
@@ -221,7 +221,7 @@ public class LevelRenderer : ILevelRenderer, IDisposable
 		tileRenderer.FilterAmount = viewOptions.FilterAmount;
 		foreach (RenderingLayer renderingLayer in _renderingLayers)
 		{
-			if (renderingLayer.Layer.Visible)
+			if (renderingLayer.Layer.Visible && !renderingLayer.Layer.HiddenInEditor)
 			{
 				BeginShadowStenciling(renderingLayer.HasShadows);
 				SetLighting(renderingLayer.Layer, viewOptions);
