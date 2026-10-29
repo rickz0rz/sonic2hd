@@ -149,12 +149,7 @@ public sealed class LuaActiveObject : ActiveObject, IStateTable
 		}
 		try
 		{
-			ValueTask<LuaValue[]> task = LuaType.Lua.CallAsync(function, arguments);
-			if (!task.IsCompleted)
-			{
-				throw new InvalidOperationException("A script function must not wait.");
-			}
-			return task.GetAwaiter().GetResult();
+			return LuaType.Call(function, arguments);
 		}
 		catch (Exception ex)
 		{
