@@ -26,6 +26,7 @@ internal sealed class LevelSelectScreen : Screen
 	private const string YesSoundResourceKey = "SONICORCA/SOUND/NAVIGATE/YES";
 	private const string BackSoundResourceKey = "SONICORCA/SOUND/NAVIGATE/BACK";
 	private const string MusicFolder = "SONICORCA/MUSIC/";
+	private const string BackgroundMusicResourceKey = "SONICORCA/MUSIC/OPTIONS";
 
 	private const int EscapeScancode = 41;
 
@@ -78,7 +79,11 @@ internal sealed class LevelSelectScreen : Screen
 
 	private string _musicLoadKey;
 
-	private Sample _playingMusic;
+	/// <summary>The music of the sound test that plays, or null.</summary>
+	private SampleInstance _testMusic;
+
+	/// <summary>The music of the screen: the music of the options screen.</summary>
+	private SampleInstance _backgroundMusic;
 
 	private int _ticks;
 
@@ -114,6 +119,10 @@ internal sealed class LevelSelectScreen : Screen
 		{
 			_resourceSession.PushDependency(key);
 		}
+		if (_gameContext.ResourceTree[BackgroundMusicResourceKey]?.Resource != null)
+		{
+			_resourceSession.PushDependency(BackgroundMusicResourceKey);
+		}
 		await _resourceSession.LoadAsync(ct);
 		ResourceTree tree = _gameContext.ResourceTree;
 		_font = tree.GetLoadedResource<Font>(FontResourceKey);
@@ -135,6 +144,16 @@ internal sealed class LevelSelectScreen : Screen
 			.Select(x => x.Key)
 			.OrderBy(x => x, StringComparer.Ordinal)
 			.ToArray();
+	}
+
+	public override void Initialise()
+	{
+		SampleInfo music = _gameContext.ResourceTree.GetLoadedResource<SampleInfo>(BackgroundMusicResourceKey);
+		if (music != null)
+		{
+			_backgroundMusic = new SampleInstance(_gameContext.Audio, music) { Classification = SampleInstanceClassification.Music };
+			_backgroundMusic.Play();
+		}
 	}
 
 	public override void Update()
@@ -222,7 +241,10 @@ internal sealed class LevelSelectScreen : Screen
 
 	#region Sound test
 
-	/// <summary>Loads the music in the background, then plays it. A new choice stops the music that plays.</summary>
+	/// <summary>
+	/// Loads the music in the background, then plays it in place of the music of the screen. A new choice stops the
+	/// music that plays.
+	/// </summary>
 	private void PlayMusic(string key)
 	{
 		StopMusic();
@@ -242,21 +264,21 @@ internal sealed class LevelSelectScreen : Screen
 		{
 			return;
 		}
-		if (!_musicLoad.IsFaulted)
+		SampleInfo music = _musicLoad.IsFaulted ? null : _gameContext.ResourceTree.GetLoadedResource<SampleInfo>(_musicLoadKey);
+		if (music != null)
 		{
-			_playingMusic = _gameContext.ResourceTree.GetLoadedResource<Sample>(_musicLoadKey);
-			if (_playingMusic != null)
-			{
-				_gameContext.Audio.PlaySound(_playingMusic);
-			}
+			_backgroundMusic?.Stop();
+			_testMusic = new SampleInstance(_gameContext.Audio, music) { Classification = SampleInstanceClassification.Music };
+			_testMusic.Play();
 		}
 		_musicLoad = null;
 	}
 
 	private void StopMusic()
 	{
-		_gameContext.Audio.StopAll();
-		_playingMusic = null;
+		_testMusic?.Stop();
+		_testMusic?.Dispose();
+		_testMusic = null;
 		_musicLoad = null;
 		_musicSession?.Dispose();
 		_musicSession = null;
@@ -365,7 +387,7 @@ internal sealed class LevelSelectScreen : Screen
 			g.RenderQuad(PanelColour, new Rectangle(104.0, y - RowHeight / 2.0 + 4.0, 1180.0, RowHeight - 8.0));
 		}
 		string music = _music.Length == 0 ? "NO MUSIC" : _music[_musicIndex].Substring(MusicFolder.Length).Replace('/', ' ');
-		string state = _musicLoad != null ? "  (LOADING)" : _playingMusic != null ? "  (PLAYING)" : "";
+		string state = _musicLoad != null ? "  (LOADING)" : _testMusic != null ? "  (PLAYING)" : "";
 		fontRenderer.RenderStringWithShadow($"SOUND TEST    {_musicIndex + 1:00}  {music}{state}", new Rectangle(120.0, y, 0.0, 0.0), FontAlignment.MiddleY, _font,
 			selected ? SelectedColour : TextColour);
 	}
@@ -394,6 +416,9 @@ internal sealed class LevelSelectScreen : Screen
 	public override void Unload()
 	{
 		StopMusic();
+		_backgroundMusic?.Stop();
+		_backgroundMusic?.Dispose();
+		_backgroundMusic = null;
 		_resourceSession.Dispose();
 	}
 }
