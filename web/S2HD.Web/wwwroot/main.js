@@ -51,12 +51,30 @@ addEventListener('resize', resizeCanvas);
 resizeCanvas();
 webgl.init(canvas);
 
-// Audio: the game mixes 44.1 kHz stereo on demand, and the page plays the chunks back to back with a short lead.
-// Browsers allow audio only after a key press or click. Until then the mix is discarded, so sounds stay in step
+// Audio: the game mixes 44.1 kHz stereo on demand, and the page keeps a short lead of mixed audio queued. An
+// AudioWorklet plays the queue on the audio thread. Without AudioWorklet (for example on plain http), the page plays
+// the chunks back to back with buffer sources. Browsers allow audio only after a key press or click. Until then the
+// mix is discarded, so sounds stay in step
 const AUDIO_RATE = 44100, AUDIO_CHUNK = 1024, AUDIO_LEAD = 0.1;
-const audio = { context: null, next: 0, last: 0, peak: 0, underruns: 0 };
+const audio = { context: null, worklet: null, fallback: false, sent: 0, played: 0, next: 0, last: 0, peak: 0, underruns: 0 };
 function enableAudio() {
-  audio.context ??= new AudioContext();
+  if (!audio.context) {
+    audio.context = new AudioContext({ sampleRate: AUDIO_RATE });
+    audio.context.audioWorklet?.addModule('audio-worklet.js').then(() => {
+      const node = new AudioWorkletNode(audio.context, 'game-audio', { numberOfInputs: 0, outputChannelCount: [2] });
+      node.port.onmessage = (e) => {
+        audio.played = e.data.played;
+        audio.peak = Math.max(audio.peak, e.data.peak);
+        audio.underruns += e.data.underruns;
+      };
+      node.connect(audio.context.destination);
+      audio.worklet = node;
+    }).catch((e) => {
+      console.warn(`AudioWorklet is not available (${e}). Using buffer sources.`);
+      audio.fallback = true;
+    });
+    if (!audio.context.audioWorklet) audio.fallback = true;
+  }
   if (audio.context.state !== 'running') audio.context.resume().catch(() => {});
 }
 addEventListener('keydown', enableAudio);
@@ -65,6 +83,11 @@ addEventListener('pointerdown', enableAudio);
 function queueAudio(view) {
   const samples = new Int16Array(view.slice().buffer);
   const frames = samples.length / 2;
+  if (audio.worklet) {
+    audio.worklet.port.postMessage(samples, [samples.buffer]);
+    audio.sent += frames;
+    return;
+  }
   const buffer = audio.context.createBuffer(2, frames, AUDIO_RATE);
   const left = buffer.getChannelData(0), right = buffer.getChannelData(1);
   for (let i = 0; i < frames; i++) {
@@ -81,13 +104,18 @@ function queueAudio(view) {
 
 function pumpAudio(now) {
   const context = audio.context;
-  if (context?.state !== 'running') {
+  if (context?.state !== 'running' || !audio.worklet && !audio.fallback) {
     const frames = Math.min(Math.round((now - audio.last) * AUDIO_RATE / 1000), AUDIO_RATE / 10);
     audio.last = now;
     if (frames > 0) game.MixAudio(frames, false);
     return;
   }
   audio.last = now;
+  if (audio.worklet) {
+    // The worklet reports the frames that it played a few milliseconds late, so the lead is at most AUDIO_LEAD
+    while (audio.sent - audio.played < AUDIO_LEAD * AUDIO_RATE) game.MixAudio(AUDIO_CHUNK, true);
+    return;
+  }
   // After a stall (or a hidden tab) the queue has run dry: start again just ahead of the playback position
   if (audio.next < context.currentTime) {
     if (audio.next > 0) audio.underruns++;
@@ -371,7 +399,7 @@ function reportPerformance() {
   const over = perf.steps.filter((v) => v > STEP).length;
   const line = `PERF frame ${frames}: step avg ${step.avg.toFixed(2)} p95 ${step.p95.toFixed(2)} max ${step.max.toFixed(1)} ms | ` +
     `over budget ${over}/${perf.steps.length} | audio mix avg ${mix.avg.toFixed(2)} p95 ${mix.p95.toFixed(2)} max ${mix.max.toFixed(1)} ms | rAF interval avg ${interval.avg.toFixed(2)} p95 ${interval.p95.toFixed(2)} ms | ` +
-    `audio ${audio.context?.state ?? 'off'} peak ${audio.peak.toFixed(2)} underruns ${audio.underruns}`;
+    `audio ${audio.context?.state ?? 'off'}${audio.worklet ? ' worklet' : ''} peak ${audio.peak.toFixed(2)} underruns ${audio.underruns}`;
   audio.peak = 0;
   audio.underruns = 0;
   report(line);
