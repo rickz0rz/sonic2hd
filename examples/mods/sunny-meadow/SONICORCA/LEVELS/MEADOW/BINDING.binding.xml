@@ -1,0 +1,513 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Binding>
+  <Definitions DefaultLayer="3">
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>36c2f012-6863-5260-a467-d15c79219b42</Uid>
+        <Name>Ring 0</Name>
+        <Position X="416" Y="1088" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>d85e9310-8cb4-546d-acfa-37497f0bccb5</Uid>
+        <Name>Ring 1</Name>
+        <Position X="480" Y="1088" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>a9277447-253c-53f5-a257-76858c7f60a4</Uid>
+        <Name>Ring 2</Name>
+        <Position X="544" Y="1088" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>48d2b86a-806f-55ed-ada7-1f4e2044b81c</Uid>
+        <Name>Ring 3</Name>
+        <Position X="608" Y="1088" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/LUAITEMBLOCK</Key>
+        <Uid>f0746ec8-efd4-576e-9863-a315bcd4b340</Uid>
+        <Name>Luaitemblock 0</Name>
+        <Position X="832" Y="896" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/LUAITEMBLOCK</Key>
+        <Uid>89cac7e3-b9e2-53ad-897e-4ca637da2209</Uid>
+        <Name>Luaitemblock 1</Name>
+        <Position X="1088" Y="896" />
+      </Common>
+      <Behaviour>
+        <contents>SONICORCA/OBJECTS/RING</contents>
+        <rings>5</rings>
+      </Behaviour>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>755ed1bb-4c8f-56a1-aa82-8521e49cbb7a</Uid>
+        <Name>Ring 4</Name>
+        <Position X="1888" Y="960" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>726f2e1a-5ee6-537c-84a2-192f1a47284b</Uid>
+        <Name>Ring 5</Name>
+        <Position X="1952" Y="960" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>e696fae1-d87b-5375-8e7f-be2cfc44fd98</Uid>
+        <Name>Ring 6</Name>
+        <Position X="2016" Y="960" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>a79ab4ab-97e8-5e04-80ee-ca545f50e631</Uid>
+        <Name>Ring 7</Name>
+        <Position X="2080" Y="960" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>d38d2fb5-9f95-5cd5-91dd-366d5ca42b76</Uid>
+        <Name>Ring 8</Name>
+        <Position X="2144" Y="960" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>a5aa5472-ace4-5234-a2dc-f40aaba3504b</Uid>
+        <Name>Ring 9</Name>
+        <Position X="2208" Y="960" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/LUAITEMBLOCK</Key>
+        <Uid>809f63fd-6d1f-5817-9d9e-3f135476d9ff</Uid>
+        <Name>Luaitemblock 2</Name>
+        <Position X="2048" Y="704" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/LUAITEMBLOCK</Key>
+        <Uid>4f39cd73-6122-50b5-b8a4-615662f983c9</Uid>
+        <Name>Luaitemblock 3</Name>
+        <Position X="2304" Y="704" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>cf95159c-8463-5948-8a3e-a5308de5d2aa</Uid>
+        <Name>Ring 10</Name>
+        <Position X="3104" Y="1024" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>767f63a4-371f-5456-85ca-ad663e99fcc4</Uid>
+        <Name>Ring 11</Name>
+        <Position X="3168" Y="956" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>2ba4fa0d-04fe-5806-9d6f-f1f3c91b2f18</Uid>
+        <Name>Ring 12</Name>
+        <Position X="3232" Y="897" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>188c6c17-a69d-5732-966c-791999d38855</Uid>
+        <Name>Ring 13</Name>
+        <Position X="3296" Y="858" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>39a6f7cf-203c-5d7c-8d4b-129981565a71</Uid>
+        <Name>Ring 14</Name>
+        <Position X="3360" Y="844" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>6451743e-09ce-5c8e-8bcb-0283187d58e1</Uid>
+        <Name>Ring 15</Name>
+        <Position X="3424" Y="858" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>2c05f83b-7fb2-5c06-80bd-f6769c7e2400</Uid>
+        <Name>Ring 16</Name>
+        <Position X="3488" Y="897" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>17dad8d4-5f47-5a10-a56f-7e94d473a59c</Uid>
+        <Name>Ring 17</Name>
+        <Position X="3552" Y="956" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>9b458c75-05af-5048-b2a1-054a898ad171</Uid>
+        <Name>Ring 18</Name>
+        <Position X="3616" Y="1024" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/LUAITEMBLOCK</Key>
+        <Uid>773ac426-25ea-5e7e-8467-4bd54f3931c1</Uid>
+        <Name>Luaitemblock 4</Name>
+        <Position X="3776" Y="896" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/LUAITEMBLOCK</Key>
+        <Uid>f000fa96-919a-5370-befe-83dedf41dc68</Uid>
+        <Name>Luaitemblock 5</Name>
+        <Position X="4736" Y="704" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/LUAITEMBLOCK</Key>
+        <Uid>2939f7c9-da78-56dc-8625-daad62473615</Uid>
+        <Name>Luaitemblock 6</Name>
+        <Position X="4928" Y="704" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/LUAITEMBLOCK</Key>
+        <Uid>a0cc6a9a-5d71-5ac2-9b3f-6750eb73dde1</Uid>
+        <Name>Luaitemblock 7</Name>
+        <Position X="5120" Y="704" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/LUAITEMBLOCK</Key>
+        <Uid>1378f53c-79b1-5030-9de7-d461a8cb8042</Uid>
+        <Name>Luaitemblock 8</Name>
+        <Position X="5312" Y="704" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>623bcbb0-c461-5cf5-b3e8-4f489374c1ac</Uid>
+        <Name>Ring 19</Name>
+        <Position X="4768" Y="896" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>1d232127-71c4-5167-a27c-6beec61b7475</Uid>
+        <Name>Ring 20</Name>
+        <Position X="4832" Y="896" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>05c268dd-a7ad-5ec1-9d42-28ecdbf83bd2</Uid>
+        <Name>Ring 21</Name>
+        <Position X="4896" Y="896" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>96665927-a792-5966-9037-dc6f7dee8d2c</Uid>
+        <Name>Ring 22</Name>
+        <Position X="4960" Y="896" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>b7063f7c-0128-5188-95b0-9245c7fe5643</Uid>
+        <Name>Ring 23</Name>
+        <Position X="5024" Y="896" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>10851d9a-7d2f-52d1-923d-1649745ca04e</Uid>
+        <Name>Ring 24</Name>
+        <Position X="5088" Y="896" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>d6c7880e-7a70-5d6b-b593-0b45b5e07487</Uid>
+        <Name>Ring 25</Name>
+        <Position X="5152" Y="896" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>8aa5344d-952c-5b98-948c-11db4faeb7c8</Uid>
+        <Name>Ring 26</Name>
+        <Position X="5216" Y="896" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/SPRING</Key>
+        <Uid>c57bed87-9b5e-505b-b66e-76ddf092b961</Uid>
+        <Name>Spring 0</Name>
+        <Position X="6784" Y="1120" />
+      </Common>
+      <Behaviour>
+        <Direction>Up</Direction>
+        <Strength>56</Strength>
+      </Behaviour>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>e33e1769-a484-5b04-8932-d33497a16d03</Uid>
+        <Name>Ring 27</Name>
+        <Position X="7008" Y="1152" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>d3a42607-a2c8-5302-8e7a-37a2289e0b95</Uid>
+        <Name>Ring 28</Name>
+        <Position X="7072" Y="1152" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>e2bc7ee5-cc3f-57be-a281-bb154e71a0ef</Uid>
+        <Name>Ring 29</Name>
+        <Position X="7136" Y="1152" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>4fbd2764-9080-5d7f-8c24-09ccaaa7df77</Uid>
+        <Name>Ring 30</Name>
+        <Position X="7200" Y="1152" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/LUAITEMBLOCK</Key>
+        <Uid>f7eec185-e930-593f-8a4b-fcc1389b971d</Uid>
+        <Name>Luaitemblock 9</Name>
+        <Position X="8640" Y="960" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/LUAITEMBLOCK</Key>
+        <Uid>e9ff2f41-d0a0-5503-83e9-9420bb8c489b</Uid>
+        <Name>Luaitemblock 10</Name>
+        <Position X="8832" Y="832" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/LUAITEMBLOCK</Key>
+        <Uid>4c124ee6-d126-54dd-acb4-0a788452fc9b</Uid>
+        <Name>Luaitemblock 11</Name>
+        <Position X="9024" Y="704" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>31d4d291-ccad-51a9-920f-e799b70ccb3c</Uid>
+        <Name>Ring 31</Name>
+        <Position X="9632" Y="1088" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>c5d59fcb-fb30-5a59-ab2c-a8350954c16f</Uid>
+        <Name>Ring 32</Name>
+        <Position X="9696" Y="1018" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>2d6af703-430b-5861-8905-21118f1047a8</Uid>
+        <Name>Ring 33</Name>
+        <Position X="9760" Y="974" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>3cd173d4-1a90-5cd9-8355-f30c71fc2e0d</Uid>
+        <Name>Ring 34</Name>
+        <Position X="9824" Y="974" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>56664862-7ec5-5648-9b98-219dcb711211</Uid>
+        <Name>Ring 35</Name>
+        <Position X="9888" Y="1018" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>4d8cb1ad-47c9-5698-9da8-1f69c076d587</Uid>
+        <Name>Ring 36</Name>
+        <Position X="9952" Y="1088" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>4542adc9-1c66-54e9-8017-9ce9c0d0135f</Uid>
+        <Name>Ring 37</Name>
+        <Position X="11296" Y="1088" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>e542fc50-0e46-56da-865b-2f4a0c7ec8ae</Uid>
+        <Name>Ring 38</Name>
+        <Position X="11360" Y="1088" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>645c5a60-486e-51be-abda-637ff290e085</Uid>
+        <Name>Ring 39</Name>
+        <Position X="11424" Y="1088" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>126d1a14-ba1f-52a1-9faf-58930b03632f</Uid>
+        <Name>Ring 40</Name>
+        <Position X="11488" Y="1088" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>6595ee01-5b42-58ef-9d44-97e222f6a751</Uid>
+        <Name>Ring 41</Name>
+        <Position X="11552" Y="1088" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>69653983-afee-57ea-abe9-45eb25b157cc</Uid>
+        <Name>Ring 42</Name>
+        <Position X="11616" Y="1088" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>e90836ee-edf3-5de6-8bae-00d8612cdf31</Uid>
+        <Name>Ring 43</Name>
+        <Position X="11680" Y="1088" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>8efeb550-65cf-5c53-8ed3-c818a1a81a35</Uid>
+        <Name>Ring 44</Name>
+        <Position X="11744" Y="1088" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>f071f7c9-53a1-5686-b4bb-1f1e11827313</Uid>
+        <Name>Ring 45</Name>
+        <Position X="11808" Y="1088" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/RING</Key>
+        <Uid>949c6362-85ae-5587-a834-9e9f999db4e8</Uid>
+        <Name>Ring 46</Name>
+        <Position X="11872" Y="1088" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/LUAITEMBLOCK</Key>
+        <Uid>30c894b3-11a4-5792-af01-a2a6b846e9ed</Uid>
+        <Name>Luaitemblock 12</Name>
+        <Position X="11584" Y="896" />
+      </Common>
+      <Behaviour>
+        <contents>SONICORCA/OBJECTS/RING</contents>
+        <rings>10</rings>
+      </Behaviour>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/SIGNPOST</Key>
+        <Uid>6d16d981-b9a0-5fae-a126-e065b2ba4115</Uid>
+        <Name>Signpost 0</Name>
+        <Position X="12544" Y="1060" />
+      </Common>
+    </Definition>
+  </Definitions>
+</Binding>
