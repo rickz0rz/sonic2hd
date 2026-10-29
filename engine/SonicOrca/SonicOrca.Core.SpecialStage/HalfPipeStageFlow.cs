@@ -130,8 +130,11 @@ public sealed class HalfPipeStageFlow
 
 	public bool EmeraldWon { get; private set; }
 
-	/// <summary>The frames since the emerald was won, for its bobbing.</summary>
-	public int EmeraldWonFrames { get; private set; }
+	/// <summary>
+	/// The frames since the emerald jingle, for the bobbing of the won emerald. The emerald bobs only after the jingle
+	/// (Obj59 routine 8). Until then, it comes nearer.
+	/// </summary>
+	public int EmeraldBobFrames { get; private set; }
 
 	/// <summary>True when the stage has ended: show the results.</summary>
 	public bool Finished { get; private set; }
@@ -155,9 +158,9 @@ public sealed class HalfPipeStageFlow
 		UpdateCounter(playerNode, rings);
 		UpdateCheckpoints(playerNode, rings, events);
 		UpdateEmerald(playerNode, rings, events);
-		if (EmeraldWon)
+		if (EmeraldWon && _frame > _emeraldWonFrame + EmeraldJingleFrames)
 		{
-			EmeraldWonFrames++;
+			EmeraldBobFrames++;
 		}
 		if (_endFrame >= 0 && _frame >= _endFrame)
 		{
@@ -187,8 +190,9 @@ public sealed class HalfPipeStageFlow
 	{
 		Counter = null;
 		RingsToGo = null;
-		// The counter hides at the ring test, and stays hidden after a failed one
-		if (_checkpointFailed || _nextCheckpoint >= _track.Checkpoints.Count || InputMasked && _nextCheckpoint < 2)
+		// The counter hides at the ring test, and stays hidden after a failed one. It also hides at the emerald marker,
+		// where Obj59 sets SS_NoCheckpointMsg_flag.
+		if (_checkpointFailed || _nextCheckpoint >= _track.Checkpoints.Count || InputMasked)
 		{
 			return;
 		}

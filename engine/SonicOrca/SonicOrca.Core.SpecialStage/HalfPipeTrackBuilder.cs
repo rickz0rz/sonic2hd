@@ -29,14 +29,15 @@ public sealed class HalfPipeTrack
 }
 
 /// <summary>
-/// Makes the track of a special stage from its segments, with the timing of Sonic 2: one track frame every 5 ticks,
-/// and 5 track nodes for each track frame, so the player moves one node each tick.
+/// Makes the track of a special stage from its segments, with 5 track nodes for each track frame. The game shows one
+/// track frame each 4 ticks, so the player moves 1.25 nodes each tick.
 /// </summary>
 public static class HalfPipeTrackBuilder
 {
-	public const int TicksPerTrackFrame = 5;
+	public const int NodesPerTrackFrame = 5;
 
-	public const int NodesPerTrackFrame = TicksPerTrackFrame;
+	/// <summary>The ticks of one track frame: a recording of stage 1 shows a new track frame each 8 frames, 2 frames for each tick.</summary>
+	private const int TicksPerTrackFrame = 4;
 
 	/// <summary>The distance between two track nodes, in track units. The pipe radius is 4.</summary>
 	public const double NodeSpacing = 1.0;
@@ -187,7 +188,7 @@ public static class HalfPipeTrackBuilder
 				case HalfPipeMarker.Emerald when track.EmeraldNode < 0:
 				{
 					track.EmeraldNode = start * NodesPerTrackFrame;
-					int testNode = track.EmeraldNode + EmeraldAppearTicks + EmeraldTestTicks;
+					int testNode = track.EmeraldNode + (EmeraldAppearTicks + EmeraldTestTicks) * NodesPerTrackFrame / TicksPerTrackFrame;
 					track.Checkpoints.Add(new HalfPipeCheckpoint(testNode, ringQuotas[2]));
 					lastTestFrame = testNode / NodesPerTrackFrame;
 					// The groups after the emerald are never reached
