@@ -235,6 +235,65 @@ public sealed class LevelEditorTests
 	}
 
 	[Fact]
+	public void MapPatch_WritesTheScrollSettings_AndKeepsTheTiles()
+	{
+		(System.Xml.XmlDocument document, LevelMap map) = LoadTestMap();
+		LevelLayer back = map.Layers[0];
+		back.AutomaticYParallax = true;
+		back.OffsetY = -32;
+		back.WrapX = true;
+		back.LayerRowDefinitions.Add(new LayerRowDefinition { Height = 64, Parallax = 0.25, Velocity = -0.5 });
+		back.LayerRowDefinitions.Add(new LayerRowDefinition { Height = 64 });
+
+		new LevelMapWriter(map).Patch(document, tiles: false, collision: false, markers: false, scroll: true);
+
+		System.Xml.XmlNode layer = document.SelectSingleNode("map/tiles/layer");
+		Assert.Equal("rowdefinitions", layer.FirstChild.Name);
+		System.Xml.XmlNodeList rows = layer.SelectNodes("rowdefinitions/rowdefinition");
+		Assert.Equal(2, rows.Count);
+		Assert.Equal("0.25", rows[0].Attributes["parallax_x"].Value);
+		Assert.Equal("-0.5", rows[0].Attributes["velocity_x"].Value);
+		Assert.Null(rows[1].Attributes["parallax_x"]);
+		Assert.Equal("auto", layer.SelectSingleNode("tiles/@parallax_y").Value);
+		Assert.Equal("-32", layer.SelectSingleNode("tiles/@offset_y").Value);
+		Assert.Equal("true", layer.SelectSingleNode("tiles/@wrap_x").Value);
+		Assert.Equal("1,2", layer.SelectSingleNode("tiles/row").InnerText);
+		Assert.Equal("FF102030", layer.Attributes["minimap_colour"].Value);
+
+		// A layer without rows and with the default settings loses the old settings
+		back.LayerRowDefinitions.Clear();
+		back.AutomaticYParallax = false;
+		back.OffsetY = 0;
+		back.WrapX = false;
+		new LevelMapWriter(map).Patch(document, tiles: false, collision: false, markers: false, scroll: true);
+		Assert.Null(layer.SelectSingleNode("rowdefinitions"));
+		Assert.Empty(layer.SelectSingleNode("tiles").Attributes);
+	}
+
+	[Fact]
+	public void LayerScroll_PutsBackTheSettings_AndKeepsTheRowOffsets()
+	{
+		LevelMap map = new LevelMap();
+		LevelLayer layer = new LevelLayer(map) { ParallaxY = 0.25, WrapX = true };
+		layer.LayerRowDefinitions.Add(new LayerRowDefinition { Height = 64, Parallax = 0.5, CurrentOffset = 12.0 });
+		EditorLayerScroll before = EditorLayerScroll.Of(layer);
+
+		layer.ParallaxY = 0.75;
+		layer.WrapX = false;
+		layer.LayerRowDefinitions[0].Parallax = 0.1;
+		layer.LayerRowDefinitions.Add(new LayerRowDefinition { Height = 32 });
+		Assert.False(before.SameAs(EditorLayerScroll.Of(layer)));
+
+		before.ApplyTo(layer);
+		Assert.True(before.SameAs(EditorLayerScroll.Of(layer)));
+		Assert.Equal(0.25, layer.ParallaxY);
+		Assert.True(layer.WrapX);
+		LayerRowDefinition row = Assert.Single(layer.LayerRowDefinitions);
+		Assert.Equal(0.5, row.Parallax);
+		Assert.Equal(12.0, row.CurrentOffset);
+	}
+
+	[Fact]
 	public void MapPatch_RemovesAnEmptySection()
 	{
 		(System.Xml.XmlDocument document, LevelMap map) = LoadTestMap();

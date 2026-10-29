@@ -64,10 +64,11 @@ public class LevelMapWriter
 	/// <param name="tiles">Write the tile rows of each layer. The layers of the document must be the layers of the map, in the same order.</param>
 	/// <param name="collision">Write the collision paths and vectors.</param>
 	/// <param name="markers">Write the markers.</param>
-	public void Patch(XmlDocument document, bool tiles, bool collision, bool markers)
+	/// <param name="scroll">Write the scroll settings of each layer: the row definitions, the Y parallax, the Y offset and the wrap.</param>
+	public void Patch(XmlDocument document, bool tiles, bool collision, bool markers, bool scroll = false)
 	{
 		XmlNode mapNode = document.SelectSingleNode("map") ?? throw new InvalidOperationException("The document has no map element.");
-		if (tiles)
+		if (tiles || scroll)
 		{
 			XmlNode[] layerNodes = document.SelectNodes("map/tiles//layer").OfType<XmlNode>().ToArray();
 			if (layerNodes.Length != _levelMap.Layers.Count)
@@ -76,7 +77,14 @@ public class LevelMapWriter
 			}
 			for (int i = 0; i < layerNodes.Length; i++)
 			{
-				PatchTileRows(document, layerNodes[i], _levelMap.Layers[i]);
+				if (tiles)
+				{
+					PatchTileRows(document, layerNodes[i], _levelMap.Layers[i]);
+				}
+				if (scroll)
+				{
+					PatchScroll(document, layerNodes[i], _levelMap.Layers[i]);
+				}
 			}
 		}
 		if (collision)
@@ -109,6 +117,30 @@ public class LevelMapWriter
 			XmlElement rowElement = document.CreateElement("row");
 			rowElement.InnerText = FormatTileRow(layer, y);
 			tilesNode.AppendChild(rowElement);
+		}
+	}
+
+	private static void PatchScroll(XmlDocument document, XmlNode layerNode, LevelLayer layer)
+	{
+		ReplaceElement(document, layerNode, "rowdefinitions", layer.LayerRowDefinitions.Count > 0 ? xmlWriter => WriteRowDefinitions(xmlWriter, layer) : null);
+		// The row definitions come before the other settings of a layer
+		XmlNode rowDefinitionsNode = layerNode.SelectSingleNode("rowdefinitions");
+		if (rowDefinitionsNode != null && rowDefinitionsNode != layerNode.FirstChild)
+		{
+			layerNode.InsertBefore(layerNode.RemoveChild(rowDefinitionsNode), layerNode.FirstChild);
+		}
+		XmlElement tilesNode = layerNode.SelectSingleNode("tiles") as XmlElement;
+		if (tilesNode == null)
+		{
+			return;
+		}
+		foreach (string name in new[] { "offset_y", "parallax_y", "wrap_x", "wrap_y" })
+		{
+			tilesNode.RemoveAttribute(name);
+		}
+		foreach ((string name, string value) in GetScrollAttributes(layer))
+		{
+			tilesNode.SetAttribute(name, value);
 		}
 	}
 
@@ -212,6 +244,59 @@ public class LevelMapWriter
 		}));
 	}
 
+	private static void WriteRowDefinitions(XmlWriter xmlWriter, LevelLayer layer)
+	{
+		xmlWriter.WriteStartElement("rowdefinitions");
+		foreach (LayerRowDefinition layerRowDefinition in layer.LayerRowDefinitions)
+		{
+			xmlWriter.WriteStartElement("rowdefinition");
+			if (layerRowDefinition.Width != 0)
+			{
+				xmlWriter.WriteAttributeString("width", layerRowDefinition.Width.ToString(CultureInfo.InvariantCulture));
+			}
+			xmlWriter.WriteAttributeString("height", layerRowDefinition.Height.ToString(CultureInfo.InvariantCulture));
+			if (layerRowDefinition.Parallax != 1.0)
+			{
+				xmlWriter.WriteAttributeString("parallax_x", layerRowDefinition.Parallax.ToString(CultureInfo.InvariantCulture));
+			}
+			if (layerRowDefinition.Velocity != 0.0)
+			{
+				xmlWriter.WriteAttributeString("velocity_x", layerRowDefinition.Velocity.ToString(CultureInfo.InvariantCulture));
+			}
+			if (layerRowDefinition.InitialOffset != 0)
+			{
+				xmlWriter.WriteAttributeString("offset_x", layerRowDefinition.InitialOffset.ToString(CultureInfo.InvariantCulture));
+			}
+			xmlWriter.WriteEndElement();
+		}
+		xmlWriter.WriteEndElement();
+	}
+
+	/// <summary>The attributes of the tiles element of a layer for its Y offset, its Y parallax and its wrap.</summary>
+	private static IEnumerable<(string Name, string Value)> GetScrollAttributes(LevelLayer layer)
+	{
+		if (layer.OffsetY != 0)
+		{
+			yield return ("offset_y", layer.OffsetY.ToString(CultureInfo.InvariantCulture));
+		}
+		if (layer.AutomaticYParallax)
+		{
+			yield return ("parallax_y", "auto");
+		}
+		else if (layer.ParallaxY != 1.0)
+		{
+			yield return ("parallax_y", layer.ParallaxY.ToString(CultureInfo.InvariantCulture));
+		}
+		if (layer.WrapX)
+		{
+			yield return ("wrap_x", "true");
+		}
+		if (layer.WrapY)
+		{
+			yield return ("wrap_y", "true");
+		}
+	}
+
 	private void WriteLevelLayerTreeNode(XmlWriter xmlWriter, ILevelLayerTreeNode node)
 	{
 		if (node is LevelLayerGroup)
@@ -241,30 +326,7 @@ public class LevelMapWriter
 		}
 		if (layer.LayerRowDefinitions.Count > 0)
 		{
-			xmlWriter.WriteStartElement("rowdefinitions");
-			foreach (LayerRowDefinition layerRowDefinition in layer.LayerRowDefinitions)
-			{
-				xmlWriter.WriteStartElement("rowdefinition");
-				if (layerRowDefinition.Width != 0)
-				{
-					xmlWriter.WriteAttributeString("width", layerRowDefinition.Width.ToString(CultureInfo.InvariantCulture));
-				}
-				xmlWriter.WriteAttributeString("height", layerRowDefinition.Height.ToString(CultureInfo.InvariantCulture));
-				if (layerRowDefinition.Parallax != 1.0)
-				{
-					xmlWriter.WriteAttributeString("parallax_x", layerRowDefinition.Parallax.ToString(CultureInfo.InvariantCulture));
-				}
-				if (layerRowDefinition.Velocity != 0.0)
-				{
-					xmlWriter.WriteAttributeString("velocity_x", layerRowDefinition.Velocity.ToString(CultureInfo.InvariantCulture));
-				}
-				if (layerRowDefinition.InitialOffset != 0)
-				{
-					xmlWriter.WriteAttributeString("offset_x", layerRowDefinition.InitialOffset.ToString(CultureInfo.InvariantCulture));
-				}
-				xmlWriter.WriteEndElement();
-			}
-			xmlWriter.WriteEndElement();
+			WriteRowDefinitions(xmlWriter, layer);
 		}
 		if (layer.Lighting.Type != LevelLayerLightingType.Outside || layer.Lighting.Light != 1.0)
 		{
@@ -305,25 +367,9 @@ public class LevelMapWriter
 		if (layer.Rows > 0)
 		{
 			xmlWriter.WriteStartElement("tiles");
-			if (layer.OffsetY != 0)
+			foreach ((string name, string value) in GetScrollAttributes(layer))
 			{
-				xmlWriter.WriteAttributeString("offset_y", layer.OffsetY.ToString(CultureInfo.InvariantCulture));
-			}
-			if (layer.AutomaticYParallax)
-			{
-				xmlWriter.WriteAttributeString("parallax_y", "auto");
-			}
-			else if (layer.ParallaxY != 1.0)
-			{
-				xmlWriter.WriteAttributeString("parallax_y", layer.ParallaxY.ToString(CultureInfo.InvariantCulture));
-			}
-			if (layer.WrapX)
-			{
-				xmlWriter.WriteAttributeString("wrap_x", "true");
-			}
-			if (layer.WrapY)
-			{
-				xmlWriter.WriteAttributeString("wrap_y", "true");
+				xmlWriter.WriteAttributeString(name, value);
 			}
 			for (int y = 0; y < layer.Rows; y++)
 			{

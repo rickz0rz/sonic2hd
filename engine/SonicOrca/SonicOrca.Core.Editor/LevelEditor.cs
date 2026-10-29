@@ -174,6 +174,9 @@ public sealed class LevelEditor : IDisposable
 	/// <summary>The tiles of the map have changes that are not saved.</summary>
 	public bool TilesDirty { get; private set; }
 
+	/// <summary>The scroll settings of a layer changed (see <see cref="EditorLayerScroll"/>).</summary>
+	public bool ScrollDirty { get; private set; }
+
 	/// <summary>The collision lines of the map have changes that are not saved.</summary>
 	public bool CollisionDirty { get; private set; }
 
@@ -181,7 +184,7 @@ public sealed class LevelEditor : IDisposable
 	public bool SolidityDirty { get; private set; }
 
 	/// <summary>There are changes that are not saved.</summary>
-	public bool Dirty => BindingDirty || MarkersDirty || TilesDirty || CollisionDirty || SolidityDirty;
+	public bool Dirty => BindingDirty || MarkersDirty || TilesDirty || ScrollDirty || CollisionDirty || SolidityDirty;
 
 	public EditorPlayRequest PlayRequest { get; private set; }
 
@@ -282,7 +285,7 @@ public sealed class LevelEditor : IDisposable
 	{
 		_frames++;
 		// The tiles tool paints at level positions. Thus a background layer shows at these positions while the tool paints on it.
-		if (!EditorLayerView.Apply(_level.Map.Layers, _tool is TilesTool tiles ? tiles.LayerIndex : -1))
+		if (!EditorLayerView.Apply(_level.Map.Layers, _tool is TilesTool tiles ? tiles.AloneLayerIndex : -1))
 		{
 			RestoreViewBeforeLayerAlone();
 		}
@@ -801,6 +804,7 @@ public sealed class LevelEditor : IDisposable
 			BindingDirty = false;
 			MarkersDirty = false;
 			TilesDirty = false;
+			ScrollDirty = false;
 			CollisionDirty = false;
 			SolidityDirty = false;
 			ShowMessage("Saved to " + path);
@@ -842,9 +846,9 @@ public sealed class LevelEditor : IDisposable
 		{
 			changes.Add(EditorModFile.Change.ForBinding(_level.Binding));
 		}
-		if (MarkersDirty || TilesDirty || CollisionDirty)
+		if (MarkersDirty || TilesDirty || ScrollDirty || CollisionDirty)
 		{
-			changes.Add(EditorModFile.Change.ForMap(_level.Map, tiles: TilesDirty, collision: CollisionDirty, markers: MarkersDirty));
+			changes.Add(EditorModFile.Change.ForMap(_level.Map, tiles: TilesDirty, collision: CollisionDirty, markers: MarkersDirty, scroll: ScrollDirty));
 		}
 		if (SolidityDirty && TileCollision != null && GetTileCollisionResource() is Resource resource)
 		{
@@ -886,7 +890,8 @@ public sealed class LevelEditor : IDisposable
 			Markers = Markers.ToArray(),
 			MarkerSelection = MarkerSelection.ToArray(),
 			Vectors = Vectors.ToArray(),
-			VectorSelection = VectorSelection.ToArray()
+			VectorSelection = VectorSelection.ToArray(),
+			LayerScrolls = _level.Map.Layers.Select(EditorLayerScroll.Of).ToArray()
 		};
 	}
 
@@ -906,6 +911,18 @@ public sealed class LevelEditor : IDisposable
 			foreach (TileEdit edit in snapshot.TileEdits.Where(e => e.Layer == layer))
 			{
 				RequestTrace(new Rectanglei(edit.Column, edit.Row, 1, 1));
+			}
+		}
+		IList<LevelLayer> layers = _level.Map.Layers;
+		if (snapshot.LayerScrolls.Length == layers.Count)
+		{
+			for (int i = 0; i < layers.Count; i++)
+			{
+				if (!snapshot.LayerScrolls[i].SameAs(EditorLayerScroll.Of(layers[i])))
+				{
+					snapshot.LayerScrolls[i].ApplyTo(layers[i]);
+					ScrollDirty = true;
+				}
 			}
 		}
 		if (!snapshot.Vectors.SequenceEqual(Vectors))
@@ -957,6 +974,8 @@ public sealed class LevelEditor : IDisposable
 	}
 
 	internal void MarkTilesChanged() => TilesDirty = true;
+
+	internal void MarkScrollChanged() => ScrollDirty = true;
 
 	internal void MarkCollisionChanged() => CollisionDirty = true;
 

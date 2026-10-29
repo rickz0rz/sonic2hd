@@ -30,6 +30,9 @@ public sealed record EditorSnapshot
 
 	public CollisionVector[] VectorSelection { get; init; } = Array.Empty<CollisionVector>();
 
+	/// <summary>The scroll settings of each layer.</summary>
+	public EditorLayerScroll[] LayerScrolls { get; init; } = Array.Empty<EditorLayerScroll>();
+
 	/// <summary>The tile edits of the change after this snapshot. Undo puts back the old values, and redo the new values.</summary>
 	public TileEdit[] TileEdits { get; init; } = Array.Empty<TileEdit>();
 }
