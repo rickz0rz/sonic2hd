@@ -169,8 +169,24 @@ public static class Program
 		return false;
 	}
 
+	/// <summary>
+	/// True when an error goes to the console and the log, not to a dialog box. A dialog box is modal, so it stops an
+	/// automated run until a person closes it. Use --no-error-dialog or S2HD_NO_ERROR_DIALOG=1. A run with
+	/// S2HD_EXIT_AFTER_CAPTURES=1 (the regression tests) does not show dialog boxes either.
+	/// </summary>
+	private static bool NoErrorDialog =>
+		(CommandLineArguments?.Any(a => a.Equals("--no-error-dialog", StringComparison.OrdinalIgnoreCase)) ?? false) ||
+		Environment.GetEnvironmentVariable("S2HD_NO_ERROR_DIALOG") == "1" ||
+		SonicOrca.Core.Debugging.TestHooks.ExitAfterCaptures;
+
 	public static void ShowErrorMessageBox(string text)
 	{
+		Trace.WriteLine("Error: " + text);
+		if (NoErrorDialog)
+		{
+			Console.Error.WriteLine("Error: " + text);
+			return;
+		}
 		SDL.SDL_ShowSimpleMessageBox(SDL.SDL_MessageBoxFlags.SDL_MESSAGEBOX_WARNING, "SonicOrca", text, IntPtr.Zero);
 	}
 
