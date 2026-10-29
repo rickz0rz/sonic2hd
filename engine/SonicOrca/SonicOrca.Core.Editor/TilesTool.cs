@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using SonicOrca.Core.Collision;
 using SonicOrca.Geometry;
@@ -25,7 +26,7 @@ internal sealed class TilesTool : EditorTool
 	private const int PaletteColumns = 8;
 
 	/// <summary>The rows of settings above the palette.</summary>
-	private const int SettingRows = 4;
+	private const int SettingRows = 5;
 
 	private const int FlipXFlag = 0x4000;
 
@@ -34,6 +35,11 @@ internal sealed class TilesTool : EditorTool
 	private const string HighLayerSuffix = "_high";
 
 	private static readonly string[] SolidityNames = { "none", "top only", "all sides" };
+
+	private static readonly string[] WrapNames = { "none", "X", "Y", "X and Y" };
+
+	/// <summary>The factor of a click on "All rows, parallax X".</summary>
+	private const double ParallaxScaleStep = 1.1;
 
 	private static readonly Colour GridColour = new Colour(0.25, 1.0, 1.0, 1.0);
 
@@ -60,6 +66,15 @@ internal sealed class TilesTool : EditorTool
 	private int _solidity2 = 2;
 
 	private bool _painting;
+
+	/// <summary>The properties panel shows the scroll settings of the layer, in place of the brush and the palette.</summary>
+	private bool _scrollPage;
+
+	/// <summary>All layers show as in the game, so that the user sees the parallax of a background layer.</summary>
+	private bool _preview;
+
+	/// <summary>The row definition of the layer that the scroll settings change.</summary>
+	private int _rowIndex;
 
 	private bool _capturing;
 
@@ -100,19 +115,24 @@ internal sealed class TilesTool : EditorTool
 		: "Click or drag: paint.  Ctrl+drag: take tiles.  X, Y: flip the brush.  Esc: no brush.";
 
 	public override string Status => _layerIndex >= 0
-		? $"Layer {Layer.Name}{(IsSolidLayer(_layerIndex) ? " (solid: Sonic and objects collide with it)" : " (not solid)")}{(EditorLayerView.IsShifted(Layer) ? " (alone, without parallax)" : "")}   Brush {(_brush == null ? "none" : $"{_brush.Columns} x {_brush.Rows}")}"
+		? $"Layer {Layer.Name}{(IsSolidLayer(_layerIndex) ? " (solid: Sonic and objects collide with it)" : " (not solid)")}{(Layer.Editing ? " (alone, without parallax)" : "")}   Brush {(_brush == null ? "none" : $"{_brush.Columns} x {_brush.Rows}")}"
 		: "";
 
 	/// <summary>The layer that the tool paints on, or -1.</summary>
 	public int LayerIndex => _layerIndex;
 
+	/// <summary>The layer to show alone at its level positions, or -1 for the view of the game (see <see cref="EditorLayerView"/>).</summary>
+	public int AloneLayerIndex => _preview ? -1 : _layerIndex;
+
 	public override string ListHeading => "Layers (click to paint on a layer)";
 
-	public override string PropertiesHeading => Editor.TileCollision != null && IsCollisionLayer
-		? "Brush and tiles (the collision follows)"
-		: "Brush and tiles";
+	public override string PropertiesHeading => _scrollPage
+		? $"Scroll of layer {Layer.Name}"
+		: Editor.TileCollision != null && IsCollisionLayer
+			? "Brush and tiles (the collision follows)"
+			: "Brush and tiles";
 
-	public override bool HasCustomProperties => true;
+	public override bool HasCustomProperties => !_scrollPage;
 
 	private IList<LevelLayer> Layers => Editor.Level.Map.Layers;
 
@@ -142,6 +162,8 @@ internal sealed class TilesTool : EditorTool
 	{
 		_painting = false;
 		_capturing = false;
+		_scrollPage = false;
+		_preview = false;
 		// The editor opens with all layers in view, so a background layer that showed alone is not kept
 		if (_layerIndex < 0 || _layerIndex >= Layers.Count || EditorLayerView.IsShifted(Layer))
 		{
@@ -199,10 +221,12 @@ internal sealed class TilesTool : EditorTool
 		{
 			_layerIndex = index;
 			_brush = null;
+			_preview = false;
+			_rowIndex = 0;
+			_scrollPage &= !IsSolidLayer(index);
 			if (EditorLayerView.IsShifted(Layer))
 			{
-				Editor.ShowLayerAlone(new Rectangle(0.0, 0.0, Layer.Columns * TileSize, Layer.Rows * TileSize));
-				Editor.ShowMessage($"Layer {Layer.Name} shows alone, from the top left of the level, without parallax.");
+				ShowLayerAlone();
 			}
 		}
 	}
@@ -211,7 +235,184 @@ internal sealed class TilesTool : EditorTool
 
 	#region Properties
 
-	public override List<EditorPropertyRow> GetPropertyRows() => new List<EditorPropertyRow>();
+	public override List<EditorPropertyRow> GetPropertyRows() => _scrollPage ? GetScrollRows() : new List<EditorPropertyRow>();
+
+	/// <summary>
+	/// The scroll settings of the layer. The game moves a layer by its Y parallax and its Y offset. Each row
+	/// definition is a band of the layer, from the top, that moves by its own X parallax and speed.
+	/// </summary>
+	private List<EditorPropertyRow> GetScrollRows()
+	{
+		LevelLayer layer = Layer;
+		IList<LayerRowDefinition> definitions = layer.LayerRowDefinitions;
+		_rowIndex = Math.Clamp(_rowIndex, 0, Math.Max(0, definitions.Count - 1));
+		List<EditorPropertyRow> rows = new List<EditorPropertyRow>
+		{
+			new EditorPropertyRow { Label = "Brush and tiles", Value = "click to go back", Step = _ => _scrollPage = false },
+			new EditorPropertyRow { Label = "Preview", Value = _preview ? "on, as in the game" : "off, the layer alone", Step = _ => SetPreview(!_preview) },
+			new EditorPropertyRow
+			{
+				Label = "Parallax Y",
+				Value = layer.AutomaticYParallax ? "auto" : FormatNumber(layer.ParallaxY),
+				Commit = text => text.Trim().Equals("auto", StringComparison.OrdinalIgnoreCase)
+					? ChangeScroll(l => l.AutomaticYParallax = true)
+					: TryParseNumber(text, out double value) && value >= 0.0 && ChangeScroll(l => { l.AutomaticYParallax = false; l.ParallaxY = value; })
+			},
+			new EditorPropertyRow
+			{
+				Label = "Offset Y",
+				Value = layer.OffsetY.ToString(CultureInfo.InvariantCulture),
+				Commit = text => int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int value) && ChangeScroll(l => l.OffsetY = value)
+			},
+			new EditorPropertyRow
+			{
+				Label = "Wrap",
+				Value = WrapNames[(layer.WrapX ? 1 : 0) | (layer.WrapY ? 2 : 0)],
+				Step = direction =>
+				{
+					int wrap = ((layer.WrapX ? 1 : 0) | (layer.WrapY ? 2 : 0)) + direction;
+					wrap = (wrap % 4 + 4) % 4;
+					ChangeScroll(l => { l.WrapX = (wrap & 1) != 0; l.WrapY = (wrap & 2) != 0; });
+				}
+			},
+			new EditorPropertyRow
+			{
+				Label = "All rows, parallax X",
+				Value = "click x1.1, right click /1.1",
+				Step = definitions.Any(d => d.Parallax != 1.0) ? direction => ScaleRowParallax(direction > 0 ? ParallaxScaleStep : 1.0 / ParallaxScaleStep) : null
+			}
+		};
+		if (definitions.Count == 0)
+		{
+			rows.Add(new EditorPropertyRow { Label = "Rows", Value = "none, the layer moves with the level", IsHeading = true });
+			rows.Add(new EditorPropertyRow
+			{
+				Label = "Add a row",
+				Value = "click to add a row for the layer",
+				Step = _ => ChangeScroll(l => l.LayerRowDefinitions.Add(new LayerRowDefinition { Height = Math.Max(1, l.Rows) * TileSize }))
+			});
+			return rows;
+		}
+		LayerRowDefinition definition = definitions[_rowIndex];
+		int top = definitions.Take(_rowIndex).Sum(d => d.Height);
+		rows.Add(new EditorPropertyRow
+		{
+			Label = "Row",
+			Value = $"{_rowIndex + 1} of {definitions.Count}, y {top} to {top + definition.Height}",
+			IsHeading = true,
+			Step = direction => _rowIndex = ((_rowIndex + direction) % definitions.Count + definitions.Count) % definitions.Count
+		});
+		rows.Add(new EditorPropertyRow
+		{
+			Label = "Row parallax X",
+			Value = FormatNumber(definition.Parallax),
+			Commit = text => TryParseNumber(text, out double value) && value >= 0.0 && ChangeScroll(l => l.LayerRowDefinitions[_rowIndex].Parallax = value)
+		});
+		rows.Add(new EditorPropertyRow
+		{
+			Label = "Row speed X",
+			Value = FormatNumber(definition.Velocity),
+			Commit = text => TryParseNumber(text, out double value) && ChangeScroll(l => l.LayerRowDefinitions[_rowIndex].Velocity = value)
+		});
+		rows.Add(new EditorPropertyRow
+		{
+			Label = "Row height",
+			Value = definition.Height.ToString(CultureInfo.InvariantCulture),
+			Commit = text => int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int value) && value > 0 &&
+				ChangeScroll(l => l.LayerRowDefinitions[_rowIndex].Height = value)
+		});
+		rows.Add(new EditorPropertyRow
+		{
+			Label = "Split the row",
+			Value = "click for two rows",
+			Step = definition.Height >= 2 ? _ => ChangeScroll(l => SplitRow(l, _rowIndex)) : null
+		});
+		rows.Add(new EditorPropertyRow
+		{
+			Label = "Remove the row",
+			Value = definitions.Count == 1 ? "click, no rows" : _rowIndex > 0 ? "click, the row above grows" : "click, the row below grows",
+			Step = _ => ChangeScroll(l => RemoveRow(l, _rowIndex))
+		});
+		return rows;
+	}
+
+	private static string FormatNumber(double value) => value.ToString("0.#####", CultureInfo.InvariantCulture);
+
+	private static bool TryParseNumber(string text, out double value) => double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value);
+
+	/// <summary>Changes the scroll settings of the layer, with a step in the undo history when they are different.</summary>
+	/// <returns>True, for <see cref="EditorPropertyRow.Commit"/>.</returns>
+	private bool ChangeScroll(Action<LevelLayer> change)
+	{
+		EditorSnapshot before = Editor.CaptureSnapshot();
+		change(Layer);
+		if (!before.LayerScrolls[_layerIndex].SameAs(EditorLayerScroll.Of(Layer)))
+		{
+			Editor.RecordHistory(before);
+			Editor.MarkScrollChanged();
+		}
+		return true;
+	}
+
+	/// <summary>Multiplies the X parallax of each row that does not move with the level.</summary>
+	private void ScaleRowParallax(double factor)
+	{
+		ChangeScroll(layer =>
+		{
+			foreach (LayerRowDefinition definition in layer.LayerRowDefinitions.Where(d => d.Parallax != 1.0))
+			{
+				definition.Parallax = Math.Round(definition.Parallax * factor, 5);
+			}
+		});
+	}
+
+	/// <summary>Makes two rows of a row, each with half of the height and the same settings.</summary>
+	private static void SplitRow(LevelLayer layer, int index)
+	{
+		LayerRowDefinition definition = layer.LayerRowDefinitions[index];
+		int height = definition.Height / 2;
+		layer.LayerRowDefinitions.Insert(index + 1, new LayerRowDefinition
+		{
+			Width = definition.Width,
+			Height = definition.Height - height,
+			InitialOffset = definition.InitialOffset,
+			CurrentOffset = definition.CurrentOffset,
+			Parallax = definition.Parallax,
+			Velocity = definition.Velocity
+		});
+		definition.Height = height;
+	}
+
+	/// <summary>Removes a row. The row above it gets its height, or the row below it when it is the first row.</summary>
+	private static void RemoveRow(LevelLayer layer, int index)
+	{
+		IList<LayerRowDefinition> definitions = layer.LayerRowDefinitions;
+		if (definitions.Count > 1)
+		{
+			definitions[index > 0 ? index - 1 : 1].Height += definitions[index].Height;
+		}
+		definitions.RemoveAt(index);
+	}
+
+	/// <summary>Shows all layers as in the game, or the layer alone again.</summary>
+	private void SetPreview(bool preview)
+	{
+		_preview = preview;
+		if (_preview)
+		{
+			Editor.ShowMessage("Preview on. Move the view to see the parallax. Turn the preview off to paint.");
+		}
+		else if (EditorLayerView.IsShifted(Layer))
+		{
+			ShowLayerAlone();
+		}
+	}
+
+	private void ShowLayerAlone()
+	{
+		Editor.ShowLayerAlone(new Rectangle(0.0, 0.0, Layer.Columns * TileSize, Layer.Rows * TileSize));
+		Editor.ShowMessage($"Layer {Layer.Name} shows alone, from the top left of the level, without parallax.");
+	}
 
 	private List<EditorPropertyRow> GetSettingRows()
 	{
@@ -230,6 +431,12 @@ internal sealed class TilesTool : EditorTool
 				Label = "Solid, path 2",
 				Value = Editor.TileCollision == null ? "no tile collision" : SolidityNames[_solidity2],
 				Step = Editor.TileCollision == null ? null : direction => _solidity2 = (_solidity2 + direction + 3) % 3
+			},
+			new EditorPropertyRow
+			{
+				Label = "Scroll",
+				Value = IsSolidLayer(_layerIndex) ? "a solid layer does not scroll" : "click for the parallax",
+				Step = IsSolidLayer(_layerIndex) ? null : _ => _scrollPage = true
 			}
 		};
 	}
@@ -352,6 +559,11 @@ internal sealed class TilesTool : EditorTool
 
 	public override void OnLevelPress()
 	{
+		if (_preview && EditorLayerView.IsShifted(Layer))
+		{
+			Editor.ShowMessage("The preview is on. Turn it off to paint on this layer.");
+			return;
+		}
 		if (Editor.IsControlDown)
 		{
 			_capturing = true;
@@ -596,6 +808,14 @@ internal sealed class TilesTool : EditorTool
 					g.RenderLine(CollisionColour, a, b, 2.0);
 				}
 			}
+		}
+		// The band of the row that the scroll settings change, while the layer shows alone at its level positions
+		if (_scrollPage && Layer.Editing && _rowIndex < Layer.LayerRowDefinitions.Count)
+		{
+			int top = Layer.LayerRowDefinitions.Take(_rowIndex).Sum(d => d.Height);
+			Rectangle band = Editor.ToScreen(new Rectangle(view.X, top, view.Width, Layer.LayerRowDefinitions[_rowIndex].Height));
+			g.RenderQuad(LevelEditor.SelectionFillColour, band);
+			g.RenderRectangle(LevelEditor.SelectionColour, band, 2.0);
 		}
 		if (_capturing && Editor.DragMoved)
 		{

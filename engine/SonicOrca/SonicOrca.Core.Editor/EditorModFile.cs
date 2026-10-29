@@ -44,14 +44,14 @@ public static class EditorModFile
 		/// The map with new data for the parts that changed. The other content of the map file stays as it is (see
 		/// <see cref="LevelMapWriter.Patch"/>).
 		/// </summary>
-		public static Change ForMap(LevelMap map, bool tiles = false, bool collision = false, bool markers = false)
+		public static Change ForMap(LevelMap map, bool tiles = false, bool collision = false, bool markers = false, bool scroll = false)
 		{
 			XmlDocument document = new XmlDocument();
 			using (Stream stream = map.Resource.Source.ReadUncompressed())
 			{
 				document.Load(stream);
 			}
-			new LevelMapWriter(map).Patch(document, tiles, collision, markers);
+			new LevelMapWriter(map).Patch(document, tiles, collision, markers, scroll);
 			using MemoryStream xml = new MemoryStream();
 			using (XmlWriter writer = XmlWriter.Create(xml, new XmlWriterSettings { Indent = true }))
 			{
