@@ -76,9 +76,6 @@ internal class UserInterface
 	private double _textWhiteAdditive;
 	private readonly Vector2[] _selectedMenuItemMarkerPositions = new Vector2[2];
 	private int _levelSelectInputState;
-	private bool _levelSelectEnabled;
-	private int _levelSelectSelectionIndex;
-	private LevelSelectItem[] _levelSelectItems;
 	private MenuItem[] _menuItems;
 	private MenuItemWidget[] _menuItemWidgets;
 	private AnimationInstance _miniSonicAniInstance;
@@ -170,7 +167,6 @@ internal class UserInterface
 		resourceTree.FullfillLoadedResourcesByAttribute(this);
 		_miniSonicAniInstance = new AnimationInstance(resourceTree, TitleResources.AnimationGroupResourceKey, TitleResources.MiniSonicIdleAnimationIndex);
 		_miniTailsAniInstance = new AnimationInstance(resourceTree, TitleResources.AnimationGroupResourceKey, TitleResources.MiniTailsIdleAnimationIndex);
-		InitialiseLevelSelect();
 	}
 
 	public void Reset()
@@ -183,8 +179,6 @@ internal class UserInterface
 		_textWhiteAdditive = 0.0;
 		_selectionIndex = 0;
 		_levelSelectInputState = 0;
-		_levelSelectEnabled = false;
-		_levelSelectSelectionIndex = 0;
 		_effectEventManager.Clear();
 		_demoTimeout = DemoInitialTimeout;
 		_characterSelectTimer = CharacterSelectTime;
@@ -210,8 +204,7 @@ internal class UserInterface
 		_effectEventManager.Update();
 		HandleInput();
 		++_ticks;
-		// The demo does not start while the level select is open
-		if (_demoTimeout.HasValue && !_levelSelectEnabled)
+		if (_demoTimeout.HasValue)
 		{
 			_demoTimeout--;
 			if (_demoTimeout <= 0)
@@ -234,9 +227,9 @@ internal class UserInterface
 		InputState pressedInputState = _gameContext.Input.Pressed;
 		if (_busy)
 			return;
-		if (!_levelSelectEnabled)
+		// The level select code: up, down, left, right, then Start with Action 1 held. It opens the level select screen.
 		{
-			// Check for the level select code. _levelSelectInputState counts the correct inputs.
+			// _levelSelectInputState counts the correct inputs. _levelSelectInputState counts the correct inputs.
 			int levelSelectInput = GetLevelSelectControllerInput(pressed);
 			if (levelSelectInput != LevelSelectInputNone)
 			{
@@ -253,8 +246,8 @@ internal class UserInterface
 					if (_gameContext.Current[0].Action1 && levelSelectInput == LevelSelectInputStart)
 					{
 						_levelSelectInputState = 0;
-						_levelSelectEnabled = true;
 						_gameContext.Audio.PlaySound(_sampleNavigateYes);
+						OnOpenLevelSelect();
 						return;
 					}
 				}
@@ -264,35 +257,7 @@ internal class UserInterface
 				}
 			}
 		}
-		if (_levelSelectEnabled)
-		{
-			if (Math.Abs(pressed.DirectionLeft.Y) >= 0.5)
-			{
-				if (Math.Sign(pressed.DirectionLeft.Y) < 0)
-				{
-					_levelSelectSelectionIndex = NegMod(_levelSelectSelectionIndex - 1, _levelSelectItems.Length);
-					_gameContext.Audio.PlaySound(_sampleNavigateCursor);
-				}
-				else
-				{
-					_levelSelectSelectionIndex = NegMod(_levelSelectSelectionIndex + 1, _levelSelectItems.Length);
-					_gameContext.Audio.PlaySound(_sampleNavigateCursor);
-				}
-			}
-			if (pressed.Start)
-			{
-				_gameContext.Audio.PlaySound(_sampleNavigateYes);
-				OnLevelSelectStart();
-			}
-			if (!BackPressed(pressedInputState))
-				return;
-			_gameContext.Audio.PlaySound(_sampleNavigateBack);
-			_levelSelectEnabled = false;
-			// The time to the demo starts again when the level select closes
-			if (_demoTimeout.HasValue)
-				_demoTimeout = DemoInitialTimeout;
-		}
-		else if (_pressStartActive)
+		if (_pressStartActive)
 		{
 			if (!pressed.Start)
 				return;
@@ -432,42 +397,6 @@ internal class UserInterface
 	/// <summary>The horizontal distance from the centre of a menu item to each of its selection markers.</summary>
 	private int GetMarkerOffset(int index) => GetMenuItemWidth(index) / 2 + 48;
 
-	private void InitialiseLevelSelect()
-	{
-		List<LevelSelectItem> levelSelectItemList = new List<LevelSelectItem>();
-		int levelNumber = 1;
-		foreach (LevelInfo level in Levels.LevelList)
-		{
-			if (Levels.IsAvailable(level, _gameContext.ResourceTree))
-			{
-				for (int act = 1; act <= level.Acts; ++act)
-				{
-					string text = $"{level.Name} ACT {act}".ToUpper();
-					levelSelectItemList.Add(new LevelSelectItem()
-					{
-						Text = text,
-						Mnemonic = level.Mnemonic,
-						Act = act,
-						Number = levelNumber
-					});
-				}
-				++levelNumber;
-			}
-		}
-		// The levels of mods come after the levels of the game. They are not in the story (number 0)
-		foreach (LevelInfo level in Levels.GetModLevels(_gameContext.ResourceTree))
-		{
-			levelSelectItemList.Add(new LevelSelectItem()
-			{
-				Text = $"{level.Name} ACT 1".ToUpper(),
-				Mnemonic = level.Mnemonic,
-				Act = 1,
-				Number = 0
-			});
-		}
-		_levelSelectItems = levelSelectItemList.ToArray();
-	}
-
 	private void OnSelectNewGame() => _characterSelectActive = true;
 
 	private void OnSelectCharacter()
@@ -506,20 +435,15 @@ internal class UserInterface
 		_titleGameState.Result = TitleGameState.ResultType.StartDemo;
 	}
 
-	private void OnLevelSelectStart()
+	/// <summary>Opens the level select screen, with the characters of the character selection.</summary>
+	private void OnOpenLevelSelect()
 	{
 		_busy = true;
-		LevelSelectItem levelSelectItem = _levelSelectItems[_levelSelectSelectionIndex];
-		LevelPrepareSettings lps = new LevelPrepareSettings()
-		{
-			AreaResourceKey = Levels.GetAreaResourceKey(levelSelectItem.Mnemonic, _gameContext.ResourceTree),
-			Act = levelSelectItem.Act,
-			LevelNumber = levelSelectItem.Number
-		};
-		ApplyCharacterSelection(lps);
-		_titleGameState.LevelPrepareSettings = lps;
-		_titleGameState.FadeOut();
-		_titleGameState.Result = TitleGameState.ResultType.LevelSelect;
+		_effectEventManager.BeginEvent(EffectFadeOut());
+		LevelPrepareSettings characters = new LevelPrepareSettings();
+		ApplyCharacterSelection(characters);
+		_titleGameState.LevelPrepareSettings = characters;
+		_titleGameState.Result = TitleGameState.ResultType.OpenLevelSelect;
 	}
 
 	private void ApplyCharacterSelection(LevelPrepareSettings lps)
@@ -638,9 +562,6 @@ internal class UserInterface
 			if (_characterSelectOpacity != 1.0)
 				DrawMenuItems(renderer);
 		}
-		if (!_levelSelectEnabled)
-			return;
-		DrawLevelSelect(renderer);
 	}
 
 	private void DrawPressStart(Renderer renderer)
@@ -760,40 +681,6 @@ internal class UserInterface
 		_miniTailsAniInstance.Draw(g, IsTailsActive ? activeColour : inactiveColour, (Vector2)new Vector2i(1010, 880));
 	}
 
-	private void DrawLevelSelect(Renderer renderer)
-	{
-		I2dRenderer g = renderer.Get2dRenderer();
-		IFontRenderer fontRenderer = renderer.GetFontRenderer();
-		g.BlendMode = BlendMode.Alpha;
-		g.RenderQuad(new Colour(0.8, 0.0, 0.0, 0.0), new Rectangle(0.0, 0.0, 1920.0, 1080.0));
-		int x = 660;
-		// A list that scrolls starts lower, so that the mark above the first item has room
-		bool scrolls = _levelSelectItems.Length > LevelSelectVisibleItems;
-		int y = scrolls ? 430 : 400;
-		Colour dim = new Colour(0.5, 1.0, 1.0, 1.0);
-		fontRenderer.RenderStringWithShadow("LEVEL SELECT", new Rectangle(x, 330.0, 0.0, 0.0), FontAlignment.MiddleY, _fontImpactRegular, 0);
-		// The list shows the items around the selected item, so that a long list stays on the screen
-		int first = Math.Clamp(_levelSelectSelectionIndex - LevelSelectVisibleItems / 2, 0, Math.Max(0, _levelSelectItems.Length - LevelSelectVisibleItems));
-		int last = Math.Min(_levelSelectItems.Length, first + LevelSelectVisibleItems);
-		if (first > 0)
-			fontRenderer.RenderStringWithShadow("...", new Rectangle(x, y - LevelSelectItemHeight, 0.0, 0.0), FontAlignment.MiddleY, _fontImpactRegular, dim, 0);
-		for (int index = first; index < last; index++)
-		{
-			bool selected = _levelSelectSelectionIndex == index;
-			int overlay = selected ? 1 : 0;
-			Colour colour = selected ? Colours.White : dim;
-			fontRenderer.RenderStringWithShadow(_levelSelectItems[index].Text, new Rectangle(x, y, 0.0, 0.0), FontAlignment.MiddleY, _fontImpactRegular, colour, new int?(overlay));
-			y += LevelSelectItemHeight;
-		}
-		if (last < _levelSelectItems.Length)
-			fontRenderer.RenderStringWithShadow("...", new Rectangle(x, y - LevelSelectItemHeight / 2, 0.0, 0.0), FontAlignment.MiddleY, _fontImpactRegular, dim, 0);
-	}
-
-	/// <summary>The number of level select items on the screen, and the distance between two items.</summary>
-	private const int LevelSelectVisibleItems = 11;
-
-	private const int LevelSelectItemHeight = 50;
-
 	/// <summary>Returns x modulo divisor in the range 0 to divisor - 1, also when x is negative.</summary>
 	private static int NegMod(int x, int divisor)
 	{
@@ -828,14 +715,4 @@ internal class UserInterface
 	}
 
 	/// <summary>One line of the level select: a level, an act, and the level number in the story.</summary>
-	private class LevelSelectItem
-	{
-		public string Text { get; set; }
-
-		public string Mnemonic { get; set; }
-
-		public int Act { get; set; }
-
-		public int Number { get; set; }
-	}
 }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using S2HD.Menu;
+using S2HD.Title;
 using SonicOrca;
 using SonicOrca.Core;
 using SonicOrca.Core.Editor;
@@ -76,6 +77,20 @@ internal class RootGameState : IGameState, IDisposable
 				foreach (UpdateResult updateResult in _currentGameState.Update())
 					yield return updateResult;
 			}
+			else if (_cmdLineArgs.HasOption("levelselect"))
+			{
+				// --levelselect opens the level select at once, with Sonic and Tails
+				LevelSelectScreen levelSelect = new LevelSelectScreen(_gameContext,
+					new LevelPrepareSettings { ProtagonistCharacter = CharacterType.Sonic, SidekickCharacter = CharacterType.Tails });
+				ChangeGameState(new ScreenGameState(_gameContext, levelSelect));
+				foreach (UpdateResult updateResult in _currentGameState.Update())
+					yield return updateResult;
+				if (levelSelect.Result != null)
+				{
+					foreach (UpdateResult updateResult in PlayStory(levelSelect.Result))
+						yield return updateResult;
+				}
+			}
 			if (_cmdLineArgs.HasOption("animations"))
 			{
 				// The animation editor. "--animations SONICORCA/OBJECTS/SONIC/ANIGROUP" opens that animation group.
@@ -140,17 +155,18 @@ internal class RootGameState : IGameState, IDisposable
 				{
 					case TitleGameState.ResultType.NewGame:
 					case TitleGameState.ResultType.LevelSelect:
-						PlayClassic();
-						StoryPlaythroughGameState storyState = _currentGameState as StoryPlaythroughGameState;
-						if (titleState.LevelPrepareSettings != null)
-							storyState.StartFrom(titleState.LevelPrepareSettings);
+						foreach (UpdateResult updateResult in PlayStory(titleState.LevelPrepareSettings))
+							yield return updateResult;
+						break;
+					case TitleGameState.ResultType.OpenLevelSelect:
+						// The level select is a screen of its own. Back returns to the title screen.
+						LevelSelectScreen levelSelect = new LevelSelectScreen(_gameContext, titleState.LevelPrepareSettings);
+						ChangeGameState(new ScreenGameState(_gameContext, levelSelect));
 						foreach (UpdateResult updateResult in _currentGameState.Update())
 							yield return updateResult;
-						// Show the credits only when the player finished the game, not when the player quit from the pause menu.
-						if (!storyState.QuitViaOptions)
+						if (levelSelect.Result != null)
 						{
-							ShowCredits();
-							foreach (UpdateResult updateResult in _currentGameState.Update())
+							foreach (UpdateResult updateResult in PlayStory(levelSelect.Result))
 								yield return updateResult;
 						}
 						break;
@@ -169,6 +185,24 @@ internal class RootGameState : IGameState, IDisposable
 						break;
 				}
 			}
+		}
+	}
+
+	/// <summary>Plays the story from a level, then the credits when the player finished the game.</summary>
+	private IEnumerable<UpdateResult> PlayStory(LevelPrepareSettings settings)
+	{
+		PlayClassic();
+		StoryPlaythroughGameState storyState = _currentGameState as StoryPlaythroughGameState;
+		if (settings != null)
+			storyState.StartFrom(settings);
+		foreach (UpdateResult updateResult in _currentGameState.Update())
+			yield return updateResult;
+		// Show the credits only when the player finished the game, not when the player quit from the pause menu.
+		if (!storyState.QuitViaOptions)
+		{
+			ShowCredits();
+			foreach (UpdateResult updateResult in _currentGameState.Update())
+				yield return updateResult;
 		}
 	}
 

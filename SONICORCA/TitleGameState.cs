@@ -274,6 +274,8 @@ internal class TitleGameState : IGameState, IDisposable
 	{
 		NewGame,
 		LevelSelect,
+		/// <summary>The player entered the level select code. <see cref="LevelPrepareSettings"/> has the characters.</summary>
+		OpenLevelSelect,
 		ShowOptions,
 		ShowAchievements,
 		StartDemo,
