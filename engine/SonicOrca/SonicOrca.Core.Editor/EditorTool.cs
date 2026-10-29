@@ -13,6 +13,9 @@ internal sealed class EditorListRow
 	/// <summary>A short text at the right of the row, for example a count.</summary>
 	public string Detail;
 
+	/// <summary>The colour of the detail, or null for the dim text colour.</summary>
+	public Colour? DetailColour;
+
 	public bool Active;
 
 	public bool Dim;

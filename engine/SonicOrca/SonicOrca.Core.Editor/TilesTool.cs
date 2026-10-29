@@ -39,6 +39,9 @@ internal sealed class TilesTool : EditorTool
 
 	private static readonly Colour CollisionColour = new Colour(0.7, 0.3, 1.0, 0.3);
 
+	/// <summary>The colour of the mark of a solid layer in the list.</summary>
+	private static readonly Colour SolidColour = new Colour(1.0, 1.0, 0.6, 0.25);
+
 	private readonly List<TileEdit> _strokeEdits = new List<TileEdit>();
 
 	private readonly HashSet<(int Column, int Row)> _strokeStamps = new HashSet<(int, int)>();
@@ -97,7 +100,7 @@ internal sealed class TilesTool : EditorTool
 		: "Click or drag: paint.  Ctrl+drag: take tiles.  X, Y: flip the brush.  Esc: no brush.";
 
 	public override string Status => _layerIndex >= 0
-		? $"Layer {Layer.Name}{(EditorLayerView.IsShifted(Layer) ? " (alone, without parallax)" : "")}   Brush {(_brush == null ? "none" : $"{_brush.Columns} x {_brush.Rows}")}"
+		? $"Layer {Layer.Name}{(IsSolidLayer(_layerIndex) ? " (solid: Sonic and objects collide with it)" : " (not solid)")}{(EditorLayerView.IsShifted(Layer) ? " (alone, without parallax)" : "")}   Brush {(_brush == null ? "none" : $"{_brush.Columns} x {_brush.Rows}")}"
 		: "";
 
 	/// <summary>The layer that the tool paints on, or -1.</summary>
@@ -116,6 +119,24 @@ internal sealed class TilesTool : EditorTool
 	private LevelLayer Layer => Layers[_layerIndex];
 
 	private bool IsCollisionLayer => Editor.TileCollision != null && _layerIndex == Editor.TileCollision.Layer;
+
+	/// <summary>
+	/// True when Sonic and the objects collide with the layer. The collision of a level is a set of lines on paths.
+	/// The map gives the layer of each path, and the tile collision traces the lines from the tiles of its layer.
+	/// </summary>
+	private bool IsSolidLayer(int index) => Editor.Level.Map.CollisionPathLayers.Contains(index) || Editor.TileCollision?.Layer == index;
+
+	/// <summary>The mark of a solid layer in the list, for example "solid, path 1", or an empty text.</summary>
+	private string GetSolidMark(int index)
+	{
+		int[] paths = Editor.Level.Map.CollisionPathLayers.Select((layer, path) => (layer, path)).Where(p => p.layer == index).Select(p => p.path + 1).ToArray();
+		return paths.Length switch
+		{
+			0 => IsSolidLayer(index) ? "solid  " : "",
+			1 => $"solid, path {paths[0]}  ",
+			_ => $"solid, paths {string.Join(" ", paths)}  "
+		};
+	}
 
 	public override void Begin()
 	{
@@ -165,7 +186,8 @@ internal sealed class TilesTool : EditorTool
 		return Layers.Select((layer, index) => new EditorListRow
 		{
 			Text = $"{index}: {layer.Name}",
-			Detail = layer.Rows > 0 ? $"{layer.Columns} x {layer.Rows}" : "empty",
+			Detail = GetSolidMark(index) + (layer.Rows > 0 ? $"{layer.Columns} x {layer.Rows}" : "empty"),
+			DetailColour = IsSolidLayer(index) ? SolidColour : null,
 			Active = index == _layerIndex,
 			Dim = !layer.Visible
 		}).ToArray();
