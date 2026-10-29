@@ -277,6 +277,8 @@ public sealed class LevelEditor : IDisposable
 	public void Update()
 	{
 		_frames++;
+		// The tiles tool paints at level positions. Thus a background layer shows at these positions while the tool paints on it.
+		EditorLayerView.Apply(_level.Map.Layers, _tool is TilesTool tiles ? tiles.LayerIndex : -1);
 		if (_messageFrames > 0)
 		{
 			_messageFrames--;
@@ -647,6 +649,7 @@ public sealed class LevelEditor : IDisposable
 		}
 		PlayPosition = IsOverLevel(Mouse) ? Snap(MouseWorld) : (Vector2i)Camera.Bounds.Centre;
 		PlayRequest = request;
+		EditorLayerView.Apply(_level.Map.Layers, -1);
 	}
 
 	#region Animation editor

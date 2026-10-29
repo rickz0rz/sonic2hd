@@ -28,9 +28,13 @@ public class LevelLayer : ILevelLayerTreeNode
 
 	public string Name { get; set; }
 
+	/// <summary>True when the layer draws at its level positions, without parallax, offset and wrap (for the level editor).</summary>
 	public bool Editing { get; set; }
 
 	public bool Visible { get; set; }
+
+	/// <summary>True when the level editor hides the layer for a time. The map file does not keep this.</summary>
+	public bool HiddenInEditor { get; set; }
 
 	public IList<ILevelLayerTreeNode> Children => null;
 

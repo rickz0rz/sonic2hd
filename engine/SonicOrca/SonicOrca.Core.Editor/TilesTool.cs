@@ -96,7 +96,12 @@ internal sealed class TilesTool : EditorTool
 		? "Click a tile in the palette, or Ctrl+drag in the level to take tiles. Then click or drag to paint."
 		: "Click or drag: paint.  Ctrl+drag: take tiles.  X, Y: flip the brush.  Esc: no brush.";
 
-	public override string Status => _layerIndex >= 0 ? $"Layer {Layer.Name}   Brush {(_brush == null ? "none" : $"{_brush.Columns} x {_brush.Rows}")}" : "";
+	public override string Status => _layerIndex >= 0
+		? $"Layer {Layer.Name}{(EditorLayerView.IsShifted(Layer) ? " (alone, without parallax)" : "")}   Brush {(_brush == null ? "none" : $"{_brush.Columns} x {_brush.Rows}")}"
+		: "";
+
+	/// <summary>The layer that the tool paints on, or -1.</summary>
+	public int LayerIndex => _layerIndex;
 
 	public override string ListHeading => "Layers (click to paint on a layer)";
 
@@ -171,6 +176,17 @@ internal sealed class TilesTool : EditorTool
 		{
 			_layerIndex = index;
 			_brush = null;
+			if (EditorLayerView.IsShifted(Layer))
+			{
+				// The layer shows from the top left of the level. Go there when the layer is not in view.
+				Rectangle area = new Rectangle(0.0, 0.0, Layer.Columns * TileSize, Layer.Rows * TileSize);
+				Rectangle view = Editor.Camera.Bounds;
+				if (view.Right <= area.Left || view.Left >= area.Right || view.Bottom <= area.Top || view.Top >= area.Bottom)
+				{
+					Editor.CentreOn(new Vector2(view.Width / 2.0, view.Height / 2.0));
+				}
+				Editor.ShowMessage($"Layer {Layer.Name} shows alone, from the top left of the level, without parallax.");
+			}
 		}
 	}
 
@@ -421,7 +437,7 @@ internal sealed class TilesTool : EditorTool
 	private void Paint(int layerIndex, int column, int row, int tile, byte oldSolidity, byte newSolidity)
 	{
 		LevelLayer layer = Layers[layerIndex];
-		if (column >= layer.Columns || row >= layer.Rows)
+		if (column < 0 || row < 0 || column >= layer.Columns || row >= layer.Rows)
 		{
 			return;
 		}
