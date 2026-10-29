@@ -8,6 +8,29 @@ A mod can add a new object to the game with a Lua script. The mod does not chang
 
 The script engine is not the hard part. The hard part is the API: the set of game functions that a script can call. This document lists the integration points that the current objects use, and puts them into tiers.
 
+Items, for example a power-up that changes how Sonic moves, are a second topic. Objects come first. See [Tier 4](#tier-4-character-abilities).
+
+## Use case: a block that Sonic hits from below
+
+The first test of the API is a level from Super Mario World. Its most important object is the item block:
+
+1. Sonic jumps and hits the block from below. A hit from the top or the sides does nothing.
+2. The block bounces Sonic down, and plays a short "hit" animation.
+3. The block makes a new object on its top, for example a coin or a mushroom.
+4. The block changes to a used block. A used block does not react to more hits.
+5. The block stays used when it goes out of view and comes back.
+
+The monitor of Sonic 2 already does steps 1 to 5 in C#. Thus the engine has all the parts, and the API must make them available:
+
+| Step | How the monitor does it | Section |
+| --- | --- | --- |
+| 1 | Its bottom solid line has an ID. `OnCollision` gets that ID when a character hits the bottom. | [4](#4-collision) |
+| 2 | It reverses the Y velocity of the character, and sets `MaintainVelocity` on the event. | [6](#6-characters) |
+| 2 | It changes the index of its animation. | [5](#5-animation-and-drawing) |
+| 3 | It calls `Level.ObjectManager.AddObject` with a position and a layer. | [9](#9-other-objects) |
+| 4 | It replaces or removes its solid lines, then calls `RegisterCollisionUpdate`. | [4](#4-collision) |
+| 5 | It sets `Broken = true` on `Entry.State`. | [3](#3-the-object-itself) |
+
 ## Not in the first version
 
 - New abilities for a character, for example a double jump. The `Character` class has no hooks for this. See [Tier 4](#tier-4-character-abilities).
@@ -83,6 +106,7 @@ The level editor makes its property rows from the state variables. Thus the `sta
 | `Layer` | 46 | The layer that the object draws on |
 | `ParentObject` | 42 | The object that made this sub-object |
 | `Entry` | 14 | The placement of the object in the level |
+| `Entry.State` | 4 objects | A state that stays after the object goes out of view, for example a broken monitor or an open capsule. The game makes the object again from this state when it comes back into view. |
 
 ### 4. Collision
 
@@ -93,7 +117,9 @@ An object has two kinds of shapes:
 
 A collision event has these fields: the other object, an ID for the shape that it touched, `IgnoreCollision` and `MaintainVelocity`. A script that changes its solid lines must call `RegisterCollisionUpdate` (23 uses).
 
-Hit boxes are simple and go in Tier 1. Solid lines are harder, because characters can stand on them and ride them. They go in Tier 2.
+Each solid line can have an ID. The collision event gives the ID of the line that the character touched. Thus an object knows the side of a hit. The monitor and the spring use this: the monitor gives its bottom line an ID, and the spring gives its bounce side an ID.
+
+Hit boxes and solid lines that do not move go in Tier 1. The block of the use case needs both. Solid lines that move are harder, because the characters that stand on them must move too. They go in Tier 2.
 
 ### 5. Animation and drawing
 
@@ -183,11 +209,12 @@ A script can name a base in its definition, for example `base = "badnik"`. The b
 
 ### Tier 1: first version
 
-This tier is enough for rings, items, simple enemies that do not break, decoration and simple triggers.
+This tier is enough for the item block of the use case, rings, simple enemies that do not break, decoration and simple triggers.
 
 - The life cycle, the definition and the `state` table (sections 1 and 2)
 - Position, velocity, removal, priority, layer (section 3)
-- Hit boxes and collision events (section 4)
+- Hit boxes, solid lines that do not move, line IDs and collision events (section 4)
+- `Entry.State`, so that a change stays when the object goes out of view (section 3)
 - Animations and `self:draw` (section 5)
 - Read access to the characters, and `Hurt`, `LeaveGround` and a new velocity (section 6)
 - All the player effects (section 7)
@@ -196,7 +223,7 @@ This tier is enough for rings, items, simple enemies that do not break, decorati
 
 ### Tier 2: solid objects and bases
 
-- Solid lines and `Move`, so that characters can stand on a Lua object
+- Solid lines that move, and `Move`, so that characters can ride a Lua object
 - The `Platform`, `Badnik`, `Enemy`, `ParticleObject` and `Animal` bases
 - Object control of a character
 - Water, earthquakes, level completion
@@ -256,41 +283,61 @@ Two pure C# engines to check are MoonSharp and Lua-CSharp. The spike must check 
 
 ## Example
 
-This sketch shows the shape of a Tier 1 script. The names are not final.
+This sketch shows the item block of the use case as a Tier 1 script. The names are not final.
 
 ```lua
--- A ring box: gives rings one time when a character touches it.
+-- An item block. A hit from below makes an object on its top, then the block is used.
 object {
   api = 1,
-  name = "Ring box",
-  description = "Gives rings one time",
+  name = "Item block",
+  description = "Makes an object on its top when a character hits it from below",
   classification = "general",
   dependencies = {
     animations = "/ANIGROUP",
-    sound = "SONICORCA/SOUND/RING",
+    sound = "SONICORCA/SOUND/BLOCKHIT",
   },
-  state = { rings = 5 },
+  -- The level editor shows these values. "used" stays when the block goes out of view.
+  state = { contents = "MODS/SMW/OBJECTS/COIN", used = false },
 }
 
+local SIZE = 128
+local BOTTOM = 1
+local ANIMATION_READY, ANIMATION_HIT, ANIMATION_USED = 0, 1, 2
+
 function start(self)
-  self.box = self:animation("animations", 0)
-  self:add_hitbox(-32, -32, 64, 64)
-  self.design_bounds = { -32, -32, 64, 64 }
+  self.design_bounds = { -SIZE / 2, -SIZE / 2, SIZE, SIZE }
+  self.sprite = self:animation("animations", self.state.used and ANIMATION_USED or ANIMATION_READY)
+  -- A solid square. The bottom line has an ID, so that a hit from below is known.
+  self:set_solid_box(-SIZE / 2, -SIZE / 2, SIZE, SIZE, { bottom = BOTTOM })
 end
 
 function collision(self, event)
   local character = event.other.character
-  if character and not character.is_debug then
-    character.player:gain_rings(self.state.rings)
-    sound.play("sound")
-    self:finish_forever()
+  if self.state.used or not character or event.line_id ~= BOTTOM then
+    return
+  end
+  -- Bounce the character down, as the monitor does
+  character.velocity = { character.velocity.x, -character.velocity.y }
+  event.maintain_velocity = true
+  self.state.used = true
+  self.sprite.index = ANIMATION_HIT
+  sound.play("sound")
+  objects.add(self.state.contents, { self.position.x, self.position.y - SIZE }, self.layer)
+end
+
+function animate(self)
+  -- The hit animation plays one time, then the block shows as used
+  if self.sprite.index == ANIMATION_HIT and self.sprite.finished then
+    self.sprite.index = ANIMATION_USED
   end
 end
 
 function draw(self)
-  self:draw(self.box)
+  self:draw(self.sprite)
 end
 ```
+
+The used block keeps its solid lines, so Sonic can stand on it. The line ID check stops the reaction to more hits.
 
 ## Open questions
 
@@ -298,7 +345,9 @@ end
 2. Do scripts get coroutines, for example `wait(30)` for 30 ticks? This makes timed behavior simple, and it stays deterministic.
 3. Does a Lua object get a C# base class by name, or does each base get a Lua version?
 4. Which Lua version does the API use? The engine choice sets this.
+5. Is a used block still solid? The sketch keeps it solid, as in Super Mario World. An object can also remove its solid lines, as the broken monitor does.
+6. Does `Entry.State` keep the values of the `state` table? This makes a script simple, but the editor then shows `used` as a property. A second table for values that the editor does not show is an option.
 
 ## Next step
 
-Make a spike on a branch: the ring box above, with the resource type, the Lua engine, the editor support and live reload. Test it on the desktop and on the web. The spike gives the answer to the open questions and the engine choice.
+Make a spike on a branch: the item block above, and a coin as a second Lua object. The spike includes the resource type, the Lua engine, the editor support and live reload. Test it on the desktop and on the web. The spike gives the answer to the open questions and the engine choice.
