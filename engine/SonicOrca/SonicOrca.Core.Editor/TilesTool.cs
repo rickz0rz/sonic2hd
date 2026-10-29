@@ -284,12 +284,13 @@ internal sealed class TilesTool : EditorTool
 		};
 		if (definitions.Count == 0)
 		{
-			rows.Add(new EditorPropertyRow { Label = "Rows", Value = "none, the layer moves with the level", IsHeading = true });
+			// Without rows, the layer moves in X with its Y parallax
+			rows.Add(new EditorPropertyRow { Label = "Rows", Value = "none, X parallax = Y parallax", IsHeading = true });
 			rows.Add(new EditorPropertyRow
 			{
 				Label = "Add a row",
 				Value = "click to add a row for the layer",
-				Step = _ => ChangeScroll(l => l.LayerRowDefinitions.Add(new LayerRowDefinition { Height = Math.Max(1, l.Rows) * TileSize }))
+				Step = _ => ChangeScroll(l => l.LayerRowDefinitions.Add(new LayerRowDefinition { Height = Math.Max(1, l.Rows) * TileSize, Parallax = l.ParallaxY }))
 			});
 			return rows;
 		}
