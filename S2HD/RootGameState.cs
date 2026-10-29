@@ -245,7 +245,7 @@ internal class RootGameState : IGameState, IDisposable
 		if (levelValues.Length == 0)
 			return null;
 		string mnemonic = levelValues[0];
-		string areaResourceKey = Levels.GetAreaResourceKey(mnemonic);
+		string areaResourceKey = Levels.GetAreaResourceKey(mnemonic, _gameContext.ResourceTree);
 		if (areaResourceKey == null)
 			return null;
 		int levelNumber = Levels.GetLevelIndex(mnemonic, _gameContext.ResourceTree);

@@ -33,7 +33,7 @@ internal class AreaResourceType : ResourceType
 		}
 		Area area = (Area)Activator.CreateInstance(type);
 		area.Resource = e.Resource;
-		e.PushDependencies(area.Dependencies.Select(x => e.GetAbsolutePath(x)).Where(key => !IsMissingMusic(e.ResourceTree, key) && !IsMissingModObject(e.ResourceTree, key)));
+		e.PushDependencies(area.Dependencies.Concat(area.GetMoreDependencies(e.ResourceTree)).Select(x => e.GetAbsolutePath(x)).Where(key => !IsMissingMusic(e.ResourceTree, key) && !IsMissingModObject(e.ResourceTree, key)));
 		return area;
 	}
 

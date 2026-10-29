@@ -53,6 +53,19 @@ internal static class Levels
 	}
 
 	/// <summary>
+	/// Returns the resource key of the area of a Sonic 2 level, or of a level that a mod adds in
+	/// SONICORCA/LEVELS/NAME/AREA. Returns null when the level does not exist. A name has only letters and digits.
+	/// </summary>
+	public static string GetAreaResourceKey(string mnemonic, ResourceTree resourceTree)
+	{
+		string key = GetAreaResourceKey(mnemonic);
+		if (key != null || string.IsNullOrEmpty(mnemonic) || !mnemonic.All(char.IsAsciiLetterOrDigit))
+			return key;
+		key = $"SONICORCA/LEVELS/{mnemonic.ToUpperInvariant()}/AREA";
+		return resourceTree[key]?.Resource != null ? key : null;
+	}
+
+	/// <summary>
 	/// Returns the number of a Sonic 2 level, counted from 1 over the levels that can be played, or -1 when the level
 	/// cannot be played. Story mode uses the same numbers (see <see cref="GetAvailableLevels"/>), so the next level
 	/// after a level from --level is the next level of the story. The comparison ignores case.

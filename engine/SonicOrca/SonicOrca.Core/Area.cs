@@ -26,6 +26,12 @@ public abstract class Area : IDisposable, ILoadedResource
 
 	public abstract void Prepare(Level level, LevelPrepareSettings settings);
 
+	/// <summary>
+	/// The resources that the area needs and that only other resources give, for example the music that the info file of
+	/// a level from a mod names. The keys can be relative to the area.
+	/// </summary>
+	public virtual IEnumerable<string> GetMoreDependencies(ResourceTree resourceTree) => Enumerable.Empty<string>();
+
 	public virtual void OnStart()
 	{
 	}
