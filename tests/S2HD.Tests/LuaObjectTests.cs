@@ -149,6 +149,28 @@ public sealed class LuaObjectTests
 		}
 	}
 
+	[Fact]
+	public async Task Budget_StopsAnEndlessLoop_EvenInPcall_AndTheNextCallRuns()
+	{
+		LuaObjectType type = await Load("""
+			object { name = "Loop" }
+			function forever() while true do end end
+			function hidden() while true do pcall(function() while true do end end) end end
+			function quick() local n = 0 for i = 1, 1000 do n = n + i end return n end
+			""");
+
+		Assert.ThrowsAny<Exception>(() => type.CallGlobal("forever"));
+		Assert.ThrowsAny<Exception>(() => type.CallGlobal("hidden"));
+		// Each call has a new budget
+		Assert.Equal(500500.0, type.CallGlobal("quick")[0].Read<double>());
+	}
+
+	[Fact]
+	public async Task Budget_StopsAnEndlessLoop_WhenTheScriptLoads()
+	{
+		await Assert.ThrowsAnyAsync<Exception>(() => Load("object { name = \"Loop\" } while true do end"));
+	}
+
 	[Theory]
 	[InlineData("io")]
 	[InlineData("os")]

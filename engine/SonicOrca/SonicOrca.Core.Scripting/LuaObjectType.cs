@@ -29,6 +29,18 @@ public sealed class LuaObjectType : ObjectType, IStateTableType
 
 	private IReadOnlyList<ObjectEditorProperty> _stateProperties = Array.Empty<ObjectEditorProperty>();
 
+	/// <summary>
+	/// The most Lua instructions that one call of a script function can run. A script that runs longer, for example in
+	/// an endless loop, gets an error, so that it does not stop the game.
+	/// </summary>
+	public const int InstructionBudget = 2_000_000;
+
+	/// <summary>The number of instructions between two checks of the budget.</summary>
+	private const int BudgetCheckInterval = 10_000;
+
+	/// <summary>The budget checks of the current call.</summary>
+	private int _budgetChecks;
+
 	/// <summary>The time between two checks of the script file for changes, in milliseconds.</summary>
 	private const long ReloadCheckInterval = 500;
 
@@ -83,12 +95,65 @@ public sealed class LuaObjectType : ObjectType, IStateTableType
 			int high = (int)context.GetArgument<double>(context.ArgumentCount >= 2 ? 1 : 0);
 			return new ValueTask<int>(context.Return(random.Next(low, high + 1)));
 		});
+		InstallBudget();
 	}
+
+	/// <summary>
+	/// Makes the Lua state check the instruction budget of each call. Over the budget, the hook cancels the call. A
+	/// cancellation is not a Lua error, so pcall in the script cannot catch it.
+	/// </summary>
+	private void InstallBudget()
+	{
+		Lua.SetHook(new LuaFunction("budget", (context, ct) =>
+		{
+			if (++_budgetChecks > InstructionBudget / BudgetCheckInterval)
+			{
+				_callCancel.Cancel();
+				throw new OperationCanceledException(_callCancel.Token);
+			}
+			return new ValueTask<int>(0);
+		}), "", BudgetCheckInterval);
+	}
+
+	/// <summary>The cancellation of the current call, for the budget.</summary>
+	private CancellationTokenSource _callCancel = new CancellationTokenSource();
+
+	/// <summary>
+	/// Calls a function of the script with a new instruction budget. A script function must not wait, because the game
+	/// calls it on each tick.
+	/// </summary>
+	internal LuaValue[] Call(LuaValue function, LuaValue[] arguments)
+	{
+		_budgetChecks = 0;
+		if (_callCancel.IsCancellationRequested)
+		{
+			_callCancel.Dispose();
+			_callCancel = new CancellationTokenSource();
+		}
+		try
+		{
+			ValueTask<LuaValue[]> task = Lua.CallAsync(function, arguments, _callCancel.Token);
+			if (!task.IsCompleted)
+			{
+				throw new InvalidOperationException("A script function must not wait.");
+			}
+			return task.GetAwaiter().GetResult();
+		}
+		catch (OperationCanceledException ex) when (_callCancel.IsCancellationRequested)
+		{
+			throw new ScriptBudgetException($"The script ran more than {InstructionBudget} instructions in one call.", ex);
+		}
+	}
+
+	/// <summary>Calls a global function of the script, for tests and tools.</summary>
+	public LuaValue[] CallGlobal(string name, params LuaValue[] arguments) => Call(Lua.Environment[name], arguments);
 
 	public static async ValueTask<LuaObjectType> LoadAsync(Resource resource, string source, CancellationToken ct = default)
 	{
 		LuaObjectType type = new LuaObjectType(resource);
 		await type.Lua.DoStringAsync(LuaPrelude.Source, "prelude", ct);
+		// The code of the script outside its functions runs here, with its own budget
+		type._budgetChecks = 0;
 		await type.Lua.DoStringAsync(source, resource?.FullKeyPath ?? "script", ct);
 		type.ReadDefinition();
 		// A script in a mod folder reloads when its file changes
@@ -127,6 +192,8 @@ public sealed class LuaObjectType : ObjectType, IStateTableType
 			}
 			LuaObjectType reloaded = load.GetAwaiter().GetResult();
 			Lua = reloaded.Lua;
+			// The hook of the new Lua state must count the calls of this type
+			InstallBudget();
 			_dependencyKeys.Clear();
 			foreach (KeyValuePair<string, string> pair in reloaded._dependencyKeys)
 			{
@@ -261,5 +328,14 @@ public sealed class LuaObjectType : ObjectType, IStateTableType
 	{
 		base.Dispose();
 		Lua.Dispose();
+	}
+}
+
+/// <summary>A script ran more instructions in one call than <see cref="LuaObjectType.InstructionBudget"/>.</summary>
+public sealed class ScriptBudgetException : Exception
+{
+	public ScriptBudgetException(string message, Exception innerException = null)
+		: base(message, innerException)
+	{
 	}
 }

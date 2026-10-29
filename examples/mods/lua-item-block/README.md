@@ -99,3 +99,4 @@ A character has `x`, `y`, `velocity_x`, `velocity_y`, `is_airborne`, `is_spinbal
 - `math.random` gives the random numbers of the level. Thus a replay gives the same numbers.
 - A script cannot read files. The `io`, `os`, `debug` and `require` functions are not available.
 - An error in a script removes the object and writes the error to the log. The game continues.
+- One call of a script function can run 2,000,000 Lua instructions. A call that runs longer, for example an endless loop, is an error. `pcall` cannot catch this error.
