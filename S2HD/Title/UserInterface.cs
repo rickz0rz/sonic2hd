@@ -450,6 +450,17 @@ internal class UserInterface
 				++levelNumber;
 			}
 		}
+		// The levels of mods come after the levels of the game. They are not in the story (number 0)
+		foreach (LevelInfo level in Levels.GetModLevels(_gameContext.ResourceTree))
+		{
+			levelSelectItemList.Add(new LevelSelectItem()
+			{
+				Text = $"{level.Name} ACT 1".ToUpper(),
+				Mnemonic = level.Mnemonic,
+				Act = 1,
+				Number = 0
+			});
+		}
 		_levelSelectItems = levelSelectItemList.ToArray();
 	}
 
@@ -497,7 +508,7 @@ internal class UserInterface
 		LevelSelectItem levelSelectItem = _levelSelectItems[_levelSelectSelectionIndex];
 		LevelPrepareSettings lps = new LevelPrepareSettings()
 		{
-			AreaResourceKey = Levels.GetAreaResourceKey(levelSelectItem.Mnemonic),
+			AreaResourceKey = Levels.GetAreaResourceKey(levelSelectItem.Mnemonic, _gameContext.ResourceTree),
 			Act = levelSelectItem.Act,
 			LevelNumber = levelSelectItem.Number
 		};
