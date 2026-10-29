@@ -15,6 +15,8 @@ internal static class Levels
 	public const int Sonic2 = 2;
 	public const int Sonic3 = 3;
 	public const int SonicSK = 4;
+	/// <summary>The game index of a level that a mod adds.</summary>
+	public const int Mod = 0;
 	public static readonly IReadOnlyList<LevelInfo> LevelList = new LevelInfo[11]
 	{
 		new LevelInfo(Sonic2, "ehz", "Emerald Hill Zone", 2),
@@ -50,6 +52,59 @@ internal static class Levels
 	{
 		LevelInfo level = LevelList.Where(x => x.GameIndex == Sonic2).FirstOrDefault(x => x.Mnemonic.Equals(mnemonic, StringComparison.OrdinalIgnoreCase));
 		return level != null ? $"SONICORCA/LEVELS/{mnemonic.ToUpper()}/AREA" : null;
+	}
+
+	/// <summary>
+	/// Returns the levels that mods add: each SONICORCA/LEVELS/NAME/AREA that is not a Sonic 2 level, by name. The
+	/// name of a level comes from its INFO file. A mod level has one act.
+	/// </summary>
+	public static IReadOnlyList<LevelInfo> GetModLevels(ResourceTree resourceTree)
+	{
+		List<LevelInfo> levels = new List<LevelInfo>();
+		foreach (string key in resourceTree.GetResourceListing().Keys)
+		{
+			string[] parts = key.Split('/');
+			if (parts.Length != 4 || parts[0] != "SONICORCA" || parts[1] != "LEVELS" || parts[3] != "AREA")
+				continue;
+			string mnemonic = parts[2].ToLowerInvariant();
+			if (GetAreaResourceKey(mnemonic) != null || !mnemonic.All(char.IsAsciiLetterOrDigit))
+				continue;
+			levels.Add(new LevelInfo(Mod, mnemonic, ReadModLevelName(resourceTree, parts[2]) ?? parts[2], 1));
+		}
+		return levels.OrderBy(level => level.Name, StringComparer.OrdinalIgnoreCase).ToArray();
+	}
+
+	/// <summary>The name in the INFO file of a mod level, or null.</summary>
+	private static string ReadModLevelName(ResourceTree resourceTree, string folder)
+	{
+		Resource info = resourceTree[$"SONICORCA/LEVELS/{folder}/INFO"]?.Resource;
+		if (info == null)
+			return null;
+		try
+		{
+			System.Xml.XmlDocument document = new System.Xml.XmlDocument();
+			using (System.IO.Stream stream = info.Source.ReadUncompressed())
+				document.Load(stream);
+			string name = document.DocumentElement?.GetAttribute("name");
+			return string.IsNullOrEmpty(name) ? null : name;
+		}
+		catch (System.Xml.XmlException)
+		{
+			return null;
+		}
+	}
+
+	/// <summary>
+	/// Returns the resource key of the area of a Sonic 2 level, or of a level that a mod adds in
+	/// SONICORCA/LEVELS/NAME/AREA. Returns null when the level does not exist. A name has only letters and digits.
+	/// </summary>
+	public static string GetAreaResourceKey(string mnemonic, ResourceTree resourceTree)
+	{
+		string key = GetAreaResourceKey(mnemonic);
+		if (key != null || string.IsNullOrEmpty(mnemonic) || !mnemonic.All(char.IsAsciiLetterOrDigit))
+			return key;
+		key = $"SONICORCA/LEVELS/{mnemonic.ToUpperInvariant()}/AREA";
+		return resourceTree[key]?.Resource != null ? key : null;
 	}
 
 	/// <summary>
