@@ -121,7 +121,7 @@ internal sealed class EditorUi
 		DrawText(renderer, listRow.Text, bounds.X + Padding, textY, listRow.Dim ? DimTextColour : TextColour);
 		if (!string.IsNullOrEmpty(listRow.Detail))
 		{
-			DrawText(renderer, listRow.Detail, bounds.Right - Padding - MeasureText(listRow.Detail), textY, DimTextColour);
+			DrawText(renderer, listRow.Detail, bounds.Right - Padding - MeasureText(listRow.Detail), textY, listRow.DetailColour ?? DimTextColour);
 		}
 	}
 
