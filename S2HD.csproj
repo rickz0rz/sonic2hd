@@ -34,7 +34,7 @@
 
   <ItemGroup>
     <!-- Engine, tool, test and web projects build separately; publish\ holds release output -->
-    <Compile Remove="engine\**;publish\**;tests\**;tools\**;web\**" />
+    <Compile Remove="engine\**;examples\**;publish\**;tests\**;tools\**;web\**" />
     <None Remove="engine\**;publish\**;tests\**;tools\**;web\**" />
   </ItemGroup>
 
