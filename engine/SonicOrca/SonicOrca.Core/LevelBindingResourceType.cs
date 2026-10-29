@@ -44,8 +44,28 @@ public class LevelBindingResourceType : ResourceType
 		}
 		levelBinding.ObjectPlacements.AddRange(from x in definitionsNode.SelectNodes("Definition").OfType<XmlNode>()
 											   select GetObjectPlacementFromXmlNode(x, defaultLayerIndex));
-		e.PushDependencies(levelBinding.ObjectPlacements.Select(x => x.Key).Distinct());
+		e.PushDependencies(levelBinding.ObjectPlacements.Select(x => x.Key)
+			.Concat(GetReferencedObjectTypes(levelBinding.ObjectPlacements, e.ResourceTree)).Distinct());
 		return levelBinding;
+	}
+
+	/// <summary>
+	/// Gives the object types that the values of the placements name, for example the contents of an item block. A
+	/// value names an object type when it is the key of an object resource. The level loads these types, so that an
+	/// object can make an object of such a type.
+	/// </summary>
+	public static IEnumerable<string> GetReferencedObjectTypes(IEnumerable<ObjectPlacement> placements, ResourceTree resourceTree)
+	{
+		return placements.SelectMany(p => p.Behaviour)
+			.Select(pair => pair.Value as string)
+			.Where(value => !string.IsNullOrEmpty(value) && value.Contains('/') && IsObjectTypeKey(value, resourceTree))
+			.Distinct(StringComparer.OrdinalIgnoreCase);
+	}
+
+	private static bool IsObjectTypeKey(string key, ResourceTree resourceTree)
+	{
+		ResourceTypeIdentifier? identifier = resourceTree[key]?.Resource?.Identifier;
+		return identifier == ResourceTypeIdentifier.Object || identifier == ResourceTypeIdentifier.LuaObject;
 	}
 
 	private ObjectPlacement GetObjectPlacementFromXmlNode(XmlNode node, int defaultLayerIndex)

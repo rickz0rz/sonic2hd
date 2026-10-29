@@ -36,6 +36,9 @@ public sealed class LuaActiveObject : ActiveObject, IStateTable
 
 	private bool _stopped;
 
+	/// <summary>The generation of the script that made <see cref="_self"/> (see <see cref="LuaObjectType.Generation"/>).</summary>
+	private int _generation;
+
 	internal LuaObjectType LuaType => (LuaObjectType)Type;
 
 	public void SetStateValue(string name, string value) => _stateValues[name] = value;
@@ -49,8 +52,13 @@ public sealed class LuaActiveObject : ActiveObject, IStateTable
 		}
 	}
 
-	protected override void OnStart()
+	protected override void OnStart() => StartScript();
+
+	/// <summary>Makes the self table of the object, then calls the start function of the script.</summary>
+	private void StartScript()
 	{
+		_generation = LuaType.Generation;
+		_animations.Clear();
 		LuaTable state = new LuaTable();
 		foreach (ObjectEditorProperty property in LuaType.StateProperties)
 		{
@@ -76,7 +84,23 @@ public sealed class LuaActiveObject : ActiveObject, IStateTable
 		Call(LuaType.StartFunction, true, _self);
 	}
 
-	protected override void OnUpdate() => Call(LuaType.UpdateFunction, true, _self);
+	protected override void OnUpdate()
+	{
+		CheckScript();
+		Call(LuaType.UpdateFunction, true, _self);
+	}
+
+	protected override void OnUpdateEditor() => CheckScript();
+
+	/// <summary>Starts the object again when its script changed.</summary>
+	private void CheckScript()
+	{
+		LuaType.ReloadIfChanged();
+		if (_generation != LuaType.Generation && !_failed)
+		{
+			StartScript();
+		}
+	}
 
 	protected override void OnAnimate()
 	{

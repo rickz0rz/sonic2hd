@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -34,7 +35,7 @@ public sealed class LuaObjectTests
 	private static Task<LuaObjectType> Load(string source)
 	{
 		Resource resource = new Resource("SONICORCA/OBJECTS/BLOCK", ResourceTypeIdentifier.LuaObject, new MemoryResourceSource(Encoding.UTF8.GetBytes(source)));
-		return LuaObjectType.LoadAsync(resource, source);
+		return LuaObjectType.LoadAsync(resource, source).AsTask();
 	}
 
 	[Fact]
@@ -93,6 +94,59 @@ public sealed class LuaObjectTests
 	public async Task Script_WithAnUnknownClassification_DoesNotLoad()
 	{
 		await Assert.ThrowsAsync<ResourceException>(() => Load("object { classification = \"spaceship\" }"));
+	}
+
+	[Fact]
+	public void Placement_ThatNamesAnObjectType_LoadsThatType()
+	{
+		ResourceTree tree = new ResourceTree();
+		ResourceSource empty = new MemoryResourceSource(Array.Empty<byte>());
+		tree.SetOrAdd("SONICORCA/OBJECTS/COIN", new Resource("SONICORCA/OBJECTS/COIN", ResourceTypeIdentifier.LuaObject, empty));
+		tree.SetOrAdd("SONICORCA/OBJECTS/RING", new Resource("SONICORCA/OBJECTS/RING", ResourceTypeIdentifier.Object, empty));
+		tree.SetOrAdd("SONICORCA/SOUND/RING", new Resource("SONICORCA/SOUND/RING", ResourceTypeIdentifier.SampleOGG, empty));
+		ObjectPlacement[] placements =
+		{
+			new ObjectPlacement("SONICORCA/OBJECTS/BLOCK", 0, default, new { contents = "SONICORCA/OBJECTS/COIN", sound = "SONICORCA/SOUND/RING" }),
+			new ObjectPlacement("SONICORCA/OBJECTS/BLOCK", 0, default, new { contents = "SONICORCA/OBJECTS/RING", rings = 3 }),
+			new ObjectPlacement("SONICORCA/OBJECTS/BLOCK", 0, default, new { contents = "coin" }),
+		};
+
+		string[] keys = LevelBindingResourceType.GetReferencedObjectTypes(placements, tree).OrderBy(k => k).ToArray();
+
+		// A sound, a number and a dependency name are not object types
+		Assert.Equal(new[] { "SONICORCA/OBJECTS/COIN", "SONICORCA/OBJECTS/RING" }, keys);
+	}
+
+	[Fact]
+	public async Task Script_InAFolder_ReloadsWhenItsFileChanges_AndKeepsTheOldScriptOnAnError()
+	{
+		string folder = Path.Combine(Path.GetTempPath(), "s2hd-lua-" + Guid.NewGuid().ToString("N"));
+		Directory.CreateDirectory(folder);
+		try
+		{
+			string path = Path.Combine(folder, "_.object.lua");
+			File.WriteAllText(path, "object { name = \"First\" }");
+			Resource resource = new Resource("SONICORCA/OBJECTS/BLOCK", ResourceTypeIdentifier.LuaObject, new FileResourceSource(path, 0, new FileInfo(path).Length));
+			LuaObjectType type = await LuaObjectType.LoadAsync(resource, File.ReadAllText(path));
+			Assert.Equal("First", type.Name);
+
+			File.WriteAllText(path, "object { name = \"Second\", state = { speed = 2 } }");
+			File.SetLastWriteTimeUtc(path, DateTime.UtcNow.AddSeconds(1));
+			type.ReloadIfChanged();
+			Assert.Equal("Second", type.Name);
+			Assert.Equal("speed", Assert.Single(type.StateProperties).Name);
+
+			// The checks have a minimum interval, so wait for the next check
+			await Task.Delay(600);
+			File.WriteAllText(path, "object { name = ");
+			File.SetLastWriteTimeUtc(path, DateTime.UtcNow.AddSeconds(2));
+			type.ReloadIfChanged();
+			Assert.Equal("Second", type.Name);
+		}
+		finally
+		{
+			Directory.Delete(folder, recursive: true);
+		}
 	}
 
 	[Theory]

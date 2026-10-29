@@ -87,10 +87,16 @@ internal sealed class ObjectsTool : EditorTool
 		_loadingKey = null;
 		if (task.IsFaulted)
 		{
-			Editor.ShowMessage($"{ShortName(key)} did not load: {task.Exception?.InnerException?.Message}");
+			Editor.ShowMessage($"{(key == null ? "The type of the property" : ShortName(key))} did not load: {task.Exception?.InnerException?.Message}");
 			return;
 		}
 		Level.ObjectManager.RegisterAndStartNewObjectTypes();
+		if (key == null)
+		{
+			// A type that a property value names, not a type to place
+			Editor.ShowMessage("Loaded the object types of the property.");
+			return;
+		}
 		if (FindType(key) == null)
 		{
 			Editor.ShowMessage($"{ShortName(key)} is not an object type that the editor can add.");
@@ -385,7 +391,30 @@ internal sealed class ObjectsTool : EditorTool
 		Editor.RecordHistory();
 		Placements[index] = newPlacement;
 		Editor.MarkBindingChanged();
+		LoadReferencedTypes(newPlacement);
 		return true;
+	}
+
+	/// <summary>
+	/// Loads the object types that the values of a placement name, for example the contents of an item block. The
+	/// level loads them when it starts, so the editor loads them too.
+	/// </summary>
+	private void LoadReferencedTypes(ObjectPlacement placement)
+	{
+		string[] keys = LevelBindingResourceType.GetReferencedObjectTypes(new[] { placement }, Editor.GameContext.ResourceTree)
+			.Where(key => FindType(key) == null).ToArray();
+		if (keys.Length == 0 || _loadTask != null)
+		{
+			return;
+		}
+		_typeSession ??= new ResourceSession(Editor.GameContext.ResourceTree);
+		foreach (string key in keys)
+		{
+			_typeSession.PushDependency(key);
+		}
+		_loadingKey = null;
+		_loadTask = _typeSession.LoadAsync();
+		Editor.ShowMessage($"Loading {string.Join(", ", keys.Select(ShortName))}...");
 	}
 
 	/// <summary>The editor finds objects by ID, so each placement must have a different ID.</summary>

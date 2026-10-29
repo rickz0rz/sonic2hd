@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -27,7 +29,20 @@ public sealed class LuaObjectType : ObjectType, IStateTableType
 
 	private IReadOnlyList<ObjectEditorProperty> _stateProperties = Array.Empty<ObjectEditorProperty>();
 
-	internal LuaState Lua { get; }
+	/// <summary>The time between two checks of the script file for changes, in milliseconds.</summary>
+	private const long ReloadCheckInterval = 500;
+
+	/// <summary>The script file of a mod folder, or null when the script is in a resource file.</summary>
+	private string _sourcePath;
+
+	private DateTime _sourceTime;
+
+	private long _lastReloadCheck;
+
+	internal LuaState Lua { get; private set; }
+
+	/// <summary>Changes on each reload of the script. An object then starts again with the new script.</summary>
+	internal int Generation { get; private set; }
 
 	internal LuaValue MakeSelf { get; private set; }
 
@@ -70,13 +85,74 @@ public sealed class LuaObjectType : ObjectType, IStateTableType
 		});
 	}
 
-	public static async Task<LuaObjectType> LoadAsync(Resource resource, string source, CancellationToken ct = default)
+	public static async ValueTask<LuaObjectType> LoadAsync(Resource resource, string source, CancellationToken ct = default)
 	{
 		LuaObjectType type = new LuaObjectType(resource);
 		await type.Lua.DoStringAsync(LuaPrelude.Source, "prelude", ct);
 		await type.Lua.DoStringAsync(source, resource?.FullKeyPath ?? "script", ct);
 		type.ReadDefinition();
+		// A script in a mod folder reloads when its file changes
+		if (resource?.Source is FileResourceSource file && file.Offset == 0 && File.Exists(file.Path))
+		{
+			type._sourcePath = file.Path;
+			type._sourceTime = File.GetLastWriteTimeUtc(file.Path);
+		}
 		return type;
+	}
+
+	/// <summary>
+	/// Loads the script again when its file changed. A script with an error does not replace the old script. The
+	/// objects of the type start again with the new script on their next call (see <see cref="Generation"/>).
+	/// </summary>
+	public void ReloadIfChanged()
+	{
+		long now = Environment.TickCount64;
+		if (_sourcePath == null || now - _lastReloadCheck < ReloadCheckInterval)
+		{
+			return;
+		}
+		_lastReloadCheck = now;
+		try
+		{
+			DateTime time = File.GetLastWriteTimeUtc(_sourcePath);
+			if (time == _sourceTime)
+			{
+				return;
+			}
+			_sourceTime = time;
+			ValueTask<LuaObjectType> load = LoadAsync(Resource, File.ReadAllText(_sourcePath));
+			if (!load.IsCompleted)
+			{
+				throw new InvalidOperationException("The script waits while it loads.");
+			}
+			LuaObjectType reloaded = load.GetAwaiter().GetResult();
+			Lua = reloaded.Lua;
+			_dependencyKeys.Clear();
+			foreach (KeyValuePair<string, string> pair in reloaded._dependencyKeys)
+			{
+				_dependencyKeys[pair.Key] = pair.Value;
+			}
+			_savedDefaults.Clear();
+			foreach (KeyValuePair<string, LuaValue> pair in reloaded._savedDefaults)
+			{
+				_savedDefaults[pair.Key] = pair.Value;
+			}
+			_stateProperties = reloaded._stateProperties;
+			SetMetadata(reloaded.Name, reloaded.Description, reloaded.Classification, reloaded.Dependencies, reloaded.EditorProperties);
+			MakeSelf = reloaded.MakeSelf;
+			StartFunction = reloaded.StartFunction;
+			UpdateFunction = reloaded.UpdateFunction;
+			AnimateFunction = reloaded.AnimateFunction;
+			DrawFunction = reloaded.DrawFunction;
+			CollisionFunction = reloaded.CollisionFunction;
+			StopFunction = reloaded.StopFunction;
+			Generation++;
+			Trace.WriteLine($"Reloaded the script {ResourceKey}");
+		}
+		catch (Exception ex)
+		{
+			Trace.WriteLine($"The script {ResourceKey} did not reload: {ex.Message}");
+		}
 	}
 
 	public override ActiveObject CreateInstance() => new LuaActiveObject();

@@ -48,6 +48,11 @@
         <button id="forget" class="button secondary" hidden>Delete stored files</button>
       </div>
       <div id="stored"></div>
+      <p>Optional: mods. Choose .dat files, or zips of mod folders such as the Lua examples.</p>
+      <div class="buttons">
+        <label class="button secondary">Choose mods<input id="mods" type="file" accept=".dat,.zip" multiple></label>
+      </div>
+      <div id="mods-chosen"></div>
       <div id="status">Loading runtime…</div>
       <div class="buttons">
         <button id="go" class="button" disabled>Go</button>

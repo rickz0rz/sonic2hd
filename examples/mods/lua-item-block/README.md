@@ -13,6 +13,16 @@ The API of the scripts is a first version (API 1). It can change. See `docs/lua-
 2. Start the game with the level editor, for example `--level ehz --editor`.
 3. In the Objects tool, click `LUAITEMBLOCK`, then click in the level.
 
+In the web build, click "Choose mods" before Go, and choose a zip of the `lua-item-block` folder.
+
+## Change the contents of a block
+
+The `contents` property of a block is a dependency name of the script, for example `coin`, or the key of an object type, for example `SONICORCA/OBJECTS/RING`. The level loads each object type that a property names, so the block can make it.
+
+## Change a script while the game runs
+
+The game reads a script in a mod folder again when its file changes. Each object of the type then starts again with the new script. The `saved` values stay. A script with an error does not replace the old script, and the log shows the error.
+
 ## The files of an object
 
 Each object is a folder in `SONICORCA/OBJECTS`:
