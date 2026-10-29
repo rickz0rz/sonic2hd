@@ -283,22 +283,24 @@ Two pure C# engines to check are MoonSharp and Lua-CSharp. The spike must check 
 
 ## Example
 
-This sketch shows the item block of the use case as a Tier 1 script. The names are not final.
+This is the item block of the spike (#202), in `examples/mods/lua-item-block`. The API can change before the first release.
 
 ```lua
--- An item block. A hit from below makes an object on its top, then the block is used.
+-- An item block. A character that hits it from below gets rings, and an object comes out on its top.
+-- Then the block is used: it is still solid, but it does not react to more hits.
 object {
   api = 1,
   name = "Item block",
-  description = "Makes an object on its top when a character hits it from below",
+  description = "Gives rings and makes an object on its top when a character hits it from below",
   classification = "general",
   dependencies = {
     animations = "/ANIGROUP",
-    sound = "SONICORCA/SOUND/BLOCKHIT",
+    sound = "SONICORCA/SOUND/BREAKABLE",
+    coin = "SONICORCA/OBJECTS/LUACOIN",
   },
   -- The level editor shows these values
-  state = { contents = "MODS/SMW/OBJECTS/COIN" },
-  -- These values stay when the block goes out of view. The editor does not show them.
+  state = { rings = 1, contents = "coin" },
+  -- These values stay when the block goes out of view
   saved = { used = false },
 }
 
@@ -307,31 +309,26 @@ local BOTTOM = 1
 local ANIMATION_READY, ANIMATION_HIT, ANIMATION_USED = 0, 1, 2
 
 function start(self)
-  self.design_bounds = { -SIZE / 2, -SIZE / 2, SIZE, SIZE }
+  self:set_design_bounds(-SIZE / 2, -SIZE / 2, SIZE, SIZE)
   self.sprite = self:animation("animations", self.saved.used and ANIMATION_USED or ANIMATION_READY)
-  -- A solid square. The bottom line has an ID, so that a hit from below is known.
+  -- A solid square. The bottom side has an ID, so that a hit from below is known.
   self:set_solid_box(-SIZE / 2, -SIZE / 2, SIZE, SIZE, { bottom = BOTTOM })
 end
 
 function collision(self, event)
-  local character = event.other.character
-  if self.saved.used or not character or event.line_id ~= BOTTOM then
+  local character = event.character
+  if self.saved.used or character == nil or event.id ~= BOTTOM or character.is_debug then
     return
   end
   -- Bounce the character down, as the monitor does
-  character.velocity = { character.velocity.x, -character.velocity.y }
+  character.velocity_y = -character.velocity_y
   event.maintain_velocity = true
+  character:gain_rings(self.state.rings)
   self.saved.used = true
+  -- The hit animation shows the block move up, then the used block (see ANIGROUP)
   self.sprite.index = ANIMATION_HIT
-  sound.play("sound")
-  objects.add(self.state.contents, { self.position.x, self.position.y - SIZE }, self.layer)
-end
-
-function animate(self)
-  -- The hit animation plays one time, then the block shows as used
-  if self.sprite.index == ANIMATION_HIT and self.sprite.finished then
-    self.sprite.index = ANIMATION_USED
-  end
+  self:play_sound("sound")
+  self:spawn(self.state.contents, self.x, self.y - SIZE)
 end
 
 function draw(self)
