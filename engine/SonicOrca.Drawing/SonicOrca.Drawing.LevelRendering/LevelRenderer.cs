@@ -303,7 +303,12 @@ public class LevelRenderer : ILevelRenderer, IDisposable
 		// Draw the casting layers again, moved by the shadow displacement, only where the stencil is 1
 		foreach (LevelLayerShadow shadow in rlayer.Layer.Shadows)
 		{
-			RenderingLayer renderingLayer = _renderingLayers[rlayer.LayerIndex + shadow.LayerIndexOffset];
+			int casterIndex = rlayer.LayerIndex + shadow.LayerIndexOffset;
+			if (casterIndex < 0 || casterIndex >= _renderingLayers.Length)
+			{
+				continue;
+			}
+			RenderingLayer renderingLayer = _renderingLayers[casterIndex];
 			TileRenderer.ShadowColour = shadow.Colour;
 			DrawBackObjects(renderer, viewport, viewOptions, renderingLayer);
 			tr.ModelMatrix = Matrix4.CreateTranslation(shadow.Displacement);

@@ -65,9 +65,17 @@ public class LevelMapWriter
 	/// <param name="collision">Write the collision paths and vectors.</param>
 	/// <param name="markers">Write the markers.</param>
 	/// <param name="scroll">Write the scroll settings of each layer: the row definitions, the Y parallax, the Y offset and the wrap.</param>
-	public void Patch(XmlDocument document, bool tiles, bool collision, bool markers, bool scroll = false)
+	/// <param name="documentLayers">
+	/// The layer of each layer element of the document, when the layers of the map changed. The patch then removes the
+	/// element of each layer that the map does not have, and adds an element for each new layer of the map.
+	/// </param>
+	public void Patch(XmlDocument document, bool tiles, bool collision, bool markers, bool scroll = false, IReadOnlyList<LevelLayer> documentLayers = null)
 	{
 		XmlNode mapNode = document.SelectSingleNode("map") ?? throw new InvalidOperationException("The document has no map element.");
+		if (documentLayers != null)
+		{
+			PatchLayerList(document, documentLayers);
+		}
 		if (tiles || scroll)
 		{
 			XmlNode[] layerNodes = document.SelectNodes("map/tiles//layer").OfType<XmlNode>().ToArray();
@@ -120,6 +128,49 @@ public class LevelMapWriter
 		}
 	}
 
+	private void PatchLayerList(XmlDocument document, IReadOnlyList<LevelLayer> documentLayers)
+	{
+		XmlNode[] layerNodes = document.SelectNodes("map/tiles//layer").OfType<XmlNode>().ToArray();
+		if (layerNodes.Length != documentLayers.Count)
+		{
+			throw new InvalidOperationException("The layers of the document are not the layers of the map.");
+		}
+		Dictionary<LevelLayer, XmlNode> nodes = new Dictionary<LevelLayer, XmlNode>();
+		for (int i = 0; i < layerNodes.Length; i++)
+		{
+			if (_levelMap.Layers.Contains(documentLayers[i]))
+			{
+				nodes[documentLayers[i]] = layerNodes[i];
+				// A shadow refers to its caster by an index offset, so the offsets can change
+				LevelLayer layer = documentLayers[i];
+				ReplaceElement(document, layerNodes[i], "shadows", layer.Shadows.Count > 0 ? xmlWriter => WriteShadows(xmlWriter, layer) : null);
+			}
+			else
+			{
+				layerNodes[i].ParentNode.RemoveChild(layerNodes[i]);
+			}
+		}
+		// A new layer goes after the element of the layer before it, or at the start of the tiles when it is the first layer
+		XmlNode previous = null;
+		foreach (LevelLayer layer in _levelMap.Layers)
+		{
+			if (!nodes.TryGetValue(layer, out XmlNode node))
+			{
+				node = CreateFragmentNode(document, xmlWriter => WriteLevelLayerTreeNode(xmlWriter, layer));
+				if (previous != null)
+				{
+					previous.ParentNode.InsertAfter(node, previous);
+				}
+				else
+				{
+					XmlNode tilesNode = document.SelectSingleNode("map/tiles") ?? document.SelectSingleNode("map").AppendChild(document.CreateElement("tiles"));
+					tilesNode.InsertBefore(node, tilesNode.FirstChild);
+				}
+			}
+			previous = node;
+		}
+	}
+
 	private static void PatchScroll(XmlDocument document, XmlNode layerNode, LevelLayer layer)
 	{
 		ReplaceElement(document, layerNode, "rowdefinitions", layer.LayerRowDefinitions.Count > 0 ? xmlWriter => WriteRowDefinitions(xmlWriter, layer) : null);
@@ -148,18 +199,7 @@ public class LevelMapWriter
 	private static void ReplaceElement(XmlDocument document, XmlNode parent, string name, Action<XmlWriter> write)
 	{
 		XmlNode oldNode = parent.SelectSingleNode(name);
-		XmlNode newNode = null;
-		if (write != null)
-		{
-			StringBuilder text = new StringBuilder();
-			using (XmlWriter xmlWriter = XmlWriter.Create(text, new XmlWriterSettings { ConformanceLevel = ConformanceLevel.Fragment, Indent = true }))
-			{
-				write(xmlWriter);
-			}
-			XmlDocumentFragment fragment = document.CreateDocumentFragment();
-			fragment.InnerXml = text.ToString();
-			newNode = fragment.FirstChild;
-		}
+		XmlNode newNode = write != null ? CreateFragmentNode(document, write) : null;
 		if (oldNode != null && newNode != null)
 		{
 			parent.ReplaceChild(newNode, oldNode);
@@ -172,6 +212,19 @@ public class LevelMapWriter
 		{
 			parent.AppendChild(newNode);
 		}
+	}
+
+	/// <summary>Makes a node of the document from the output of a write method.</summary>
+	private static XmlNode CreateFragmentNode(XmlDocument document, Action<XmlWriter> write)
+	{
+		StringBuilder text = new StringBuilder();
+		using (XmlWriter xmlWriter = XmlWriter.Create(text, new XmlWriterSettings { ConformanceLevel = ConformanceLevel.Fragment, Indent = true }))
+		{
+			write(xmlWriter);
+		}
+		XmlDocumentFragment fragment = document.CreateDocumentFragment();
+		fragment.InnerXml = text.ToString();
+		return fragment.FirstChild;
 	}
 
 	private void WriteCollision(XmlWriter xmlWriter)
@@ -242,6 +295,36 @@ public class LevelMapWriter
 				((tileValue & FlipVerticalFlag) != 0 ? "v" : string.Empty) +
 				(tileValue & TileIndexMask).ToString(CultureInfo.InvariantCulture);
 		}));
+	}
+
+	private static void WriteShadows(XmlWriter xmlWriter, LevelLayer layer)
+	{
+		xmlWriter.WriteStartElement("shadows");
+		foreach (LevelLayerShadow shadow in layer.Shadows)
+		{
+			xmlWriter.WriteStartElement("shadow");
+			if (!shadow.Tiles)
+			{
+				xmlWriter.WriteAttributeString("tiles", "false");
+			}
+			if (!shadow.Objects)
+			{
+				xmlWriter.WriteAttributeString("objects", "false");
+			}
+			xmlWriter.WriteAttributeString("layerIndexOffset", shadow.LayerIndexOffset.ToString(CultureInfo.InvariantCulture));
+			xmlWriter.WriteAttributeString("dx", shadow.Displacement.X.ToString(CultureInfo.InvariantCulture));
+			xmlWriter.WriteAttributeString("dy", shadow.Displacement.Y.ToString(CultureInfo.InvariantCulture));
+			if (shadow.Softness != 0)
+			{
+				xmlWriter.WriteAttributeString("softness", shadow.Softness.ToString(CultureInfo.InvariantCulture));
+			}
+			if (shadow.Colour != LevelLayerShadow.DefaultShadowColour)
+			{
+				xmlWriter.WriteAttributeString("colour", shadow.Colour.ToHexString());
+			}
+			xmlWriter.WriteEndElement();
+		}
+		xmlWriter.WriteEndElement();
 	}
 
 	private static void WriteRowDefinitions(XmlWriter xmlWriter, LevelLayer layer)
@@ -337,32 +420,7 @@ public class LevelMapWriter
 		}
 		if (layer.Shadows.Count > 0)
 		{
-			xmlWriter.WriteStartElement("shadows");
-			foreach (LevelLayerShadow shadow in layer.Shadows)
-			{
-				xmlWriter.WriteStartElement("shadow");
-				if (!shadow.Tiles)
-				{
-					xmlWriter.WriteAttributeString("tiles", "false");
-				}
-				if (!shadow.Objects)
-				{
-					xmlWriter.WriteAttributeString("objects", "false");
-				}
-				xmlWriter.WriteAttributeString("layerIndexOffset", shadow.LayerIndexOffset.ToString(CultureInfo.InvariantCulture));
-				xmlWriter.WriteAttributeString("dx", shadow.Displacement.X.ToString(CultureInfo.InvariantCulture));
-				xmlWriter.WriteAttributeString("dy", shadow.Displacement.Y.ToString(CultureInfo.InvariantCulture));
-				if (shadow.Softness != 0)
-				{
-					xmlWriter.WriteAttributeString("softness", shadow.Softness.ToString(CultureInfo.InvariantCulture));
-				}
-				if (shadow.Colour != LevelLayerShadow.DefaultShadowColour)
-				{
-					xmlWriter.WriteAttributeString("colour", shadow.Colour.ToHexString());
-				}
-				xmlWriter.WriteEndElement();
-			}
-			xmlWriter.WriteEndElement();
+			WriteShadows(xmlWriter, layer);
 		}
 		if (layer.Rows > 0)
 		{

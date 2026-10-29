@@ -67,6 +67,9 @@ internal sealed class TilesTool : EditorTool
 
 	private bool _painting;
 
+	/// <summary>The layer that the next click on "Remove" removes, or -1. A removal needs a second click.</summary>
+	private int _confirmRemove = -1;
+
 	/// <summary>The properties panel shows the scroll settings of the layer, in place of the brush and the palette.</summary>
 	private bool _scrollPage;
 
@@ -205,18 +208,40 @@ internal sealed class TilesTool : EditorTool
 
 	public override IReadOnlyList<EditorListRow> GetListRows()
 	{
-		return Layers.Select((layer, index) => new EditorListRow
+		List<EditorListRow> rows = Layers.Select((layer, index) => new EditorListRow
 		{
 			Text = $"{index}: {layer.Name}",
 			Detail = GetSolidMark(index) + (layer.Rows > 0 ? $"{layer.Columns} x {layer.Rows}" : "empty"),
 			DetailColour = IsSolidLayer(index) ? SolidColour : null,
 			Active = index == _layerIndex,
 			Dim = !layer.Visible
-		}).ToArray();
+		}).ToList();
+		// The two rows after the layers add and remove a layer
+		rows.Add(new EditorListRow { Text = "Add a layer", Detail = $"in front of {_layerIndex}" });
+		rows.Add(new EditorListRow
+		{
+			Text = _confirmRemove == _layerIndex ? $"Click again to remove layer {_layerIndex}" : "Remove layer",
+			Detail = _confirmRemove == _layerIndex ? "no undo" : $"{_layerIndex}",
+			DetailColour = _confirmRemove == _layerIndex ? SolidColour : null,
+			Dim = GetRemoveProblem() != null
+		});
+		return rows;
 	}
 
 	public override void OnListClick(int index, int direction)
 	{
+		int confirmRemove = _confirmRemove;
+		_confirmRemove = -1;
+		if (index == Layers.Count)
+		{
+			AddLayer();
+			return;
+		}
+		if (index == Layers.Count + 1)
+		{
+			RemoveLayer(confirmRemove == _layerIndex);
+			return;
+		}
 		if (index >= 0 && index < Layers.Count && index != _layerIndex)
 		{
 			_layerIndex = index;
@@ -229,6 +254,63 @@ internal sealed class TilesTool : EditorTool
 				ShowLayerAlone();
 			}
 		}
+	}
+
+	/// <summary>Puts an empty layer in front of the current layer, with its size and its scroll settings.</summary>
+	private void AddLayer()
+	{
+		LevelLayer layer = EditorLayerList.CreateLayerLike(Editor.Level.Map, Layer);
+		int index = _layerIndex + 1;
+		Editor.ChangeLayers(map => EditorLayerList.Insert(map, index, layer));
+		SelectLayer(index);
+		Editor.ShowMessage($"Added layer {index}: {layer.Name}. Undo cannot remove it, so the undo history is clear.");
+	}
+
+	/// <summary>The reason that the current layer cannot be removed, or null.</summary>
+	private string GetRemoveProblem()
+	{
+		if (Layers.Count <= 1)
+		{
+			return "The map must have a layer.";
+		}
+		if (IsSolidLayer(_layerIndex))
+		{
+			return "Sonic and the objects collide with this layer, so it cannot be removed.";
+		}
+		int objects = Editor.Placements.Count(p => p.Layer == _layerIndex);
+		int markers = Editor.Markers.Count(m => m.Layer == Layer);
+		if (objects > 0 || markers > 0)
+		{
+			return $"This layer has {objects} objects and {markers} markers. Move them to another layer first.";
+		}
+		return null;
+	}
+
+	private void RemoveLayer(bool confirmed)
+	{
+		if (GetRemoveProblem() is string problem)
+		{
+			Editor.ShowMessage(problem);
+			return;
+		}
+		if (!confirmed)
+		{
+			_confirmRemove = _layerIndex;
+			Editor.ShowMessage($"Click again to remove layer {_layerIndex}: {Layer.Name}. Undo cannot bring it back.");
+			return;
+		}
+		string name = Layer.Name;
+		int index = _layerIndex;
+		Editor.ChangeLayers(map => EditorLayerList.Remove(map, index));
+		SelectLayer(Math.Min(index, Layers.Count - 1));
+		Editor.ShowMessage($"Removed layer {index}: {name}. The undo history is clear.");
+	}
+
+	/// <summary>Makes a layer the current layer, after a change of the layers.</summary>
+	private void SelectLayer(int index)
+	{
+		_layerIndex = -1;
+		OnListClick(index, 1);
 	}
 
 	#endregion

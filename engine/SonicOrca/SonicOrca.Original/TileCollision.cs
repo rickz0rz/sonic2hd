@@ -128,6 +128,9 @@ public sealed class TileCollision
 		return LevelImport.GetCollisionLines(blocks, Primary, Secondary, Heights);
 	}
 
+	/// <summary>The same data for the front layer at another index, after a change of the layers of the map.</summary>
+	public TileCollision WithLayer(int layer) => new TileCollision(layer, Columns, Rows, Heights, Primary, Secondary, _solidity);
+
 	public TileCollision Clone() => new TileCollision(Layer, Columns, Rows, Heights, Primary, Secondary, (byte[])_solidity.Clone());
 
 	/// <summary>Writes the data as XML, with the tables in base 64.</summary>
