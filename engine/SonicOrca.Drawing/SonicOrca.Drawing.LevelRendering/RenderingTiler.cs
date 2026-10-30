@@ -15,6 +15,9 @@ internal class RenderingTiler
 	// The low bits of a tile value hold the tile index. The high bits hold flags.
 	private const int TileIndexMask = 0xFFF;
 
+	/// <summary>The dark overlay on the copies of a wrapped layer in the editor view.</summary>
+	private static readonly Colour RepeatedOverlay = new Colour(0.55, 0.0, 0.0, 0.0);
+
 	private readonly Level _level;
 
 	private readonly TileSet _tileSet;
@@ -40,7 +43,8 @@ internal class RenderingTiler
 	}
 
 	/// <summary>
-	/// Goes down the viewport one strip at a time and adds the tiles of each strip.
+	/// Goes down the viewport one strip at a time and adds the tiles of each strip. In the editor view of a layer, the
+	/// layer is at its level positions, and the copies that the wrap makes are marked as repeated.
 	/// </summary>
 	private void PrepareTilesVertical(RenderingLayer renderingLayer, Viewport viewport)
 	{
@@ -50,7 +54,7 @@ internal class RenderingTiler
 			return;
 		}
 		bool editing = layer.Editing;
-		bool wrapY = !editing && layer.WrapY;
+		bool wrapY = layer.WrapY;
 		int offsetY = ((!editing) ? layer.OffsetY : 0);
 		double parallaxY = (editing ? 1.0 : layer.ParallaxY);
 		int layerHeight = layer.Rows * TileSize;
@@ -59,18 +63,22 @@ internal class RenderingTiler
 		{
 			return;
 		}
-		int sourceY = startSourceY % layerHeight;
+		int sourceY = wrapY ? (startSourceY % layerHeight + layerHeight) % layerHeight : startSourceY % layerHeight;
 		int destinationY = viewport.Destination.Y + offsetY;
+		// The level position of the strip, for the editor view
+		int levelY = startSourceY;
 		while (destinationY < viewport.Destination.Bottom / viewport.Scale.Y)
 		{
 			int height = layerHeight - sourceY;
-			PrepareTilesHorizontal(renderingLayer, viewport, sourceY, destinationY, ref height);
+			bool repeatedY = editing && (levelY < 0 || levelY >= layerHeight);
+			PrepareTilesHorizontal(renderingLayer, viewport, sourceY, destinationY, repeatedY, ref height);
 			if (height <= 0)
 			{
 				break;
 			}
 			sourceY += height;
 			destinationY += height;
+			levelY += height;
 			if (wrapY)
 			{
 				sourceY %= layerHeight;
@@ -85,13 +93,13 @@ internal class RenderingTiler
 	/// <summary>
 	/// Adds the tiles of one horizontal strip. The strip height can become smaller to stop at a tile or row boundary.
 	/// </summary>
-	private void PrepareTilesHorizontal(RenderingLayer renderingLayer, Viewport viewport, int sourceY, int destinationY, ref int height)
+	private void PrepareTilesHorizontal(RenderingLayer renderingLayer, Viewport viewport, int sourceY, int destinationY, bool repeatedY, ref int height)
 	{
 		LevelLayer layer = renderingLayer.Layer;
 		bool editing = layer.Editing;
 		int layerWidth = layer.Columns * TileSize;
 		int layerHeight = layer.Rows * TileSize;
-		bool wrapX = !editing && layer.WrapX;
+		bool wrapX = layer.WrapX;
 		double parallax = (editing ? 1.0 : layer.ParallaxY);
 		int rowOffset = 0;
 		LayerRowDefinition rowDefinition = layer.GetRowDefinitionAt(sourceY, out int rowTop);
@@ -124,6 +132,8 @@ internal class RenderingTiler
 			return;
 		}
 		int startSourceX = (int)(viewport.Bounds.X * parallax) - rowOffset;
+		// The level position of the tile, for the editor view
+		int levelX = startSourceX;
 		if (wrapX)
 		{
 			while (startSourceX < 0)
@@ -165,7 +175,8 @@ internal class RenderingTiler
 					Layer = layer,
 					TileIndex = tileValue,
 					Source = source,
-					Destination = destination
+					Destination = destination,
+					Repeated = repeatedY || (editing && (levelX - sourceX % TileSize < 0 || levelX - sourceX % TileSize >= layerWidth))
 				};
 				if (!renderingLayer.IsAreaClipped(viewport, destination))
 				{
@@ -174,6 +185,7 @@ internal class RenderingTiler
 			}
 			sourceX += stepX;
 			destinationX += stepX;
+			levelX += stepX;
 			if (wrapX)
 			{
 				sourceX %= layerWidth;
@@ -214,6 +226,15 @@ internal class RenderingTiler
 			if (_tileSet.TryGetValue(tileRenderInfo.TileIndex, out ITile tileDefinition) && tileDefinition is TileSequence tileSequence)
 			{
 				tileSequence.Draw(g, tileRenderInfo.TileIndex, tileRenderInfo.Source, tileRenderInfo.Destination);
+			}
+		}
+		for (int i = startIndex; i <= endIndex; i++)
+		{
+			TileRenderInfo tileRenderInfo = _renderingTileList[i];
+			if (tileRenderInfo.Repeated)
+			{
+				g.BlendMode = BlendMode.Alpha;
+				g.RenderQuad(RepeatedOverlay, tileRenderInfo.Destination);
 			}
 		}
 	}
