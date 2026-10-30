@@ -26,7 +26,7 @@ public static class OriginalImport
 	/// The version of the import. Change it when a change of the importers changes the mods, so that the web build
 	/// makes its stored mods again.
 	/// </summary>
-	public const int Version = 8;
+	public const int Version = 9;
 
 	/// <summary>The zones that the import makes, in the order of tools/import-all.sh.</summary>
 	public static readonly IReadOnlyList<string> Zones = new[] { "arz", "cnz", "mcz", "ooz", "mtz", "scz", "wfz", "dez" };
@@ -142,6 +142,11 @@ public static class OriginalImport
 		{
 			using StreamWriter writer = new StreamWriter(Path.Combine(output, $"STAGE{i + 1}.xml"));
 			stages[i].WriteXml(writer);
+		}
+		// The colors of the pipe of each stage, which the game data does not have
+		using (StreamWriter writer = new StreamWriter(Path.Combine(output, SpecialStageColours.FileName)))
+		{
+			SpecialStageColours.Write(writer, SpecialStageColours.Read(disassembly));
 		}
 		// The art of the messages, the START banner and the results screen, which the game data does not have
 		WriteSprites(folder, SpecialStageArt.Import(disassembly));
