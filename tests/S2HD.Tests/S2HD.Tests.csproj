@@ -28,6 +28,9 @@
     <Compile Include="../../S2HD/S2HDSettings.cs" Link="Game/S2HDSettings.cs" />
     <!-- The slot machine logic of Casino Night Zone, which needs only the engine -->
     <Compile Include="../../SONICORCA/OBJECTS/CNZSLOTCAGE/CNZSlotMachine.cs" Link="Game/CNZSlotMachine.cs" />
+    <!-- The list of the levels and the order of the story -->
+    <Compile Include="../../SONICORCA/Core/Levels.cs" Link="Game/Levels.cs" />
+    <Compile Include="../../SONICORCA/Core/LevelInfo.cs" Link="Game/LevelInfo.cs" />
   </ItemGroup>
 
 </Project>

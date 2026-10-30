@@ -99,10 +99,8 @@ internal sealed class LevelSelectScreen : Screen
 
 		public int Acts;
 
-		/// <summary>The number of the level in the story, or 0 for a level that is not in the story (a mod level).</summary>
+		/// <summary>The number of the level in the story, or 0 for a level that is not in the story.</summary>
 		public int Number;
-
-		public bool IsMod;
 	}
 
 	/// <param name="characters">The characters of the levels that the player selects.</param>
@@ -130,13 +128,13 @@ internal sealed class LevelSelectScreen : Screen
 		_yesSound = tree.GetLoadedResource<Sample>(YesSoundResourceKey);
 		_backSound = tree.GetLoadedResource<Sample>(BackSoundResourceKey);
 		int number = 1;
-		foreach (LevelInfo level in Levels.GetAvailableLevels(tree))
+		foreach (LevelInfo level in Levels.GetStoryLevels(tree))
 		{
 			_zones.Add(new Zone { Name = level.Name.ToUpperInvariant(), Mnemonic = level.Mnemonic, Acts = level.Acts, Number = number++ });
 		}
-		foreach (LevelInfo level in Levels.GetModLevels(tree))
+		foreach (LevelInfo level in Levels.GetOtherLevels(tree))
 		{
-			_zones.Add(new Zone { Name = level.Name.ToUpperInvariant(), Mnemonic = level.Mnemonic, Acts = level.Acts, Number = 0, IsMod = true });
+			_zones.Add(new Zone { Name = level.Name.ToUpperInvariant(), Mnemonic = level.Mnemonic, Acts = level.Acts, Number = 0 });
 		}
 		// The sound test plays each music resource of the game and of the mods, in the order of its key
 		_music = tree.GetResourceListing()
@@ -346,7 +344,8 @@ internal sealed class LevelSelectScreen : Screen
 			{
 				g.RenderQuad(PanelColour, new Rectangle(x - 16.0, y - RowHeight / 2.0 + 4.0, 580.0, RowHeight - 8.0));
 			}
-			string name = zone.IsMod ? "* " + zone.Name : zone.Name;
+			// A star marks a level that is not in the story
+			string name = zone.Number == 0 ? "* " + zone.Name : zone.Name;
 			fontRenderer.RenderStringWithShadow(name, new Rectangle(x, y, 0.0, 0.0), FontAlignment.MiddleY, _font, selected ? SelectedColour : TextColour);
 			for (int act = 1; act <= zone.Acts; act++)
 			{
@@ -375,7 +374,7 @@ internal sealed class LevelSelectScreen : Screen
 		string[] words = zone.Name.Split(' ');
 		string first = string.Join(" ", words.TakeWhile(w => w != "ZONE"));
 		fontRenderer.RenderStringWithShadow(first, new Rectangle(panel.X + panel.Width / 2.0, panel.Y + 90.0, 0.0, 0.0), FontAlignment.MiddleX | FontAlignment.MiddleY, _font, Colours.White);
-		string detail = zone.IsMod ? $"MOD LEVEL    ACT {_act}" : $"ACT {_act} OF {zone.Acts}";
+		string detail = zone.Number == 0 ? $"NOT IN STORY    ACT {_act}" : $"ACT {_act} OF {zone.Acts}";
 		fontRenderer.RenderStringWithShadow(detail, new Rectangle(panel.X + panel.Width / 2.0, panel.Y + 230.0, 0.0, 0.0), FontAlignment.MiddleX | FontAlignment.MiddleY, _font, TextColour);
 	}
 

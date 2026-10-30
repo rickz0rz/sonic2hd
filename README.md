@@ -360,7 +360,7 @@ starts:
 publish/S2HD.app/Contents/MacOS/S2HD --level cnz --editor
 ```
 
-The level stops, and the editor shows all the objects of the level. The editor has four tools. Select a tool with
+The level stops, and the editor shows all the objects of the level. The editor has five tools. Select a tool with
 its button or with its key:
 
 - **Objects (1)** changes the objects and the rings. The list has all the object types of the game. A type that the
@@ -378,6 +378,9 @@ its button or with its key:
   blue lines on path 2, and white lines on both. The layer switches select the path. Grey lines are the lines of
   layout changes. Click "Draw lines", then click the points of the lines. Drag the end of a selected line to move
   the point. The other lines that end at that point move with it.
+- **Levels (5)** changes the order of the story. The list shows the levels of the story in their order, then the
+  other levels. Click a level, then click "Move up" or "Move down". Click "In the story" to add the level to the end
+  of the story or to remove it. A mod level can also be in the story. Undo does not change the order.
 
 In the imported zones, the collision follows the tiles: after you paint on the front layer, the editor traces the
 collision of the changed area again, as the import does. Lines that you drew by hand in other areas stay. "Trace
@@ -430,6 +433,10 @@ editor writes them to `mods/editor/unsaved/<ZONE>.dat`. The game does not load t
 move the file to `mods/editor`.
 
 The editor saves the map in a way that keeps all the other data of the map file.
+
+Save writes the order of the story to `mods/editor/LEVELS.dat`. The story, the level select and the next level
+after `--level` use this order. The level select shows the levels that are not in the story after the other levels,
+with a star. To go back to the order of Sonic 2, delete the file.
 
 ### Animation editor
 

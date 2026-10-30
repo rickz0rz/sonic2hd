@@ -47,6 +47,83 @@ internal static class Levels
 		return LevelList.Where(x => x.GameIndex == Sonic2 && IsAvailable(x, resourceTree)).ToArray();
 	}
 
+	/// <summary>
+	/// The resource with the order of the levels of the story, for example
+	/// <c>&lt;levels&gt;&lt;level name="ehz" /&gt;&lt;level name="meadow" /&gt;&lt;/levels&gt;</c>. The level editor
+	/// writes it. Without it, the story has the Sonic 2 levels in the order of the game.
+	/// </summary>
+	public const string OrderResourceKey = "SONICORCA/LEVELS/ORDER";
+
+	/// <summary>
+	/// Returns the levels of the story, in their order. The story skips a level of the order that cannot be played,
+	/// for example a mod level that is not installed.
+	/// </summary>
+	public static IReadOnlyList<LevelInfo> GetStoryLevels(ResourceTree resourceTree)
+	{
+		IReadOnlyList<string> order = ReadOrder(resourceTree);
+		if (order == null)
+			return GetAvailableLevels(resourceTree);
+		IReadOnlyList<LevelInfo> modLevels = GetModLevels(resourceTree);
+		List<LevelInfo> levels = new List<LevelInfo>();
+		foreach (string mnemonic in order.Distinct(StringComparer.OrdinalIgnoreCase))
+		{
+			LevelInfo level = LevelList.FirstOrDefault(x => x.GameIndex == Sonic2 && x.Mnemonic.Equals(mnemonic, StringComparison.OrdinalIgnoreCase));
+			if (level == null)
+				level = modLevels.FirstOrDefault(x => x.Mnemonic.Equals(mnemonic, StringComparison.OrdinalIgnoreCase));
+			else if (!IsAvailable(level, resourceTree))
+				level = null;
+			if (level != null)
+				levels.Add(level);
+		}
+		return levels;
+	}
+
+	/// <summary>Returns the levels that can be played but are not in the story: Sonic 2 levels first, then mod levels.</summary>
+	public static IReadOnlyList<LevelInfo> GetOtherLevels(ResourceTree resourceTree)
+	{
+		IReadOnlyList<LevelInfo> story = GetStoryLevels(resourceTree);
+		return GetAvailableLevels(resourceTree).Concat(GetModLevels(resourceTree))
+			.Where(level => !story.Any(x => x.Mnemonic.Equals(level.Mnemonic, StringComparison.OrdinalIgnoreCase)))
+			.ToArray();
+	}
+
+	/// <summary>Reads the names of the levels in the order resource, or null when there is no order resource.</summary>
+	public static IReadOnlyList<string> ReadOrder(ResourceTree resourceTree)
+	{
+		Resource resource = resourceTree[OrderResourceKey]?.Resource;
+		if (resource == null)
+			return null;
+		try
+		{
+			System.Xml.XmlDocument document = new System.Xml.XmlDocument();
+			using (System.IO.Stream stream = resource.Source.ReadUncompressed())
+				document.Load(stream);
+			return document.SelectNodes("levels/level/@name").OfType<System.Xml.XmlNode>().Select(x => x.Value.ToLowerInvariant()).ToArray();
+		}
+		catch (System.Xml.XmlException)
+		{
+			return null;
+		}
+	}
+
+	/// <summary>Gives the order resource for the names of the levels of the story.</summary>
+	public static byte[] WriteOrder(IEnumerable<string> mnemonics)
+	{
+		using System.IO.MemoryStream stream = new System.IO.MemoryStream();
+		using (System.Xml.XmlWriter writer = System.Xml.XmlWriter.Create(stream, new System.Xml.XmlWriterSettings { Indent = true }))
+		{
+			writer.WriteStartElement("levels");
+			foreach (string mnemonic in mnemonics)
+			{
+				writer.WriteStartElement("level");
+				writer.WriteAttributeString("name", mnemonic.ToLowerInvariant());
+				writer.WriteEndElement();
+			}
+			writer.WriteEndElement();
+		}
+		return stream.ToArray();
+	}
+
 	/// <summary>Returns the resource key of the area of a Sonic 2 level, or null when the level does not exist.</summary>
 	public static string GetAreaResourceKey(string mnemonic)
 	{
@@ -108,13 +185,13 @@ internal static class Levels
 	}
 
 	/// <summary>
-	/// Returns the number of a Sonic 2 level, counted from 1 over the levels that can be played, or -1 when the level
-	/// cannot be played. Story mode uses the same numbers (see <see cref="GetAvailableLevels"/>), so the next level
-	/// after a level from --level is the next level of the story. The comparison ignores case.
+	/// Returns the number of a level in the story, counted from 1, or -1 when the level is not in the story. Story mode
+	/// uses the same numbers (see <see cref="GetStoryLevels"/>), so the next level after a level from --level is the
+	/// next level of the story. The comparison ignores case.
 	/// </summary>
 	public static int GetLevelIndex(string mnemonic, ResourceTree resourceTree)
 	{
-		IReadOnlyList<LevelInfo> levels = GetAvailableLevels(resourceTree);
+		IReadOnlyList<LevelInfo> levels = GetStoryLevels(resourceTree);
 		for (int i = 0; i < levels.Count; i++)
 		{
 			if (levels[i].Mnemonic.Equals(mnemonic, StringComparison.OrdinalIgnoreCase))

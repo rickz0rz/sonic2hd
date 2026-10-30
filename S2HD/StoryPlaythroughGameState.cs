@@ -133,7 +133,7 @@ internal class StoryPlaythroughGameState : IGameState, IDisposable
 			return false;
 		// A zone with more than two acts (Metropolis) goes on with its next act. The level game state plays act 1
 		// and act 2 together.
-		LevelInfo levelInfo = Levels.GetAvailableLevels(_gameContext.ResourceTree).Skip(_levelNumber - 1).FirstOrDefault();
+		LevelInfo levelInfo = Levels.GetStoryLevels(_gameContext.ResourceTree).Skip(_levelNumber - 1).FirstOrDefault();
 		int act = _levelGameState.PrepareSettings.Act;
 		if (levelInfo != null && act >= 2 && act < levelInfo.Acts)
 		{
@@ -144,20 +144,20 @@ internal class StoryPlaythroughGameState : IGameState, IDisposable
 	}
 
 	/// <summary>
-	/// Prepares the level with a number, counted from 1 over the Sonic 2 levels that can be played.
+	/// Prepares the level with a number, counted from 1 over the levels of the story.
 	/// Returns false when there is no such level.
 	/// </summary>
 	private bool SetLevel(int index, int act = 1)
 	{
 		if (_levelGameState != null)
 			_levelGameState.Dispose();
-		LevelInfo levelInfo = Levels.GetAvailableLevels(_gameContext.ResourceTree).Skip(index - 1).FirstOrDefault();
+		LevelInfo levelInfo = Levels.GetStoryLevels(_gameContext.ResourceTree).Skip(index - 1).FirstOrDefault();
 		if (levelInfo == null)
 			return false;
 		_levelGameState = new LevelGameState(_gameContext);
 		_levelGameState.PrepareSettings = new LevelPrepareSettings()
 		{
-			AreaResourceKey = Levels.GetAreaResourceKey(levelInfo.Mnemonic),
+			AreaResourceKey = Levels.GetAreaResourceKey(levelInfo.Mnemonic, _gameContext.ResourceTree),
 			Act = act,
 			Lives = _prepareSettings.Lives,
 			Score = _prepareSettings.Score,
