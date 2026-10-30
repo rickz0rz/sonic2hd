@@ -68,8 +68,16 @@ internal class RootGameState : IGameState, IDisposable
 		{
 			if (_cmdLineArgs.HasOption("ending"))
 			{
-				// --ending plays the ending cutscene of the original and then the credits
-				ChangeGameState(new S2HD.Ending.EndingGameState(_gameContext));
+				// --ending plays the ending cutscene of the original and then the credits. "--ending super" and
+				// "--ending tails" play the ending of Super Sonic and of Tails.
+				string variant = _cmdLineArgs.GetOptionValues("ending").FirstOrDefault()?.ToLowerInvariant();
+				S2HD.Ending.EndingCharacter character = variant switch
+				{
+					"super" => S2HD.Ending.EndingCharacter.SuperSonic,
+					"tails" => S2HD.Ending.EndingCharacter.Tails,
+					_ => S2HD.Ending.EndingCharacter.Sonic
+				};
+				ChangeGameState(new S2HD.Ending.EndingGameState(_gameContext, character));
 				foreach (UpdateResult updateResult in _currentGameState.Update())
 					yield return updateResult;
 				foreach (UpdateResult updateResult in PlayCredits())
@@ -206,10 +214,10 @@ internal class RootGameState : IGameState, IDisposable
 			storyState.StartFrom(settings);
 		foreach (UpdateResult updateResult in _currentGameState.Update())
 			yield return updateResult;
-		// The ending cutscene plays when the player completed the last level. This version has the ending of Sonic only.
-		if (storyState.Finished && S2HD.Ending.EndingGameState.ChooseCharacter(storyState.Settings) == S2HD.Ending.EndingCharacter.Sonic)
+		// The ending cutscene plays when the player completed the last level
+		if (storyState.Finished)
 		{
-			ChangeGameState(new S2HD.Ending.EndingGameState(_gameContext));
+			ChangeGameState(new S2HD.Ending.EndingGameState(_gameContext, S2HD.Ending.EndingGameState.ChooseCharacter(storyState.Settings)));
 			foreach (UpdateResult updateResult in _currentGameState.Update())
 				yield return updateResult;
 		}

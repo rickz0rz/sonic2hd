@@ -235,6 +235,7 @@ normal resource at four times the size of the original, so a mod can replace it:
 |---|---|
 | `PICTURES/1` to `4` | The four photos at the start |
 | `SONIC` | Sonic who falls, and Sonic who waits on the plane |
+| `SUPERSONIC/...`, `TAILS/...` | The same art for the ending of Super Sonic and of Tails: `CHARACTER`, `BIRDS`, `PLANE`, `CLOSEUP`, and `TAILS/PILOT` (Sonic flies the plane) |
 | `CLOUDS` | The clouds that fly past |
 | `TORNADO`, `TORNADO/PILOT` | The plane that comes for Sonic, and Tails in it |
 | `BIRDS` | The birds that fly with the plane |
@@ -249,8 +250,10 @@ stars and the edge of the Earth, the Tornado comes with the birds, and Sonic jum
 of the palette become fades of the images to white. It plays after the last level of the story, before the credits.
 `--ending` plays it and then the credits.
 
-This version has the ending of Sonic. With the 7 emeralds (Super Sonic) or with Tails alone, the game goes to the
-credits.
+The ending has three versions, as in the original. Tails alone gets the ending of Tails: no photos, and Sonic flies
+the plane. Else, with the 7 emeralds, Super Sonic flies next to the plane and past it. Else, Sonic gets the normal
+ending. The original checks only the emeralds, not the rings. `--ending super` and `--ending tails` play the other
+two versions.
 
 ### Original credits
 

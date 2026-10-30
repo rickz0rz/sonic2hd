@@ -72,7 +72,14 @@ internal sealed partial class EndingGameState : IGameState, IDisposable
 
 	private readonly ITexture[] _pictures = new ITexture[PictureCount];
 
-	private AnimationGroup _sonicGroup;
+	/// <summary>The group of the character: Sonic, Super Sonic or Tails.</summary>
+	private AnimationGroup _characterGroup;
+
+	/// <summary>The character of the ending (Ending_Routine).</summary>
+	private readonly EndingCharacter _variant;
+
+	/// <summary>The tails of Tails (Obj05), in the ending of Tails.</summary>
+	private EndingSprite _tails;
 
 	private AnimationGroup _cloudsGroup;
 
@@ -118,9 +125,16 @@ internal sealed partial class EndingGameState : IGameState, IDisposable
 
 	private bool _creditsTriggered;
 
-	public EndingGameState(SonicOrcaGameContext gameContext)
+	public EndingGameState(SonicOrcaGameContext gameContext, EndingCharacter variant = EndingCharacter.Sonic)
 	{
 		_gameContext = gameContext;
+		_variant = variant;
+		if (variant == EndingCharacter.Tails)
+		{
+			// EndingSequence: the ending of Tails has no photos (objoff_2E $10), and it waits $100 frames
+			_pictureIndex = PictureCount;
+			_timer = 0x100;
+		}
 		_random.Seed = (uint)SonicOrca.Core.Debugging.TestHooks.CreateRandom().Next();
 	}
 
@@ -152,8 +166,8 @@ internal sealed partial class EndingGameState : IGameState, IDisposable
 		{
 			_resourceSession.PushDependency(GetPictureKey(i));
 		}
-		_resourceSession.PushDependencies(ResourceKey + "/SONIC/ANIGROUP", ResourceKey + "/CLOUDS/ANIGROUP", ResourceKey + "/TORNADO/ANIGROUP",
-			ResourceKey + "/TORNADO/PILOT/ANIGROUP", ResourceKey + "/BIRDS/ANIGROUP", ResourceKey + "/PLANE/ANIGROUP", ResourceKey + "/CLOSEUP");
+		_resourceSession.PushDependencies(CharacterKey, ResourceKey + "/CLOUDS/ANIGROUP", ResourceKey + "/TORNADO/ANIGROUP",
+			PilotKey, VariantKey + "/BIRDS/ANIGROUP", VariantKey + "/PLANE/ANIGROUP", VariantKey + "/CLOSEUP");
 		bool hasBackground = tree[BackgroundMapKey]?.Resource != null && tree[BackgroundTileSetKey]?.Resource != null;
 		if (hasBackground)
 		{
@@ -177,13 +191,13 @@ internal sealed partial class EndingGameState : IGameState, IDisposable
 		{
 			_pictures[i] = tree.GetLoadedResource<ITexture>(GetPictureKey(i));
 		}
-		_sonicGroup = tree.GetLoadedResource<AnimationGroup>(ResourceKey + "/SONIC/ANIGROUP");
+		_characterGroup = tree.GetLoadedResource<AnimationGroup>(CharacterKey);
 		_cloudsGroup = tree.GetLoadedResource<AnimationGroup>(ResourceKey + "/CLOUDS/ANIGROUP");
 		_tornadoGroup = tree.GetLoadedResource<AnimationGroup>(ResourceKey + "/TORNADO/ANIGROUP");
-		_pilotGroup = tree.GetLoadedResource<AnimationGroup>(ResourceKey + "/TORNADO/PILOT/ANIGROUP");
-		_birdsGroup = tree.GetLoadedResource<AnimationGroup>(ResourceKey + "/BIRDS/ANIGROUP");
-		_planeGroup = tree.GetLoadedResource<AnimationGroup>(ResourceKey + "/PLANE/ANIGROUP");
-		_closeUp = tree.GetLoadedResource<ITexture>(ResourceKey + "/CLOSEUP");
+		_pilotGroup = tree.GetLoadedResource<AnimationGroup>(PilotKey);
+		_birdsGroup = tree.GetLoadedResource<AnimationGroup>(VariantKey + "/BIRDS/ANIGROUP");
+		_planeGroup = tree.GetLoadedResource<AnimationGroup>(VariantKey + "/PLANE/ANIGROUP");
+		_closeUp = tree.GetLoadedResource<ITexture>(VariantKey + "/CLOSEUP");
 		if (hasBackground)
 		{
 			_background = tree.GetLoadedResource<LevelMap>(BackgroundMapKey).Layers.FirstOrDefault();
@@ -251,11 +265,23 @@ internal sealed partial class EndingGameState : IGameState, IDisposable
 					_routine = 0;
 					break;
 				}
-				// The photos end. Plane A clears, and the character comes.
+				// The photos end. Plane A clears, and the character comes with his palette (ObjCA_State5_States).
 				_picture = -1;
-				_character = new EndingSprite(_sonicGroup) { Priority = 2, Line = 0, Animation = EndingArtAnimations.SonicFall };
+				_character = new EndingSprite(_characterGroup) { Priority = 2, Line = 0, Animation = EndingArtAnimations.Fall };
 				AddSprite(_character);
-				StartPaletteFade(8, 0x80);
+				if (_variant == EndingCharacter.Tails)
+				{
+					// Obj05: the tails show nothing while Tails falls, and swish while he waits
+					_tails = new EndingSprite(_characterGroup) { Priority = 2, Line = 0, Animation = EndingArtAnimations.Tails, Visible = false };
+					_tails.Update = sprite =>
+					{
+						sprite.X = _character.X;
+						sprite.Y = _character.Y;
+						sprite.Visible = _character.Visible && _character.Animation == EndingArtAnimations.Wait;
+					};
+					AddSprite(_tails);
+				}
+				StartPaletteFade(_variant switch { EndingCharacter.SuperSonic => 0xC, EndingCharacter.Tails => 0xE, _ => 8 }, 0x80);
 				_timer = 0x40;
 				break;
 			case 0xA:
@@ -277,7 +303,8 @@ internal sealed partial class EndingGameState : IGameState, IDisposable
 					break;
 				}
 				_routine += 2;
-				_timer = 0x100;
+				// The Tornado comes later in the ending of Tails, which has no photos
+				_timer = _variant == EndingCharacter.Tails ? 0x880 : 0x100;
 				break;
 			case 0xE:
 				// loc_A38E: the credits start at frame $1140. The Tornado (ObjCC) comes after $100 frames.
@@ -524,6 +551,19 @@ internal sealed partial class EndingGameState : IGameState, IDisposable
 	}
 
 	private static string GetPictureKey(int index) => $"{ResourceKey}/PICTURES/{index + 1}";
+
+	/// <summary>The folder of the art of the character: the ending of Sonic has its art in the main folder.</summary>
+	private string VariantKey => _variant switch
+	{
+		EndingCharacter.SuperSonic => ResourceKey + "/SUPERSONIC",
+		EndingCharacter.Tails => ResourceKey + "/TAILS",
+		_ => ResourceKey
+	};
+
+	private string CharacterKey => _variant == EndingCharacter.Sonic ? ResourceKey + "/SONIC/ANIGROUP" : VariantKey + "/CHARACTER/ANIGROUP";
+
+	/// <summary>The pilot: Tails, or Sonic when Tails plays alone.</summary>
+	private string PilotKey => _variant == EndingCharacter.Tails ? ResourceKey + "/TAILS/PILOT/ANIGROUP" : ResourceKey + "/TORNADO/PILOT/ANIGROUP";
 }
 
 /// <summary>The character of the ending (Ending_Routine of the original).</summary>
@@ -537,9 +577,13 @@ internal enum EndingCharacter
 /// <summary>The animations of the groups of the ending, as the import makes them (SonicOrca.Original.EndingArt).</summary>
 internal static class EndingArtAnimations
 {
-	public const int SonicFall = 0;
+	/// <summary>The fall, or the run of Super Sonic.</summary>
+	public const int Fall = 0;
 
-	public const int SonicWait = 1;
+	public const int Wait = 1;
+
+	/// <summary>The swish of the tails of Tails.</summary>
+	public const int Tails = 2;
 }
 
 /// <summary>A sprite of the ending: an object of the original with a position, a speed, an animation and a priority.</summary>

@@ -22,11 +22,40 @@ internal sealed partial class EndingGameState
 		(0x108, 0xB8), (0x112, 0xC4), (0x11F, 0xD3), (0x12C, 0xFA)
 	};
 
-	/// <summary>The frames of ObjCF for the Tornado that comes near, in the ending of Sonic (byte_A602).</summary>
-	private static readonly int[] ApproachFrames =
+	/// <summary>
+	/// The frames of ObjCF for the Tornado that comes near: with Sonic on it (byte_A602), without him for Super Sonic
+	/// (byte_A61E), and with Tails on it (byte_A63A).
+	/// </summary>
+	private int[] ApproachFrames => _variant switch
 	{
-		7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 9, 9, 9, 0xA, 0xA, 0xA, 0xB, 0xB, 0xB, 0xB, 0xB, 0xB, 0xB, 0xB, 0xB, 0xB, 0xB
+		EndingCharacter.SuperSonic => new[] { 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4 },
+		EndingCharacter.Tails => new[] { 0x18, 0x18, 0x18, 0x18, 0x19, 0x19, 0x19, 0x19, 0x19, 0x19, 0x19, 9, 9, 9, 0xA, 0xA, 0xA, 0xB, 0xB, 0xB, 0xB, 0xB, 0xB, 0xB, 0xB, 0xB, 0xB, 0xB },
+		_ => new[] { 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 9, 9, 9, 0xA, 0xA, 0xA, 0xB, 0xB, 0xB, 0xB, 0xB, 0xB, 0xB, 0xB, 0xB, 0xB, 0xB }
 	};
+
+	/// <summary>The positions of Super Sonic who flies past the plane (word_A766), and the frames of ObjCF for them (byte_A748).</summary>
+	private static readonly (int X, int Y)[] SuperFlightPositions =
+	{
+		(0xC0, 0x90), (0xB0, 0x91), (0xA8, 0x92), (0x9B, 0x96), (0x99, 0x98), (0x98, 0x99), (0x99, 0x9A), (0x9B, 0x9C),
+		(0x9F, 0x9E), (0xA4, 0xA0), (0xAC, 0xA2), (0xB7, 0xA5), (0xC4, 0xA8), (0xD3, 0xAB), (0xDE, 0xAE), (0xE8, 0xB0),
+		(0xEF, 0xB2), (0xF4, 0xB5), (0xF9, 0xB8), (0xFC, 0xBB), (0xFE, 0xBE), (0xFF, 0xC0), (0x100, 0xC2), (0x101, 0xC5),
+		(0x102, 0xC8), (0x102, 0xCC), (0x101, 0xD1), (0xFD, 0xD7), (0xF9, 0xDE), (0xF9, 0x118)
+	};
+
+	private static readonly int[] SuperFlightFrames =
+	{
+		0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x13, 0x13, 0x13, 0x13, 0x13, 0x13, 0x14, 0x14, 0x14,
+		0x14, 0x15, 0x15, 0x15, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0
+	};
+
+	/// <summary>The positions of Super Sonic who flies away from the close-up (word_A874).</summary>
+	private static readonly (int X, int Y)[] SuperLeavePositions =
+	{
+		(0x60, 0x88), (0x50, 0x68), (0x44, 0x46), (0x3C, 0x36), (0x36, 0x2A), (0x33, 0x24), (0x31, 0x20), (0x30, 0x1E)
+	};
+
+	/// <summary>The animations of the PLANE group: N is frame N with palette line 0, and this number plus N is frame N with line 1.</summary>
+	private const int PlaneFrameCount = 26;
 
 	/// <summary>The scroll of plane A that brings the close-up on the screen (word_A822): x, then y, each 3 frames.</summary>
 	private static readonly (int X, int Y)[] CloseUpSteps =
@@ -36,6 +65,9 @@ internal sealed partial class EndingGameState
 
 	/// <summary>The jump of Sonic from the close-up (byte_A980): the change of the position at each step.</summary>
 	private static readonly (int X, int Y)[] JumpSteps = { (-8, 0), (-0x44, -0x38) };
+
+	/// <summary>The frames of the pilot Sonic, as indices of his pilot group (Sonic_pilot_frames).</summary>
+	private static readonly int[] SonicPilotSequence = { 0, 1, 2, 3 };
 
 	/// <summary>The frames of the pilot, Tails, as indices of the pilot group (Tails_pilot_frames).</summary>
 	private static readonly int[] PilotSequence = { 0, 0, 0, 0, 1, 2, 3, 2, 1, 1, 0, 0, 0, 0, 1, 2, 3, 2, 1, 1, 4, 4, 1, 1 };
@@ -79,7 +111,15 @@ internal sealed partial class EndingGameState
 			// objoff_35: the number of birds
 			Saved = 0x14
 		};
-		_tornado.SetScript(0, 0, 1, 2, 3);
+		// ObjCC_Init: when Tails plays alone, the Tornado has Sonic as the pilot (frames 4 to 7, Ani_objB2_a 1)
+		if (_variant == EndingCharacter.Tails)
+		{
+			_tornado.SetScript(0, 4, 5, 6, 7);
+		}
+		else
+		{
+			_tornado.SetScript(0, 0, 1, 2, 3);
+		}
 		_tornado.Update = UpdateTornado;
 		_pilot = new EndingSprite(_pilotGroup) { Priority = 3, Line = 0, HighPriority = true };
 		AddSprite(_pilot);
@@ -101,22 +141,20 @@ internal sealed partial class EndingGameState
 				}
 				tornado.Routine = 1;
 				tornado.Timer = 0x480;
+				tornado.BaseY = 0x40;
 				tornado.XVelocity = 0;
 				tornado.YVelocity = 0;
 				_cloudsSideways = true;
 				break;
 			case 1:
-				// loc_A4B6: the birds come, and Sonic stands on the plane
+				// loc_A4B6: the birds come, and the character comes to the plane (sub_A524)
 				SpawnBirds(tornado);
-				_character.X = tornado.X;
-				_character.Y = tornado.Y - 0x1C;
-				_character.Animation = EndingArtAnimations.SonicWait;
-				_character.Frame = 0;
+				PlaceCharacterOnPlane(tornado);
 				if (--tornado.Timer >= 0)
 				{
 					break;
 				}
-				// The Tornado comes near: the frames of ObjCF, with Sonic in them
+				// The Tornado comes near: the frames of ObjCF, with the character in them
 				tornado.Routine = 2;
 				tornado.Timer = 2;
 				tornado.Index = 0;
@@ -127,11 +165,12 @@ internal sealed partial class EndingGameState
 				tornado.Animation = ApproachFrames[0];
 				tornado.X -= 0x14;
 				tornado.Y += 0x14;
-				_character.Visible = false;
 				_pilot.Visible = false;
+				HideCharacterUnlessSuper();
 				break;
 			case 2:
 				// loc_A5A6: a new position and frame each 3 frames
+				HideCharacterUnlessSuper();
 				if (--tornado.Timer >= 0)
 				{
 					break;
@@ -147,21 +186,31 @@ internal sealed partial class EndingGameState
 				tornado.Routine = 3;
 				tornado.Timer = 0x60;
 				tornado.Index = 0;
+				tornado.Saved = 0;
 				break;
 			case 3:
-				// loc_A6C6: a wait, then the close-up with the propeller and Sonic
+				// loc_A6C6: a wait. Super Sonic flies past the plane in this time.
 				if (--tornado.Timer >= 0)
 				{
+					if (_variant == EndingCharacter.SuperSonic)
+					{
+						UpdateSuperSonicFlight(tornado);
+					}
 					break;
 				}
+				// loc_A720: the close-up with the propeller, and the character who jumps from it (not Super Sonic)
 				tornado.Routine = 4;
 				tornado.Timer = 0;
 				tornado.Index = 0;
 				AddSprite(CreatePropeller());
-				AddSprite(CreateJumpingSonic());
+				if (_variant != EndingCharacter.SuperSonic)
+				{
+					AddSprite(CreateJumper());
+				}
 				break;
 			case 4:
 				// loc_A7DE: plane A scrolls the close-up on the screen
+				_character.Visible = false;
 				if (--tornado.Timer >= 0)
 				{
 					break;
@@ -174,9 +223,101 @@ internal sealed partial class EndingGameState
 					tornado.Index++;
 					break;
 				}
-				// status.npc.p1_standing: Sonic jumps
+				// status.npc.p1_standing: the character jumps
 				tornado.Routine = 5;
+				tornado.Index = 0;
+				tornado.Saved = 0;
 				break;
+			case 5:
+				// loc_A83E: Super Sonic flies away from the close-up
+				if (_variant == EndingCharacter.SuperSonic)
+				{
+					UpdateSuperSonicLeave(tornado);
+				}
+				break;
+		}
+	}
+
+	/// <summary>
+	/// sub_A524: Sonic and Tails stand on the plane. Super Sonic comes down to the plane for $40 frames, then stays
+	/// next to it.
+	/// </summary>
+	private void PlaceCharacterOnPlane(EndingSprite tornado)
+	{
+		switch (_variant)
+		{
+			case EndingCharacter.SuperSonic:
+				// loc_A55C: half a pixel to the right and one pixel down on each frame
+				if (tornado.BaseY > 0)
+				{
+					tornado.BaseY--;
+					_character.X += 0.5;
+					_character.Y += 1;
+					break;
+				}
+				_character.X = 0xC0;
+				_character.Y = 0x90;
+				break;
+			default:
+				// loc_A53A and loc_A582: the character waits on the plane
+				_character.X = tornado.X;
+				_character.Y = tornado.Y - (_variant == EndingCharacter.Tails ? 0x18 : 0x1C);
+				_character.Animation = EndingArtAnimations.Wait;
+				_character.Frame = 0;
+				break;
+		}
+	}
+
+	/// <summary>sub_A58C: the frames of ObjCF have Sonic and Tails in them, so the character object goes away. Super Sonic stays.</summary>
+	private void HideCharacterUnlessSuper()
+	{
+		if (_variant != EndingCharacter.SuperSonic)
+		{
+			_character.Visible = false;
+		}
+	}
+
+	/// <summary>
+	/// loc_A6C6 for Super Sonic: each 3 frames, the next of the 30 positions of word_A766. For the first 3, Super Sonic
+	/// moves. Then the frames of ObjCF (byte_A748) show him, and the object of the character goes away.
+	/// </summary>
+	private void UpdateSuperSonicFlight(EndingSprite tornado)
+	{
+		if (--tornado.Saved >= 0)
+		{
+			return;
+		}
+		tornado.Saved += 3;
+		int index = tornado.Index++;
+		if (index >= SuperFlightPositions.Length)
+		{
+			return;
+		}
+		(int x, int y) = SuperFlightPositions[index];
+		if (index < 3)
+		{
+			_character.X = x;
+			_character.Y = y;
+			return;
+		}
+		_character.Visible = false;
+		tornado.X = x;
+		tornado.Y = y;
+		tornado.Animation = SuperFlightFrames[index];
+	}
+
+	/// <summary>loc_A83E: Super Sonic (frame $17) flies to the top left, each 3 frames to the next position of word_A874.</summary>
+	private void UpdateSuperSonicLeave(EndingSprite tornado)
+	{
+		tornado.Animation = 0x17;
+		if (--tornado.Saved >= 0)
+		{
+			return;
+		}
+		tornado.Saved += 3;
+		if (tornado.Index < SuperLeavePositions.Length)
+		{
+			(tornado.X, tornado.Y) = SuperLeavePositions[tornado.Index++];
 		}
 	}
 
@@ -190,8 +331,10 @@ internal sealed partial class EndingGameState
 			return;
 		}
 		_pilot.Timer = 8;
-		_pilot.Index = (_pilot.Index + 1) % PilotSequence.Length;
-		_pilot.Animation = PilotSequence[_pilot.Index];
+		// Sonic_pilot_frames has 4 frames, Tails_pilot_frames 24
+		int[] sequence = _variant == EndingCharacter.Tails ? SonicPilotSequence : PilotSequence;
+		_pilot.Index = (_pilot.Index + 1) % sequence.Length;
+		_pilot.Animation = sequence[_pilot.Index];
 	}
 
 	/// <summary>sub_ABBA: a bird at random intervals of up to $F frames, $14 birds in all.</summary>
@@ -279,11 +422,23 @@ internal sealed partial class EndingGameState
 		return propeller;
 	}
 
-	/// <summary>ObjCE: Sonic in the close-up. He moves with plane A, then jumps when the close-up stops.</summary>
-	private EndingSprite CreateJumpingSonic()
+	/// <summary>
+	/// ObjCE: the character in the close-up: Sonic (frame $C), or Tails (frame $F with palette line 1). He moves with
+	/// plane A, then jumps when the close-up stops.
+	/// </summary>
+	private EndingSprite CreateJumper()
 	{
-		EndingSprite sonic = new EndingSprite(_planeGroup) { Priority = 1, Line = 0, HighPriority = true, Animation = 0xC, BaseX = 0xE8, BaseY = 0x118 };
-		sonic.Update = sprite =>
+		int firstFrame = _variant == EndingCharacter.Tails ? PlaneFrameCount + 0xF : 0xC;
+		EndingSprite jumper = new EndingSprite(_planeGroup)
+		{
+			Priority = 1,
+			Line = _variant == EndingCharacter.Tails ? 1 : 0,
+			HighPriority = true,
+			Animation = firstFrame,
+			BaseX = 0xE8,
+			BaseY = 0x118
+		};
+		jumper.Update = sprite =>
 		{
 			switch (sprite.Routine)
 			{
@@ -316,8 +471,8 @@ internal sealed partial class EndingGameState
 					break;
 			}
 		};
-		FollowPlane(sonic);
-		return sonic;
+		FollowPlane(jumper);
+		return jumper;
 	}
 
 	/// <summary>loc_A90E: the position of an object on plane A, with the scroll of plane A.</summary>
