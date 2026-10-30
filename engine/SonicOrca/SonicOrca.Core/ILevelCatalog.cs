@@ -14,6 +14,17 @@ public interface ILevelCatalog
 	/// <summary>Saves a new order of the story, and uses it at once. Returns the path of the file.</summary>
 	/// <param name="mnemonics">The short names of the levels of the story, in their order.</param>
 	string SaveStoryOrder(IReadOnlyList<string> mnemonics);
+
+	/// <summary>
+	/// Makes a new level that uses the tile set of another level, and loads it at once. The new level is not in the
+	/// story. Throws <see cref="System.InvalidOperationException"/> with a message for the user when the level cannot
+	/// be made, for example when the short name is in use.
+	/// </summary>
+	/// <param name="mnemonic">The short name of the new level: letters and digits.</param>
+	/// <param name="name">The name of the new level.</param>
+	/// <param name="tilesFrom">The short name of the level with the tile set.</param>
+	/// <returns>The new level.</returns>
+	LevelCatalogEntry CreateLevel(string mnemonic, string name, string tilesFrom);
 }
 
 /// <summary>A level in the <see cref="ILevelCatalog"/>.</summary>

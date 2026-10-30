@@ -152,9 +152,12 @@ internal static class Levels
 	}
 
 	/// <summary>The name in the INFO file of a mod level, or null.</summary>
-	private static string ReadModLevelName(ResourceTree resourceTree, string folder)
+	private static string ReadModLevelName(ResourceTree resourceTree, string folder) => ReadInfoAttribute(resourceTree, folder, "name");
+
+	/// <summary>An attribute of the INFO file of a mod level, or null when the attribute or the file is missing.</summary>
+	private static string ReadInfoAttribute(ResourceTree resourceTree, string folder, string attribute)
 	{
-		Resource info = resourceTree[$"SONICORCA/LEVELS/{folder}/INFO"]?.Resource;
+		Resource info = resourceTree[$"SONICORCA/LEVELS/{folder.ToUpperInvariant()}/INFO"]?.Resource;
 		if (info == null)
 			return null;
 		try
@@ -162,13 +165,25 @@ internal static class Levels
 			System.Xml.XmlDocument document = new System.Xml.XmlDocument();
 			using (System.IO.Stream stream = info.Source.ReadUncompressed())
 				document.Load(stream);
-			string name = document.DocumentElement?.GetAttribute("name");
-			return string.IsNullOrEmpty(name) ? null : name;
+			string value = document.DocumentElement?.GetAttribute(attribute);
+			return string.IsNullOrEmpty(value) ? null : value;
 		}
 		catch (System.Xml.XmlException)
 		{
 			return null;
 		}
+	}
+
+	/// <summary>
+	/// Returns the key of the tile set of a level: the tile set in the INFO file of a mod level, or the TILESET of the
+	/// level. Returns null when the level has no tile set.
+	/// </summary>
+	public static string GetTileSetResourceKey(string mnemonic, ResourceTree resourceTree)
+	{
+		if (string.IsNullOrEmpty(mnemonic) || !mnemonic.All(char.IsAsciiLetterOrDigit))
+			return null;
+		string key = ReadInfoAttribute(resourceTree, mnemonic, "tileset") ?? $"SONICORCA/LEVELS/{mnemonic.ToUpperInvariant()}/TILESET";
+		return resourceTree[key]?.Resource != null ? key : null;
 	}
 
 	/// <summary>

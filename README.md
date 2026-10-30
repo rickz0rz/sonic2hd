@@ -195,7 +195,9 @@ the properties of the object, and the functions that the game calls on each tick
 objects, and the game loads a script again when its file changes.
 
 A mod can also add a level in `SONICORCA/LEVELS/NAME`, with a tile set, a map, a binding and an `INFO.xml` file.
-`--level NAME` starts it, and the level select shows it after the zones of the game.
+`--level NAME` starts it, and the level select shows it after the zones of the game. With the attribute `tileset`
+in `INFO.xml`, for example `tileset="SONICORCA/LEVELS/EHZ/TILESET"`, the level uses the tile set of another level
+and needs no tile set of its own.
 
 Two example mods are in `examples/mods`. Their READMEs describe the files and the Lua API:
 
@@ -382,7 +384,9 @@ its button or with its key:
   order, then the other levels. Click a level, then click "Open" to edit that level. With changes that are not saved,
   the first click only warns, and a second click opens the level without the changes. Click "Move up" or "Move down"
   to change the position of the level. Click "In the story" to add the level to the end of the story or to remove
-  it. A mod level can also be in the story. Undo does not change the order.
+  it. A mod level can also be in the story. Undo does not change the order. To make a level, click "+ New level".
+  Type a name, and change the short name if necessary. Click "Tiles from" to choose the level with the tiles. Then
+  click "Create" (see "New levels").
 
 In the imported zones, the collision follows the tiles: after you paint on the front layer, the editor traces the
 collision of the changed area again, as the import does. Lines that you drew by hand in other areas stay. "Trace
@@ -435,6 +439,11 @@ editor writes them to `mods/editor/unsaved/<ZONE>.dat`. The game does not load t
 move the file to `mods/editor`.
 
 The editor saves the map in a way that keeps all the other data of the map file.
+
+A new level is a mod folder, `mods/<short name>/`, in the user data folder. It uses the tile set of the level that
+you chose, so the folder has no tiles. The map has an empty background layer, an empty front layer, a floor line, and
+a start position. A signpost near the right end ends the level. The level is not in the story until you add it. The
+editor saves the changes of the level to `mods/editor/<SHORT NAME>.dat`, as for the other levels.
 
 Save writes the order of the story to `mods/editor/LEVELS.dat`. The story, the level select and the next level
 after `--level` use this order. The level select shows the levels that are not in the story after the other levels,
