@@ -59,7 +59,7 @@ internal sealed class LevelsTool : EditorTool
 
 	public override string Hint => _creating
 		? "Type a name, choose the level with the tiles, then click Create. The new level opens in the editor."
-		: "Click a level. Open it, change its name or music, or change the story. A new name or music applies when the level opens again.";
+		: "Click a level. Open it, change its name or music, or change the story. Save, then play, to see a new name. New music plays when the level opens again.";
 
 	public override string Status => $"Levels {_levels.Count}   In the story {_story.Count}";
 
@@ -148,6 +148,7 @@ internal sealed class LevelsTool : EditorTool
 				return false;
 			}
 			_modChanges[level.Mnemonic] = (name, GetMusic(level));
+			Editor.ShowMessage("Save, then play, to see the new name in the title card.");
 			return true;
 		}
 		if (name.Length == 0 || name == level.OriginalName)
@@ -159,6 +160,7 @@ internal sealed class LevelsTool : EditorTool
 			_titles[level.Mnemonic] = name;
 		}
 		_orderDirty = true;
+		Editor.ShowMessage("Save, then play, to see the new name in the title card.");
 		return true;
 	}
 
