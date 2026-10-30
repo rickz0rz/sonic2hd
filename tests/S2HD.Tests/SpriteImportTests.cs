@@ -83,6 +83,27 @@ public sealed class SpriteImportTests
 	}
 
 	[Fact]
+	public void ParseDplc_GivesALabelAloneOnItsLine_TheEntriesOfTheNextHeader()
+	{
+		// Sonic.asm has ".frame86:" before ".frame84: dplcHeader": both frames load the same tiles
+		const string dplc = """
+			.offsets:	mappingsTable
+				mappingsTableEntry.w	.frame0
+				mappingsTableEntry.w	.frame1
+
+			.frame1:
+			.frame0:	dplcHeader
+				dplcEntry	4, $548
+			.frame0_End
+			""";
+
+		List<List<(int Tiles, int Offset)>> frames = SuperSonicArt.ParseDplc(dplc);
+
+		Assert.Equal(new[] { (4, 0x548) }, frames[0]);
+		Assert.Equal(new[] { (4, 0x548) }, frames[1]);
+	}
+
+	[Fact]
 	public void SuperSonicArt_HasAnAnimationForEachCharacterAnimationTheTransformationAndTheWalkVariant()
 	{
 		string disassembly = SpecialStageImportTests.FindDisassembly();

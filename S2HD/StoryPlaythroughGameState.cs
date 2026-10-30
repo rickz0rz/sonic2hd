@@ -23,6 +23,12 @@ internal class StoryPlaythroughGameState : IGameState, IDisposable
 
 	public bool QuitViaOptions { get; private set; }
 
+	/// <summary>True when the player completed the last level of the story.</summary>
+	public bool Finished { get; private set; }
+
+	/// <summary>The settings of the story: the characters, and the lives, the score and the emeralds after the last completed level.</summary>
+	public LevelPrepareSettings Settings => _prepareSettings;
+
 	public StoryPlaythroughGameState(S2HDSonicOrcaGameContext gameContext)
 	{
 		_gameContext = gameContext;
@@ -111,6 +117,7 @@ internal class StoryPlaythroughGameState : IGameState, IDisposable
 				if (!LoadNextLevel())
 				{
 					playNextLevel = false;
+					Finished = true;
 					SonicOrca.Core.Debugging.StoryTest.Log("finished");
 				}
 			}

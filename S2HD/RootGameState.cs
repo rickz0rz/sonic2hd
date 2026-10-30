@@ -66,7 +66,16 @@ internal class RootGameState : IGameState, IDisposable
 		}
 		else
 		{
-			if (_cmdLineArgs.HasOption("credits"))
+			if (_cmdLineArgs.HasOption("ending"))
+			{
+				// --ending plays the ending cutscene of the original and then the credits
+				ChangeGameState(new S2HD.Ending.EndingGameState(_gameContext));
+				foreach (UpdateResult updateResult in _currentGameState.Update())
+					yield return updateResult;
+				foreach (UpdateResult updateResult in PlayCredits())
+					yield return updateResult;
+			}
+			else if (_cmdLineArgs.HasOption("credits"))
 			{
 				foreach (UpdateResult updateResult in PlayCredits())
 					yield return updateResult;
@@ -197,6 +206,13 @@ internal class RootGameState : IGameState, IDisposable
 			storyState.StartFrom(settings);
 		foreach (UpdateResult updateResult in _currentGameState.Update())
 			yield return updateResult;
+		// The ending cutscene plays when the player completed the last level. This version has the ending of Sonic only.
+		if (storyState.Finished && S2HD.Ending.EndingGameState.ChooseCharacter(storyState.Settings) == S2HD.Ending.EndingCharacter.Sonic)
+		{
+			ChangeGameState(new S2HD.Ending.EndingGameState(_gameContext));
+			foreach (UpdateResult updateResult in _currentGameState.Update())
+				yield return updateResult;
+		}
 		// Show the credits only when the player finished the game, not when the player quit from the pause menu.
 		if (!storyState.QuitViaOptions)
 		{
