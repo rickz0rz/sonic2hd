@@ -67,6 +67,9 @@ public class DeathEggRobotInstance : BossObject
 
 	private const int EndingPlayerX = 0xEC0;
 
+	/// <summary>The frames of the fade to white at the end (anim_frame_duration $16 in loc_3D9BE).</summary>
+	private const int EndingFadeFrames = 0x16;
+
 	/// <summary>The right camera limit after the robot is defeated (Camera_Max_X_pos).</summary>
 	public const int EscapeCameraMaxX = 0x1000;
 
@@ -698,8 +701,9 @@ public class DeathEggRobotInstance : BossObject
 	}
 
 	/// <summary>
-	/// ObjC7_SetupEnding: explosions follow the player. In the original, the screen fades to white and the ending
-	/// sequence starts when the player reaches x $EC0. Here the stage completes, and the game shows the credits.
+	/// ObjC7_SetupEnding: explosions follow the player. When the player reaches x $EC0, the screen fades to white in
+	/// $16 frames, and the stage completes. The floor ends at x $F00, so a longer fade lets the player run off the
+	/// floor and fall out of the level.
 	/// </summary>
 	private void UpdateEnding()
 	{
@@ -719,7 +723,7 @@ public class DeathEggRobotInstance : BossObject
 		if (!_fadingOut && (player.Position.X - OriginX) / Scale >= EndingPlayerX)
 		{
 			_fadingOut = true;
-			Level.FadeOut(LevelState.StageCompleted);
+			Level.FadeOutToWhite(LevelState.StageCompleted, EndingFadeFrames);
 		}
 	}
 

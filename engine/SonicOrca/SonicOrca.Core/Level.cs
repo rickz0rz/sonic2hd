@@ -374,6 +374,7 @@ public class Level : IDisposable
 		_waterManager.Load();
 		_fadeTransition.Clear();
 		_fadeToWhite = false;
+		_fadeTransition.Duration = FadeDuration;
 		StateFlags = 0;
 		Ticks = 0;
 		BossFight = false;
@@ -1037,9 +1038,17 @@ public class Level : IDisposable
 		FadeOut(LevelState.SpecialStage);
 	}
 
+	/// <summary>Fades the screen to white in a number of frames, then changes the state of the level.</summary>
+	public void FadeOutToWhite(LevelState finishingState, int frames)
+	{
+		_fadeToWhite = true;
+		_fadeTransition.Duration = frames;
+		FadeOut(finishingState);
+	}
+
 	public void FadeOut(LevelState finishingState)
 	{
-		_soundManager.FadeOutMusic(FadeDuration);
+		_soundManager.FadeOutMusic(_fadeTransition.Duration);
 		_fadeTransition.BeginFadeOut();
 		StateFlags |= LevelStateFlags.FadingOut;
 		_fadeOutToState = finishingState;
