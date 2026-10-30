@@ -1587,6 +1587,21 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		return false;
 	}
 
+	/// <summary>
+	/// True when an angle is a steep angle of Sonic 2: the angle byte is $20 to $5F, or $A0 to $DF. That is from 45
+	/// degrees to the vertical, on each side of a wall.
+	/// </summary>
+	private static bool IsSteepAngle(double angle) => ((((int)Math.Round(angle * 128.0 / Math.PI) & 0xFF) + 0x20) & 0x40) != 0;
+
+	/// <summary>True when a character in the air lands on a vector that is steeper than 45 degrees.</summary>
+	private bool IsLandingOnSteepVector(CollisionVector vector)
+	{
+		int angle = (int)Math.Round(vector.Angle * 128.0 / Math.PI) & 0xFF;
+		bool floor = angle > 0xC1 || angle < 0x3F;
+		bool ceiling = angle > 0x41 && angle < 0xBF;
+		return (floor && Velocity.Y >= 0.0) || (ceiling && Velocity.Y < 0.0);
+	}
+
 	private bool IsLandingViable(CollisionVector vector)
 	{
 		if (vector.Flags.HasFlag(CollisionFlags.NoLanding))
@@ -1599,7 +1614,11 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			case CollisionMode.Top:
 				return Velocity.Y >= 0.0;
 			case CollisionMode.Bottom:
-				if (vector.FlipY != 0 && Velocity.Y < 0.0)
+				// Sonic_DoLevelCollision: a character in the air that moves up lands only on a steep ceiling (angle $40 to
+				// $5F or $A0 to $BF, at least 45 degrees from flat). A flatter ceiling only stops the upward movement. The
+				// check was "the ceiling is not flat", so a ceiling of an imported level with a step of a few units made
+				// the character walk on it. On the ground, for example in a loop, the character goes on to any ceiling.
+				if (Velocity.Y < 0.0 && (Mode == CollisionMode.Air ? IsSteepAngle(vector.Angle) : vector.FlipY != 0))
 				{
 					return true;
 				}
@@ -1614,7 +1633,11 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 				return false;
 			case CollisionMode.Left:
 			case CollisionMode.Right:
-				if (vector.FlipX != 0 && Math.Abs(Velocity.X) >= 0.0)
+				// In the air, the original finds a steep floor only when the character moves down, and a steep ceiling
+				// only when it moves up. A wall at the side (within one step of vertical, $40 or $C0) only stops it. The
+				// check was "the wall is not vertical", so a character that went up along a wall of an imported level
+				// with a lean of a few units ran up the wall. On the ground, the character goes on to any such vector.
+				if (Mode == CollisionMode.Air ? IsLandingOnSteepVector(vector) : vector.FlipX != 0)
 				{
 					return true;
 				}
