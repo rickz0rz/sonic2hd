@@ -315,7 +315,8 @@ internal sealed class LevelSelectScreen : Screen
 		double fade = phase < NameTicks ? 1.0 : 1.0 - (phase - NameTicks) / (double)NameFadeTicks;
 		string name = BackgroundNames[nameIndex];
 		string next = BackgroundNames[(nameIndex + 1) % BackgroundNames.Length];
-		double width = _font.MeasureString(name + "   ").Width;
+		// The names have different widths. One width for all names keeps the rows in place when the name changes.
+		double width = BackgroundNames.Max(n => _font.MeasureString(n + "   ").Width);
 		for (int row = 0; row < 12; row++)
 		{
 			double y = 30.0 + row * 92.0;
