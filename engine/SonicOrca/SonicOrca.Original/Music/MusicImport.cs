@@ -40,7 +40,9 @@ public static class MusicImport
 		// The jingle of the results screen of the special stage (MusID_EndLevel)
 		("9A - End of Act.asm", "SONICORCA/MUSIC/JINGLE/STAGECLEAR/S2"),
 		// The music of Super Sonic (MusID_SuperSonic)
-		("96 - Super Sonic.asm", "SONICORCA/MUSIC/JINGLE/SUPER")
+		("96 - Super Sonic.asm", "SONICORCA/MUSIC/JINGLE/SUPER"),
+		// The music of the original credits (MusID_Credits)
+		("9E - Credits.asm", "SONICORCA/MUSIC/CREDITS/ORIGINAL")
 	};
 
 	/// <summary>

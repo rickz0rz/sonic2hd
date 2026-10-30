@@ -27,7 +27,7 @@ public sealed class OriginalImportTests
 		var steps = OriginalImport.GetSteps(null, _ => { });
 		string[] mods = steps.Select(step => step.Mod).Distinct().ToArray();
 
-		Assert.Equal(OriginalImport.Zones.Concat(new[] { "special-stages", "super-sonic", "demos", "music" }), mods);
+		Assert.Equal(OriginalImport.Zones.Concat(new[] { "special-stages", "super-sonic", "demos", "ending", "music" }), mods);
 		// A mod is packed after its last step, so the steps of a mod must not be split
 		for (int i = 1; i < steps.Count; i++)
 		{
