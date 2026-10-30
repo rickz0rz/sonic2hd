@@ -21,6 +21,9 @@ internal class GLGraphicsContext : IGraphicsContext
 
 	private readonly List<ITexture> _textures = new List<ITexture>();
 
+	/// <summary>The texture units from 0 that can have a texture bound.</summary>
+	private int _boundTextureUnits;
+
 	private readonly List<IShaderProgram> _shaderPrograms = new List<IShaderProgram>();
 
 	private readonly List<VertexBuffer> _vertexBuffers = new List<VertexBuffer>();
@@ -190,9 +193,16 @@ internal class GLGraphicsContext : IGraphicsContext
 		{
 			GL.ActiveTexture(TextureUnit.Texture0 + index);
 			GL.BindTexture(TextureTarget.Texture2D, ((GLTexture)texture).Id);
+			_boundTextureUnits = Math.Max(_boundTextureUnits, index + 1);
 		}
 	}
 
+	/// <summary>
+	/// Binds the textures to the units from 0, and unbinds the units after them. An old texture must not stay bound.
+	/// A shader sampler that gets no texture reads unit 0. When the old texture is also the target of the draw,
+	/// WebGL refuses the draw as a feedback loop. For example, the canvas of the last frame stays bound, and the
+	/// first untextured quad of the next frame draws to that canvas.
+	/// </summary>
 	public void SetTextures(IEnumerable<ITexture> textures)
 	{
 		int index = 0;
@@ -200,6 +210,12 @@ internal class GLGraphicsContext : IGraphicsContext
 		{
 			SetTexture(index++, texture);
 		}
+		for (int unit = index; unit < _boundTextureUnits; unit++)
+		{
+			GL.ActiveTexture(TextureUnit.Texture0 + unit);
+			GL.BindTexture(TextureTarget.Texture2D, 0);
+		}
+		_boundTextureUnits = index;
 	}
 
 	public IFramebuffer CreateFrameBuffer(int width, int height, int numTextures = 1)
