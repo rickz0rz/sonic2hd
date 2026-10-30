@@ -278,6 +278,11 @@ public class LevelGameState : IGameState, IDisposable
 				PrepareSettings.EditorToolIndex = null;
 				_level.Editor.ToolIndex = toolIndex;
 			}
+			if (PrepareSettings.EditorNewLevelForm)
+			{
+				PrepareSettings.EditorNewLevelForm = false;
+				_level.Editor.ShowNewLevelForm();
+			}
 		}
 	}
 

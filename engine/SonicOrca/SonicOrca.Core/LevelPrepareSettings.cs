@@ -57,6 +57,9 @@ public class LevelPrepareSettings
 	/// <summary>The tool that the level editor selects when it opens with <see cref="OpenEditor"/>, or null for the first tool.</summary>
 	public int? EditorToolIndex { get; set; }
 
+	/// <summary>The level editor opens with the form of a new level, for "--editor" without "--level".</summary>
+	public bool EditorNewLevelForm { get; set; }
+
 	public double NightMode { get; set; }
 
 	public LevelPrepareSettings()

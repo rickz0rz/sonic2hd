@@ -232,14 +232,21 @@ internal sealed class LevelsTool : EditorTool
 		}).Prepend(newRow).ToArray();
 	}
 
+	/// <summary>Shows the form of a new level. The tiles start as the tiles of the open level.</summary>
+	public void StartNewLevel()
+	{
+		_creating = true;
+		_newTilesFrom ??= OpenMnemonic;
+		Editor.ShowMessage(Hint);
+	}
+
 	public override void OnListClick(int index, int direction)
 	{
 		_confirmOpen = null;
 		_confirmCreate = false;
 		if (index < NewRowCount)
 		{
-			_creating = true;
-			_newTilesFrom ??= OpenMnemonic;
+			StartNewLevel();
 			return;
 		}
 		IReadOnlyList<LevelCatalogEntry> levels = GetOrderedLevels();
