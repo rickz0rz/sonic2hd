@@ -195,7 +195,7 @@ public sealed class LevelEditor : IDisposable
 	public bool SolidityDirty { get; private set; }
 
 	/// <summary>There are changes that are not saved.</summary>
-	public bool Dirty => LevelDirty || _levelsTool.OrderDirty;
+	public bool Dirty => LevelDirty || _levelsTool.Dirty;
 
 	/// <summary>True when the level has changes that are not saved.</summary>
 	private bool LevelDirty => BindingDirty || MarkersDirty || TilesDirty || ScrollDirty || LayersDirty || CollisionDirty || SolidityDirty;
@@ -881,9 +881,9 @@ public sealed class LevelEditor : IDisposable
 			{
 				paths.Add(EditorModFile.Save(GetChangedResources(), EditorModFile.GetPath(_gameContext.UserDataDirectory, _level.Binding.Resource.FullKeyPath)));
 			}
-			if (_levelsTool.OrderDirty)
+			if (_levelsTool.Dirty)
 			{
-				paths.Add(_levelsTool.SaveOrder());
+				paths.AddRange(_levelsTool.Save());
 			}
 			BindingDirty = false;
 			MarkersDirty = false;
@@ -893,7 +893,7 @@ public sealed class LevelEditor : IDisposable
 			_documentLayers = _level.Map.Layers.ToArray();
 			CollisionDirty = false;
 			SolidityDirty = false;
-			ShowMessage(paths.Count == 0 ? "No changes to save" : "Saved to " + string.Join(" and ", paths));
+			ShowMessage(paths.Count == 0 ? "No changes to save" : "Saved to " + string.Join(" and ", paths.Distinct()));
 		}
 		catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is ResourceException || ex is InvalidOperationException)
 		{

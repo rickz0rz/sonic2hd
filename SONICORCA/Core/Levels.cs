@@ -41,10 +41,22 @@ internal static class Levels
 		return !level.Unreleased || resourceTree[$"SONICORCA/LEVELS/{level.Mnemonic.ToUpperInvariant()}/TILESET/PRIORITY"]?.Resource != null;
 	}
 
-	/// <summary>Returns the Sonic 2 levels that can be played, in the order of the game.</summary>
+	/// <summary>
+	/// Returns the Sonic 2 levels that can be played, in the order of the game. A level has the name from the order
+	/// resource when the level editor gave it a new name.
+	/// </summary>
 	public static IReadOnlyList<LevelInfo> GetAvailableLevels(ResourceTree resourceTree)
 	{
-		return LevelList.Where(x => x.GameIndex == Sonic2 && IsAvailable(x, resourceTree)).ToArray();
+		IReadOnlyDictionary<string, string> titles = ReadTitles(resourceTree);
+		return LevelList.Where(x => x.GameIndex == Sonic2 && IsAvailable(x, resourceTree))
+			.Select(x => titles.TryGetValue(x.Mnemonic, out string title) ? new LevelInfo(x.GameIndex, x.Mnemonic, title, x.Acts, x.Unreleased) : x)
+			.ToArray();
+	}
+
+	/// <summary>Returns the name of a Sonic 2 level in the game, without a new name from the level editor.</summary>
+	public static string GetOriginalName(string mnemonic)
+	{
+		return LevelList.FirstOrDefault(x => x.GameIndex == Sonic2 && x.Mnemonic.Equals(mnemonic, StringComparison.OrdinalIgnoreCase))?.Name;
 	}
 
 	/// <summary>
@@ -63,15 +75,12 @@ internal static class Levels
 		IReadOnlyList<string> order = ReadOrder(resourceTree);
 		if (order == null)
 			return GetAvailableLevels(resourceTree);
-		IReadOnlyList<LevelInfo> modLevels = GetModLevels(resourceTree);
+		// A Sonic 2 level that cannot be played is not in the available levels, and a mod level has another short name
+		IEnumerable<LevelInfo> playable = GetAvailableLevels(resourceTree).Concat(GetModLevels(resourceTree));
 		List<LevelInfo> levels = new List<LevelInfo>();
 		foreach (string mnemonic in order.Distinct(StringComparer.OrdinalIgnoreCase))
 		{
-			LevelInfo level = LevelList.FirstOrDefault(x => x.GameIndex == Sonic2 && x.Mnemonic.Equals(mnemonic, StringComparison.OrdinalIgnoreCase));
-			if (level == null)
-				level = modLevels.FirstOrDefault(x => x.Mnemonic.Equals(mnemonic, StringComparison.OrdinalIgnoreCase));
-			else if (!IsAvailable(level, resourceTree))
-				level = null;
+			LevelInfo level = playable.FirstOrDefault(x => x.Mnemonic.Equals(mnemonic, StringComparison.OrdinalIgnoreCase));
 			if (level != null)
 				levels.Add(level);
 		}
@@ -87,8 +96,27 @@ internal static class Levels
 			.ToArray();
 	}
 
-	/// <summary>Reads the names of the levels in the order resource, or null when there is no order resource.</summary>
-	public static IReadOnlyList<string> ReadOrder(ResourceTree resourceTree)
+	/// <summary>
+	/// Reads the new names of the Sonic 2 levels from the order resource, for example
+	/// <c>&lt;title level="ehz" text="Green Hill Zone" /&gt;</c>, by short name.
+	/// </summary>
+	public static IReadOnlyDictionary<string, string> ReadTitles(ResourceTree resourceTree)
+	{
+		Dictionary<string, string> titles = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+		System.Xml.XmlDocument document = ReadOrderDocument(resourceTree);
+		if (document == null)
+			return titles;
+		foreach (System.Xml.XmlElement title in document.SelectNodes("levels/title").OfType<System.Xml.XmlElement>())
+		{
+			string level = title.GetAttribute("level");
+			string text = title.GetAttribute("text").Trim();
+			if (level.Length > 0 && text.Length > 0)
+				titles[level.ToLowerInvariant()] = text;
+		}
+		return titles;
+	}
+
+	private static System.Xml.XmlDocument ReadOrderDocument(ResourceTree resourceTree)
 	{
 		Resource resource = resourceTree[OrderResourceKey]?.Resource;
 		if (resource == null)
@@ -98,7 +126,7 @@ internal static class Levels
 			System.Xml.XmlDocument document = new System.Xml.XmlDocument();
 			using (System.IO.Stream stream = resource.Source.ReadUncompressed())
 				document.Load(stream);
-			return document.SelectNodes("levels/level/@name").OfType<System.Xml.XmlNode>().Select(x => x.Value.ToLowerInvariant()).ToArray();
+			return document;
 		}
 		catch (System.Xml.XmlException)
 		{
@@ -106,8 +134,14 @@ internal static class Levels
 		}
 	}
 
-	/// <summary>Gives the order resource for the names of the levels of the story.</summary>
-	public static byte[] WriteOrder(IEnumerable<string> mnemonics)
+	/// <summary>Reads the names of the levels in the order resource, or null when there is no order resource.</summary>
+	public static IReadOnlyList<string> ReadOrder(ResourceTree resourceTree)
+	{
+		return ReadOrderDocument(resourceTree)?.SelectNodes("levels/level/@name").OfType<System.Xml.XmlNode>().Select(x => x.Value.ToLowerInvariant()).ToArray();
+	}
+
+	/// <summary>Gives the order resource for the levels of the story, and the new names of Sonic 2 levels.</summary>
+	public static byte[] WriteOrder(IEnumerable<string> mnemonics, IReadOnlyDictionary<string, string> titles = null)
 	{
 		using System.IO.MemoryStream stream = new System.IO.MemoryStream();
 		using (System.Xml.XmlWriter writer = System.Xml.XmlWriter.Create(stream, new System.Xml.XmlWriterSettings { Indent = true }))
@@ -117,6 +151,13 @@ internal static class Levels
 			{
 				writer.WriteStartElement("level");
 				writer.WriteAttributeString("name", mnemonic.ToLowerInvariant());
+				writer.WriteEndElement();
+			}
+			foreach (KeyValuePair<string, string> title in titles ?? new Dictionary<string, string>())
+			{
+				writer.WriteStartElement("title");
+				writer.WriteAttributeString("level", title.Key.ToLowerInvariant());
+				writer.WriteAttributeString("text", title.Value);
 				writer.WriteEndElement();
 			}
 			writer.WriteEndElement();
@@ -172,6 +213,37 @@ internal static class Levels
 		{
 			return null;
 		}
+	}
+
+	/// <summary>The music of a mod level from its INFO file, or null.</summary>
+	public static string GetModLevelMusic(string mnemonic, ResourceTree resourceTree) => ReadInfoAttribute(resourceTree, mnemonic, "music");
+
+	/// <summary>
+	/// Gives the INFO file of a mod level with a new name and new music. The other attributes of the file stay.
+	/// </summary>
+	public static byte[] WriteModLevelInfo(System.IO.Stream info, string name, string music)
+	{
+		System.Xml.XmlDocument document = new System.Xml.XmlDocument();
+		document.Load(info);
+		document.DocumentElement.SetAttribute("name", name);
+		if (string.IsNullOrEmpty(music))
+			document.DocumentElement.RemoveAttribute("music");
+		else
+			document.DocumentElement.SetAttribute("music", music);
+		using System.IO.MemoryStream stream = new System.IO.MemoryStream();
+		using (System.Xml.XmlWriter writer = System.Xml.XmlWriter.Create(stream, new System.Xml.XmlWriterSettings { Indent = true }))
+			document.Save(writer);
+		return stream.ToArray();
+	}
+
+	/// <summary>The music that a level can play: the music resources of the game and of the mods, in the order of their keys.</summary>
+	public static IReadOnlyList<string> GetMusicKeys(ResourceTree resourceTree)
+	{
+		return resourceTree.GetResourceListing()
+			.Where(x => x.Key.StartsWith("SONICORCA/MUSIC/", StringComparison.Ordinal) && x.Value.Identifier == ResourceTypeIdentifier.SampleInfo)
+			.Select(x => x.Key)
+			.OrderBy(x => x, StringComparer.Ordinal)
+			.ToArray();
 	}
 
 	/// <summary>

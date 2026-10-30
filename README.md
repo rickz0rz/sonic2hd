@@ -384,7 +384,9 @@ its button or with its key:
   order, then the other levels. Click a level, then click "Open" to edit that level. With changes that are not saved,
   the first click only warns, and a second click opens the level without the changes. Click "Move up" or "Move down"
   to change the position of the level. Click "In the story" to add the level to the end of the story or to remove
-  it. A mod level can also be in the story. Undo does not change the order. To make a level, click "+ New level".
+  it. A mod level can also be in the story. Click "Name" to type a new name. Click "Music" to change the music of a
+  mod level (right click goes back). The area of a Sonic 2 level sets its music. A new name or new music applies
+  when the level opens again. Undo does not change these values. To make a level, click "+ New level".
   Type a name, and change the short name if necessary. Click "Tiles from" to choose the level with the tiles. Then
   click "Create" (see "New levels").
 
@@ -445,9 +447,11 @@ you chose, so the folder has no tiles. The map has an empty background layer, an
 a start position. A signpost near the right end ends the level. The level is not in the story until you add it. The
 editor saves the changes of the level to `mods/editor/<SHORT NAME>.dat`, as for the other levels.
 
-Save writes the order of the story to `mods/editor/LEVELS.dat`. The story, the level select and the next level
+Save writes the order of the story and the new names of the Sonic 2 levels to `mods/editor/LEVELS.dat`. The name and
+the music of a mod level go into its `INFO` file in `mods/editor/<SHORT NAME>.dat`. The title card shows the new
+name of a Sonic 2 level, and adds "ZONE" to it. The story, the level select and the next level
 after `--level` use this order. The level select shows the levels that are not in the story after the other levels,
-with a star. To go back to the order of Sonic 2, delete the file.
+with a star. To go back to the order and the names of Sonic 2, delete the file.
 
 ### Animation editor
 
