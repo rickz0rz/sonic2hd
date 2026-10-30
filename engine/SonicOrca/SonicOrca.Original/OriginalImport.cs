@@ -26,7 +26,7 @@ public static class OriginalImport
 	/// The version of the import. Change it when a change of the importers changes the mods, so that the web build
 	/// makes its stored mods again.
 	/// </summary>
-	public const int Version = 10;
+	public const int Version = 11;
 
 	/// <summary>The zones that the import makes, in the order of tools/import-all.sh.</summary>
 	public static readonly IReadOnlyList<string> Zones = new[] { "arz", "cnz", "mcz", "ooz", "mtz", "scz", "wfz", "dez" };
@@ -166,15 +166,16 @@ public static class OriginalImport
 		log($"Wrote the sprites of Super Sonic to {KeyFolder(folder, SuperSonicArt.ObjectKey)}.");
 	}
 
-	/// <summary>Makes the slides of the original credits and the logo at their end.</summary>
+	/// <summary>Makes the art of the ending cutscene, the slides of the original credits, and the logo at their end.</summary>
 	public static void ImportEnding(string disassembly, string folder, Action<string> log)
 	{
 		if (!File.Exists(Path.Combine(disassembly, MarkerFile)))
 		{
 			throw new IOException($"The folder {disassembly} does not contain {MarkerFile}.");
 		}
+		EndingArt.Import(disassembly, folder);
 		int slides = OriginalCredits.Import(disassembly, folder);
-		log($"Wrote {slides} slides of the credits and the logo to {OriginalCredits.ResourceKey}.");
+		log($"Wrote the art of the ending to {EndingArt.ResourceKey}, and {slides} slides of the credits and the logo to {OriginalCredits.ResourceKey}.");
 	}
 
 	/// <summary>Makes the recordings of the attract demos.</summary>

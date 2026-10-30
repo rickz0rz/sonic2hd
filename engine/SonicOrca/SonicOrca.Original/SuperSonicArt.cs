@@ -126,47 +126,8 @@ public static class SuperSonicArt
 		List<List<(int Tiles, int Offset)>> dplcs = ParseDplc(File.ReadAllText(Path.Combine(disassembly, DplcFile)));
 		uint[] palette = SpriteImport.ReadPalette(disassembly, PaletteFile);
 
-		// Each frame gets its own tiles: the DPLC of the frame loads them to the start of the video memory of Sonic
-		int[] frameIds = Scripts.SelectMany(script => script.Frames).Distinct().OrderBy(id => id).ToArray();
-		var frameArt = new List<byte>();
-		var frames = new List<List<SpritePiece>>();
-		foreach (int id in frameIds)
-		{
-			int firstTile = frameArt.Count / BytesPerTile;
-			foreach ((int tiles, int offset) in dplcs[id])
-			{
-				frameArt.AddRange(art.AsSpan(offset * BytesPerTile, tiles * BytesPerTile).ToArray());
-			}
-			frames.Add(mappings[id].Select(piece => piece with { Tile = piece.Tile + firstTile }).ToList());
-		}
-		ImportedSprite sprite = SpriteImport.Import(ObjectKey, frameArt.ToArray(), frames, new[] { 0 }, Array.Empty<int>(), palette, 4);
-
-		// The group of SpriteImport has one animation for each frame. Put the frames of each script together.
-		XElement[] frameElements = XDocument.Parse(sprite.AnimationGroup).Descendants("frame").ToArray();
-		var anigroup = new StringBuilder();
-		anigroup.AppendLine("<?xml version=\"1.0\"?>");
-		anigroup.AppendLine("<anigroup>");
-		anigroup.AppendLine("  <textures>");
-		anigroup.AppendLine("    <texture>//TEXTURE</texture>");
-		anigroup.AppendLine("    <texture>//PALETTE</texture>");
-		anigroup.AppendLine("  </textures>");
-		anigroup.AppendLine("  <animations>");
-		foreach ((string name, int delay, int[] scriptFrames, AnimationEnd end) in Scripts)
-		{
-			string loop = end == AnimationEnd.HoldLast ? $" loop=\"{scriptFrames.Length - 1}\"" : "";
-			anigroup.AppendLine($"    <!-- {name} -->");
-			anigroup.AppendLine($"    <animation delay=\"{delay}\"{loop}>");
-			foreach (int id in scriptFrames)
-			{
-				XElement frame = frameElements[Array.IndexOf(frameIds, id)];
-				anigroup.AppendLine($"      <frame x=\"{frame.Attribute("x").Value}\" y=\"{frame.Attribute("y").Value}\" w=\"{frame.Attribute("w").Value}\" " +
-					$"h=\"{frame.Attribute("h").Value}\" offset_x=\"{frame.Attribute("offset_x").Value}\" offset_y=\"{frame.Attribute("offset_y").Value}\" />");
-			}
-			anigroup.AppendLine("    </animation>");
-		}
-		anigroup.AppendLine("  </animations>");
-		anigroup.AppendLine("</anigroup>");
-		return sprite with { AnimationGroup = anigroup.ToString() };
+		IReadOnlyList<OriginalScript> scripts = Scripts.Select(script => new OriginalScript(script.Name, script.Delay, script.Frames, script.End == AnimationEnd.HoldLast)).ToArray();
+		return DplcSpriteImport.Import(ObjectKey, art, mappings, dplcs, scripts, palette, 0, new[] { "//TEXTURE", "//PALETTE" });
 	}
 
 	/// <summary>Makes the image of the colours of PalCycle_SuperSonic: 4 colours wide, with one row for each frame.</summary>
@@ -200,6 +161,8 @@ public static class SuperSonicArt
 		var order = new List<string>();
 		var frames = new Dictionary<string, List<(int, int)>>(StringComparer.Ordinal);
 		List<(int, int)> current = null;
+		// A label alone on its line names the same frame as the next header, for example ".frame86:" before ".frame84: dplcHeader"
+		var aliases = new List<string>();
 		foreach (string rawLine in source.Split('\n'))
 		{
 			string line = rawLine.Split(';')[0].Trim();
@@ -214,6 +177,17 @@ public static class SuperSonicArt
 			{
 				current = new List<(int, int)>();
 				frames[header.Groups[1].Value] = current;
+				foreach (string alias in aliases)
+				{
+					frames[alias] = current;
+				}
+				aliases.Clear();
+				continue;
+			}
+			Match label = Regex.Match(line, @"^([.\w]+):$");
+			if (label.Success)
+			{
+				aliases.Add(label.Groups[1].Value);
 				continue;
 			}
 			Match load = Regex.Match(line, @"^dplcEntry\s+([$\w]+)\s*,\s*([$\w]+)");

@@ -34,6 +34,8 @@
     <Compile Include="../../SONICORCA/Core/NewLevel.cs" Link="Game/NewLevel.cs" />
     <!-- The palette fades of the original credits -->
     <Compile Include="../../S2HD/MegaDriveFade.cs" Link="Game/MegaDriveFade.cs" />
+    <!-- The logic of the ending cutscene that does not draw -->
+    <Compile Include="../../S2HD/Ending/EndingLogic.cs" Link="Game/EndingLogic.cs" />
   </ItemGroup>
 
 </Project>

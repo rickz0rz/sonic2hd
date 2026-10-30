@@ -19,8 +19,8 @@ The port adds these parts to the demo:
 - **Editors:** a [level editor](#level-editor) and an [animation editor](#animation-editor) in the game.
 - **Level select:** a screen of its own, with all the zones, the mod levels and a sound test (see
   [Command-line options](#command-line-options)).
-- **Original credits:** after the last level, the [credits of the original game](#original-credits) play before
-  the HD credits film.
+- **Original ending:** after the last level, the [ending cutscene](#ending-cutscene) and the
+  [credits of the original game](#original-credits) play before the HD credits film.
 
 ## Layout
 
@@ -225,6 +225,32 @@ git clone https://github.com/sonicretro/s2disasm.git ../s2disasm
 The script finds the disassembly at `S2DISASM_DIR`, `../s2disasm` or `../../sonicretro/s2disasm`. It writes the
 `.dat` files to the `mods` folder in the user data folder. To use other folders, give them as arguments:
 `./tools/import-all.sh <s2disasm> <mods>`. Run the script again after an update of this repository.
+
+### Ending cutscene
+
+The import also makes the art of the ending cutscene of the original game into `SONICORCA/ENDING`. Each image is a
+normal resource at four times the size of the original, so a mod can replace it:
+
+| Resource | Contents |
+|---|---|
+| `PICTURES/1` to `4` | The four photos at the start |
+| `SONIC` | Sonic who falls, and Sonic who waits on the plane |
+| `CLOUDS` | The clouds that fly past |
+| `TORNADO`, `TORNADO/PILOT` | The plane that comes for Sonic, and Tails in it |
+| `BIRDS` | The birds that fly with the plane |
+| `PLANE` | The plane that flies away, the propeller, and Sonic who jumps (the frames of ObjCF) |
+| `CLOSEUP` | The close-up of the plane at the end |
+
+The background is the background layer of Death Egg Zone, so it needs the import of DEZ. The ending music
+(`95 - Ending`) comes with the music import.
+
+The cutscene follows the objects of the original (ObjCA to ObjCF): the photos fade in and out, Sonic falls past the
+stars and the edge of the Earth, the Tornado comes with the birds, and Sonic jumps in front of the close-up. The fades
+of the palette become fades of the images to white. It plays after the last level of the story, before the credits.
+`--ending` plays it and then the credits.
+
+This version has the ending of Sonic. With the 7 emeralds (Super Sonic) or with Tails alone, the game goes to the
+credits.
 
 ### Original credits
 
@@ -561,6 +587,7 @@ The behavior of the levels and the objects of the game is C# code in `SONICORCA/
 | `--nologos` | Skips the disclaimer and the logo screens |
 | `--no-error-dialog` | Writes an error to the console and the log, not to a dialog box. Test runs with `S2HD_EXIT_AFTER_CAPTURES=1` do this too |
 | `--credits`, `--options` | Opens the credits or the options screen |
+| `--ending` | Plays the ending cutscene of the original, then the credits |
 | `--halfpipe [1-7]` | Opens a 3D special stage. Left and right move Sonic around the pipe, and an action button jumps, with the physics of Sonic 2. Collect enough rings for each of the three checkpoints, and avoid the bombs. Tails follows Sonic. Add `--sidekick none` to play Sonic alone. Escape closes it |
 
 On macOS, pass options to the executable in the app bundle, for example

@@ -41,6 +41,8 @@ public static class MusicImport
 		("9A - End of Act.asm", "SONICORCA/MUSIC/JINGLE/STAGECLEAR/S2"),
 		// The music of Super Sonic (MusID_SuperSonic)
 		("96 - Super Sonic.asm", "SONICORCA/MUSIC/JINGLE/SUPER"),
+		// The music of the ending cutscene (MusID_Ending)
+		("95 - Ending.asm", "SONICORCA/MUSIC/ENDING"),
 		// The music of the original credits (MusID_Credits)
 		("9E - Credits.asm", "SONICORCA/MUSIC/CREDITS/ORIGINAL")
 	};
