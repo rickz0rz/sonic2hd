@@ -51,6 +51,12 @@ public class LevelGameState : IGameState, IDisposable
 
 	public bool Completed { get; set; }
 
+	/// <summary>
+	/// The error when the area or the level could not load, for example because a resource of a mod is broken, or null.
+	/// The update then ends, and the game does not stop.
+	/// </summary>
+	public string LoadError { get; private set; }
+
 	public Player Player => _player;
 
 	public Level Level => _level;
@@ -75,6 +81,15 @@ public class LevelGameState : IGameState, IDisposable
 		}
 	}
 
+	/// <summary>Keeps the error of the loader, and writes it to the log with the area that did not load.</summary>
+	private void FailLoad()
+	{
+		Exception error = _levelLoader.Error;
+		LoadError = $"The level {PrepareSettings.AreaResourceKey} could not load: {error.Message}";
+		System.Diagnostics.Trace.WriteLine(LoadError);
+		System.Diagnostics.Trace.WriteLine(error.ToString());
+	}
+
 	public IEnumerable<UpdateResult> Update()
 	{
 		if (PrepareSettings == null)
@@ -84,6 +99,11 @@ public class LevelGameState : IGameState, IDisposable
 		_levelLoader.LoadArea(PrepareSettings);
 		while (!_levelLoader.HasLoadedArea)
 		{
+			if (_levelLoader.Error != null)
+			{
+				FailLoad();
+				yield break;
+			}
 			yield return UpdateResult.Next();
 		}
 		_area = _levelLoader.Area;
@@ -98,6 +118,11 @@ public class LevelGameState : IGameState, IDisposable
 		{
 			if (!_levelLoader.HasLoadedLevel)
 			{
+				if (_levelLoader.Error != null)
+				{
+					FailLoad();
+					yield break;
+				}
 				yield return UpdateResult.Next();
 				continue;
 			}

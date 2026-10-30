@@ -92,6 +92,14 @@ internal class StoryPlaythroughGameState : IGameState, IDisposable
 				_optionsMenu.Update();
 				yield return updateResult;
 			}
+			if (_levelGameState.LoadError != null)
+			{
+				// A level that cannot load, for example with a broken mod file, ends the story without the credits.
+				// The game goes back to the title screen.
+				Program.ShowErrorMessageBox(_levelGameState.LoadError);
+				QuitViaOptions = true;
+				yield break;
+			}
 			playNextLevel = _levelGameState.Completed;
 			if (playNextLevel)
 			{
