@@ -378,9 +378,11 @@ its button or with its key:
   blue lines on path 2, and white lines on both. The layer switches select the path. Grey lines are the lines of
   layout changes. Click "Draw lines", then click the points of the lines. Drag the end of a selected line to move
   the point. The other lines that end at that point move with it.
-- **Levels (5)** changes the order of the story. The list shows the levels of the story in their order, then the
-  other levels. Click a level, then click "Move up" or "Move down". Click "In the story" to add the level to the end
-  of the story or to remove it. A mod level can also be in the story. Undo does not change the order.
+- **Levels (5)** opens a level and changes the order of the story. The list shows the levels of the story in their
+  order, then the other levels. Click a level, then click "Open" to edit that level. With changes that are not saved,
+  the first click only warns, and a second click opens the level without the changes. Click "Move up" or "Move down"
+  to change the position of the level. Click "In the story" to add the level to the end of the story or to remove
+  it. A mod level can also be in the story. Undo does not change the order.
 
 In the imported zones, the collision follows the tiles: after you paint on the front layer, the editor traces the
 collision of the changed area again, as the import does. Lines that you drew by hand in other areas stay. "Trace

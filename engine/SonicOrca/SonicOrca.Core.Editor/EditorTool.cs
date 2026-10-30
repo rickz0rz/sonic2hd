@@ -94,6 +94,11 @@ internal abstract class EditorTool : IDisposable
 	{
 	}
 
+	/// <summary>Another level loads into the editor. The tool forgets its state of the old level.</summary>
+	public virtual void OnNewLevel()
+	{
+	}
+
 	/// <summary>Called on each frame of the editor.</summary>
 	public virtual void Update()
 	{

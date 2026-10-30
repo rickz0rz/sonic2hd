@@ -54,6 +54,9 @@ public class LevelPrepareSettings
 	/// <summary>Open the level editor when the level starts. The game must start with the editor turned on.</summary>
 	public bool OpenEditor { get; set; }
 
+	/// <summary>The tool that the level editor selects when it opens with <see cref="OpenEditor"/>, or null for the first tool.</summary>
+	public int? EditorToolIndex { get; set; }
+
 	public double NightMode { get; set; }
 
 	public LevelPrepareSettings()

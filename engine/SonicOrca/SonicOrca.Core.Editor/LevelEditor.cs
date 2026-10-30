@@ -205,6 +205,22 @@ public sealed class LevelEditor : IDisposable
 	/// <summary>The position for <see cref="EditorPlayRequest.FromCursor"/>.</summary>
 	public Vector2i PlayPosition { get; private set; }
 
+	/// <summary>A level that the user wants to open in the editor, or null. The level game state loads it.</summary>
+	public LevelCatalogEntry LevelToOpen { get; private set; }
+
+	/// <summary>The position of the current tool, so that the editor of another level can start with the same tool.</summary>
+	public int ToolIndex
+	{
+		get => Array.IndexOf(_tools, _tool);
+		set
+		{
+			if (value >= 0 && value < _tools.Length)
+			{
+				SelectTool(value);
+			}
+		}
+	}
+
 	internal Level Level => _level;
 
 	internal SonicOrcaGameContext GameContext => _gameContext;
@@ -279,6 +295,7 @@ public sealed class LevelEditor : IDisposable
 	public void Begin()
 	{
 		PlayRequest = EditorPlayRequest.None;
+		LevelToOpen = null;
 		_input.Begin(_gameContext);
 		_frames = 0;
 		_drag = DragMode.None;
@@ -668,6 +685,45 @@ public sealed class LevelEditor : IDisposable
 		_listScroll = 0.0;
 		_propertyScroll = 0.0;
 		ShowMessage(_tool.Name + ": " + _tool.Hint);
+	}
+
+	/// <summary>
+	/// Forgets the state of the level before another level loads: the undo history, the changes that are not saved,
+	/// the selections and the tile collision. The level game state calls it after the backup of the changes.
+	/// </summary>
+	public void ResetForNewLevel()
+	{
+		_traceTask?.Wait();
+		_traceTask = null;
+		_pendingTraceCells = null;
+		_history.Clear();
+		BindingDirty = false;
+		MarkersDirty = false;
+		TilesDirty = false;
+		ScrollDirty = false;
+		LayersDirty = false;
+		CollisionDirty = false;
+		SolidityDirty = false;
+		TileCollision = null;
+		_documentLayers = null;
+		_viewBeforeLayerAlone = null;
+		ObjectSelection.Clear();
+		MarkerSelection.Clear();
+		VectorSelection.Clear();
+		foreach (EditorTool tool in _tools)
+		{
+			tool.OnNewLevel();
+		}
+	}
+
+	/// <summary>Asks the level game state to open another level in the editor. The changes that are not saved are lost.</summary>
+	internal void RequestOpenLevel(LevelCatalogEntry level)
+	{
+		if (_entry.IsActive)
+		{
+			_entry.Cancel();
+		}
+		LevelToOpen = level;
 	}
 
 	private void RequestPlay(EditorPlayRequest request)

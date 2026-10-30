@@ -47,6 +47,9 @@ public class LevelGameState : IGameState, IDisposable
 
 	private bool _editorOpened;
 
+	/// <summary>The level that the editor asked to open, until the area of the old level unloads.</summary>
+	private LevelCatalogEntry _levelToOpen;
+
 	public LevelPrepareSettings PrepareSettings { get; set; }
 
 	public bool Completed { get; set; }
@@ -96,27 +99,11 @@ public class LevelGameState : IGameState, IDisposable
 		{
 			throw new InvalidOperationException("Prepare settings was not specified.");
 		}
-		_levelLoader.LoadArea(PrepareSettings);
-		while (!_levelLoader.HasLoadedArea)
-		{
-			if (_levelLoader.Error != null)
-			{
-				FailLoad();
-				yield break;
-			}
-			yield return UpdateResult.Next();
-		}
-		_area = _levelLoader.Area;
-		_level = _levelLoader.Level;
-		_player = _level.Player;
-		_player.Lives = PrepareSettings.Lives;
-		_player.SetStartScore(PrepareSettings.Score);
-		_player.Continues = PrepareSettings.Continues;
-		_player.Emeralds = PrepareSettings.Emeralds;
-		_levelLoader.LoadLevel();
+		// The editor can open another level. The loop then loads the area of that level.
 		while (true)
 		{
-			if (!_levelLoader.HasLoadedLevel)
+			_levelLoader.LoadArea(PrepareSettings);
+			while (!_levelLoader.HasLoadedArea)
 			{
 				if (_levelLoader.Error != null)
 				{
@@ -124,48 +111,102 @@ public class LevelGameState : IGameState, IDisposable
 					yield break;
 				}
 				yield return UpdateResult.Next();
-				continue;
 			}
-			switch (_level.State)
+			_area = _levelLoader.Area;
+			_level = _levelLoader.Level;
+			_player = _level.Player;
+			_player.Lives = PrepareSettings.Lives;
+			_player.SetStartScore(PrepareSettings.Score);
+			_player.Continues = PrepareSettings.Continues;
+			_player.Emeralds = PrepareSettings.Emeralds;
+			_levelLoader.LoadLevel();
+			while (true)
 			{
-				case LevelState.Null:
-					if (!IsWaitingForNetworkPlayers())
+				if (!_levelLoader.HasLoadedLevel)
+				{
+					if (_levelLoader.Error != null)
 					{
-						StartLevel();
+						FailLoad();
+						yield break;
 					}
+					yield return UpdateResult.Next();
+					continue;
+				}
+				switch (_level.State)
+				{
+					case LevelState.Null:
+						if (!IsWaitingForNetworkPlayers())
+						{
+							StartLevel();
+						}
+						break;
+					case LevelState.Playing:
+						OnLevelUpdate();
+						break;
+					case LevelState.Editing:
+						OnEditorUpdate();
+						break;
+					case LevelState.Dead:
+						OnPlayerDeath();
+						break;
+					case LevelState.Restart:
+					case LevelState.RestartCheckpoint:
+						OnPlayerRestart();
+						break;
+					case LevelState.StageCompleted:
+						OnStageComplete();
+						break;
+					case LevelState.Quit:
+						_finished = true;
+						break;
+					case LevelState.SpecialStage:
+						foreach (UpdateResult result in PlaySpecialStage())
+						{
+							yield return result;
+						}
+						break;
+				}
+				yield return UpdateResult.Next();
+				if (_finished || _levelToOpen != null)
+				{
 					break;
-				case LevelState.Playing:
-					OnLevelUpdate();
-					break;
-				case LevelState.Editing:
-					OnEditorUpdate();
-					break;
-				case LevelState.Dead:
-					OnPlayerDeath();
-					break;
-				case LevelState.Restart:
-				case LevelState.RestartCheckpoint:
-					OnPlayerRestart();
-					break;
-				case LevelState.StageCompleted:
-					OnStageComplete();
-					break;
-				case LevelState.Quit:
-					_finished = true;
-					break;
-				case LevelState.SpecialStage:
-					foreach (UpdateResult result in PlaySpecialStage())
-					{
-						yield return result;
-					}
-					break;
+				}
 			}
-			yield return UpdateResult.Next();
-			if (_finished)
+			if (_levelToOpen == null)
 			{
 				break;
 			}
+			SwitchArea();
 		}
+	}
+
+	/// <summary>
+	/// Unloads the level and the area, and prepares the level that the editor asked for. The editor opens again on the
+	/// new level with the same tool. The changes that are not saved go to the backup of the editor.
+	/// </summary>
+	private void SwitchArea()
+	{
+		LevelEditor editor = _level.Editor;
+		int toolIndex = editor.ToolIndex;
+		editor.SaveBackup();
+		editor.ResetForNewLevel();
+		_draw = false;
+		_level.State = LevelState.Null;
+		_levelLoader.UnloadLevel();
+		_levelLoader.UnloadArea();
+		PrepareSettings.AreaResourceKey = _levelToOpen.AreaResourceKey;
+		PrepareSettings.LevelNumber = _levelToOpen.StoryNumber;
+		PrepareSettings.Act = 1;
+		PrepareSettings.StartPosition = null;
+		PrepareSettings.Seamless = false;
+		PrepareSettings.OpenEditor = true;
+		PrepareSettings.EditorToolIndex = toolIndex;
+		_startPositionBeforeEditor = null;
+		_editorOpened = false;
+		_levelToOpen = null;
+		_level.Time = 0;
+		_level.RingsCollected = 0;
+		_level.Player.StarpostIndex = -1;
 	}
 
 	public void HandleInput()
@@ -232,6 +273,11 @@ public class LevelGameState : IGameState, IDisposable
 		{
 			PrepareSettings.OpenEditor = false;
 			OpenEditor();
+			if (PrepareSettings.EditorToolIndex is int toolIndex)
+			{
+				PrepareSettings.EditorToolIndex = null;
+				_level.Editor.ToolIndex = toolIndex;
+			}
 		}
 	}
 
@@ -258,6 +304,11 @@ public class LevelGameState : IGameState, IDisposable
 	{
 		LevelEditor editor = _level.Editor;
 		editor.Update();
+		if (editor.LevelToOpen != null)
+		{
+			_levelToOpen = editor.LevelToOpen;
+			return;
+		}
 		if (editor.PlayRequest == EditorPlayRequest.None)
 		{
 			return;

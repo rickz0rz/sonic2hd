@@ -20,8 +20,8 @@ internal sealed class LevelCatalog : ILevelCatalog
 	public IReadOnlyList<LevelCatalogEntry> GetLevels()
 	{
 		ResourceTree tree = _gameContext.ResourceTree;
-		IEnumerable<LevelCatalogEntry> story = Levels.GetStoryLevels(tree).Select(level => ToEntry(level, inStory: true));
-		IEnumerable<LevelCatalogEntry> others = Levels.GetOtherLevels(tree).Select(level => ToEntry(level, inStory: false));
+		IEnumerable<LevelCatalogEntry> story = Levels.GetStoryLevels(tree).Select((level, index) => ToEntry(level, index + 1));
+		IEnumerable<LevelCatalogEntry> others = Levels.GetOtherLevels(tree).Select(level => ToEntry(level, 0));
 		return story.Concat(others).ToArray();
 	}
 
@@ -39,8 +39,9 @@ internal sealed class LevelCatalog : ILevelCatalog
 		return EditorModFile.Save(new[] { change }, EditorModFile.GetPath(_gameContext.UserDataDirectory, Levels.OrderResourceKey));
 	}
 
-	private static LevelCatalogEntry ToEntry(LevelInfo level, bool inStory)
+	private LevelCatalogEntry ToEntry(LevelInfo level, int storyNumber)
 	{
-		return new LevelCatalogEntry(level.Mnemonic, level.Name, level.Acts, inStory, level.GameIndex == Levels.Mod);
+		return new LevelCatalogEntry(level.Mnemonic, level.Name, level.Acts, level.GameIndex == Levels.Mod,
+			Levels.GetAreaResourceKey(level.Mnemonic, _gameContext.ResourceTree), storyNumber);
 	}
 }
