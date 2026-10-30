@@ -2607,12 +2607,20 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	}
 
 	/// <summary>
-	/// Returns true when the touch point of the top or bottom collision is in the box.
+	/// A touch this close to the top or the bottom of the character is not a crush (one pixel of the original). The
+	/// vectors of an object use its position in whole units, so a platform that carries the character under a ceiling
+	/// with no room to spare can touch it by one unit. A real crush pushes the character further on each tick.
+	/// </summary>
+	private const double CrushTolerance = 4.0;
+
+	/// <summary>
+	/// Returns true when the touch point of the top or bottom collision is in the box, more than
+	/// <see cref="CrushTolerance"/> from its top and its bottom.
 	/// </summary>
 	private bool IsCrushedBetweenFloors(Vector2[][] collisionBox, CollisionEvent top, CollisionEvent bottom)
 	{
 		bool result = false;
-		Rectangle innerBox = Rectangle.FromLTRB(collisionBox[0][0].X, collisionBox[0][0].Y, collisionBox[1][0].X, collisionBox[1][0].Y);
+		Rectangle innerBox = Rectangle.FromLTRB(collisionBox[0][0].X, collisionBox[0][0].Y + CrushTolerance, collisionBox[1][0].X, collisionBox[1][0].Y - CrushTolerance);
 		if (top != null)
 		{
 			if (innerBox.Contains(top.CollisionInfo.Touch))
