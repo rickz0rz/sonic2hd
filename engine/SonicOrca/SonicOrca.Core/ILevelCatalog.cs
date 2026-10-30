@@ -20,6 +20,10 @@ public interface ILevelCatalog
 /// <param name="Mnemonic">The short name of the level, for example "ehz".</param>
 /// <param name="Name">The name of the level, for example "Emerald Hill Zone".</param>
 /// <param name="Acts">The number of acts.</param>
-/// <param name="InStory">True when the level is in the story.</param>
 /// <param name="IsMod">True when a mod adds the level.</param>
-public sealed record LevelCatalogEntry(string Mnemonic, string Name, int Acts, bool InStory, bool IsMod);
+/// <param name="AreaResourceKey">The key of the area of the level, for example "SONICORCA/LEVELS/EHZ/AREA".</param>
+/// <param name="StoryNumber">The number of the level in the story, from 1, or 0 when the level is not in the story.</param>
+public sealed record LevelCatalogEntry(string Mnemonic, string Name, int Acts, bool IsMod, string AreaResourceKey, int StoryNumber)
+{
+	public bool InStory => StoryNumber > 0;
+}

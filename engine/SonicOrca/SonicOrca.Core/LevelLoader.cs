@@ -26,6 +26,9 @@ public class LevelLoader
 
 	private bool _levelLoaded;
 
+	/// <summary>The parts of the level that do not depend on the area loaded. A second area does not load them again.</summary>
+	private bool _commonLoaded;
+
 	public Area Area => _area;
 
 	public Level Level => _level;
@@ -159,7 +162,11 @@ public class LevelLoader
 		await _resourceSession.LoadAsync(ct);
 		_area = _gameContext.ResourceTree.GetLoadedResource<Area>(prepareSettings.AreaResourceKey);
 		_level.PrepareSettings = prepareSettings;
-		await _level.LoadCommonAsync(ct);
+		if (!_commonLoaded)
+		{
+			await _level.LoadCommonAsync(ct);
+			_commonLoaded = true;
+		}
 	}
 
 	private async Task LoadLevelAsync(CancellationToken ct = default(CancellationToken))

@@ -21,6 +21,9 @@ internal sealed class LevelsTool : EditorTool
 
 	private string _selected;
 
+	/// <summary>The level of the first click on "Open" while the editor has changes that are not saved.</summary>
+	private string _confirmOpen;
+
 	public LevelsTool(LevelEditor editor)
 		: base(editor)
 	{
@@ -28,7 +31,7 @@ internal sealed class LevelsTool : EditorTool
 
 	public override string Name => "Levels";
 
-	public override string Hint => "Click a level in the list. Then move it in the story, or add it to the story or remove it. Save to keep the order.";
+	public override string Hint => "Click a level in the list. Then open it, move it in the story, or add it to the story or remove it.";
 
 	public override string Status => $"Levels {_levels.Count}   In the story {_story.Count}";
 
@@ -56,6 +59,12 @@ internal sealed class LevelsTool : EditorTool
 		OrderDirty = false;
 		Reload();
 		return path;
+	}
+
+	public override void OnNewLevel()
+	{
+		OrderDirty = false;
+		Reload();
 	}
 
 	private void Reload()
@@ -114,6 +123,7 @@ internal sealed class LevelsTool : EditorTool
 		if (index >= 0 && index < levels.Count)
 		{
 			_selected = levels[index].Mnemonic;
+			_confirmOpen = null;
 		}
 	}
 
@@ -131,6 +141,7 @@ internal sealed class LevelsTool : EditorTool
 		int position = EditorLevelOrder.IndexOf(_story, level.Mnemonic);
 		List<EditorPropertyRow> rows = new List<EditorPropertyRow>
 		{
+			new EditorPropertyRow { Label = "Open", Value = GetOpenText(level), Step = _ => Open(level) },
 			new EditorPropertyRow { Label = "Name", Value = level.Name },
 			new EditorPropertyRow { Label = "Short name", Value = level.Mnemonic },
 			new EditorPropertyRow { Label = "Acts", Value = level.Acts.ToString() },
@@ -150,6 +161,36 @@ internal sealed class LevelsTool : EditorTool
 			rows.Add(new EditorPropertyRow { Label = "Next level", Value = next });
 		}
 		return rows;
+	}
+
+	private string GetOpenText(LevelCatalogEntry level)
+	{
+		if (level.Mnemonic == OpenMnemonic)
+		{
+			return "open now";
+		}
+		return _confirmOpen == level.Mnemonic ? "click again to open without a save" : "click to open in the editor";
+	}
+
+	/// <summary>
+	/// Opens the level in the editor. With changes that are not saved, the first click only warns. The editor then
+	/// keeps the changes in its backup folder, not in the level.
+	/// </summary>
+	private void Open(LevelCatalogEntry level)
+	{
+		if (level.Mnemonic == OpenMnemonic)
+		{
+			return;
+		}
+		if (Editor.Dirty && _confirmOpen != level.Mnemonic)
+		{
+			_confirmOpen = level.Mnemonic;
+			Editor.ShowMessage("The editor has changes that are not saved. Save first, or click Open again to open the level without them.");
+			return;
+		}
+		_confirmOpen = null;
+		Editor.ShowMessage("Opening " + level.Name);
+		Editor.RequestOpenLevel(level);
 	}
 
 	private void Change(bool changed)

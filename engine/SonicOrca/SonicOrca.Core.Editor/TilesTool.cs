@@ -127,6 +127,14 @@ internal sealed class TilesTool : EditorTool
 	/// <summary>The layer to show alone at its level positions, or -1 for the view of the game (see <see cref="EditorLayerView"/>).</summary>
 	public int AloneLayerIndex => _preview ? -1 : _layerIndex;
 
+	/// <summary>The brush has tiles of the old tile set, and the layers are different.</summary>
+	public override void OnNewLevel()
+	{
+		_brush = null;
+		_layerIndex = -1;
+		_preview = false;
+	}
+
 	public override string ListHeading => "Layers (click to paint on a layer)";
 
 	public override string PropertiesHeading => _scrollPage

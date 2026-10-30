@@ -128,7 +128,9 @@ internal class StoryPlaythroughGameState : IGameState, IDisposable
 
 	private bool LoadNextLevel()
 	{
-		// A mod level (number 0) is not in the story
+		// The level editor can open another level, so the level game state has the current number
+		_levelNumber = _levelGameState.PrepareSettings.LevelNumber;
+		// A level that is not in the story (number 0) does not go on to another level
 		if (_levelNumber == 0)
 			return false;
 		// A zone with more than two acts (Metropolis) goes on with its next act. The level game state plays act 1
@@ -158,6 +160,7 @@ internal class StoryPlaythroughGameState : IGameState, IDisposable
 		_levelGameState.PrepareSettings = new LevelPrepareSettings()
 		{
 			AreaResourceKey = Levels.GetAreaResourceKey(levelInfo.Mnemonic, _gameContext.ResourceTree),
+			LevelNumber = index,
 			Act = act,
 			Lives = _prepareSettings.Lives,
 			Score = _prepareSettings.Score,
