@@ -30,8 +30,14 @@ public class LevelLoader
 
 	public Level Level => _level;
 
+	/// <summary>
+	/// The error of a load that failed, for example a broken resource of a mod, or null. After an error, the area or the
+	/// level stays not loaded.
+	/// </summary>
+	public Exception Error { get; private set; }
+
 	// When the load task completes, the first call returns false and clears the loading flag.
-	// The next call gives the real result. A fault in the load task is thrown again here.
+	// The next call gives the real result. A fault in the load task goes to Error.
 	public bool HasLoadedArea
 	{
 		get
@@ -42,7 +48,7 @@ public class LevelLoader
 				{
 					if (_loadTask.IsFaulted)
 					{
-						throw _loadTask.Exception.InnerException;
+						Error = _loadTask.Exception.InnerException;
 					}
 					_loadingArea = false;
 					return false;
@@ -63,7 +69,7 @@ public class LevelLoader
 				{
 					if (_loadTask.IsFaulted)
 					{
-						throw _loadTask.Exception.InnerException;
+						Error = _loadTask.Exception.InnerException;
 					}
 					_loadingLevel = false;
 					return false;
