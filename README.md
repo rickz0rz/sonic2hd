@@ -1,9 +1,24 @@
-# Sonic 2 HD (S2HD) — .NET 10 port
+# Sonic 2 HD (S2HD) — enhanced .NET 10 port
 
-A port of the abandoned **Sonic 2 HD 2.0.1012-rc2** demo (originally .NET Framework 4.5, Windows only) to
-cross-platform **.NET 10**, with a new native **macOS (Apple Silicon)** build. The game and its SonicOrca engine
-were decompiled from the released binaries; all credit for the game goes to the original S2HD team. This is a
-non-profit fan project, not affiliated with SEGA or Sonic Team.
+An enhanced port of the abandoned **Sonic 2 HD 2.0.1012-rc2** demo (originally .NET Framework 4.5, Windows only) to
+cross-platform **.NET 10**. The game and its SonicOrca engine were decompiled from the released binaries. All credit
+for the game goes to the original S2HD team. This is a non-profit fan project, not affiliated with SEGA or Sonic Team.
+
+The port adds these parts to the demo:
+
+- **Platforms:** Windows, a native macOS (Apple Silicon) app, and an [experimental web build](#web-experimental).
+- **Bug fixes:** many fixes for the demo and for the decompiled code. An [Original physics mode](#physics) plays
+  closer to Sonic 2 than the physics of the demo.
+- **The missing zones:** the game makes the zones, the music and the demos that the demo does not have from the
+  [Sonic 2 disassembly](#parts-from-the-sonic-2-disassembly). This works on the desktop and in the browser.
+- **Special stages:** the 3D half-pipe [special stages](#entering-a-special-stage) can be played, with the
+  [original layouts](#special-stage-layouts) from the disassembly, and [Super Sonic](#super-sonic) after the seven
+  emeralds.
+- **Mods:** [mod files and mod folders](#modding) that replace or add images, music, levels and objects.
+  [Lua scripts](#lua-objects-and-mod-levels) add new objects, and a mod can add a new level.
+- **Editors:** a [level editor](#level-editor) and an [animation editor](#animation-editor) in the game.
+- **Level select:** a screen of its own, with all the zones, the mod levels and a sound test (see
+  [Command-line options](#command-line-options)).
 
 ## Layout
 
@@ -15,6 +30,8 @@ non-profit fan project, not affiliated with SEGA or Sonic Team.
 | `lib/` | `SDL2-CS.dll`; FFmpeg for Windows is downloaded into `lib/ffmpeg` |
 | `tests/` | Tests: the resource file format and a screenshot regression test |
 | `tools/` | Release scripts, the resource tool `s2hd-data` and the local web server |
+| `examples/` | Example mods: Lua objects and an original level |
+| `docs/` | Design documents |
 
 ## Game files
 
@@ -169,6 +186,24 @@ in the game. Add the files of the imported zones to get their images too, for ex
 resources. `prune` deletes the files that are the same as in the `.dat` files, so the folder keeps only your
 changes. It is good to prune: a file that you did not change still replaces the resource of a later update of the
 game data or of an import. To share the mod as one file, pack the folder with `--base`.
+
+### Lua objects and mod levels
+
+A mod can add an object with a Lua script, with no change to the code of the game. The object is a folder in
+`SONICORCA/OBJECTS` with the script `_.object.lua`, its animations and its textures. The script gives the name and
+the properties of the object, and the functions that the game calls on each tick. The level editor shows the new
+objects, and the game loads a script again when its file changes.
+
+A mod can also add a level in `SONICORCA/LEVELS/NAME`, with a tile set, a map, a binding and an `INFO.xml` file.
+`--level NAME` starts it, and the level select shows it after the zones of the game.
+
+Two example mods are in `examples/mods`. Their READMEs describe the files and the Lua API:
+
+- `lua-item-block`: an item block that a character hits from below, and a coin.
+- `sunny-meadow`: an original level with slopes, gaps, item blocks and a walking enemy. A script, `generate.py`,
+  makes all its files. It needs `lua-item-block`.
+
+The design of the Lua API is in `docs/lua-modding-design.md`.
 
 ### Import all
 
@@ -463,15 +498,18 @@ Ctrl+S writes each changed group as a file into `mods/editor/animations/` in the
 loads this folder after the other mods. A level that starts later in the same session already has the changes. To
 remove the changes, delete the file.
 
-The behavior of levels and objects is C# code in `SONICORCA/`, not data. The `AREA.area.cs` and `.object.cs`
-resources only name the class to use.
+The behavior of the levels and the objects of the game is C# code in `SONICORCA/`, not data. The `AREA.area.cs` and
+`.object.cs` resources only name the class to use. A mod adds new behavior with
+[Lua objects](#lua-objects-and-mod-levels).
 
 ## Command-line options
 
 | Option | Effect |
 |---|---|
 | `--level <zone> [--act <n>]` | Starts a level directly, for example `--level htz --act 2` |
-| `--protagonist <name>`, `--sidekick <name>` | Chooses the characters for `--level` (`sonic`, `tails`, `knuckles`) |
+| `--protagonist <name>`, `--sidekick <name>` | Chooses the characters for `--level` (`sonic`, `tails`, `knuckles`). Use `--sidekick none` with `--protagonist` to play alone |
+| `--startpos <x> <y>` | Starts `--level` at this position, in level units |
+| `--levelselect` | Opens the level select at once. On the title screen, press up, down, left and right, then hold the jump button and press Start |
 | `--debug` | Starts the level with debug mode on |
 | `--animations [KEY]` | Opens the animation editor, for example `--animations SONICORCA/OBJECTS/SONIC/ANIGROUP` |
 | `--editor` | Turns on the level editor: F2 in a level opens it. With `--level`, the editor opens when the level starts |
@@ -480,8 +518,9 @@ resources only name the class to use.
 | `--record <file>` | Records the input of the level to a file, for example for a demo |
 | `--playback <file>` | Plays a recorded input in place of the controller |
 | `--nologos` | Skips the disclaimer and the logo screens |
+| `--no-error-dialog` | Writes an error to the console and the log, not to a dialog box. Test runs with `S2HD_EXIT_AFTER_CAPTURES=1` do this too |
 | `--credits`, `--options` | Opens the credits or the options screen |
-| `--halfpipe [1-7]` | Opens a 3D special stage (in development). Left and right move Sonic around the pipe, and an action button jumps, with the physics of Sonic 2. Collect enough rings for each of the three checkpoints, and avoid the bombs. Tails follows Sonic. Add `--sidekick none` to play Sonic alone. Escape closes it |
+| `--halfpipe [1-7]` | Opens a 3D special stage. Left and right move Sonic around the pipe, and an action button jumps, with the physics of Sonic 2. Collect enough rings for each of the three checkpoints, and avoid the bombs. Tails follows Sonic. Add `--sidekick none` to play Sonic alone. Escape closes it |
 
 On macOS, pass options to the executable in the app bundle, for example
 `publish/S2HD.app/Contents/MacOS/S2HD --level cpz`.
