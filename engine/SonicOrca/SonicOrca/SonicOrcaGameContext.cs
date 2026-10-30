@@ -128,6 +128,9 @@ public abstract class SonicOrcaGameContext : IDisposable
 	/// <summary>F2 in a level opens the level editor (the --editor option).</summary>
 	public bool EditorEnabled { get; set; }
 
+	/// <summary>The levels of the game, for the level editor. Null when the game does not give them.</summary>
+	public ILevelCatalog LevelCatalog { get; set; }
+
 	public IniConfiguration Configuration { get; protected set; }
 
 	public IReadOnlyList<Controller> Current => _controllersCurrent;

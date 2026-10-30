@@ -47,6 +47,7 @@ internal class RootGameState : IGameState, IDisposable
 		InputContext input = _gameContext.Input;
 		// With --editor, F2 in a level opens the level editor. With --level too, the editor opens when the level starts.
 		_gameContext.EditorEnabled = _cmdLineArgs.HasOption("editor");
+		_gameContext.LevelCatalog = new LevelCatalog(_gameContext);
 		if (_cmdLineArgs.HasOption("level"))
 		{
 			LevelPrepareSettings settingsFromCommandLine = GetLevelPrepareSettingsFromCommandLine();
@@ -283,9 +284,9 @@ internal class RootGameState : IGameState, IDisposable
 		if (areaResourceKey == null)
 			return null;
 		int levelNumber = Levels.GetLevelIndex(mnemonic, _gameContext.ResourceTree);
-		// A mod level is not in the story, so the game does not go on to another level after it (number 0)
+		// After a level that is not in the story, the game does not go on to another level (number 0)
 		if (levelNumber == -1)
-			levelNumber = Levels.GetAreaResourceKey(mnemonic) == null ? 0 : 1;
+			levelNumber = 0;
 		LevelPrepareSettings settingsFromCommandLine = new LevelPrepareSettings()
 		{
 			Act = 1,

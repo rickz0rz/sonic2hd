@@ -89,6 +89,8 @@ public sealed class LevelEditor : IDisposable
 
 	private readonly SonicOrcaGameContext _gameContext;
 
+	private readonly LevelsTool _levelsTool;
+
 	private readonly EditorHistory _history = new EditorHistory();
 
 	private readonly EditorInput _input = new EditorInput();
@@ -193,7 +195,10 @@ public sealed class LevelEditor : IDisposable
 	public bool SolidityDirty { get; private set; }
 
 	/// <summary>There are changes that are not saved.</summary>
-	public bool Dirty => BindingDirty || MarkersDirty || TilesDirty || ScrollDirty || LayersDirty || CollisionDirty || SolidityDirty;
+	public bool Dirty => LevelDirty || _levelsTool.OrderDirty;
+
+	/// <summary>True when the level has changes that are not saved.</summary>
+	private bool LevelDirty => BindingDirty || MarkersDirty || TilesDirty || ScrollDirty || LayersDirty || CollisionDirty || SolidityDirty;
 
 	public EditorPlayRequest PlayRequest { get; private set; }
 
@@ -240,7 +245,8 @@ public sealed class LevelEditor : IDisposable
 	{
 		_level = level;
 		_gameContext = level.GameContext;
-		_tools = new EditorTool[] { new ObjectsTool(this), new MarkersTool(this), new TilesTool(this), new CollisionTool(this) };
+		_levelsTool = new LevelsTool(this);
+		_tools = new EditorTool[] { new ObjectsTool(this), new MarkersTool(this), new TilesTool(this), new CollisionTool(this), _levelsTool };
 		_tool = _tools[0];
 	}
 
@@ -369,6 +375,10 @@ public sealed class LevelEditor : IDisposable
 		else if (!control && IsKeyPressed(KeyboardState.KEY_4))
 		{
 			SelectTool(3);
+		}
+		else if (!control && IsKeyPressed(KeyboardState.KEY_5))
+		{
+			SelectTool(4);
 		}
 		else if (control && IsKeyPressed(KeyboardState.KEY_S))
 		{
@@ -810,7 +820,15 @@ public sealed class LevelEditor : IDisposable
 		try
 		{
 			CompleteTraces();
-			string path = EditorModFile.Save(GetChangedResources(), EditorModFile.GetPath(_gameContext.UserDataDirectory, _level.Binding.Resource.FullKeyPath));
+			List<string> paths = new List<string>();
+			if (LevelDirty)
+			{
+				paths.Add(EditorModFile.Save(GetChangedResources(), EditorModFile.GetPath(_gameContext.UserDataDirectory, _level.Binding.Resource.FullKeyPath)));
+			}
+			if (_levelsTool.OrderDirty)
+			{
+				paths.Add(_levelsTool.SaveOrder());
+			}
 			BindingDirty = false;
 			MarkersDirty = false;
 			TilesDirty = false;
@@ -819,7 +837,7 @@ public sealed class LevelEditor : IDisposable
 			_documentLayers = _level.Map.Layers.ToArray();
 			CollisionDirty = false;
 			SolidityDirty = false;
-			ShowMessage("Saved to " + path);
+			ShowMessage(paths.Count == 0 ? "No changes to save" : "Saved to " + string.Join(" and ", paths));
 		}
 		catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is ResourceException || ex is InvalidOperationException)
 		{
@@ -834,7 +852,7 @@ public sealed class LevelEditor : IDisposable
 	public void SaveBackup()
 	{
 		CompleteTraces();
-		if (!Dirty)
+		if (!LevelDirty)
 		{
 			return;
 		}
