@@ -31,6 +31,7 @@
     <!-- The list of the levels and the order of the story -->
     <Compile Include="../../SONICORCA/Core/Levels.cs" Link="Game/Levels.cs" />
     <Compile Include="../../SONICORCA/Core/LevelInfo.cs" Link="Game/LevelInfo.cs" />
+    <Compile Include="../../SONICORCA/Core/NewLevel.cs" Link="Game/NewLevel.cs" />
   </ItemGroup>
 
 </Project>

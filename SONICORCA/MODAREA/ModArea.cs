@@ -17,6 +17,8 @@ namespace SONICORCA.MODAREA;
 /// <item>INFO: an XML file, for example
 /// <c>&lt;level name="Sunny Meadow" music="SONICORCA/MUSIC/LEVELS/EHZ/COOPERATIVE/ACT1" start="startpos" /&gt;</c>.</item>
 /// </list>
+/// With the attribute <c>tileset</c>, for example <c>tileset="SONICORCA/LEVELS/EHZ/TILESET"</c>, the level uses the
+/// tile set of another level and needs no TILESET of its own.
 /// The game starts the level with --level NAME. The bounds of the level are the bounds of the map, or the rectangle
 /// between the markers "bounds_lt" and "bounds_rb" when the map has them.
 /// </summary>
@@ -29,19 +31,28 @@ public class ModArea : Area
 	private const string DefaultStartMarker = "startpos";
 
 	public ModArea()
-		: base(new[] { TileSetResourceKey, MapResourceKey, BindingResourceKey, InfoResourceKey })
+		: base(new[] { MapResourceKey, BindingResourceKey, InfoResourceKey })
 	{
 	}
 
-	/// <summary>The music and the animals of the info file, so that they load with the level.</summary>
+	/// <summary>The tile set, the music and the animals of the info file, so that they load with the level.</summary>
 	public override IEnumerable<string> GetMoreDependencies(ResourceTree resourceTree)
 	{
 		XmlElement info = ReadInfo(resourceTree);
+		List<string> keys = new List<string> { GetTileSetKey(info) };
 		if (info == null)
-			return Enumerable.Empty<string>();
+			return keys;
 		string music = info.GetAttribute("music");
-		IEnumerable<string> animals = info.GetAttribute("animals").Split(' ', System.StringSplitOptions.RemoveEmptyEntries);
-		return string.IsNullOrEmpty(music) ? animals : animals.Prepend(music);
+		if (!string.IsNullOrEmpty(music))
+			keys.Add(music);
+		keys.AddRange(info.GetAttribute("animals").Split(' ', System.StringSplitOptions.RemoveEmptyEntries));
+		return keys;
+	}
+
+	/// <summary>The key of the tile set: the tile set of the info file, or the TILESET of the level.</summary>
+	private string GetTileSetKey(XmlElement info)
+	{
+		return info?.GetAttribute("tileset") is { Length: > 0 } key ? key : this.GetAbsolutePath(TileSetResourceKey);
 	}
 
 	public override void Prepare(Level level, LevelPrepareSettings settings)
@@ -55,7 +66,7 @@ public class ModArea : Area
 		level.AnimalResourceKeys = info.GetAttribute("animals").Split(' ', System.StringSplitOptions.RemoveEmptyEntries);
 		if (!settings.Seamless)
 		{
-			level.TileSet = tree.GetLoadedResource<TileSet>(this, TileSetResourceKey);
+			level.TileSet = tree.GetLoadedResource<TileSet>(GetTileSetKey(info));
 			level.LoadMap(tree.GetLoadedResource<LevelMap>(this, MapResourceKey));
 			level.LoadBinding(tree.GetLoadedResource<LevelBinding>(this, BindingResourceKey));
 		}

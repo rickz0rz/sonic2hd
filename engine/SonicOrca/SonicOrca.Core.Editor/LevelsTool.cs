@@ -5,9 +5,9 @@ using SonicOrca.Graphics;
 namespace SonicOrca.Core.Editor;
 
 /// <summary>
-/// Changes the order of the levels of the story. The list shows the levels of the story in their order, then the
-/// levels that are not in the story. The story goes from each level to the next level of the list. Save writes the
-/// order into mods/editor/LEVELS.dat. Undo does not change the order.
+/// Opens levels, makes new levels and changes the order of the levels of the story. The list shows the levels of the
+/// story in their order, then the levels that are not in the story. The story goes from each level to the next level
+/// of the list. Save writes the order into mods/editor/LEVELS.dat. Undo does not change the order.
 /// </summary>
 internal sealed class LevelsTool : EditorTool
 {
@@ -24,6 +24,19 @@ internal sealed class LevelsTool : EditorTool
 	/// <summary>The level of the first click on "Open" while the editor has changes that are not saved.</summary>
 	private string _confirmOpen;
 
+	/// <summary>True while the properties show the form of a new level.</summary>
+	private bool _creating;
+
+	private string _newName = "";
+
+	private string _newMnemonic = "";
+
+	/// <summary>The short name of the level with the tile set for the new level.</summary>
+	private string _newTilesFrom;
+
+	/// <summary>True after the first click on "Create" while the editor has changes that are not saved.</summary>
+	private bool _confirmCreate;
+
 	public LevelsTool(LevelEditor editor)
 		: base(editor)
 	{
@@ -31,13 +44,16 @@ internal sealed class LevelsTool : EditorTool
 
 	public override string Name => "Levels";
 
-	public override string Hint => "Click a level in the list. Then open it, move it in the story, or add it to the story or remove it.";
+	public override string Hint => _creating
+		? "Type a name, choose the level with the tiles, then click Create. The new level opens in the editor."
+		: "Click a level in the list. Then open it, move it in the story, or add it to the story or remove it.";
 
 	public override string Status => $"Levels {_levels.Count}   In the story {_story.Count}";
 
 	public override string ListHeading => "Levels (the story first, in its order)";
 
-	public override string PropertiesHeading => _selected == null ? "Level (select a level)" : "Level (click a value to change it)";
+	public override string PropertiesHeading => _creating ? "New level (click a value to change it)"
+		: _selected == null ? "Level (select a level)" : "Level (click a value to change it)";
 
 	/// <summary>True when the order has changes that are not saved.</summary>
 	public bool OrderDirty { get; private set; }
@@ -96,6 +112,9 @@ internal sealed class LevelsTool : EditorTool
 
 	#region List
 
+	/// <summary>The first row makes a new level. The other rows are the levels.</summary>
+	private const int NewRowCount = 1;
+
 	public override IReadOnlyList<EditorListRow> GetListRows()
 	{
 		if (Catalog == null)
@@ -103,6 +122,7 @@ internal sealed class LevelsTool : EditorTool
 			return new[] { new EditorListRow { Text = "This game gives no list of levels", Dim = true } };
 		}
 		string open = OpenMnemonic;
+		EditorListRow newRow = new EditorListRow { Text = "+ New level", Active = _creating };
 		return GetOrderedLevels().Select(level =>
 		{
 			int position = EditorLevelOrder.IndexOf(_story, level.Mnemonic);
@@ -111,19 +131,28 @@ internal sealed class LevelsTool : EditorTool
 				Text = position >= 0 ? $"{position + 1}: {level.Name}" : level.Name,
 				Detail = level.Mnemonic == open ? "open" : position >= 0 ? "" : "not in story",
 				DetailColour = level.Mnemonic == open ? OpenColour : null,
-				Active = level.Mnemonic == _selected,
+				Active = !_creating && level.Mnemonic == _selected,
 				Dim = position < 0
 			};
-		}).ToArray();
+		}).Prepend(newRow).ToArray();
 	}
 
 	public override void OnListClick(int index, int direction)
 	{
+		_confirmOpen = null;
+		_confirmCreate = false;
+		if (index < NewRowCount)
+		{
+			_creating = true;
+			_newTilesFrom ??= OpenMnemonic;
+			return;
+		}
 		IReadOnlyList<LevelCatalogEntry> levels = GetOrderedLevels();
+		index -= NewRowCount;
 		if (index >= 0 && index < levels.Count)
 		{
+			_creating = false;
 			_selected = levels[index].Mnemonic;
-			_confirmOpen = null;
 		}
 	}
 
@@ -133,6 +162,10 @@ internal sealed class LevelsTool : EditorTool
 
 	public override List<EditorPropertyRow> GetPropertyRows()
 	{
+		if (_creating)
+		{
+			return GetNewLevelRows();
+		}
 		LevelCatalogEntry level = Selected;
 		if (level == null)
 		{
@@ -161,6 +194,111 @@ internal sealed class LevelsTool : EditorTool
 			rows.Add(new EditorPropertyRow { Label = "Next level", Value = next });
 		}
 		return rows;
+	}
+
+	/// <summary>The form of a new level: the name, the short name, the level with the tiles, and Create.</summary>
+	private List<EditorPropertyRow> GetNewLevelRows()
+	{
+		LevelCatalogEntry tilesFrom = _levels.FirstOrDefault(level => level.Mnemonic == _newTilesFrom) ?? _levels.FirstOrDefault();
+		return new List<EditorPropertyRow>
+		{
+			new EditorPropertyRow
+			{
+				Label = "Name",
+				Value = _newName.Length > 0 ? _newName : "click to type",
+				Commit = text =>
+				{
+					// The short name follows the name until the user types a short name
+					if (_newMnemonic == MakeMnemonic(_newName))
+					{
+						_newMnemonic = MakeMnemonic(text);
+					}
+					_newName = text.Trim();
+					return true;
+				}
+			},
+			new EditorPropertyRow
+			{
+				Label = "Short name",
+				Value = _newMnemonic.Length > 0 ? _newMnemonic : "letters and digits",
+				Commit = text =>
+				{
+					string mnemonic = text.Trim().ToLowerInvariant();
+					if (mnemonic.Length == 0 || !mnemonic.All(char.IsAsciiLetterOrDigit))
+					{
+						Editor.ShowMessage("The short name can have only letters and digits.");
+						return false;
+					}
+					_newMnemonic = mnemonic;
+					return true;
+				}
+			},
+			new EditorPropertyRow
+			{
+				Label = "Tiles from",
+				Value = tilesFrom?.Name ?? "no level",
+				Step = direction => _newTilesFrom = StepLevel(tilesFrom, direction)
+			},
+			new EditorPropertyRow
+			{
+				Label = "Create",
+				Value = _confirmCreate ? "click again to open without a save" : "click to make the level and open it",
+				Step = _ => Create(tilesFrom)
+			}
+		};
+	}
+
+	/// <summary>Gives the short name of the next level (1) or the level before (-1) in the list.</summary>
+	private string StepLevel(LevelCatalogEntry current, int direction)
+	{
+		IReadOnlyList<LevelCatalogEntry> levels = GetOrderedLevels();
+		if (levels.Count == 0)
+		{
+			return null;
+		}
+		int index = current == null ? 0 : levels.ToList().FindIndex(level => level.Mnemonic == current.Mnemonic);
+		return levels[((index + direction) % levels.Count + levels.Count) % levels.Count].Mnemonic;
+	}
+
+	/// <summary>The short name from a name: the letters and digits, in lower case.</summary>
+	private static string MakeMnemonic(string name)
+	{
+		string mnemonic = new string(name.Where(char.IsAsciiLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
+		return mnemonic.Length > 16 ? mnemonic.Substring(0, 16) : mnemonic;
+	}
+
+	/// <summary>
+	/// Makes the new level and opens it. With changes that are not saved, the first click only warns, as for Open.
+	/// </summary>
+	private void Create(LevelCatalogEntry tilesFrom)
+	{
+		if (tilesFrom == null)
+		{
+			return;
+		}
+		if (Editor.Dirty && !_confirmCreate)
+		{
+			_confirmCreate = true;
+			Editor.ShowMessage("The editor has changes that are not saved. Save first, or click Create again to make the level without them.");
+			return;
+		}
+		_confirmCreate = false;
+		LevelCatalogEntry level;
+		try
+		{
+			level = Catalog.CreateLevel(_newMnemonic, _newName, tilesFrom.Mnemonic);
+		}
+		catch (System.Exception ex) when (ex is System.InvalidOperationException || ex is System.IO.IOException || ex is System.UnauthorizedAccessException)
+		{
+			Editor.ShowMessage("The level was not made: " + ex.Message);
+			return;
+		}
+		_creating = false;
+		_selected = level.Mnemonic;
+		_newName = "";
+		_newMnemonic = "";
+		Editor.ShowMessage($"Made the level {level.Name}. Opening it.");
+		Editor.RequestOpenLevel(level);
 	}
 
 	private string GetOpenText(LevelCatalogEntry level)
