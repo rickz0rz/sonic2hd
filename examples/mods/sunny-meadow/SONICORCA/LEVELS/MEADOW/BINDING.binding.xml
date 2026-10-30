@@ -503,6 +503,60 @@
     </Definition>
     <Definition>
       <Common>
+        <Key>SONICORCA/OBJECTS/BURRBEETLE</Key>
+        <Uid>047ddf96-3090-55cc-8398-f6ce874bdb22</Uid>
+        <Name>Burrbeetle 0</Name>
+        <Position X="1312" Y="1122" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/BURRBEETLE</Key>
+        <Uid>db2e3f01-fb0a-5c47-b119-570fd8a5aabb</Uid>
+        <Name>Burrbeetle 1</Name>
+        <Position X="3872" Y="1122" />
+      </Common>
+      <Behaviour>
+        <start_right>True</start_right>
+      </Behaviour>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/BURRBEETLE</Key>
+        <Uid>5f02b231-5d53-5978-a8fc-60dab66cf292</Uid>
+        <Name>Burrbeetle 2</Name>
+        <Position X="5024" Y="930" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/BURRBEETLE</Key>
+        <Uid>7134ae1c-0652-5a0b-a5d4-c16cf0a70b28</Uid>
+        <Name>Burrbeetle 3</Name>
+        <Position X="8736" Y="1122" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/BURRBEETLE</Key>
+        <Uid>08abff89-61d8-5903-945a-0f89e66ec4fe</Uid>
+        <Name>Burrbeetle 4</Name>
+        <Position X="11040" Y="1122" />
+      </Common>
+      <Behaviour>
+        <start_right>True</start_right>
+      </Behaviour>
+    </Definition>
+    <Definition>
+      <Common>
+        <Key>SONICORCA/OBJECTS/BURRBEETLE</Key>
+        <Uid>66552d9c-91f1-5a5a-a24f-d73ad60dbf9f</Uid>
+        <Name>Burrbeetle 5</Name>
+        <Position X="11936" Y="1122" />
+      </Common>
+    </Definition>
+    <Definition>
+      <Common>
         <Key>SONICORCA/OBJECTS/SIGNPOST</Key>
         <Uid>6d16d981-b9a0-5fae-a126-e065b2ba4115</Uid>
         <Name>Signpost 0</Name>

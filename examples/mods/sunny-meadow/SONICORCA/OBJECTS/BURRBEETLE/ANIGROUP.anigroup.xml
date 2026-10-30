@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<anigroup>
+  <textures>
+    <texture>//TEXTURE</texture>
+  </textures>
+  <animations>
+    <!-- 0: walk -->
+    <animation>
+      <frame delay="7" texture="0" x="0" y="0" w="96" h="72" />
+      <frame delay="7" texture="0" x="96" y="0" w="96" h="72" />
+    </animation>
+  </animations>
+</anigroup>
