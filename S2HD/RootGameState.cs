@@ -68,8 +68,7 @@ internal class RootGameState : IGameState, IDisposable
 		{
 			if (_cmdLineArgs.HasOption("credits"))
 			{
-				ShowCredits();
-				foreach (UpdateResult updateResult in _currentGameState.Update())
+				foreach (UpdateResult updateResult in PlayCredits())
 					yield return updateResult;
 			}
 			else if (_cmdLineArgs.HasOption("options"))
@@ -201,8 +200,7 @@ internal class RootGameState : IGameState, IDisposable
 		// Show the credits only when the player finished the game, not when the player quit from the pause menu.
 		if (!storyState.QuitViaOptions)
 		{
-			ShowCredits();
-			foreach (UpdateResult updateResult in _currentGameState.Update())
+			foreach (UpdateResult updateResult in PlayCredits())
 				yield return updateResult;
 		}
 	}
@@ -253,9 +251,17 @@ internal class RootGameState : IGameState, IDisposable
 		ChangeGameState(new OptionsGameState(_gameContext));
 	}
 
-	private void ShowCredits()
+	/// <summary>
+	/// Plays the credits of the original game, when the import made them, and then the HD credits film.
+	/// </summary>
+	private IEnumerable<UpdateResult> PlayCredits()
 	{
+		ChangeGameState(new OriginalCreditsGameState(_gameContext));
+		foreach (UpdateResult updateResult in _currentGameState.Update())
+			yield return updateResult;
 		ChangeGameState(new CreditsGameState(_gameContext));
+		foreach (UpdateResult updateResult in _currentGameState.Update())
+			yield return updateResult;
 	}
 
 	private void PlayDemo()

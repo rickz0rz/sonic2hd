@@ -5,6 +5,7 @@
 //   dotnet run --project tools/s2hd-data -- prune  <folder> <file.dat>...
 //   dotnet run --project tools/s2hd-data -- import-special-stages <s2disasm folder> <folder>
 //   dotnet run --project tools/s2hd-data -- import-level <zone> <s2disasm folder> <folder>
+//   dotnet run --project tools/s2hd-data -- import-ending <s2disasm folder> <folder>
 // unpack writes each resource as a normal file (.png, .ogg, .map.xml and so on) that you can edit. With more than
 // one .dat file, a later file replaces the resources of an earlier one, as in the game. With --images, unpack
 // writes only the images. The game loads such a folder from its mods folder. prune deletes the files of a folder
@@ -39,6 +40,7 @@ try
 		["import-special-stages", string disassembly, string folder] => ImportSpecialStages(disassembly, folder),
 		["import-level", string zone, string disassembly, string folder] => ImportLevel(zone, disassembly, folder),
 		["import-demos", string disassembly, string folder] => ImportDemos(disassembly, folder),
+		["import-ending", string disassembly, string folder] => ImportEnding(disassembly, folder),
 		["import-super-sonic", string disassembly, string folder] => ImportSuperSonic(disassembly, folder),
 		["import-music", string disassembly, string folder] => ImportMusic(disassembly, folder),
 		_ => Usage(),
@@ -162,6 +164,12 @@ static int ImportDemos(string disassembly, string folder)
 	return 0;
 }
 
+static int ImportEnding(string disassembly, string folder)
+{
+	OriginalImport.ImportEnding(disassembly, folder, Console.WriteLine);
+	return 0;
+}
+
 static int ImportMusic(string disassembly, string folder)
 {
 	if (!Directory.Exists(Path.Combine(disassembly, MusicImport.MusicFolder)) || !Directory.Exists(Path.Combine(disassembly, MusicImport.SoundFolder))
@@ -207,6 +215,7 @@ static int Usage()
 		  s2hd-data import-special-stages <s2disasm folder> <folder>
 		  s2hd-data import-level <zone> <s2disasm folder> <folder>
 		  s2hd-data import-demos <s2disasm folder> <folder>
+		  s2hd-data import-ending <s2disasm folder> <folder>
 		  s2hd-data import-super-sonic <s2disasm folder> <folder>
 		  s2hd-data import-music <s2disasm folder> <folder>
 		""");

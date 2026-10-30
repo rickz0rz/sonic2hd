@@ -32,6 +32,8 @@
     <Compile Include="../../SONICORCA/Core/Levels.cs" Link="Game/Levels.cs" />
     <Compile Include="../../SONICORCA/Core/LevelInfo.cs" Link="Game/LevelInfo.cs" />
     <Compile Include="../../SONICORCA/Core/NewLevel.cs" Link="Game/NewLevel.cs" />
+    <!-- The palette fades of the original credits -->
+    <Compile Include="../../S2HD/MegaDriveFade.cs" Link="Game/MegaDriveFade.cs" />
   </ItemGroup>
 
 </Project>

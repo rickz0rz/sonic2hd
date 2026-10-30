@@ -19,6 +19,8 @@ The port adds these parts to the demo:
 - **Editors:** a [level editor](#level-editor) and an [animation editor](#animation-editor) in the game.
 - **Level select:** a screen of its own, with all the zones, the mod levels and a sound test (see
   [Command-line options](#command-line-options)).
+- **Original credits:** after the last level, the [credits of the original game](#original-credits) play before
+  the HD credits film.
 
 ## Layout
 
@@ -116,7 +118,8 @@ When players choose their own files, the page also loads the `.dat` files in a `
 ### Parts from the Sonic 2 disassembly
 
 The demo data has only Emerald Hill, Chemical Plant and Hill Top. On the desktop, `tools/import-all.sh` makes the
-other zones, the special stages, the attract demos and the music from the Sonic 2 disassembly. On the web, the page
+other zones, the special stages, the attract demos, the original credits and the music from the Sonic 2
+disassembly. On the web, the page
 does the same import in the browser:
 
 1. Download the disassembly as a zip from https://github.com/sonicretro/s2disasm (Code, Download ZIP).
@@ -210,7 +213,8 @@ The design of the Lua API is in `docs/lua-modding-design.md`.
 ### Import all
 
 The build does not make the data of the missing zones. One script makes all the mods that come from the
-disassembly: the zones, their music, the special stage layouts, the sprites of Super Sonic and the demos. The music needs `ffmpeg` on the
+disassembly: the zones, their music, the special stage layouts, the sprites of Super Sonic, the demos and the
+original credits. The music needs `ffmpeg` on the
 `PATH` (or set `S2HD_FFMPEG`). The sections below tell what each import does.
 
 ```sh
@@ -221,6 +225,21 @@ git clone https://github.com/sonicretro/s2disasm.git ../s2disasm
 The script finds the disassembly at `S2DISASM_DIR`, `../s2disasm` or `../../sonicretro/s2disasm`. It writes the
 `.dat` files to the `mods` folder in the user data folder. To use other folders, give them as arguments:
 `./tools/import-all.sh <s2disasm> <mods>`. Run the script again after an update of this repository.
+
+### Original credits
+
+The import also makes the credits of the original game: 21 slides of text and the Sonic 2 logo at the end. It reads
+the text and the layout of the slides from `s2.asm`, and draws them with the credits font of the disassembly. The
+credits music (`9E - Credits`) comes with the music import.
+
+```sh
+dotnet run --project tools/s2hd-data -- import-ending ../s2disasm ending
+```
+
+After the last level, and with `--credits`, the original credits play first. The slides fade in and out with the
+fades of the original, and the logo flashes with its palette cycle. Then the HD credits film plays. Enter, Start, or
+a face button of the game pad goes from the slides to the logo. On the logo, the same buttons end the original credits
+after the flash. Without the import, only the HD credits film plays.
 
 ### Music
 
