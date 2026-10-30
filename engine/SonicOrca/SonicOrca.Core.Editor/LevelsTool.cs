@@ -7,7 +7,9 @@ namespace SonicOrca.Core.Editor;
 /// <summary>
 /// Opens levels, makes new levels and changes the order of the levels of the story. The list shows the levels of the
 /// story in their order, then the levels that are not in the story. The story goes from each level to the next level
-/// of the list. Save writes the order into mods/editor/LEVELS.dat. Undo does not change the order.
+/// of the list. The tool also changes the name of a level, and the music of a mod level. Save writes the order and
+/// the names of the Sonic 2 levels into mods/editor/LEVELS.dat, and the name and the music of a mod level into its
+/// INFO file in mods/editor/NAME.dat. Undo does not change these values.
 /// </summary>
 internal sealed class LevelsTool : EditorTool
 {
@@ -18,6 +20,17 @@ internal sealed class LevelsTool : EditorTool
 
 	/// <summary>The short names of the levels of the story, in their order, with the changes that are not saved.</summary>
 	private readonly List<string> _story = new List<string>();
+
+	/// <summary>The new names of the Sonic 2 levels, by short name, with the changes that are not saved.</summary>
+	private readonly Dictionary<string, string> _titles = new Dictionary<string, string>();
+
+	/// <summary>The mod levels with a new name or new music that is not saved, by short name.</summary>
+	private readonly Dictionary<string, (string Name, string Music)> _modChanges = new Dictionary<string, (string Name, string Music)>();
+
+	/// <summary>The keys of the music that a level can play.</summary>
+	private IReadOnlyList<string> _music = new string[0];
+
+	private const string MusicFolder = "SONICORCA/MUSIC/";
 
 	private string _selected;
 
@@ -46,7 +59,7 @@ internal sealed class LevelsTool : EditorTool
 
 	public override string Hint => _creating
 		? "Type a name, choose the level with the tiles, then click Create. The new level opens in the editor."
-		: "Click a level in the list. Then open it, move it in the story, or add it to the story or remove it.";
+		: "Click a level. Open it, change its name or music, or change the story. A new name or music applies when the level opens again.";
 
 	public override string Status => $"Levels {_levels.Count}   In the story {_story.Count}";
 
@@ -55,39 +68,119 @@ internal sealed class LevelsTool : EditorTool
 	public override string PropertiesHeading => _creating ? "New level (click a value to change it)"
 		: _selected == null ? "Level (select a level)" : "Level (click a value to change it)";
 
-	/// <summary>True when the order has changes that are not saved.</summary>
-	public bool OrderDirty { get; private set; }
+	/// <summary>True when the order of the story, the names or the music have changes that are not saved.</summary>
+	public bool Dirty => _orderDirty || _modChanges.Count > 0;
+
+	/// <summary>True when the order of the story or the names of the Sonic 2 levels have changes that are not saved.</summary>
+	private bool _orderDirty;
 
 	private ILevelCatalog Catalog => Editor.GameContext.LevelCatalog;
 
 	public override void Begin()
 	{
-		if (!OrderDirty)
+		if (!Dirty)
 		{
 			Reload();
 		}
 	}
 
-	/// <summary>Writes the order of the story. Returns the path of the file.</summary>
-	public string SaveOrder()
+	/// <summary>Writes the changes. Returns the paths of the files.</summary>
+	public IReadOnlyList<string> Save()
 	{
-		string path = Catalog.SaveStoryOrder(_story);
-		OrderDirty = false;
+		List<string> paths = new List<string>();
+		if (_orderDirty)
+		{
+			paths.Add(Catalog.SaveStoryOrder(_story, _titles));
+		}
+		foreach (KeyValuePair<string, (string Name, string Music)> change in _modChanges)
+		{
+			paths.Add(Catalog.SaveModLevelInfo(change.Key, change.Value.Name, change.Value.Music));
+		}
 		Reload();
-		return path;
+		return paths;
 	}
 
 	public override void OnNewLevel()
 	{
-		OrderDirty = false;
 		Reload();
 	}
 
 	private void Reload()
 	{
+		_orderDirty = false;
+		_modChanges.Clear();
 		_levels = Catalog?.GetLevels() ?? new LevelCatalogEntry[0];
+		_music = Catalog?.GetMusic() ?? new string[0];
 		_story.Clear();
 		_story.AddRange(_levels.Where(level => level.InStory).Select(level => level.Mnemonic));
+		_titles.Clear();
+		foreach (LevelCatalogEntry level in _levels.Where(level => level.OriginalName != null && level.Name != level.OriginalName))
+		{
+			_titles[level.Mnemonic] = level.Name;
+		}
+	}
+
+	/// <summary>The name of a level with the changes that are not saved.</summary>
+	private string GetName(LevelCatalogEntry level)
+	{
+		if (level.IsMod)
+		{
+			return _modChanges.TryGetValue(level.Mnemonic, out var change) ? change.Name : level.Name;
+		}
+		return _titles.TryGetValue(level.Mnemonic, out string title) ? title : level.OriginalName ?? level.Name;
+	}
+
+	/// <summary>The music of a mod level with the changes that are not saved.</summary>
+	private string GetMusic(LevelCatalogEntry level)
+	{
+		return _modChanges.TryGetValue(level.Mnemonic, out var change) ? change.Music : level.Music;
+	}
+
+	/// <summary>Gives a level a new name. An empty name gives a Sonic 2 level its name of the game again.</summary>
+	private bool SetName(LevelCatalogEntry level, string text)
+	{
+		string name = text.Trim();
+		if (level.IsMod)
+		{
+			if (name.Length == 0)
+			{
+				Editor.ShowMessage("The name is empty.");
+				return false;
+			}
+			_modChanges[level.Mnemonic] = (name, GetMusic(level));
+			return true;
+		}
+		if (name.Length == 0 || name == level.OriginalName)
+		{
+			_titles.Remove(level.Mnemonic);
+		}
+		else
+		{
+			_titles[level.Mnemonic] = name;
+		}
+		_orderDirty = true;
+		return true;
+	}
+
+	/// <summary>Gives a mod level the next music (1) or the music before (-1) in the list of the music.</summary>
+	private void StepMusic(LevelCatalogEntry level, int direction)
+	{
+		if (_music.Count == 0)
+		{
+			return;
+		}
+		int index = _music.ToList().IndexOf(GetMusic(level));
+		index = index < 0 ? (direction > 0 ? 0 : _music.Count - 1) : ((index + direction) % _music.Count + _music.Count) % _music.Count;
+		_modChanges[level.Mnemonic] = (GetName(level), _music[index]);
+	}
+
+	private static string ShowMusic(string key)
+	{
+		if (string.IsNullOrEmpty(key))
+		{
+			return "none";
+		}
+		return key.StartsWith(MusicFolder, System.StringComparison.Ordinal) ? key.Substring(MusicFolder.Length) : key;
 	}
 
 	/// <summary>The levels in the order of the list: the story, then the other levels.</summary>
@@ -128,7 +221,7 @@ internal sealed class LevelsTool : EditorTool
 			int position = EditorLevelOrder.IndexOf(_story, level.Mnemonic);
 			return new EditorListRow
 			{
-				Text = position >= 0 ? $"{position + 1}: {level.Name}" : level.Name,
+				Text = position >= 0 ? $"{position + 1}: {GetName(level)}" : GetName(level),
 				Detail = level.Mnemonic == open ? "open" : position >= 0 ? "" : "not in story",
 				DetailColour = level.Mnemonic == open ? OpenColour : null,
 				Active = !_creating && level.Mnemonic == _selected,
@@ -175,7 +268,13 @@ internal sealed class LevelsTool : EditorTool
 		List<EditorPropertyRow> rows = new List<EditorPropertyRow>
 		{
 			new EditorPropertyRow { Label = "Open", Value = GetOpenText(level), Step = _ => Open(level) },
-			new EditorPropertyRow { Label = "Name", Value = level.Name },
+			new EditorPropertyRow { Label = "Name", Value = GetName(level), Commit = text => SetName(level, text) },
+			new EditorPropertyRow
+			{
+				Label = "Music",
+				Value = level.IsMod ? ShowMusic(GetMusic(level)) : "set by the zone",
+				Step = level.IsMod ? direction => StepMusic(level, direction) : null
+			},
 			new EditorPropertyRow { Label = "Short name", Value = level.Mnemonic },
 			new EditorPropertyRow { Label = "Acts", Value = level.Acts.ToString() },
 			new EditorPropertyRow { Label = "From", Value = level.IsMod ? "a mod" : "Sonic 2" },
@@ -190,7 +289,7 @@ internal sealed class LevelsTool : EditorTool
 		{
 			rows.Add(new EditorPropertyRow { Label = "Move up", Value = position > 0 ? "click" : "first level", Step = _ => Change(EditorLevelOrder.Move(_story, level.Mnemonic, -1)) });
 			rows.Add(new EditorPropertyRow { Label = "Move down", Value = position < _story.Count - 1 ? "click" : "last level", Step = _ => Change(EditorLevelOrder.Move(_story, level.Mnemonic, 1)) });
-			string next = position < _story.Count - 1 ? _levels.First(x => x.Mnemonic == _story[position + 1]).Name : "the end of the game";
+			string next = position < _story.Count - 1 ? GetName(_levels.First(x => x.Mnemonic == _story[position + 1])) : "the end of the game";
 			rows.Add(new EditorPropertyRow { Label = "Next level", Value = next });
 		}
 		return rows;
@@ -327,7 +426,7 @@ internal sealed class LevelsTool : EditorTool
 			return;
 		}
 		_confirmOpen = null;
-		Editor.ShowMessage("Opening " + level.Name);
+		Editor.ShowMessage("Opening " + GetName(level));
 		Editor.RequestOpenLevel(level);
 	}
 
@@ -335,7 +434,7 @@ internal sealed class LevelsTool : EditorTool
 	{
 		if (changed)
 		{
-			OrderDirty = true;
+			_orderDirty = true;
 		}
 	}
 

@@ -73,6 +73,46 @@ public sealed class LevelOrderTests
 		Assert.Equal(new[] { "cpz", "meadow" }, story);
 	}
 
+	[Fact]
+	public void Titles_GiveSonic2LevelsNewNames_InTheStoryAndTheOtherLevels()
+	{
+		ResourceTree tree = new ResourceTree();
+		Dictionary<string, string> titles = new Dictionary<string, string> { ["ehz"] = "Green Hill Zone", ["CPZ"] = "Lab Zone" };
+		Add(tree, Levels.OrderResourceKey, Encoding.UTF8.GetString(Levels.WriteOrder(new[] { "ehz", "htz" }, titles)));
+
+		Assert.Equal("Green Hill Zone", Levels.ReadTitles(tree)["EHZ"]);
+		Assert.Equal(new[] { "Green Hill Zone", "Hill Top Zone" }, Levels.GetStoryLevels(tree).Select(level => level.Name));
+		Assert.Equal("Lab Zone", Levels.GetOtherLevels(tree).Single().Name);
+		Assert.Equal("Emerald Hill Zone", Levels.GetOriginalName("ehz"));
+	}
+
+	[Fact]
+	public void WriteModLevelInfo_ChangesTheNameAndTheMusic_AndKeepsTheOtherAttributes()
+	{
+		byte[] info = Encoding.UTF8.GetBytes("<level name=\"Old\" music=\"SONICORCA/MUSIC/A\" start=\"startpos\" tileset=\"SONICORCA/LEVELS/EHZ/TILESET\" />");
+
+		System.Xml.Linq.XElement level = System.Xml.Linq.XElement.Parse(Encoding.UTF8.GetString(
+			Levels.WriteModLevelInfo(new System.IO.MemoryStream(info), "New", "SONICORCA/MUSIC/B")).TrimStart('\uFEFF'));
+
+		Assert.Equal("New", (string)level.Attribute("name"));
+		Assert.Equal("SONICORCA/MUSIC/B", (string)level.Attribute("music"));
+		Assert.Equal("startpos", (string)level.Attribute("start"));
+		Assert.Equal("SONICORCA/LEVELS/EHZ/TILESET", (string)level.Attribute("tileset"));
+	}
+
+	[Fact]
+	public void MusicKeys_AreTheMusicInfoResources_InKeyOrder()
+	{
+		ResourceTree tree = new ResourceTree();
+		foreach (string key in new[] { "SONICORCA/MUSIC/B", "SONICORCA/MUSIC/A", "SONICORCA/SOUND/C" })
+		{
+			tree.SetOrAdd(key, new Resource(key, ResourceTypeIdentifier.SampleInfo, new MemoryResourceSource(new byte[0])));
+		}
+		tree.SetOrAdd("SONICORCA/MUSIC/A/SAMPLE", new Resource("SONICORCA/MUSIC/A/SAMPLE", ResourceTypeIdentifier.SampleOGG, new MemoryResourceSource(new byte[0])));
+
+		Assert.Equal(new[] { "SONICORCA/MUSIC/A", "SONICORCA/MUSIC/B" }, Levels.GetMusicKeys(tree));
+	}
+
 	private static void AddModLevel(ResourceTree tree, string folder, string name)
 	{
 		Add(tree, $"SONICORCA/LEVELS/{folder}/AREA", "#use SONICORCA.MODAREA");

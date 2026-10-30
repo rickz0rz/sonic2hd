@@ -28,18 +28,43 @@ internal sealed class LevelCatalog : ILevelCatalog
 		return story.Concat(others).ToArray();
 	}
 
-	public string SaveStoryOrder(IReadOnlyList<string> mnemonics)
+	public string SaveStoryOrder(IReadOnlyList<string> mnemonics, IReadOnlyDictionary<string, string> titles)
 	{
 		ResourceTree tree = _gameContext.ResourceTree;
+		byte[] data = Levels.WriteOrder(mnemonics, titles);
 		Resource resource = tree[Levels.OrderResourceKey]?.Resource;
 		if (resource == null)
 		{
 			// The first save: the game data has no order resource. The new resource replaces the default order at once.
-			resource = new Resource(Levels.OrderResourceKey, ResourceTypeIdentifier.Xml, new MemoryResourceSource(Levels.WriteOrder(mnemonics)));
+			resource = new Resource(Levels.OrderResourceKey, ResourceTypeIdentifier.Xml, new MemoryResourceSource(data));
 			tree.SetOrAdd(Levels.OrderResourceKey, resource);
 		}
-		EditorModFile.Change change = new EditorModFile.Change(resource, Levels.WriteOrder(mnemonics));
+		EditorModFile.Change change = new EditorModFile.Change(resource, data);
 		return EditorModFile.Save(new[] { change }, EditorModFile.GetPath(_gameContext.UserDataDirectory, Levels.OrderResourceKey));
+	}
+
+	public string SaveModLevelInfo(string mnemonic, string name, string music)
+	{
+		Resource resource = _gameContext.ResourceTree[$"SONICORCA/LEVELS/{mnemonic.ToUpperInvariant()}/INFO"]?.Resource
+			?? throw new InvalidOperationException($"The level {mnemonic} has no INFO file.");
+		byte[] data;
+		using (Stream stream = resource.Source.ReadUncompressed())
+			data = Levels.WriteModLevelInfo(stream, name, music);
+		// The resource then reads the new data, so the next load of the level uses the new name and music
+		return EditorModFile.Save(new[] { new EditorModFile.Change(resource, data) }, EditorModFile.GetPath(_gameContext.UserDataDirectory, resource.FullKeyPath));
+	}
+
+	public IReadOnlyList<string> GetMusic() => Levels.GetMusicKeys(_gameContext.ResourceTree);
+
+	public string GetTitleCardName(string areaResourceKey)
+	{
+		LevelInfo level = Levels.GetAvailableLevels(_gameContext.ResourceTree)
+			.FirstOrDefault(x => Levels.GetAreaResourceKey(x.Mnemonic) == areaResourceKey);
+		if (level == null || level.Name == Levels.GetOriginalName(level.Mnemonic))
+			return null;
+		// The title card of a Sonic 2 level adds "ZONE" to the name
+		const string zone = " Zone";
+		return level.Name.EndsWith(zone, StringComparison.OrdinalIgnoreCase) ? level.Name.Substring(0, level.Name.Length - zone.Length) : level.Name;
 	}
 
 	public LevelCatalogEntry CreateLevel(string mnemonic, string name, string tilesFrom)
@@ -77,7 +102,10 @@ internal sealed class LevelCatalog : ILevelCatalog
 
 	private LevelCatalogEntry ToEntry(LevelInfo level, int storyNumber)
 	{
-		return new LevelCatalogEntry(level.Mnemonic, level.Name, level.Acts, level.GameIndex == Levels.Mod,
-			Levels.GetAreaResourceKey(level.Mnemonic, _gameContext.ResourceTree), storyNumber);
+		bool isMod = level.GameIndex == Levels.Mod;
+		return new LevelCatalogEntry(level.Mnemonic, level.Name, level.Acts, isMod,
+			Levels.GetAreaResourceKey(level.Mnemonic, _gameContext.ResourceTree), storyNumber,
+			isMod ? null : Levels.GetOriginalName(level.Mnemonic),
+			isMod ? Levels.GetModLevelMusic(level.Mnemonic, _gameContext.ResourceTree) : null);
 	}
 }

@@ -172,6 +172,11 @@ public class LevelLoader
 	private async Task LoadLevelAsync(CancellationToken ct = default(CancellationToken))
 	{
 		_area.Prepare(_level, _level.PrepareSettings);
+		// The level editor can give a level a new name
+		if (_gameContext.LevelCatalog?.GetTitleCardName(_level.PrepareSettings.AreaResourceKey) is string name)
+		{
+			_level.Name = name;
+		}
 		await _level.LoadAsync(_area, ct);
 		_levelLoaded = true;
 	}
