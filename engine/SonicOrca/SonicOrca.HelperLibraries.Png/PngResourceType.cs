@@ -59,9 +59,20 @@ public class PngResourceType : ResourceType
 	}
 
 	/// <summary>
+	/// Decodes a PNG image to its pixels, for code that changes the pixels before it makes a texture. A row has
+	/// <c>width * channels</c> bytes.
+	/// </summary>
+	public static (int Width, int Height, int Channels, byte[] Data) Decode(Stream inputStream)
+	{
+		// No new instance: the constructor of a resource type registers the type
+		PixelData pixelData = GetSlowStream(inputStream).GetAwaiter().GetResult();
+		return (pixelData.Width, pixelData.Height, pixelData.Channels, pixelData.Data);
+	}
+
+	/// <summary>
 	/// Decodes the image with the managed PNG reader.
 	/// </summary>
-	private async Task<PixelData> GetSlowStream(Stream inputStream)
+	private static async Task<PixelData> GetSlowStream(Stream inputStream)
 	{
 		PngReader reader = null;
 		try

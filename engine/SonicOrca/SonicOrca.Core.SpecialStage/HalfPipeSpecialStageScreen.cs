@@ -1,8 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml;
 using SonicOrca.Audio;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
@@ -65,6 +69,9 @@ public class HalfPipeSpecialStageScreen : Screen
 	private const string BackgroundResourceKey = "SONICORCA/SPECIALSTAGE/HALFPIPE/BACKGROUND";
 
 	private const string FloorResourceKey = "SONICORCA/SPECIALSTAGE/HALFPIPE/FLOOR";
+
+	/// <summary>The colors of the pipe of each stage, from the import of the disassembly (see SpecialStageColours).</summary>
+	private const string ColoursResourceKey = "SONICORCA/SPECIALSTAGE/COLOURS";
 
 	private const string SonicAnimationResourceKey = "SONICORCA/SPECIALSTAGE/ANIGROUP";
 
@@ -317,6 +324,9 @@ public class HalfPipeSpecialStageScreen : Screen
 	private ITexture _backgroundTexture;
 
 	private ITexture _floorTexture;
+
+	/// <summary>The floor in the colors of this stage, or null when the floor texture has them already.</summary>
+	private ITexture _stageFloorTexture;
 
 	private ITexture _bombTexture;
 
@@ -573,6 +583,11 @@ public class HalfPipeSpecialStageScreen : Screen
 		{
 			_resourceSession.PushDependency(stageKey);
 		}
+		bool hasColours = _gameContext.ResourceTree[ColoursResourceKey]?.Resource != null;
+		if (hasColours)
+		{
+			_resourceSession.PushDependency(ColoursResourceKey);
+		}
 		await _resourceSession.LoadAsync(ct);
 		ResourceTree tree = _gameContext.ResourceTree;
 		if (hasStage)
@@ -583,6 +598,11 @@ public class HalfPipeSpecialStageScreen : Screen
 		_font = tree.GetLoadedResource<Font>(FontResourceKey);
 		_backgroundTexture = tree.GetLoadedResource<ITexture>(BackgroundResourceKey);
 		_floorTexture = tree.GetLoadedResource<ITexture>(FloorResourceKey);
+		if (hasColours)
+		{
+			_stageFloorTexture = CreateStageFloorTexture(tree);
+			_floorTexture = _stageFloorTexture ?? _floorTexture;
+		}
 		_bombTexture = tree.GetLoadedResource<ITexture>(BombResourceKey);
 		_glowTexture = tree.GetLoadedResource<ITexture>(GlowResourceKey);
 		_shadowTexture = tree.GetLoadedResource<ITexture>(ShadowResourceKey);
@@ -1027,6 +1047,46 @@ public class HalfPipeSpecialStageScreen : Screen
 		return new Colour(255, Channel(megaDrive & 0xE), Channel((megaDrive >> 4) & 0xE), Channel((megaDrive >> 8) & 0xE));
 	}
 
+	/// <summary>
+	/// Makes the floor in the colors of this stage, from the floor texture, which has the colors of stage 1. Gives null
+	/// when the stage has the colors of stage 1, or when the colors cannot be read.
+	/// </summary>
+	private ITexture CreateStageFloorTexture(ResourceTree tree)
+	{
+		try
+		{
+			XmlDocument document = tree.GetLoadedResource<XmlLoadedResource>(ColoursResourceKey).XmlDocument;
+			uint[] ReadStage(int number)
+			{
+				XmlNode node = document.SelectSingleNode($"colours/stage[@number='{number}']");
+				return node?.InnerText.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(x => uint.Parse(x, NumberStyles.HexNumber, CultureInfo.InvariantCulture)).ToArray();
+			}
+			uint[] from = ReadStage(1);
+			uint[] to = ReadStage(_stage + 1);
+			if (from == null || to == null || from.Length < 6 || to.Length < 6 || HalfPipeFloorColours.AreSame(from, to))
+			{
+				return null;
+			}
+			Resource floor = tree[FloorResourceKey]?.Resource;
+			if (floor == null)
+			{
+				return null;
+			}
+			(int width, int height, int channels, byte[] pixels) image;
+			using (Stream stream = floor.Source.ReadUncompressed())
+			{
+				image = SonicOrca.HelperLibraries.Png.PngResourceType.Decode(stream);
+			}
+			HalfPipeFloorColours.Recolour(image.pixels, image.channels, from, to);
+			return _graphicsContext.CreateTexture(image.width, image.height, image.channels, image.pixels);
+		}
+		catch (Exception ex) when (ex is IOException || ex is FormatException || ex is XmlException || ex is InvalidOperationException)
+		{
+			Trace.WriteLine("The floor keeps the colors of stage 1: " + ex.Message);
+			return null;
+		}
+	}
+
 	public override void Unload()
 	{
 		_musicInstance?.Stop();
@@ -1040,6 +1100,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		_vertexBuffer?.Dispose();
 		_pipeBuffer?.Dispose();
 		_emeraldTexture?.Dispose();
+		_stageFloorTexture?.Dispose();
 		_pipeShader?.Dispose();
 		_objectShader?.Dispose();
 	}
