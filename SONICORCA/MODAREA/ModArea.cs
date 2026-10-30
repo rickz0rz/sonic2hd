@@ -33,11 +33,15 @@ public class ModArea : Area
 	{
 	}
 
-	/// <summary>The music of the info file, so that it loads with the level.</summary>
+	/// <summary>The music and the animals of the info file, so that they load with the level.</summary>
 	public override IEnumerable<string> GetMoreDependencies(ResourceTree resourceTree)
 	{
-		string music = ReadInfo(resourceTree)?.GetAttribute("music");
-		return string.IsNullOrEmpty(music) ? Enumerable.Empty<string>() : new[] { music };
+		XmlElement info = ReadInfo(resourceTree);
+		if (info == null)
+			return Enumerable.Empty<string>();
+		string music = info.GetAttribute("music");
+		IEnumerable<string> animals = info.GetAttribute("animals").Split(' ', System.StringSplitOptions.RemoveEmptyEntries);
+		return string.IsNullOrEmpty(music) ? animals : animals.Prepend(music);
 	}
 
 	public override void Prepare(Level level, LevelPrepareSettings settings)

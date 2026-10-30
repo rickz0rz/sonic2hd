@@ -66,7 +66,7 @@ The game calls these functions of the script. Each function is optional.
 | `self.priority` | The draw order |
 | `self.lock_lifetime` | True keeps the object alive out of view. |
 | `self:animation(name, index)` | Makes an animation from a dependency. The game moves it to its next frame on each tick. |
-| `self:draw(animation)` | Draws an animation. Use it only in `draw`. |
+| `self:draw(animation, flip_x)` | Draws an animation. Use it only in `draw`. `flip_x` is optional: true mirrors the animation from left to right. |
 | `self:move(dx, dy)` | Moves the object. |
 | `self:set_design_bounds(x, y, w, h)` | The box of the object in the level editor |
 | `self:set_solid_box(x, y, w, h, ids)` | Makes the object solid. `ids` can give an ID to a side, for example `{ bottom = 1 }`. |
@@ -77,6 +77,8 @@ The game calls these functions of the script. Each function is optional.
 | `self:spawn(name, x, y)` | Makes an object of a dependency at a position. |
 | `self:finish()` | Removes the object. It comes back when its area comes into view again. |
 | `self:finish_forever()` | Removes the object for the rest of the level. |
+| `self:find_floor(x, y, distance)` | The y of the highest floor of the level at `x`, from `y` down to `distance` units lower, or nil. A walking object uses it to follow the ground, and to find an edge or a wall. |
+| `self:destroy_enemy(character)` | Breaks the object as an enemy of the game: the character bounces and gets the points of its chain, and an explosion, an animal of the level and the points appear. The object does not come back. |
 
 A script can also keep its own values in `self`, for example `self.sprite`.
 
@@ -92,7 +94,7 @@ An animation has `index`, the animation in its group, and `cycles`, the number o
 | `event.maintain_velocity` | Set it to true to keep the velocity that the script gave the character. |
 | `event.ignore` | Set it to true to let the other object go through. |
 
-A character has `x`, `y`, `velocity_x`, `velocity_y`, `is_airborne`, `is_spinball`, `is_sidekick` and `is_debug`. It also has these functions: `gain_rings(count)`, `gain_score(points)` and `hurt(direction)`.
+A character has `x`, `y`, `velocity_x`, `velocity_y`, `is_airborne`, `is_spinball`, `is_sidekick`, `is_debug` and `is_deadly`. `is_deadly` is true when a touch of the character breaks an enemy: it rolls, it jumps, or it is invincible. It also has these functions: `gain_rings(count)`, `gain_score(points)` and `hurt(direction)`.
 
 ## Rules
 

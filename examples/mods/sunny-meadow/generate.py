@@ -256,6 +256,126 @@ LOGS = [(51, 3, 15), (96, 3, 16), (100, 2, 14), (108, 6, 9)]
 
 # Objects: (key, column, y in level units, behaviour)
 BLOCK = 'SONICORCA/OBJECTS/LUAITEMBLOCK'
+BEETLE = 'SONICORCA/OBJECTS/BURRBEETLE'
+
+# The burr beetle: an original enemy of this mod. The sprite is 96 x 72, and the centre of the sprite is its position.
+BEETLE_W, BEETLE_H = 96, 72
+
+
+def beetle_pixel(frame):
+    """A round teal shell with cream spots, a small dark head on the left, two antennae and short legs."""
+    def pixel(x, y):
+        cx, cy = 52, 38
+        # Legs: three short legs that move between the two frames
+        for i, lx in enumerate((34, 52, 70)):
+            offset = (4 if (i + frame) % 2 == 0 else -4)
+            if abs(x - (lx + offset)) <= 3 and 56 <= y < 68:
+                return (40, 40, 60, 255)
+        # Shell: a half ellipse with a dark rim
+        dx, dy = (x - cx) / 34.0, (y - cy) / 26.0
+        if dy <= 0.75 and dx * dx + dy * dy <= 1.0:
+            if dx * dx + dy * dy > 0.85:
+                return (20, 70, 80, 255)
+            for sx, sy in ((40, 26), (58, 22), (66, 38), (48, 42)):
+                if (x - sx) ** 2 + (y - sy) ** 2 <= 20:
+                    return (250, 240, 200, 255)
+            light = 1.0 - max(0.0, dy + 0.5) * 0.5
+            return (int(40 + 60 * light), int(150 + 60 * light), int(150 + 50 * light), 255)
+        # Head: a small dark circle with a white eye
+        if (x - 18) ** 2 + (y - 46) ** 2 <= 130:
+            if (x - 13) ** 2 + (y - 43) ** 2 <= 10:
+                return (255, 255, 255, 255)
+            if (x - 12) ** 2 + (y - 43) ** 2 <= 3:
+                return (0, 0, 0, 255)
+            return (35, 35, 55, 255)
+        # Antennae with round tips
+        for tx, ty in ((8, 22), (20, 18)):
+            if (x - tx) ** 2 + (y - ty) ** 2 <= 9:
+                return (250, 200, 60, 255)
+            if ty < y < 38 and abs(x - (tx + (y - ty) * (18 - tx) / (38 - ty))) <= 1.2:
+                return (35, 35, 55, 255)
+        return (0, 0, 0, 0)
+    return pixel
+
+
+BEETLE_SCRIPT = '''-- The burr beetle: it walks on the ground, and turns at an edge or a wall. A character that rolls or jumps into
+-- it breaks it. A character that only touches it gets hurt. This file comes from generate.py.
+object {
+  api = 1,
+  name = "Burr beetle",
+  description = "Walks on the ground and turns at edges and walls",
+  classification = "badnik",
+  dependencies = { animations = "/ANIGROUP" },
+  state = { speed = 4, start_right = false },
+}
+
+local HALF_WIDTH, HALF_HEIGHT = 40, 30
+
+function start(self)
+  self.sprite = self:animation("animations", 0)
+  self.direction = self.state.start_right and 1 or -1
+  self:add_hitbox(1, -HALF_WIDTH, -HALF_HEIGHT, HALF_WIDTH * 2, HALF_HEIGHT * 2)
+  self:set_design_bounds(-48, -36, 96, 72)
+end
+
+function update(self)
+  local feet = self.y + HALF_HEIGHT
+  local ahead = self:find_floor(self.x + self.direction * (HALF_WIDTH + 4), feet - 32, 96)
+  -- No floor ahead is an edge. A floor far above the feet is a wall.
+  if ahead == nil or ahead < feet - 24 then
+    self.direction = -self.direction
+    return
+  end
+  self.x = self.x + self.direction * self.state.speed
+  local floor = self:find_floor(self.x, feet - 32, 96)
+  if floor ~= nil then
+    self.y = floor - HALF_HEIGHT
+  end
+end
+
+function collision(self, event)
+  local character = event.character
+  if character == nil or character.is_debug then
+    return
+  end
+  if character.is_deadly then
+    self:destroy_enemy(character)
+  else
+    character:hurt(character.x < self.x and -1 or 1)
+  end
+end
+
+function draw(self)
+  -- The sprite looks to the left, so it is mirrored when the beetle walks to the right
+  self:draw(self.sprite, self.direction > 0)
+end
+'''
+
+BEETLE_ANIGROUP = '''<?xml version="1.0"?>
+<anigroup>
+  <textures>
+    <texture>//TEXTURE</texture>
+  </textures>
+  <animations>
+    <!-- 0: walk -->
+    <animation>
+      <frame delay="7" texture="0" x="0" y="0" w="96" h="72" />
+      <frame delay="7" texture="0" x="96" y="0" w="96" h="72" />
+    </animation>
+  </animations>
+</anigroup>
+'''
+
+
+def write_beetle():
+    folder = os.path.join(HERE, 'SONICORCA', 'OBJECTS', 'BURRBEETLE')
+    os.makedirs(folder, exist_ok=True)
+    frames = [beetle_pixel(0), beetle_pixel(1)]
+    write_png(os.path.join(folder, 'TEXTURE.png'), BEETLE_W * 2, BEETLE_H, lambda x, y: frames[x // BEETLE_W](x % BEETLE_W, y))
+    with open(os.path.join(folder, 'ANIGROUP.anigroup.xml'), 'w') as f:
+        f.write(BEETLE_ANIGROUP)
+    with open(os.path.join(folder, '_.object.lua'), 'w') as f:
+        f.write(BEETLE_SCRIPT)
 RING = 'SONICORCA/OBJECTS/RING'
 
 
@@ -303,6 +423,10 @@ def build_objects(columns):
     rings(150, 6, 1, arc=120)
     rings(176, 10, 1)
     block(180, 4, contents=RING, rings=10)
+    # Burr beetles on flat ground, away from the gaps
+    for column, right in ((20, False), (60, True), (78, False), (136, False), (172, True), (186, False)):
+        behaviour = {'start_right': 'True'} if right else {}
+        objects.append((BEETLE, column * T + T // 2, ground_y(column) - 30, behaviour))
     objects.append(('SONICORCA/OBJECTS/SIGNPOST', 196 * T, ground_y(196) - 92, {}))
     return objects
 
@@ -445,7 +569,9 @@ def main():
         f.write('#use SONICORCA.MODAREA\n')
     with open(os.path.join(OUT, 'INFO.xml'), 'w') as f:
         f.write('<?xml version="1.0" encoding="utf-8"?>\n'
-                '<level name="Sunny Meadow" music="SONICORCA/MUSIC/LEVELS/EHZ/COOPERATIVE/ACT1" start="startpos" />\n')
+                '<level name="Sunny Meadow" music="SONICORCA/MUSIC/LEVELS/EHZ/COOPERATIVE/ACT1" start="startpos"'
+                ' animals="SONICORCA/OBJECTS/FLICKY SONICORCA/OBJECTS/RICKY" />\n')
+    write_beetle()
     print(f'{cols} columns, {len(ids)} tiles, {len(vectors)} lines')
 
 

@@ -1,3 +1,4 @@
+using System;
 using Lua;
 using SonicOrca.Core.Collision;
 using SonicOrca.Core.Objects;
@@ -63,8 +64,27 @@ public sealed partial class LuaNativeObject
 	[LuaMember("animation")]
 	public LuaAnimation Animation(string dependency, int index) => _owner.CreateAnimation(dependency, index);
 
+	/// <summary>
+	/// Draws an animation. An optional second argument true mirrors it from left to right. The argument is optional,
+	/// so that the scripts of API 1 that call draw(animation) still work.
+	/// </summary>
 	[LuaMember("draw")]
-	public void Draw(LuaAnimation animation) => _owner.DrawAnimation(animation.Instance);
+	public void Draw(LuaAnimation animation, ReadOnlySpan<LuaValue> options) =>
+		_owner.DrawAnimation(animation.Instance, options.Length > 0 && options[0].TryRead(out bool flip) && flip);
+
+	/// <summary>
+	/// Gives the y of the highest floor of the level at <paramref name="x"/>, from <paramref name="y"/> down to
+	/// <paramref name="distance"/> units lower, or nil. A walking object uses it to follow the ground and to find edges.
+	/// </summary>
+	[LuaMember("find_floor")]
+	public LuaValue FindFloor(double x, double y, double distance) => _owner.FindFloor(x, y, distance) is double floor ? floor : LuaValue.Nil;
+
+	/// <summary>
+	/// Breaks the object as an enemy: the character gets the points of the chain and bounces when it is in the air.
+	/// An explosion, an animal of the level and the points appear, and the object does not come back.
+	/// </summary>
+	[LuaMember("destroy_enemy")]
+	public void DestroyEnemy(LuaCharacter character) => _owner.DestroyEnemy(character.Character);
 
 	[LuaMember("set_design_bounds")]
 	public void SetDesignBounds(int x, int y, int width, int height) => _owner.SetDesignBounds(new Rectanglei(x, y, width, height));
@@ -190,6 +210,8 @@ public sealed partial class LuaCharacter
 {
 	private readonly ICharacter _character;
 
+	internal ICharacter Character => _character;
+
 	internal LuaCharacter(ICharacter character)
 	{
 		_character = character;
@@ -226,6 +248,10 @@ public sealed partial class LuaCharacter
 
 	[LuaMember("is_debug")]
 	public bool IsDebug => _character.IsDebug;
+
+	/// <summary>True when a touch of the character breaks an enemy: it rolls, it jumps, or it is invincible.</summary>
+	[LuaMember("is_deadly")]
+	public bool IsDeadly => _character.IsDeadly;
 
 	[LuaMember("gain_rings")]
 	public void GainRings(int count) => _character.Player?.GainRings(count);

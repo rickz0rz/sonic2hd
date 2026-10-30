@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Lua;
 using SonicOrca.Core.Collision;
+using SonicOrca.Core.Objects;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
 
@@ -168,13 +169,64 @@ public sealed class LuaActiveObject : ActiveObject, IStateTable
 		return new LuaAnimation(animation);
 	}
 
-	internal void DrawAnimation(AnimationInstance animation)
+	internal void DrawAnimation(AnimationInstance animation, bool flipX)
 	{
 		if (_renderer == null)
 		{
 			throw new InvalidOperationException("Call draw only in the draw function.");
 		}
-		_renderer.GetObjectRenderer().Render(animation);
+		_renderer.GetObjectRenderer().Render(animation, flipX);
+	}
+
+	/// <summary>The y of the highest floor line of the landscape at x, from y down to y + distance, or null.</summary>
+	internal double? FindFloor(double x, double y, double distance)
+	{
+		Rectanglei area = new Rectanglei((int)Math.Floor(x) - 1, (int)Math.Floor(y) - 1, 3, (int)Math.Ceiling(distance) + 3);
+		double? floor = null;
+		foreach (CollisionVector vector in Level.CollisionTable.GetPossibleCollisionIntersections(area, landscape: true, objects: false))
+		{
+			Vector2i a = vector.AbsoluteA;
+			Vector2i b = vector.AbsoluteB;
+			if (vector.Mode != CollisionMode.Top || a.X == b.X || x < Math.Min(a.X, b.X) || x > Math.Max(a.X, b.X))
+			{
+				continue;
+			}
+			double lineY = a.Y + (double)(b.Y - a.Y) * (x - a.X) / (b.X - a.X);
+			if (lineY >= y && lineY <= y + distance && (floor == null || lineY < floor))
+			{
+				floor = lineY;
+			}
+		}
+		return floor;
+	}
+
+	/// <summary>Breaks the object as a badnik does (see Badnik.Destroy).</summary>
+	internal void DestroyEnemy(ICharacter character)
+	{
+		if (character.IsAirborne)
+		{
+			// Badnik.Rebound: up when the character comes down onto the object, else a little slower
+			Vector2 velocity = character.Velocity;
+			if (velocity.Y < 0.0)
+			{
+				velocity.Y += 4.0;
+			}
+			else if (character.Position.Y >= Position.Y)
+			{
+				velocity.Y -= 4.0;
+			}
+			else
+			{
+				velocity.Y *= -1.0;
+			}
+			character.Velocity = velocity;
+		}
+		FinishForever();
+		int layer = Level.Map.Layers.IndexOf(Layer);
+		int points = character.Player?.AwardChainedScore() ?? 100;
+		Level.ObjectManager.AddObject(new ObjectPlacement(Level.CommonResources.GetResourcePath("badnikexplosionobject"), layer, Position));
+		Level.CreateRandomAnimalObject(layer, Position);
+		Level.CreateScoreObject(points, Position);
 	}
 
 	internal void SetDesignBounds(Rectanglei bounds) => DesignBounds = bounds;
