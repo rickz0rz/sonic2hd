@@ -63,7 +63,10 @@ public class CNZBigBlockInstance : Platform
 		// The original also starts half way into a pixel
 		_offset = (_startOnOtherSide ? Swing : -Swing) + 0.5;
 		PositionPrecise = GetPosition();
-		CollisionVectors = CollisionVector.FromRectangle(this, new Rectanglei(-HalfSize, -HalfSize, HalfSize * 2, HalfSize * 2));
+		// The block is solid on all sides. The top carries a character that stands on it (Conveyor), as the other
+		// moving blocks do. Without the flag, the block moved under the character and pushed it at the next tick.
+		CollisionVectors = CollisionVector.FromRectangle(this, new Rectanglei(-HalfSize, -HalfSize, HalfSize * 2, HalfSize * 2), flags: CollisionFlags.Solid);
+		CollisionVectors[1].Flags |= CollisionFlags.Conveyor;
 	}
 
 	protected override void UpdateMovement()
