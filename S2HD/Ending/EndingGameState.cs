@@ -39,6 +39,11 @@ internal sealed partial class EndingGameState : IGameState, IDisposable
 
 	private const int PictureCount = 4;
 
+	/// <summary>The size of a photo in the original: 12 x 9 tiles.</summary>
+	private const int PictureWidth = 96;
+
+	private const int PictureHeight = 72;
+
 	/// <summary>The position of a photo on plane A, in tiles (planeLoc(64,14,8)).</summary>
 	private const int PictureColumn = 14;
 
@@ -426,7 +431,8 @@ internal sealed partial class EndingGameState : IGameState, IDisposable
 		g.ModelMatrix = matrix;
 		if (_picture >= 0)
 		{
-			Rectangle destination = new Rectangle(PictureColumn * TileSize * ArtScale, PictureRow * TileSize * ArtScale, _pictures[_picture].Width, _pictures[_picture].Height);
+			// The photo fills its place of 96 x 72 pixels of the original, whatever the size of the image
+			Rectangle destination = new Rectangle(PictureColumn * TileSize * ArtScale, PictureRow * TileSize * ArtScale, PictureWidth * ArtScale, PictureHeight * ArtScale);
 			DrawWithWhiteness(g, _pictures[_picture], new Rectangle(0, 0, _pictures[_picture].Width, _pictures[_picture].Height), destination, _palette.GetWhiteness(0), false);
 		}
 		// The sprites without the priority bit are behind the tiles of plane A with the priority bit: the close-up

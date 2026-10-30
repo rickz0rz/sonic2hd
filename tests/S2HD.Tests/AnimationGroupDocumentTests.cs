@@ -264,3 +264,23 @@ public sealed class AnimationDocumentEditTests
 		Assert.Null(document.Animations[0].Next);
 	}
 }
+
+/// <summary>Tests the list of the images of the animation editor: the images that are not in an animation group.</summary>
+public sealed class AnimationEditorImageTests
+{
+	[Fact]
+	public void ImageKeys_AreThePngImagesWithoutAGroupNextToThem()
+	{
+		Dictionary<string, Resource> listing = new Dictionary<string, Resource>();
+		void Add(string key, ResourceTypeIdentifier identifier) => listing[key] = new Resource(key, identifier, new MemoryResourceSource(new byte[0]));
+		Add("SONICORCA/OBJECTS/RING/ANIGROUP", ResourceTypeIdentifier.AnimationGroup);
+		Add("SONICORCA/OBJECTS/RING/TEXTURE", ResourceTypeIdentifier.TexturePNG);
+		Add("SONICORCA/ENDING/PICTURES/1", ResourceTypeIdentifier.TexturePNG);
+		Add("SONICORCA/TITLE/FRAMES/0", ResourceTypeIdentifier.TexturePNG);
+		Add("SONICORCA/ENDING/INFO", ResourceTypeIdentifier.Xml);
+
+		string[] images = AnimationEditorScreen.GetImageKeys(listing).OrderBy(key => key).ToArray();
+
+		Assert.Equal(new[] { "SONICORCA/ENDING/PICTURES/1", "SONICORCA/TITLE/FRAMES/0" }, images);
+	}
+}

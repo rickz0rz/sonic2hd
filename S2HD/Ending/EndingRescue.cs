@@ -79,6 +79,10 @@ internal sealed partial class EndingGameState
 
 	private const int PlaneSize = 512;
 
+	private const int CloseUpWidth = 23 * TileSize;
+
+	private const int CloseUpHeight = 15 * TileSize;
+
 	/// <summary>CutScene+$34: the Tornado came, so the clouds fly from the right.</summary>
 	private bool _cloudsSideways;
 
@@ -496,6 +500,7 @@ internal sealed partial class EndingGameState
 			return;
 		}
 		g.Colour = Colours.White;
-		g.RenderTexture(_closeUp, new Rectangle(x * ArtScale, y * ArtScale, _closeUp.Width, _closeUp.Height));
+		// The close-up fills its place of 23 x 15 tiles of the original, whatever the size of the image
+		g.RenderTexture(_closeUp, new Rectangle(x * ArtScale, y * ArtScale, CloseUpWidth * ArtScale, CloseUpHeight * ArtScale));
 	}
 }
