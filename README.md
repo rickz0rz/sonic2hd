@@ -511,7 +511,11 @@ publish/S2HD.app/Contents/MacOS/S2HD --animations SONICORCA/OBJECTS/SONIC/ANIGRO
 ```
 
 The left panel lists all the animation groups of the game and of the mods. Click the filter row and type to find a
-group. The centre plays the selected animation at the speed of the game, with a cross at the position of the object.
+group. After the groups, the list has the images that are not in an animation group, marked "image": for example the
+title, the photos and the close-ups of the ending (`ENDING/...`), the slides of the credits (`CREDITS/ORIGINAL/...`)
+and the fonts. `--animations SONICORCA/ENDING/PICTURES/1` opens an image. The editor shows the image, and "Edit 0" and
+"Replace 0" change it in the same way as a texture of a group (see below). An image has no animations to change. A
+new image can have another size: the game draws it at the place and size of the old image. The centre plays the selected animation at the speed of the game, with a cross at the position of the object.
 The strip under it shows the frames, with the time of each frame in ticks (1/60 s). The right panel lists the
 animations of the group and the properties of the animation and of the selected frame. Click a property to type a
 new value, then press Enter.

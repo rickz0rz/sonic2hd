@@ -28,6 +28,11 @@ namespace SonicOrca.Core.Editor;
 /// writes the changed groups into the folder mods/editor/animations of the user data folder, in the layout of
 /// "s2hd-data unpack". The game loads this folder after the other mods.
 /// </para>
+/// <para>
+/// After the groups, the list has the images that are not in an animation group, for example the frames of the
+/// title banner, the photos of the ending and the slides of the credits. The editor shows an image, and "Edit" and
+/// "Replace" change it in the same way as a texture of a group. An image has no animations to change.
+/// </para>
 /// </summary>
 public sealed class AnimationEditorScreen : Screen
 {
@@ -147,6 +152,12 @@ public sealed class AnimationEditorScreen : Screen
 
 	/// <summary>The keys of all the animation groups, in order.</summary>
 	private List<string> _groupKeys = new List<string>();
+
+	/// <summary>The images that are not in an animation group. They are at the end of <see cref="_groupKeys"/>.</summary>
+	private HashSet<string> _imageKeys = new HashSet<string>();
+
+	/// <summary>True when the selected item of the list is an image, not an animation group.</summary>
+	private bool IsImage => _groupKey != null && _imageKeys.Contains(_groupKey);
 
 	/// <summary>The documents that the editor read. A document keeps its changes when the user selects another group.</summary>
 	private readonly Dictionary<string, AnimationGroupDocument> _documents = new Dictionary<string, AnimationGroupDocument>();
@@ -284,11 +295,14 @@ public sealed class AnimationEditorScreen : Screen
 			font.OnLoaded();
 		}
 		_ui.Font = font;
-		_groupKeys = _gameContext.ResourceTree.GetResourceListing()
+		IDictionary<string, Resource> listing = _gameContext.ResourceTree.GetResourceListing();
+		_groupKeys = listing
 			.Where(item => item.Value.Identifier == ResourceTypeIdentifier.AnimationGroup)
 			.Select(item => item.Key)
 			.OrderBy(key => key, StringComparer.Ordinal)
 			.ToList();
+		_imageKeys = new HashSet<string>(GetImageKeys(listing));
+		_groupKeys.AddRange(_imageKeys.OrderBy(key => key, StringComparer.Ordinal));
 	}
 
 	public override void Initialise()
@@ -298,6 +312,7 @@ public sealed class AnimationEditorScreen : Screen
 		if (first != null)
 		{
 			SelectGroup(first);
+			ScrollToGroup();
 		}
 		if (_initialKey != null && first != _initialKey)
 		{
@@ -439,11 +454,47 @@ public sealed class AnimationEditorScreen : Screen
 		? _groupKeys
 		: _groupKeys.Where(key => key.Contains(_filter, StringComparison.OrdinalIgnoreCase));
 
+	/// <summary>
+	/// The PNG images that are not the texture of an animation group: the images with no ANIGROUP next to them. The
+	/// textures of a group are in the folder of the group, so the editor shows them with the group.
+	/// </summary>
+	public static IEnumerable<string> GetImageKeys(IDictionary<string, Resource> listing)
+	{
+		foreach ((string key, Resource resource) in listing)
+		{
+			if (resource.Identifier != ResourceTypeIdentifier.TexturePNG)
+			{
+				continue;
+			}
+			int slash = key.LastIndexOf('/');
+			if (slash < 0 || !listing.ContainsKey(key.Substring(0, slash) + "/ANIGROUP"))
+			{
+				yield return key;
+			}
+		}
+	}
+
+	/// <summary>A document for an image: one texture, the image, and one frame of the whole image. The editor never saves it.</summary>
+	private static AnimationGroupDocument CreateImageDocument(string key)
+	{
+		AnimationGroupDocument document = new AnimationGroupDocument();
+		document.Textures.Add(key);
+		AnimationDocument animation = new AnimationDocument();
+		animation.Frames.Add(new AnimationFrameDocument());
+		document.Animations.Add(animation);
+		return document;
+	}
+
 	private void SelectGroup(string key)
 	{
 		_entry.Cancel();
 		_groupKey = key;
-		if (!_documents.TryGetValue(key, out AnimationGroupDocument document))
+		if (!_documents.TryGetValue(key, out AnimationGroupDocument document) && _imageKeys.Contains(key))
+		{
+			document = CreateImageDocument(key);
+			_documents[key] = document;
+		}
+		if (document == null)
 		{
 			try
 			{
@@ -502,8 +553,21 @@ public sealed class AnimationEditorScreen : Screen
 			(_textureSession, _textures) = _textureTask.Result;
 		}
 		_textureTask = null;
+		FitImageFrame();
 		old?.Dispose();
 		WatchTextureFiles();
+	}
+
+	/// <summary>The frame of an image covers the whole image, so the preview shows all of it.</summary>
+	private void FitImageFrame()
+	{
+		if (!IsImage || _textures.Count == 0 || _textures[0] == null)
+		{
+			return;
+		}
+		AnimationFrameDocument frame = _document.Animations[0].Frames[0];
+		frame.Width = _textures[0].Width;
+		frame.Height = _textures[0].Height;
 	}
 
 	/// <summary>The folder where the editor writes the files.</summary>
@@ -589,6 +653,7 @@ public sealed class AnimationEditorScreen : Screen
 			}
 			_textures[index] = texture;
 			_ownedTextures.Add(texture);
+			FitImageFrame();
 			_changed.Add(_groupKey);
 			ShowMessage($"Reloaded {key.Split('/')[^1]} ({texture.Width} x {texture.Height})");
 		}
@@ -1397,6 +1462,11 @@ public sealed class AnimationEditorScreen : Screen
 		{
 			return;
 		}
+		if (IsImage)
+		{
+			ShowMessage("An image has no animations. Use Edit or Replace to change it.");
+			return;
+		}
 		GetStack(_undo).Push(new Snapshot(_document.Clone(), _animationIndex, _frameIndex));
 		GetStack(_redo).Clear();
 		action();
@@ -1545,6 +1615,15 @@ public sealed class AnimationEditorScreen : Screen
 	private List<EditorPropertyRow> GetPropertyRows()
 	{
 		List<EditorPropertyRow> rows = new List<EditorPropertyRow>();
+		if (IsImage)
+		{
+			ITexture image = _textures.Count > 0 ? _textures[0] : null;
+			rows.Add(new EditorPropertyRow { Label = "Image", IsHeading = true });
+			rows.Add(new EditorPropertyRow { Label = "Key", Value = _groupKey });
+			rows.Add(new EditorPropertyRow { Label = "Size", Value = image != null ? $"{image.Width} x {image.Height}" : "loading" });
+			AddTextureRows(rows);
+			return rows;
+		}
 		AnimationDocument animation = Animation;
 		if (animation == null)
 		{
@@ -1613,7 +1692,10 @@ public sealed class AnimationEditorScreen : Screen
 			rows.Add(new EditorPropertyRow { Label = $"Edit {i}", Value = "copy to the mod folder", Step = _ => EditTexture(index) });
 			rows.Add(new EditorPropertyRow { Label = $"Replace {i}", Value = "type the path of a PNG", Commit = text => ReplaceTexture(index, text) });
 		}
-		rows.Add(new EditorPropertyRow { Label = "Add texture", Value = "type the path of a PNG", Commit = AddTexture });
+		if (!IsImage)
+		{
+			rows.Add(new EditorPropertyRow { Label = "Add texture", Value = "type the path of a PNG", Commit = AddTexture });
+		}
 	}
 
 	private void AddFrameRows(List<EditorPropertyRow> rows, AnimationFrameDocument frame)
@@ -2036,7 +2118,7 @@ public sealed class AnimationEditorScreen : Screen
 	{
 		double bottom = ScreenHeight - EditorUi.StatusBarHeight;
 		g.RenderQuad(EditorUi.PanelColour, new Rectangle(0.0, EditorUi.TopBarHeight, EditorUi.PanelWidth, bottom - EditorUi.TopBarHeight));
-		_ui.DrawHeading(renderer, g, "Animation groups", 0.0, EditorUi.TopBarHeight);
+		_ui.DrawHeading(renderer, g, "Animation groups and images", 0.0, EditorUi.TopBarHeight);
 		EditorPropertyRow filterRow = new EditorPropertyRow
 		{
 			Label = FilterRow,
@@ -2059,7 +2141,7 @@ public sealed class AnimationEditorScreen : Screen
 			EditorListRow row = new EditorListRow
 			{
 				Text = ShortName(key),
-				Detail = _dirty.Contains(key) ? "not saved" : null,
+				Detail = _dirty.Contains(key) ? "not saved" : _imageKeys.Contains(key) ? "image" : null,
 				Active = key == _groupKey
 			};
 			_ui.DrawListRow(renderer, g, row, new Rectangle(0.0, y, EditorUi.PanelWidth, EditorUi.RowHeight), _input.Mouse);
@@ -2128,7 +2210,7 @@ public sealed class AnimationEditorScreen : Screen
 		g.RenderQuad(EditorUi.PanelColour, new Rectangle(0.0, top, ScreenWidth, EditorUi.StatusBarHeight));
 		AnimationDocument animation = Animation;
 		string left = animation == null
-			? $"{_groupKeys.Count} animation groups"
+			? $"{_groupKeys.Count - _imageKeys.Count} animation groups, {_imageKeys.Count} images"
 			: $"Frame {_frameIndex + 1} of {animation.Frames.Count}   Animation {_animationIndex} of {_document.Animations.Count}";
 		double textY = top + (EditorUi.StatusBarHeight - _ui.TextHeight) / 2.0;
 		_ui.DrawText(renderer, left, EditorUi.Padding, textY, EditorUi.DimTextColour);
