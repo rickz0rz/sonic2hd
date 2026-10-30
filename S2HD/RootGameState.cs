@@ -48,7 +48,8 @@ internal class RootGameState : IGameState, IDisposable
 		// With --editor, F2 in a level opens the level editor. With --level too, the editor opens when the level starts.
 		_gameContext.EditorEnabled = _cmdLineArgs.HasOption("editor");
 		_gameContext.LevelCatalog = new LevelCatalog(_gameContext);
-		if (_cmdLineArgs.HasOption("level"))
+		// "--editor" without "--level" opens the editor with the form of a new level, on the first level of the story
+		if (_cmdLineArgs.HasOption("level") || _cmdLineArgs.HasOption("editor"))
 		{
 			LevelPrepareSettings settingsFromCommandLine = GetLevelPrepareSettingsFromCommandLine();
 			if (settingsFromCommandLine == null)
@@ -293,15 +294,17 @@ internal class RootGameState : IGameState, IDisposable
 	}
 
 	/// <summary>
-	/// Makes the level settings from the "--level" option and the related options.
-	/// Returns null when the level option has no value or names a level that does not exist.
+	/// Makes the level settings from the "--level" option and the related options. Without "--level" ("--editor"
+	/// alone), the level is the first level of the story, and the editor opens with the form of a new level.
+	/// Returns null when the level does not exist.
 	/// </summary>
 	private LevelPrepareSettings GetLevelPrepareSettingsFromCommandLine()
 	{
 		string[] levelValues = _cmdLineArgs.GetOptionValues("level");
-		if (levelValues.Length == 0)
+		bool newLevel = levelValues.Length == 0;
+		string mnemonic = newLevel ? Levels.GetStoryLevels(_gameContext.ResourceTree).FirstOrDefault()?.Mnemonic : levelValues[0];
+		if (mnemonic == null)
 			return null;
-		string mnemonic = levelValues[0];
 		string areaResourceKey = Levels.GetAreaResourceKey(mnemonic, _gameContext.ResourceTree);
 		if (areaResourceKey == null)
 			return null;
@@ -318,6 +321,7 @@ internal class RootGameState : IGameState, IDisposable
 			Lives = 3,
 			TimeTrial = _cmdLineArgs.HasOption("timetrial"),
 			OpenEditor = _cmdLineArgs.HasOption("editor"),
+			EditorNewLevelForm = newLevel,
 			Physics = Enum.TryParse(_cmdLineArgs.GetOptionValues("physics").FirstOrDefault(), ignoreCase: true, out PhysicsMode physics)
 				? physics
 				: null

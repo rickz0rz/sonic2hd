@@ -400,8 +400,8 @@ has the values of the original in the two physics modes.
 ### Level editor
 
 The level editor changes the objects, the rings, the markers, the tiles and the collision of a level. Start the game
-with `--editor`. Then press F2 in a level to open the editor. With `--level` too, the editor opens when the level
-starts:
+with `--editor` and `--level`: the editor opens when the level starts. F2 in a level also opens it. With `--editor`
+alone, the editor opens on the first level of the story with the form of a new level (see "New levels"):
 
 ```sh
 publish/S2HD.app/Contents/MacOS/S2HD --level cnz --editor
@@ -579,7 +579,7 @@ The behavior of the levels and the objects of the game is C# code in `SONICORCA/
 | `--levelselect` | Opens the level select at once. On the title screen, press up, down, left and right, then hold the jump button and press Start |
 | `--debug` | Starts the level with debug mode on |
 | `--animations [KEY]` | Opens the animation editor, for example `--animations SONICORCA/OBJECTS/SONIC/ANIGROUP` |
-| `--editor` | Turns on the level editor: F2 in a level opens it. With `--level`, the editor opens when the level starts |
+| `--editor` | Turns on the level editor: F2 in a level opens it. With `--level`, the editor opens when the level starts. Alone, it opens the editor with the form of a new level |
 | `--physics original`, `--physics hd` | Plays the `--level` level with this physics, whatever the PHYSICS setting is |
 | `--demo` | Plays the attract demo (the demos of all zones that have one play in turn) |
 | `--record <file>` | Records the input of the level to a file, for example for a demo |
