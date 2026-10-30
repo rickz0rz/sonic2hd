@@ -433,8 +433,8 @@ its button or with its key:
   the first click only warns, and a second click opens the level without the changes. Click "Move up" or "Move down"
   to change the position of the level. Click "In the story" to add the level to the end of the story or to remove
   it. A mod level can also be in the story. Click "Name" to type a new name. Click "Music" to change the music of a
-  mod level (right click goes back). The area of a Sonic 2 level sets its music. A new name or new music applies
-  when the level opens again. Undo does not change these values. To make a level, click "+ New level".
+  mod level (right click goes back). The area of a Sonic 2 level sets its music. After a save, the title card shows
+  the new name at the next play. New music plays when the level opens again. Undo does not change these values. To make a level, click "+ New level".
   Type a name, and change the short name if necessary. Click "Tiles from" to choose the level with the tiles. Then
   click "Create" (see "New levels").
 

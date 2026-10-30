@@ -59,7 +59,10 @@ public class ModArea : Area
 	{
 		ResourceTree tree = level.GameContext.ResourceTree;
 		XmlElement info = ((XmlLoadedResource)tree.GetLoadedResource<ILoadedResource>(this, InfoResourceKey)).XmlDocument.DocumentElement;
-		level.Name = info.GetAttribute("name") is { Length: > 0 } name ? name : "Mod";
+		// The level editor can change the name, and a test play does not load the area again. So the name comes from
+		// the INFO file as it is now. The music must load with the area, so it changes when the level opens again.
+		XmlElement current = ReadInfo(tree) ?? info;
+		level.Name = current.GetAttribute("name") is { Length: > 0 } name ? name : "Mod";
 		level.ShowAsZone = true;
 		level.ShowAsAct = true;
 		level.Scheme = LevelScheme.S2;
