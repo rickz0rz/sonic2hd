@@ -1,6 +1,6 @@
 # Lua item block: an example mod
 
-This mod adds six objects with Lua scripts:
+This mod adds seven objects with Lua scripts:
 
 - `LUAITEMBLOCK`: an item block. A character that hits it from below gets rings, and a coin jumps out of it. Then the block is used. A used block is still solid, but it does not react to more hits.
 - `LUACOIN`: the coin that jumps out of the block.
@@ -8,8 +8,9 @@ This mod adds six objects with Lua scripts:
 - `LUAHANDLE`: a zipline handle. A character that touches it hangs on it, and the handle moves to the right for `distance` units. A jump lets go. At the end, the handle lets go of the character and goes back to its start.
 - `LUAGOAL`: a goal. When the player touches it, the act ends, as at a signpost.
 - `LUAWATERSWITCH`: a water switch. In a level without water, it gives the level water `depth` units below the switch. When a character touches it, the water rises by `rise` units, and the ground shakes while the water rises.
+- `LUAWHEEL`: a wheel that hangs from a rope and turns. It shows the drawing functions of API 6. A character that touches it makes it flash.
 
-The API of the scripts is version 4. API 2 adds the velocity of an object and `set_solid_top`. API 3 adds `standing_characters`. API 4 adds `characters`, and lets an object hold a character and read its buttons. API 5 adds the water, the earthquake and the end of the act. A script for an older API works without a change. The API can change. Set `api` to the version that the script needs: a game with an older API does not load the script. See `docs/lua-modding-design.md` for the design.
+The API of the scripts is version 4. API 2 adds the velocity of an object and `set_solid_top`. API 3 adds `standing_characters`. API 4 adds `characters`, and lets an object hold a character and read its buttons. API 5 adds the water, the earthquake and the end of the act. API 6 adds the options of `draw`, `fill_rectangle` and `draw_line`. A script for an older API works without a change. The API can change. Set `api` to the version that the script needs: a game with an older API does not load the script. See `docs/lua-modding-design.md` for the design.
 
 ## Install the mod
 
@@ -43,7 +44,7 @@ A script calls `object { ... }` one time, with these fields:
 
 | Field | Content |
 | --- | --- |
-| `api` | The API version that the script needs: 1 to 5 |
+| `api` | The API version that the script needs: 1 to 6 |
 | `name`, `description` | The text of the level editor |
 | `classification` | `general`, `badnik`, `obstacle`, `platform`, `ring`, `scenery` and so on |
 | `dependencies` | A name for each resource that the object uses. A path that starts with `/` is in the folder of the object. |
@@ -71,7 +72,9 @@ The game calls these functions of the script. Each function is optional.
 | `self.priority` | The draw order |
 | `self.lock_lifetime` | True keeps the object alive out of view. |
 | `self:animation(name, index)` | Makes an animation from a dependency. The game moves it to its next frame on each tick. |
-| `self:draw(animation, flip_x)` | Draws an animation. Use it only in `draw`. `flip_x` is optional: true mirrors the animation from left to right. |
+| `self:draw(animation, options)` | Draws an animation. Use it only in `draw`. `options` is optional. `true` mirrors the animation from left to right. A table gives more options (API 6). See "Drawing" below. |
+| `self:fill_rectangle(x, y, w, h, color)` | Fills a rectangle (API 6). The position is relative to the object. Use it only in `draw`. |
+| `self:draw_line(x1, y1, x2, y2, color, thickness)` | Draws a line (API 6). The ends are relative to the object. The thickness is optional: 4 units. Use it only in `draw`. |
 | `self:move(dx, dy)` | Moves the object. It does not move the characters that stand on it. To carry them, use the velocity. |
 | `self:set_design_bounds(x, y, w, h)` | The box of the object in the level editor |
 | `self:set_solid_box(x, y, w, h, ids)` | Makes the object solid. `ids` can give an ID to a side, for example `{ bottom = 1 }`. |
@@ -93,6 +96,25 @@ The game calls these functions of the script. Each function is optional.
 | `self:destroy_enemy(character)` | Breaks the object as an enemy of the game: the character bounces and gets the points of its chain, and an explosion, an animal of the level and the points appear. The object does not come back. |
 
 A script can also keep its own values in `self`, for example `self.sprite`.
+
+## Drawing
+
+A color is a table of red, green, blue and an optional alpha, each from 0 to 255. For example, `{ 0, 0, 0, 96 }` is a black that is partly transparent.
+
+The options table of `self:draw` can have these fields (API 6):
+
+| Field | Content |
+| --- | --- |
+| `flip_x`, `flip_y` | true mirrors the image from left to right, or from top to bottom. |
+| `scale` | The size: 1 is the normal size. `scale_x` and `scale_y` change one direction. |
+| `rotation` | The angle in radians, clockwise |
+| `x`, `y` | An offset from the position of the object, in units |
+| `color` | A color that multiplies the colors of the image. `colour` also works. |
+| `alpha` | The opacity, from 0 to 1 |
+| `additive` | A color that adds to the colors of the image, for example white for a flash |
+| `blend` | `"alpha"` (the default) or `"additive"`, for light effects |
+
+The scale and the rotation turn the image around the position of the object. Then the offset moves it.
 
 An animation has `index`, the animation in its group, and `cycles`, the number of times that it got to its end.
 

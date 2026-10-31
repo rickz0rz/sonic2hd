@@ -213,13 +213,95 @@ public sealed class LuaActiveObject : ActiveObject, IStateTable, SonicOrca.Core.
 		return new LuaAnimation(animation);
 	}
 
-	internal void DrawAnimation(AnimationInstance animation, bool flipX)
+	/// <summary>How a script draws an animation (see <see cref="LuaNativeObject.Draw"/>).</summary>
+	internal struct DrawOptions
 	{
-		if (_renderer == null)
+		public bool FlipX;
+		public bool FlipY;
+		public double ScaleX;
+		public double ScaleY;
+		/// <summary>The angle in radians, clockwise because Y goes down.</summary>
+		public double Rotation;
+		public Vector2 Offset;
+		public Colour Multiply;
+		public Colour Additive;
+		public BlendMode Blend;
+
+		public static DrawOptions Default => new DrawOptions
 		{
-			throw new InvalidOperationException("Call draw only in the draw function.");
+			ScaleX = 1.0,
+			ScaleY = 1.0,
+			Multiply = Colours.White,
+			Additive = Colours.Black,
+			Blend = BlendMode.Alpha
+		};
+	}
+
+	private Renderer GetRenderer(string function)
+	{
+		return _renderer ?? throw new InvalidOperationException($"Call {function} only in the draw function.");
+	}
+
+	/// <summary>
+	/// Draws an animation at the position of the object. The offset, the rotation and the scale change the position
+	/// of the image in this order: first the scale and the rotation around the position of the object, then the
+	/// offset. The colours and the blend mode go back to their defaults after the draw.
+	/// </summary>
+	internal void DrawAnimation(AnimationInstance animation, DrawOptions options)
+	{
+		IObjectRenderer objectRenderer = GetRenderer("draw").GetObjectRenderer();
+		using (objectRenderer.BeginMatixState())
+		{
+			Vector2 scale = objectRenderer.Scale;
+			if (options.Offset != default)
+			{
+				objectRenderer.ModelMatrix *= Matrix4.CreateTranslation(options.Offset.X * scale.X, options.Offset.Y * scale.Y);
+			}
+			if (options.Rotation != 0.0)
+			{
+				objectRenderer.ModelMatrix *= Matrix4.CreateRotationZ(options.Rotation);
+			}
+			if (options.ScaleX != 1.0 || options.ScaleY != 1.0)
+			{
+				objectRenderer.ModelMatrix *= Matrix4.CreateScale(options.ScaleX, options.ScaleY);
+			}
+			objectRenderer.MultiplyColour = options.Multiply;
+			objectRenderer.AdditiveColour = options.Additive;
+			objectRenderer.BlendMode = options.Blend;
+			objectRenderer.Render(animation, options.FlipX, options.FlipY);
+			objectRenderer.MultiplyColour = Colours.White;
+			objectRenderer.AdditiveColour = Colours.Black;
+			objectRenderer.BlendMode = BlendMode.Alpha;
 		}
-		_renderer.GetObjectRenderer().Render(animation, flipX);
+	}
+
+	/// <summary>Fills a rectangle with a colour. The position is relative to the object, in units.</summary>
+	internal void FillRectangle(Rectangle rectangle, Colour colour)
+	{
+		Renderer renderer = GetRenderer("fill_rectangle");
+		Vector2 scale = renderer.GetObjectRenderer().Scale;
+		DrawShape(renderer, g => g.RenderQuad(colour, new Rectangle(rectangle.X * scale.X, rectangle.Y * scale.Y, rectangle.Width * scale.X, rectangle.Height * scale.Y)));
+	}
+
+	/// <summary>Draws a line with a colour. The ends are relative to the object, in units.</summary>
+	internal void DrawLine(Vector2 a, Vector2 b, Colour colour, double thickness)
+	{
+		Renderer renderer = GetRenderer("draw_line");
+		Vector2 scale = renderer.GetObjectRenderer().Scale;
+		DrawShape(renderer, g => g.RenderLine(colour, new Vector2(a.X * scale.X, a.Y * scale.Y), new Vector2(b.X * scale.X, b.Y * scale.Y), thickness * scale.X));
+	}
+
+	/// <summary>
+	/// Draws a shape with the 2D renderer and alpha blending, so that the alpha of a colour works. The level can leave
+	/// the 2D renderer in another blend mode, so the mode goes back after the shape.
+	/// </summary>
+	private static void DrawShape(Renderer renderer, Action<I2dRenderer> draw)
+	{
+		I2dRenderer g = renderer.Get2dRenderer();
+		BlendMode blendMode = g.BlendMode;
+		g.BlendMode = BlendMode.Alpha;
+		draw(g);
+		g.BlendMode = blendMode;
 	}
 
 	/// <summary>The y of the highest floor line of the landscape at x, from y down to y + distance, or null.</summary>
