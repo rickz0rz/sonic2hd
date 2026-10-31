@@ -52,7 +52,7 @@ public class PngResourceType : ResourceType
 
 	public override async Task<ILoadedResource> LoadAsync(ResourceLoadArgs e, CancellationToken ct = default(CancellationToken))
 	{
-		PixelData pixelData = await GetSlowStream(e.InputStream);
+		PixelData pixelData = await Task.Run(() => ReadPixels(e.InputStream));
 		ITexture texture = SonicOrcaGameContext.Singleton.Window.GraphicsContext.CreateTexture(pixelData.Width, pixelData.Height, pixelData.Channels, pixelData.Data);
 		texture.Resource = e.Resource;
 		return texture;
@@ -64,15 +64,16 @@ public class PngResourceType : ResourceType
 	/// </summary>
 	public static (int Width, int Height, int Channels, byte[] Data) Decode(Stream inputStream)
 	{
-		// No new instance: the constructor of a resource type registers the type
-		PixelData pixelData = GetSlowStream(inputStream).GetAwaiter().GetResult();
+		// No new instance: the constructor of a resource type registers the type. No wait on a task: the web
+		// runtime has one thread, and a wait there throws PlatformNotSupportedException.
+		PixelData pixelData = ReadPixels(inputStream);
 		return (pixelData.Width, pixelData.Height, pixelData.Channels, pixelData.Data);
 	}
 
 	/// <summary>
 	/// Decodes the image with the managed PNG reader.
 	/// </summary>
-	private static async Task<PixelData> GetSlowStream(Stream inputStream)
+	private static PixelData ReadPixels(Stream inputStream)
 	{
 		PngReader reader = null;
 		try
@@ -83,14 +84,11 @@ public class PngResourceType : ResourceType
 			int channels = reader.ImgInfo.Channels;
 			// The buffer has space for 4 channels. The rows are packed with the real channel count of the image.
 			byte[] pixels = new byte[width * height * BytesPerPixel];
-			await Task.Run(() =>
+			for (int row = 0; row < height; row++)
 			{
-				for (int row = 0; row < height; row++)
-				{
-					ImageLine imageLine = reader.ReadRowByte(row);
-					Buffer.BlockCopy(imageLine.ScanlineB, 0, pixels, row * width * imageLine.channels, width * imageLine.channels);
-				}
-			});
+				ImageLine imageLine = reader.ReadRowByte(row);
+				Buffer.BlockCopy(imageLine.ScanlineB, 0, pixels, row * width * imageLine.channels, width * imageLine.channels);
+			}
 			reader.End();
 			return new PixelData(width, height, channels, pixels);
 		}
