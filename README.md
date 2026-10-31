@@ -414,7 +414,8 @@ The level stops, and the editor shows all the objects of the level. The editor h
 its button or with its key:
 
 - **Objects (1)** changes the objects and the rings. The list has all the object types of the game. A type that the
-  level does not use shows "not loaded". It loads when you click it.
+  level does not use shows "not loaded". It loads when you click it. To make a new object, click "+ New object"
+  (see "New objects").
 - **Markers (2)** changes the markers of the map. A point marker has a name, for example `startpos_stk_1` (the start
   position of act 1), `bounds_1_rb` (the bottom right camera bound of act 1) or `boss_left`. An area marker has a
   tag, for example `inside`. The level reads the markers when it starts. Click a marker in the list to go to it.
@@ -494,6 +495,27 @@ A new level is a mod folder, `mods/<short name>/`, in the user data folder. It u
 you chose, so the folder has no tiles. The map has an empty background layer, an empty front layer, a floor line, and
 a start position. A signpost near the right end ends the level. The level is not in the story until you add it. The
 editor saves the changes of the level to `mods/editor/<SHORT NAME>.dat`, as for the other levels.
+
+A new object is a Lua object (see "Lua objects and mod levels"). Click "+ New object" at the top of the list of
+the objects tool, and type a name. The key follows the name, for example `SONICORCA/OBJECTS/BIGROCK`. Click "Kind"
+to choose the script:
+
+| Kind | Script |
+|---|---|
+| scenery | Shows its image. |
+| solid block | A solid box. The characters can stand on it. |
+| collectible | Gives rings to a character that touches it, then goes away. The `rings` property sets the count. |
+| enemy | Walks on the ground and turns at edges and walls. A character that rolls or jumps into it breaks it. A touch hurts the character. The `speed` and `start_right` properties change the walk. An enemy image looks to the left. |
+
+To use your art, click "Image" and type the path of a PNG file. Without an image, the object gets a placeholder
+image. One pixel of the image is one unit of the level, and four units are one pixel of the original game. Click
+"Create". The editor writes `_.object.lua`, `ANIGROUP.anigroup.xml` and `TEXTURE.png` in a mod folder, and you can
+then click in the level to add the object. The mod folder is the folder of the open level if it is a new level.
+Otherwise it is `mods/objects/` in the user data folder.
+
+To change the object, open `_.object.lua` in a text editor. When you select the object in the level, click "Script"
+in the properties to show the file. Save the file, and the game loads the script again. To add frames, change
+`ANIGROUP.anigroup.xml` and `TEXTURE.png`, and start the game again.
 
 Save writes the order of the story and the new names of the Sonic 2 levels to `mods/editor/LEVELS.dat`. The name and
 the music of a mod level go into its `INFO` file in `mods/editor/<SHORT NAME>.dat`. The title card shows the new
