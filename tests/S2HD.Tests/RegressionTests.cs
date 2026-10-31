@@ -120,6 +120,25 @@ public sealed class RegressionTests
 				Path.Combine(userData, "mods", "lua-item-block", "SONICORCA")));
 	}
 
+	/// <summary>
+	/// As <see cref="LuaMovingPlatform_MatchesGoldenScreenshots"/>, with the "fall" property of the platform on. The
+	/// platform stops when Sonic lands on it, and falls with him after 30 ticks.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void LuaFallingPlatform_MatchesGoldenScreenshots()
+	{
+		// "fall" is row 9 of the properties of the platform: after the heading, the state values are in name order
+		const string script = "28:mouse 1600 300;29:wheel -30;30:mouse 1600 483;31:down left;32:up left;" +
+			"45:mouse 700 200;46:down left;47:up left;" +
+			"50:mouse 1600 786;51:down left;52:up left;" +
+			"55:mouse 720 60;56:tap 62";
+		RunAndCompare("--level ehz --editor", new[] { 10054, 140, 165, 190, 205, 220 }, Path.Combine(TestPaths.GoldenDirectory, "lua-falling-platform"),
+			"lua-falling-platform", new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script },
+			prepareUserData: userData => CopyDirectory(Path.Combine(TestPaths.RepoRoot, "examples", "mods", "lua-item-block", "SONICORCA"),
+				Path.Combine(userData, "mods", "lua-item-block", "SONICORCA")));
+	}
+
 	private static void CopyDirectory(string source, string destination)
 	{
 		foreach (string file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))

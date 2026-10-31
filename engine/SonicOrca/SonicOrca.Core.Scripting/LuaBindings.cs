@@ -146,6 +146,22 @@ public sealed partial class LuaNativeObject
 		_owner.SetCollisionVectors(new[] { vector }, vector);
 	}
 
+	/// <summary>
+	/// Gives a table of the characters that stand on a solid line of the object, for example to make a platform fall
+	/// when a character stands on it. The table is empty when no character stands on the object.
+	/// </summary>
+	[LuaMember("standing_characters")]
+	public LuaTable StandingCharacters()
+	{
+		LuaTable table = new LuaTable();
+		int index = 1;
+		foreach (ICharacter character in _owner.GetStandingCharacters())
+		{
+			table[index++] = new LuaCharacter(character);
+		}
+		return table;
+	}
+
 	[LuaMember("clear_solid")]
 	public void ClearSolid() => _owner.SetCollisionVectors(new CollisionVector[0]);
 

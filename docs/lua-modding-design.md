@@ -224,6 +224,8 @@ This tier is enough for the item block of the use case, rings, simple enemies th
 ### Tier 2: solid objects and bases
 
 - Solid lines that move, so that characters can ride a Lua object. Done in API 2: `self.velocity_x`, `self.velocity_y` and `self:set_solid_top`. A Lua object is an `IPlatform`. It moves by its velocity in `OnUpdate`, and it gives the velocity in `OnUpdatePrepare`, before the characters update. Its carrying lines have the conveyor flag only while it moves.
+- Platforms that react to a character: done in API 3 with `self:standing_characters()`. The example platform falls with the delay and the gravity of `Platform`.
+- Most of the work of the bases is already in the API. `destroy_enemy` does what `Badnik` does when a character breaks it, with the explosion, the animal and the points. A particle is an animation that calls `finish_forever` when its `cycles` gets to a count.
 - The `Platform`, `Badnik`, `Enemy`, `ParticleObject` and `Animal` bases
 - Object control of a character
 - Water, earthquakes, level completion

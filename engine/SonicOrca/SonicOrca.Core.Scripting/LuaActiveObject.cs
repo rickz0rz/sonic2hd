@@ -269,6 +269,9 @@ public sealed class LuaActiveObject : ActiveObject, IStateTable, SonicOrca.Core.
 		RegisterCollisionUpdate();
 	}
 
+	/// <summary>The characters that stand on a solid line of this object, as for <see cref="Objects.Base.Platform"/>.</summary>
+	internal IEnumerable<ICharacter> GetStandingCharacters() => Level.ObjectManager.Characters.Where(c => c.ObjectLink == this).ToArray();
+
 	internal void AddHitbox(CollisionRectangle rectangle) => CollisionRectangles = CollisionRectangles.Append(rectangle).ToArray();
 
 	internal void Spawn(string key, Vector2i position)
