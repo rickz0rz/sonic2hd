@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using SonicOrca.Core;
 using SonicOrca.Core.Editor;
+using SonicOrca.Core.Objects;
 using SonicOrca.Core.Scripting;
 using SonicOrca.Resources;
 using Xunit;
@@ -100,6 +101,16 @@ public sealed class LuaObjectTests
 		Assert.True(type.IsBoss);
 		Assert.Contains("SONICORCA/OBJECTS/EXPLOSION/BOSS", type.Dependencies);
 		Assert.Contains("SONICORCA/SOUND/BOSSHIT", type.Dependencies);
+	}
+
+	[Fact]
+	public async Task Script_WithTheAbilityBase_IsAnAbility_ThatACharacterCanHave()
+	{
+		LuaObjectType type = await Load("object { api = 8, base = \"ability\" }");
+
+		Assert.True(type.IsAbility);
+		Assert.False(type.IsBoss);
+		Assert.IsAssignableFrom<ICharacterAbility>(type.CreateInstance());
 	}
 
 	[Fact]

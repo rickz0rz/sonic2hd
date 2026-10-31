@@ -110,8 +110,8 @@ public sealed class RegressionTests
 	[Trait("Category", "Regression")]
 	public void LuaMovingPlatform_MatchesGoldenScreenshots()
 	{
-		// LUAPLATFORM is five rows under LOCKY in the list of the objects tool. The list scrolls two more rows for it.
-		const string script = "28:mouse 1600 300;29:wheel -32;30:mouse 1600 483;31:down left;32:up left;" +
+		// LUAPLATFORM is seven rows under LOCKY in the list of the objects tool. The list scrolls four more rows for it.
+		const string script = "28:mouse 1600 300;29:wheel -34;30:mouse 1600 483;31:down left;32:up left;" +
 			"45:mouse 700 430;46:down left;47:up left;" +
 			"55:mouse 720 250;56:tap 62";
 		RunAndCompare("--level ehz --editor", new[] { 10050, 230, 280, 330, 380 }, Path.Combine(TestPaths.GoldenDirectory, "lua-moving-platform"),
@@ -129,7 +129,7 @@ public sealed class RegressionTests
 	public void LuaFallingPlatform_MatchesGoldenScreenshots()
 	{
 		// "fall" is row 9 of the properties of the platform: after the heading, the state values are in name order
-		const string script = "28:mouse 1600 300;29:wheel -32;30:mouse 1600 483;31:down left;32:up left;" +
+		const string script = "28:mouse 1600 300;29:wheel -34;30:mouse 1600 483;31:down left;32:up left;" +
 			"45:mouse 700 200;46:down left;47:up left;" +
 			"50:mouse 1600 786;51:down left;52:up left;" +
 			"55:mouse 720 60;56:tap 62";
@@ -148,8 +148,8 @@ public sealed class RegressionTests
 	[Trait("Category", "Regression")]
 	public void LuaZiplineHandle_MatchesGoldenScreenshots()
 	{
-		// LUAHANDLE is three rows under LOCKY in the list of the objects tool
-		const string script = "28:mouse 1600 300;29:wheel -30;30:mouse 1600 483;31:down left;32:up left;" +
+		// LUAHANDLE is five rows under LOCKY in the list of the objects tool. The list scrolls two more rows for it.
+		const string script = "28:mouse 1600 300;29:wheel -32;30:mouse 1600 483;31:down left;32:up left;" +
 			"45:mouse 700 260;46:down left;47:up left;" +
 			"55:mouse 700 120;56:tap 62";
 		RunAndCompare("--level ehz --editor", new[] { 10050, 170, 210, 250, 300, 340 }, Path.Combine(TestPaths.GoldenDirectory, "lua-zipline-handle"),
@@ -166,8 +166,8 @@ public sealed class RegressionTests
 	[Trait("Category", "Regression")]
 	public void LuaGoal_MatchesGoldenScreenshots()
 	{
-		// LUAGOAL is two rows under LOCKY in the list of the objects tool
-		const string script = "28:mouse 1600 300;29:wheel -30;30:mouse 1600 453;31:down left;32:up left;" +
+		// LUAGOAL is four rows under LOCKY in the list of the objects tool. The list scrolls one more row for it.
+		const string script = "28:mouse 1600 300;29:wheel -31;30:mouse 1600 483;31:down left;32:up left;" +
 			"45:mouse 700 570;46:down left;47:up left;" +
 			"55:mouse 700 300;56:tap 62";
 		RunAndCompare("--level ehz --editor", new[] { 10050, 230, 330, 450, 700, 900 }, Path.Combine(TestPaths.GoldenDirectory, "lua-goal"),
@@ -182,8 +182,8 @@ public sealed class RegressionTests
 	[Trait("Category", "Regression")]
 	public void LuaWaterSwitch_MatchesGoldenScreenshots()
 	{
-		// LUAWATERSWITCH is six rows under LOCKY in the list of the objects tool. The list scrolls three more rows for it.
-		const string script = "28:mouse 1600 300;29:wheel -33;30:mouse 1600 483;31:down left;32:up left;" +
+		// LUAWATERSWITCH is eight rows under LOCKY in the list of the objects tool. The list scrolls five more rows for it.
+		const string script = "28:mouse 1600 300;29:wheel -35;30:mouse 1600 483;31:down left;32:up left;" +
 			"45:mouse 700 570;46:down left;47:up left;" +
 			"55:mouse 700 300;56:tap 62";
 		RunAndCompare("--level ehz --editor", new[] { 10050, 230, 300, 380, 460 }, Path.Combine(TestPaths.GoldenDirectory, "lua-water-switch"),
@@ -198,8 +198,8 @@ public sealed class RegressionTests
 	[Trait("Category", "Regression")]
 	public void LuaWheel_MatchesGoldenScreenshots()
 	{
-		// LUAWHEEL is seven rows under LOCKY in the list of the objects tool. The list scrolls four more rows for it.
-		const string script = "28:mouse 1600 300;29:wheel -34;30:mouse 1600 483;31:down left;32:up left;" +
+		// LUAWHEEL is nine rows under LOCKY in the list of the objects tool. The list scrolls six more rows for it.
+		const string script = "28:mouse 1600 300;29:wheel -36;30:mouse 1600 483;31:down left;32:up left;" +
 			"45:mouse 700 420;46:down left;47:up left;" +
 			"55:mouse 700 200;56:tap 62";
 		RunAndCompare("--level ehz --editor", new[] { 10050, 150, 185, 215 }, Path.Combine(TestPaths.GoldenDirectory, "lua-wheel"),
@@ -216,10 +216,10 @@ public sealed class RegressionTests
 	[Trait("Category", "Regression")]
 	public void LuaBoss_MatchesGoldenScreenshots()
 	{
-		// LUAWISP is eight rows under LOCKY in the list of the objects tool. The list scrolls five more rows for it.
+		// LUAWISP is ten rows under LOCKY in the list of the objects tool. The list scrolls seven more rows for it.
 		// The wisp floats high, so that only a jump reaches it. "health" is the first state value in the properties.
 		// Ctrl+S saves (224 is Ctrl, 22 is S).
-		const string editorScript = "28:mouse 1600 300;29:wheel -35;30:mouse 1600 483;31:down left;32:up left;" +
+		const string editorScript = "28:mouse 1600 300;29:wheel -37;30:mouse 1600 483;31:down left;32:up left;" +
 			"45:mouse 1100 240;46:down left;47:up left;" +
 			"50:mouse 1600 756;51:down left;52:up left;54:type 2;55:tap 40;" +
 			"60:keydown 224;61:tap 22;62:keyup 224";
@@ -235,6 +235,32 @@ public sealed class RegressionTests
 			// Sonic holds right and jumps again and again, with full jumps. A jump makes him hit the wisp, not get hurt.
 			File.WriteAllBytes(recording, MakeRecording(1000, tick => (1.0, tick % 40 < 25)));
 			return $"--level ehz --playback \"{recording}\"";
+		});
+	}
+
+	/// <summary>
+	/// The double jump of the example mod lua-item-block, a Lua ability. The first run places the feather on the start
+	/// position with the level editor and saves. The second run plays Sonic alone: he gets the feather, jumps, and
+	/// presses jump again in the air. With one jump he lands before tick 290. With the double jump he is still high in
+	/// the air at tick 290.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void LuaDoubleJump_MatchesGoldenScreenshots()
+	{
+		// LUAFEATHER is three rows under LOCKY in the list of the objects tool
+		const string editorScript = "28:mouse 1600 300;29:wheel -30;30:mouse 1600 483;31:down left;32:up left;" +
+			"45:mouse 400 520;46:down left;47:up left;" +
+			"60:keydown 224;61:tap 22;62:keyup 224";
+		RunTwoRuns("lua-double-jump", Path.Combine(TestPaths.GoldenDirectory, "lua-double-jump"), new[] { 248, 262, 290 }, userData =>
+		{
+			CopyExampleMod(userData);
+			RunGame(TestPaths.GameExecutable, "--level ehz --editor", new[] { 10066 }, userData,
+				new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = editorScript });
+			string recording = Path.Combine(userData, "double-jump.rec");
+			// A jump at tick 220, a release at 244, and a second jump in the air at 246
+			File.WriteAllBytes(recording, MakeRecording(400, tick => (0.0, (tick >= 220 && tick < 244) || (tick >= 246 && tick < 290))));
+			return $"--level ehz --protagonist sonic --sidekick none --playback \"{recording}\"";
 		});
 	}
 

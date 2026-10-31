@@ -25,6 +25,18 @@ public interface ICharacter : IActiveObject
 
 	ActiveObject ObjectLink { get; set; }
 
+	/// <summary>The abilities that the character got, for example from items (see <see cref="ICharacterAbility"/>).</summary>
+	IReadOnlyList<ICharacterAbility> Abilities { get; }
+
+	/// <summary>Gives the character an ability. It does nothing when the character has an ability of the same type.</summary>
+	/// <returns>True when the character got the ability.</returns>
+	bool AddAbility(ICharacterAbility ability);
+
+	void RemoveAbility(ICharacterAbility ability);
+
+	/// <summary>Removes all the abilities: the character got hurt, it died, or the act ended.</summary>
+	void RemoveAllAbilities();
+
 	object ObjectTag { get; set; }
 
 	int Path { get; set; }

@@ -1,7 +1,9 @@
 using System;
+using System.Linq;
 using Lua;
 using SonicOrca.Core.Collision;
 using SonicOrca.Core.Objects;
+using SonicOrca.Core.Objects.Base;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
 
@@ -517,6 +519,73 @@ public sealed partial class LuaCharacter
 	/// <summary>Hurts the character. The direction is -1 to push it left or 1 to push it right.</summary>
 	[LuaMember("hurt")]
 	public void Hurt(int direction) => _character.Hurt(direction);
+
+	/// <summary>Gives the character an ability of a dependency (API 8). It gives false when the character has it.</summary>
+	[LuaMember("give_ability")]
+	public bool GiveAbility(string dependency) => _owner.GiveAbility(_character, _owner.LuaType.GetDependencyKey(dependency));
+
+	/// <summary>True when the character has the ability of a dependency (API 8)</summary>
+	[LuaMember("has_ability")]
+	public bool HasAbility(string dependency)
+	{
+		string key = _owner.LuaType.GetDependencyKey(dependency);
+		return _character.Abilities.Any(a => a.AbilityKey == key);
+	}
+
+	/// <summary>Removes the ability of a dependency from the character (API 8).</summary>
+	[LuaMember("remove_ability")]
+	public void RemoveAbility(string dependency)
+	{
+		string key = _owner.LuaType.GetDependencyKey(dependency);
+		foreach (ICharacterAbility ability in _character.Abilities.Where(a => a.AbilityKey == key).ToArray())
+		{
+			_character.RemoveAbility(ability);
+		}
+	}
+
+	/// <summary>
+	/// The speed values of this tick (API 8). The character sets them again on each tick, so an ability changes them
+	/// in its tick function. They are 0 for a character that is not a character of the game.
+	/// </summary>
+	[LuaMember("top_speed")]
+	public double TopSpeed
+	{
+		get => (_character as Character)?.TopSpeed ?? 0.0;
+		set { if (_character is Character c) c.TopSpeed = value; }
+	}
+
+	[LuaMember("acceleration")]
+	public double Acceleration
+	{
+		get => (_character as Character)?.Acceleration ?? 0.0;
+		set { if (_character is Character c) c.Acceleration = value; }
+	}
+
+	[LuaMember("jump_force")]
+	public double JumpForce
+	{
+		get => (_character as Character)?.JumpForce ?? 0.0;
+		set { if (_character is Character c) c.JumpForce = value; }
+	}
+
+	[LuaMember("gravity")]
+	public double Gravity
+	{
+		get => (_character as Character)?.Gravity ?? 0.0;
+		set { if (_character is Character c) c.Gravity = value; }
+	}
+
+	/// <summary>True while the jump button is held after a jump. A release then makes the jump shorter (API 8).</summary>
+	[LuaMember("is_jumping")]
+	public bool IsJumping
+	{
+		get => _character.IsJumping;
+		set => _character.IsJumping = value;
+	}
+
+	/// <summary>Rolls the character into a ball, or stops the roll (API 8).</summary>
+	[LuaMember("set_spinball")]
+	public void SetSpinball(bool on) => _character.IsSpinball = on;
 
 	/// <summary>True when an object holds the character: this object or another object.</summary>
 	[LuaMember("is_held")]

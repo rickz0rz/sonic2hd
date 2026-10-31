@@ -86,7 +86,11 @@ The example mod `lua-item-block` gets two objects:
 - `LUADOUBLEJUMP`: the ability. In the air, after a jump, a jump press gives the character a new jump speed upward, one time until it lands. A small puff shows under the character.
 - `LUAFEATHER`: the item. A character that touches it gets the double jump, and the feather goes away.
 
-A regression test plays a recording: Sonic touches the feather, jumps, and jumps again in the air. A second capture shows him higher than with one jump. A third part of the test hurts him and checks that the second jump does not work after that.
+A regression test plays a recording: Sonic touches the feather, jumps, and jumps again in the air. He is still high in the air at a tick when he lands after one jump. The test does not hurt him. The loss of the abilities on a hit is in `Hurt`, `Kill` and `Player.RemoveStatusAtEndOfAct`, and has no automatic test yet.
+
+## Status
+
+Done in API 8 (2026-10-31). The implementation follows this document. `Character` keeps the abilities and calls them, `LuaActiveObject` with `base = "ability"` implements `ICharacterAbility`, and the example is `LUAFEATHER` and `LUADOUBLEJUMP`.
 
 ## Not in this version
 

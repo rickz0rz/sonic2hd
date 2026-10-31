@@ -260,7 +260,7 @@ public class Player
 
 	/// <summary>
 	/// Removes the barrier, the invincibility and the speed shoes at the end of an act, as Load_EndOfAct in the
-	/// original (it clears status_secondary).
+	/// original (it clears status_secondary). The characters also lose their abilities.
 	/// </summary>
 	public void RemoveStatusAtEndOfAct()
 	{
@@ -268,7 +268,9 @@ public class Player
 		if (Protagonist != null)
 		{
 			Protagonist.Barrier = BarrierType.None;
+			Protagonist.RemoveAllAbilities();
 		}
+		Sidekick?.RemoveAllAbilities();
 	}
 
 	public bool IsStarpostActivated(int index)
