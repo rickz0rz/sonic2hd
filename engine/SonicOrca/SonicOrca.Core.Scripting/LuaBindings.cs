@@ -83,12 +83,91 @@ public sealed partial class LuaNativeObject
 	public LuaAnimation Animation(string dependency, int index) => _owner.CreateAnimation(dependency, index);
 
 	/// <summary>
-	/// Draws an animation. An optional second argument true mirrors it from left to right. The argument is optional,
-	/// so that the scripts of API 1 that call draw(animation) still work.
+	/// Draws an animation. The second argument is optional. true mirrors the animation from left to right, as in API 1.
+	/// A table gives more options (API 6): flip_x, flip_y, scale (or scale_x and scale_y), rotation in radians, x and
+	/// y (an offset in units), color or colour (a table of red, green, blue and an optional alpha, from 0 to 255) that
+	/// multiplies the colours, alpha (from 0 to 1), additive (a colour that adds to the colours) and blend
+	/// ("alpha" or "additive").
 	/// </summary>
 	[LuaMember("draw")]
-	public void Draw(LuaAnimation animation, ReadOnlySpan<LuaValue> options) =>
-		_owner.DrawAnimation(animation.Instance, options.Length > 0 && options[0].TryRead(out bool flip) && flip);
+	public void Draw(LuaAnimation animation, ReadOnlySpan<LuaValue> options)
+	{
+		LuaActiveObject.DrawOptions drawOptions = LuaActiveObject.DrawOptions.Default;
+		if (options.Length > 0)
+		{
+			if (options[0].TryRead(out bool flip))
+			{
+				drawOptions.FlipX = flip;
+			}
+			else if (options[0].TryRead(out LuaTable table))
+			{
+				drawOptions = ReadDrawOptions(table);
+			}
+		}
+		_owner.DrawAnimation(animation.Instance, drawOptions);
+	}
+
+	private static LuaActiveObject.DrawOptions ReadDrawOptions(LuaTable table)
+	{
+		LuaActiveObject.DrawOptions options = LuaActiveObject.DrawOptions.Default;
+		options.FlipX = table["flip_x"].TryRead(out bool flipX) && flipX;
+		options.FlipY = table["flip_y"].TryRead(out bool flipY) && flipY;
+		if (table["scale"].TryRead(out double scale))
+		{
+			options.ScaleX = scale;
+			options.ScaleY = scale;
+		}
+		if (table["scale_x"].TryRead(out double scaleX))
+		{
+			options.ScaleX = scaleX;
+		}
+		if (table["scale_y"].TryRead(out double scaleY))
+		{
+			options.ScaleY = scaleY;
+		}
+		options.Rotation = table["rotation"].TryRead(out double rotation) ? rotation : 0.0;
+		options.Offset = new Vector2(table["x"].TryRead(out double x) ? x : 0.0, table["y"].TryRead(out double y) ? y : 0.0);
+		Colour multiply = ReadColour(table["color"].Type == LuaValueType.Nil ? table["colour"] : table["color"], Colours.White);
+		if (table["alpha"].TryRead(out double alpha))
+		{
+			multiply = new Colour((byte)Math.Clamp(Math.Round(multiply.Alpha * alpha), 0, 255), multiply.Red, multiply.Green, multiply.Blue);
+		}
+		options.Multiply = multiply;
+		options.Additive = ReadColour(table["additive"], Colours.Black);
+		if (table["blend"].TryRead(out string blend))
+		{
+			options.Blend = blend switch
+			{
+				"alpha" => BlendMode.Alpha,
+				"additive" => BlendMode.Additive,
+				_ => throw new ArgumentException($"\"{blend}\" is not a blend mode. Use \"alpha\" or \"additive\".")
+			};
+		}
+		return options;
+	}
+
+	/// <summary>Reads a colour: a table of red, green, blue and an optional alpha, each from 0 to 255.</summary>
+	internal static Colour ReadColour(LuaValue value, Colour fallback)
+	{
+		if (!value.TryRead(out LuaTable table))
+		{
+			return fallback;
+		}
+		static byte Channel(LuaValue channel, byte missing) =>
+			channel.TryRead(out double number) ? (byte)Math.Clamp(Math.Round(number), 0, 255) : missing;
+		return new Colour(Channel(table[4], 255), Channel(table[1], 0), Channel(table[2], 0), Channel(table[3], 0));
+	}
+
+	/// <summary>Fills a rectangle with a colour (API 6). The position is relative to the object, in units.</summary>
+	[LuaMember("fill_rectangle")]
+	public void FillRectangle(double x, double y, double width, double height, LuaValue colour) =>
+		_owner.FillRectangle(new Rectangle(x, y, width, height), ReadColour(colour, Colours.White));
+
+	/// <summary>Draws a line (API 6). The ends are relative to the object, in units. The thickness is optional: 4 units.</summary>
+	[LuaMember("draw_line")]
+	public void DrawLine(double x1, double y1, double x2, double y2, LuaValue colour, ReadOnlySpan<LuaValue> thickness) =>
+		_owner.DrawLine(new Vector2(x1, y1), new Vector2(x2, y2), ReadColour(colour, Colours.White),
+			thickness.Length > 0 && thickness[0].TryRead(out double value) ? value : 4.0);
 
 	/// <summary>
 	/// Gives the y of the highest floor of the level at <paramref name="x"/>, from <paramref name="y"/> down to

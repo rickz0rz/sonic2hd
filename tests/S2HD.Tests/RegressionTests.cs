@@ -190,6 +190,22 @@ public sealed class RegressionTests
 			"lua-water-switch", new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script }, prepareUserData: CopyExampleMod);
 	}
 
+	/// <summary>
+	/// Adds the wheel of the example mod lua-item-block to Emerald Hill with the level editor. The wheel draws a rope, a
+	/// shadow and its image with a rotation and a scale. Sonic falls through it, and it flashes.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void LuaWheel_MatchesGoldenScreenshots()
+	{
+		// LUAWHEEL is seven rows under LOCKY in the list of the objects tool. The list scrolls four more rows for it.
+		const string script = "28:mouse 1600 300;29:wheel -34;30:mouse 1600 483;31:down left;32:up left;" +
+			"45:mouse 700 420;46:down left;47:up left;" +
+			"55:mouse 700 200;56:tap 62";
+		RunAndCompare("--level ehz --editor", new[] { 10050, 150, 185, 215 }, Path.Combine(TestPaths.GoldenDirectory, "lua-wheel"),
+			"lua-wheel", new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script }, prepareUserData: CopyExampleMod);
+	}
+
 	private static void CopyExampleMod(string userData)
 	{
 		CopyDirectory(Path.Combine(TestPaths.RepoRoot, "examples", "mods", "lua-item-block", "SONICORCA"), Path.Combine(userData, "mods", "lua-item-block", "SONICORCA"));

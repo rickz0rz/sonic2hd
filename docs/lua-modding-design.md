@@ -232,7 +232,7 @@ This tier is enough for the item block of the use case, rings, simple enemies th
 
 ### Tier 3: full control
 
-- A free renderer for scripts
+- A free renderer for scripts: done in API 6. `self:draw` takes options (flip, scale, rotation, offset, color, alpha, additive color and blend mode), and `self:fill_rectangle` and `self:draw_line` draw shapes.
 - The `BossObject` base
 - Lua areas: level scripts with `prepare`, `start` and `update`
 

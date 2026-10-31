@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<anigroup>
+  <textures>
+    <texture>//TEXTURE</texture>
+  </textures>
+  <animations>
+    <!-- 0: the wheel -->
+    <animation>
+      <frame texture="0" x="0" y="0" w="96" h="96" />
+    </animation>
+  </animations>
+</anigroup>
