@@ -22,7 +22,7 @@ internal static class LuaPrelude
 		for _, name in ipairs({
 		  "animation", "draw", "move", "set_design_bounds", "set_solid_box", "set_solid_top", "clear_solid", "add_hitbox",
 		  "clear_hitboxes", "play_sound", "spawn", "finish", "finish_forever", "find_floor", "destroy_enemy",
-		  "standing_characters" }) do
+		  "standing_characters", "characters" }) do
 		  methods[name] = function(self, ...)
 		    local native = rawget(self, "__native")
 		    return native[name](native, ...)

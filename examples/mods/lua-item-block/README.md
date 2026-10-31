@@ -1,12 +1,13 @@
 # Lua item block: an example mod
 
-This mod adds three objects with Lua scripts:
+This mod adds four objects with Lua scripts:
 
 - `LUAITEMBLOCK`: an item block. A character that hits it from below gets rings, and a coin jumps out of it. Then the block is used. A used block is still solid, but it does not react to more hits.
 - `LUACOIN`: the coin that jumps out of the block.
 - `LUAPLATFORM`: a platform that moves to and fro. It carries the characters that stand on it, and a character can jump through it from below. The `distance`, `speed` and `vertical` properties change its path. With `fall`, the platform stops when a character stands on it, and falls half a second later.
+- `LUAHANDLE`: a zipline handle. A character that touches it hangs on it, and the handle moves to the right for `distance` units. A jump lets go. At the end, the handle lets go of the character and goes back to its start.
 
-The API of the scripts is version 3. API 2 adds the velocity of an object and `set_solid_top`. API 3 adds `standing_characters`. A script for an older API works without a change. The API can change. Set `api` to the version that the script needs: a game with an older API does not load the script. See `docs/lua-modding-design.md` for the design.
+The API of the scripts is version 4. API 2 adds the velocity of an object and `set_solid_top`. API 3 adds `standing_characters`. API 4 adds `characters`, and lets an object hold a character and read its buttons. A script for an older API works without a change. The API can change. Set `api` to the version that the script needs: a game with an older API does not load the script. See `docs/lua-modding-design.md` for the design.
 
 ## Install the mod
 
@@ -40,7 +41,7 @@ A script calls `object { ... }` one time, with these fields:
 
 | Field | Content |
 | --- | --- |
-| `api` | The API version that the script needs: 1, 2 or 3 |
+| `api` | The API version that the script needs: 1 to 4 |
 | `name`, `description` | The text of the level editor |
 | `classification` | `general`, `badnik`, `obstacle`, `platform`, `ring`, `scenery` and so on |
 | `dependencies` | A name for each resource that the object uses. A path that starts with `/` is in the folder of the object. |
@@ -74,6 +75,7 @@ The game calls these functions of the script. Each function is optional.
 | `self:set_solid_box(x, y, w, h, ids)` | Makes the object solid. `ids` can give an ID to a side, for example `{ bottom = 1 }`. |
 | `self:set_solid_top(x, y, w, id)` | Makes the object a platform (API 2): a line from `(x, y)` to `(x + w, y)` that the characters stand on. A character can jump through it from below. `id` is optional. |
 | `self:clear_solid()` | Removes the solid box or the platform line. |
+| `self:characters()` | A table of all the characters of the level (API 4), for example to find a character near the object |
 | `self:standing_characters()` | A table of the characters that stand on the object (API 3). It is empty when no character stands on it. For example, `#self:standing_characters() > 0` is true when a character stands on the object. |
 | `self:add_hitbox(id, x, y, w, h)` | Adds a box that gives a collision event, but is not solid |
 | `self:clear_hitboxes()` | Removes the hit boxes. |
@@ -99,6 +101,18 @@ An animation has `index`, the animation in its group, and `cycles`, the number o
 | `event.ignore` | Set it to true to let the other object go through. |
 
 A character has `x`, `y`, `velocity_x`, `velocity_y`, `is_airborne`, `is_spinball`, `is_sidekick`, `is_debug` and `is_deadly`. `is_deadly` is true when a touch of the character breaks an enemy: it rolls, it jumps, or it is invincible. It also has these functions: `gain_rings(count)`, `gain_score(points)` and `hurt(direction)`.
+
+API 4 lets an object hold a character, for example a handle, a tube or a catapult:
+
+| Name | Content |
+| --- | --- |
+| `character:hold(x, y, pose)` | Holds the character at a position for this tick. The character does not move, fall or react to the level. `pose` is optional: `"normal"`, `"hanging"` or `"spinball"`. It gives false when the character cannot be held, for example when another object holds it or when it dies. |
+| `character:release(velocity_x, velocity_y)` | Lets go of the character. The velocity is optional. |
+| `character.is_held` | True when an object holds the character |
+| `character.jump_pressed` | True on the tick when the player presses a jump button. The sidekick of the computer copies the player. |
+| `character.input_x`, `character.input_y` | The direction that the player holds: -1, 0 or 1. Up is -1. |
+
+Call `hold` on each tick that the object holds the character. When a script does not call it in a tick, the character lets go at the start of the next tick. The character also lets go when it dies, when it goes into debug mode, when the object goes out of view, and when the script has an error. Thus a mistake in a script cannot keep a character for ever. A character keeps no buttons while an object holds it, so read `jump_pressed` and the directions to let go.
 
 ## Rules
 
