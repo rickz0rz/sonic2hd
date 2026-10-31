@@ -228,7 +228,7 @@ This tier is enough for the item block of the use case, rings, simple enemies th
 - Most of the work of the bases is already in the API. `destroy_enemy` does what `Badnik` does when a character breaks it, with the explosion, the animal and the points. A particle is an animation that calls `finish_forever` when its `cycles` gets to a count.
 - The `Platform`, `Badnik`, `Enemy`, `ParticleObject` and `Animal` bases
 - Object control of a character: done in API 4 with `character:hold`, `character:release`, the buttons of the character and `self:characters()`. A character that the script did not hold in a tick lets go at the start of the next tick, so a mistake cannot lock a character.
-- Water, earthquakes, level completion
+- Water, earthquakes, level completion: done in API 5 with `water_top`, `set_water_top`, `set_earthquake` and `complete_level`. A level that gets water from a script loads the art of the water then.
 
 ### Tier 3: full control
 

@@ -1,13 +1,15 @@
 # Lua item block: an example mod
 
-This mod adds four objects with Lua scripts:
+This mod adds six objects with Lua scripts:
 
 - `LUAITEMBLOCK`: an item block. A character that hits it from below gets rings, and a coin jumps out of it. Then the block is used. A used block is still solid, but it does not react to more hits.
 - `LUACOIN`: the coin that jumps out of the block.
 - `LUAPLATFORM`: a platform that moves to and fro. It carries the characters that stand on it, and a character can jump through it from below. The `distance`, `speed` and `vertical` properties change its path. With `fall`, the platform stops when a character stands on it, and falls half a second later.
 - `LUAHANDLE`: a zipline handle. A character that touches it hangs on it, and the handle moves to the right for `distance` units. A jump lets go. At the end, the handle lets go of the character and goes back to its start.
+- `LUAGOAL`: a goal. When the player touches it, the act ends, as at a signpost.
+- `LUAWATERSWITCH`: a water switch. In a level without water, it gives the level water `depth` units below the switch. When a character touches it, the water rises by `rise` units, and the ground shakes while the water rises.
 
-The API of the scripts is version 4. API 2 adds the velocity of an object and `set_solid_top`. API 3 adds `standing_characters`. API 4 adds `characters`, and lets an object hold a character and read its buttons. A script for an older API works without a change. The API can change. Set `api` to the version that the script needs: a game with an older API does not load the script. See `docs/lua-modding-design.md` for the design.
+The API of the scripts is version 4. API 2 adds the velocity of an object and `set_solid_top`. API 3 adds `standing_characters`. API 4 adds `characters`, and lets an object hold a character and read its buttons. API 5 adds the water, the earthquake and the end of the act. A script for an older API works without a change. The API can change. Set `api` to the version that the script needs: a game with an older API does not load the script. See `docs/lua-modding-design.md` for the design.
 
 ## Install the mod
 
@@ -41,7 +43,7 @@ A script calls `object { ... }` one time, with these fields:
 
 | Field | Content |
 | --- | --- |
-| `api` | The API version that the script needs: 1 to 4 |
+| `api` | The API version that the script needs: 1 to 5 |
 | `name`, `description` | The text of the level editor |
 | `classification` | `general`, `badnik`, `obstacle`, `platform`, `ring`, `scenery` and so on |
 | `dependencies` | A name for each resource that the object uses. A path that starts with `/` is in the folder of the object. |
@@ -75,6 +77,10 @@ The game calls these functions of the script. Each function is optional.
 | `self:set_solid_box(x, y, w, h, ids)` | Makes the object solid. `ids` can give an ID to a side, for example `{ bottom = 1 }`. |
 | `self:set_solid_top(x, y, w, id)` | Makes the object a platform (API 2): a line from `(x, y)` to `(x + w, y)` that the characters stand on. A character can jump through it from below. `id` is optional. |
 | `self:clear_solid()` | Removes the solid box or the platform line. |
+| `self:water_top()` | The y of the top of the water of the level, or nil when the level has no water (API 5) |
+| `self:set_water_top(y)` | Gives the level water from `y` down to the bottom of the map, over all the width of the map. `nil` removes the water. To move the water slowly, call it on each tick with a new value. The water of a level that had none is blue-green, as in Aquatic Ruin. |
+| `self:set_earthquake(on)` | Starts or stops the earthquake: the screen shakes and the rumble plays. Stop it in `stop`, so that it does not continue after the object goes out of view. |
+| `self:complete_level()` | Ends the act, as a signpost does. The timer stops and the score count shows, then the next act or level starts. When the player is in the air, the count waits until the player lands. A second call does nothing. |
 | `self:characters()` | A table of all the characters of the level (API 4), for example to find a character near the object |
 | `self:standing_characters()` | A table of the characters that stand on the object (API 3). It is empty when no character stands on it. For example, `#self:standing_characters() > 0` is true when a character stands on the object. |
 | `self:add_hitbox(id, x, y, w, h)` | Adds a box that gives a collision event, but is not solid |

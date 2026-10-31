@@ -110,8 +110,8 @@ public sealed class RegressionTests
 	[Trait("Category", "Regression")]
 	public void LuaMovingPlatform_MatchesGoldenScreenshots()
 	{
-		// LUAPLATFORM is four rows under LOCKY in the list of the objects tool. The list scrolls one more row for it.
-		const string script = "28:mouse 1600 300;29:wheel -31;30:mouse 1600 483;31:down left;32:up left;" +
+		// LUAPLATFORM is five rows under LOCKY in the list of the objects tool. The list scrolls two more rows for it.
+		const string script = "28:mouse 1600 300;29:wheel -32;30:mouse 1600 483;31:down left;32:up left;" +
 			"45:mouse 700 430;46:down left;47:up left;" +
 			"55:mouse 720 250;56:tap 62";
 		RunAndCompare("--level ehz --editor", new[] { 10050, 230, 280, 330, 380 }, Path.Combine(TestPaths.GoldenDirectory, "lua-moving-platform"),
@@ -129,7 +129,7 @@ public sealed class RegressionTests
 	public void LuaFallingPlatform_MatchesGoldenScreenshots()
 	{
 		// "fall" is row 9 of the properties of the platform: after the heading, the state values are in name order
-		const string script = "28:mouse 1600 300;29:wheel -31;30:mouse 1600 483;31:down left;32:up left;" +
+		const string script = "28:mouse 1600 300;29:wheel -32;30:mouse 1600 483;31:down left;32:up left;" +
 			"45:mouse 700 200;46:down left;47:up left;" +
 			"50:mouse 1600 786;51:down left;52:up left;" +
 			"55:mouse 720 60;56:tap 62";
@@ -148,14 +148,51 @@ public sealed class RegressionTests
 	[Trait("Category", "Regression")]
 	public void LuaZiplineHandle_MatchesGoldenScreenshots()
 	{
-		// LUAHANDLE is two rows under LOCKY in the list of the objects tool
-		const string script = "28:mouse 1600 300;29:wheel -30;30:mouse 1600 453;31:down left;32:up left;" +
+		// LUAHANDLE is three rows under LOCKY in the list of the objects tool
+		const string script = "28:mouse 1600 300;29:wheel -30;30:mouse 1600 483;31:down left;32:up left;" +
 			"45:mouse 700 260;46:down left;47:up left;" +
 			"55:mouse 700 120;56:tap 62";
 		RunAndCompare("--level ehz --editor", new[] { 10050, 170, 210, 250, 300, 340 }, Path.Combine(TestPaths.GoldenDirectory, "lua-zipline-handle"),
 			"lua-zipline-handle", new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script },
 			prepareUserData: userData => CopyDirectory(Path.Combine(TestPaths.RepoRoot, "examples", "mods", "lua-item-block", "SONICORCA"),
 				Path.Combine(userData, "mods", "lua-item-block", "SONICORCA")));
+	}
+
+	/// <summary>
+	/// Adds the goal of the example mod lua-item-block to Emerald Hill with the level editor, and plays from a position
+	/// over it. Sonic falls onto the goal, and the act ends with the score count.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void LuaGoal_MatchesGoldenScreenshots()
+	{
+		// LUAGOAL is two rows under LOCKY in the list of the objects tool
+		const string script = "28:mouse 1600 300;29:wheel -30;30:mouse 1600 453;31:down left;32:up left;" +
+			"45:mouse 700 570;46:down left;47:up left;" +
+			"55:mouse 700 300;56:tap 62";
+		RunAndCompare("--level ehz --editor", new[] { 10050, 230, 330, 450, 700, 900 }, Path.Combine(TestPaths.GoldenDirectory, "lua-goal"),
+			"lua-goal", new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script }, prepareUserData: CopyExampleMod);
+	}
+
+	/// <summary>
+	/// Adds the water switch of the example mod lua-item-block to Emerald Hill with the level editor. The switch gives
+	/// the level water under the ground. Sonic falls onto the switch, and the water rises while the ground shakes.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void LuaWaterSwitch_MatchesGoldenScreenshots()
+	{
+		// LUAWATERSWITCH is six rows under LOCKY in the list of the objects tool. The list scrolls three more rows for it.
+		const string script = "28:mouse 1600 300;29:wheel -33;30:mouse 1600 483;31:down left;32:up left;" +
+			"45:mouse 700 570;46:down left;47:up left;" +
+			"55:mouse 700 300;56:tap 62";
+		RunAndCompare("--level ehz --editor", new[] { 10050, 230, 300, 380, 460 }, Path.Combine(TestPaths.GoldenDirectory, "lua-water-switch"),
+			"lua-water-switch", new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script }, prepareUserData: CopyExampleMod);
+	}
+
+	private static void CopyExampleMod(string userData)
+	{
+		CopyDirectory(Path.Combine(TestPaths.RepoRoot, "examples", "mods", "lua-item-block", "SONICORCA"), Path.Combine(userData, "mods", "lua-item-block", "SONICORCA"));
 	}
 
 	private static void CopyDirectory(string source, string destination)

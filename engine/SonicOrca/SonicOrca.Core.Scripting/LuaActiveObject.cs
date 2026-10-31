@@ -283,6 +283,59 @@ public sealed class LuaActiveObject : ActiveObject, IStateTable, SonicOrca.Core.
 		RegisterCollisionUpdate();
 	}
 
+	#region Level
+
+	/// <summary>The top of the water of the level, or null when the level has no water.</summary>
+	internal double? GetWaterTop()
+	{
+		WaterManager water = Level.WaterManager;
+		return water.Enabled && water.WaterAreas.Count > 0 ? water.WaterAreas[0].Top : null;
+	}
+
+	/// <summary>
+	/// Gives the level water from <paramref name="top"/> down to the bottom of the map, over all the width of the map,
+	/// as Aquatic Ruin does. With null, the level has no water.
+	/// </summary>
+	internal void SetWaterTop(double? top)
+	{
+		WaterManager water = Level.WaterManager;
+		bool wasEnabled = water.Enabled;
+		water.WaterAreas.Clear();
+		water.Enabled = top != null;
+		if (top is double value)
+		{
+			if (!wasEnabled)
+			{
+				// The level loads the art of the water when it starts, only if it has water then. All the levels have
+				// this art (SONICORCA/LEVELS/COMMONRESOURCES), so it can load now.
+				water.Load();
+				// The blue-green water of Aquatic Ruin. The default colours of the water manager are red and yellow.
+				water.DarkColour = new Colour(255, 0, 16, 48);
+				water.MiddleColour = new Colour(255, 0, 136, 160);
+				water.LightColour = new Colour(255, 160, 232, 224);
+			}
+			Rectanglei map = Level.Map.Bounds;
+			water.WaterAreas.Add(Rectanglei.FromLTRB(map.Left, (int)Math.Round(value), map.Right, Math.Max(map.Bottom, (int)Math.Round(value) + 1)));
+		}
+	}
+
+	/// <summary>
+	/// Ends the act, as a signpost does: the timer stops, the camera stays, and the score count shows. When the
+	/// protagonist is in the air, the count waits until it lands. A second call does nothing.
+	/// </summary>
+	internal void CompleteLevel()
+	{
+		const LevelStateFlags ending = LevelStateFlags.CompletingStage | LevelStateFlags.StageCompleted | LevelStateFlags.WaitingForCharacterToWin;
+		if ((Level.StateFlags & ending) != 0 || Level.Player?.Protagonist == null)
+		{
+			return;
+		}
+		Level.JustAboutToCompleteLevel();
+		Level.CompleteLevel();
+	}
+
+	#endregion
+
 	#region Held characters
 
 	/// <summary>

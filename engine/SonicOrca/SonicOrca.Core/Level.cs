@@ -589,7 +589,11 @@ public class Level : IDisposable
 			if (_titleCard.AllowLevelToStart && !StateFlags.HasFlag(LevelStateFlags.Dead))
 			{
 				StateFlags |= LevelStateFlags.Updating;
-				StateFlags |= LevelStateFlags.UpdateTime;
+				// An act that ends while the title card shows keeps its timer stopped
+				if ((StateFlags & (LevelStateFlags.CompletingStage | LevelStateFlags.WaitingForCharacterToWin | LevelStateFlags.StageCompleted)) == 0)
+				{
+					StateFlags |= LevelStateFlags.UpdateTime;
+				}
 				StateFlags |= LevelStateFlags.Animating;
 				// The original unlocks the controls on the frame that the timer starts. HD physics waits for the title
 				// card.

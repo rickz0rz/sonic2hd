@@ -21,7 +21,7 @@ namespace SonicOrca.Core.Scripting;
 public sealed class LuaObjectType : ObjectType, IStateTableType
 {
 	/// <summary>The API version that this engine gives to scripts.</summary>
-	public const int ApiVersion = 4;
+	public const int ApiVersion = 5;
 
 	private readonly Dictionary<string, string> _dependencyKeys = new Dictionary<string, string>(StringComparer.Ordinal);
 
