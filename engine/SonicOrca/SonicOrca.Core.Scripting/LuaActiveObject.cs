@@ -14,9 +14,10 @@ namespace SonicOrca.Core.Scripting;
 /// <summary>
 /// An instance of a <see cref="LuaObjectType"/>. It calls the functions of the script, and keeps the values of the
 /// placement and the saved values in tables. An error in the script removes the object and writes the error to the
-/// log. The game does not stop.
+/// log. The game does not stop. The object is a platform: it moves by its velocity on each tick, and the characters
+/// that stand on its carrying lines move with it.
 /// </summary>
-public sealed class LuaActiveObject : ActiveObject, IStateTable
+public sealed class LuaActiveObject : ActiveObject, IStateTable, SonicOrca.Core.Objects.IPlatform
 {
 	private readonly List<AnimationInstance> _animations = new List<AnimationInstance>();
 
@@ -36,6 +37,17 @@ public sealed class LuaActiveObject : ActiveObject, IStateTable
 	private bool _failed;
 
 	private bool _stopped;
+
+	/// <summary>The solid lines that carry the characters that stand on them while the object moves.</summary>
+	private CollisionVector[] _carryingVectors = Array.Empty<CollisionVector>();
+
+	/// <summary>The movement of this tick. The characters read it as the velocity of the platform.</summary>
+	private Vector2 _movement;
+
+	/// <summary>The velocity that the script set, in units per tick.</summary>
+	internal Vector2 ScriptVelocity { get; set; }
+
+	public Vector2 Velocity => _movement;
 
 	/// <summary>The generation of the script that made <see cref="_self"/> (see <see cref="LuaObjectType.Generation"/>).</summary>
 	private int _generation;
@@ -85,8 +97,26 @@ public sealed class LuaActiveObject : ActiveObject, IStateTable
 		Call(LuaType.StartFunction, true, _self);
 	}
 
+	/// <summary>
+	/// The movement of the tick is known before the characters update, as for <see cref="Objects.Base.Platform"/>.
+	/// A carrying line has the conveyor flag only while the object moves. Thus a character on an object that does not
+	/// move keeps its position under one pixel, as on the ground.
+	/// </summary>
+	protected override void OnUpdatePrepare()
+	{
+		_movement = ScriptVelocity;
+		foreach (CollisionVector vector in _carryingVectors)
+		{
+			vector.Flags = _movement == default ? vector.Flags & ~CollisionFlags.Conveyor : vector.Flags | CollisionFlags.Conveyor;
+		}
+	}
+
 	protected override void OnUpdate()
 	{
+		if (_movement != default)
+		{
+			PositionPrecise += _movement;
+		}
 		CheckScript();
 		Call(LuaType.UpdateFunction, true, _self);
 	}
@@ -231,9 +261,11 @@ public sealed class LuaActiveObject : ActiveObject, IStateTable
 
 	internal void SetDesignBounds(Rectanglei bounds) => DesignBounds = bounds;
 
-	internal void SetCollisionVectors(CollisionVector[] vectors)
+	/// <param name="carrying">The lines that carry the characters that stand on them.</param>
+	internal void SetCollisionVectors(CollisionVector[] vectors, params CollisionVector[] carrying)
 	{
 		CollisionVectors = vectors;
+		_carryingVectors = carrying;
 		RegisterCollisionUpdate();
 	}
 

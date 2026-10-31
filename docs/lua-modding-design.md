@@ -223,7 +223,7 @@ This tier is enough for the item block of the use case, rings, simple enemies th
 
 ### Tier 2: solid objects and bases
 
-- Solid lines that move, and `Move`, so that characters can ride a Lua object
+- Solid lines that move, so that characters can ride a Lua object. Done in API 2: `self.velocity_x`, `self.velocity_y` and `self:set_solid_top`. A Lua object is an `IPlatform`. It moves by its velocity in `OnUpdate`, and it gives the velocity in `OnUpdatePrepare`, before the characters update. Its carrying lines have the conveyor flag only while it moves.
 - The `Platform`, `Badnik`, `Enemy`, `ParticleObject` and `Animal` bases
 - Object control of a character
 - Water, earthquakes, level completion
