@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using SonicOrca.Geometry;
@@ -10,7 +11,8 @@ namespace SonicOrca.Core.Editor;
 
 /// <summary>
 /// Selects, moves, adds and deletes the objects and rings of a level, and changes their properties. The list has all
-/// the object types of the game. A type that the level did not load loads when the user clicks it.
+/// the object types of the game. A type that the level did not load loads when the user clicks it. The first row of
+/// the list makes a new Lua object (see <see cref="NewObject"/>).
 /// </summary>
 internal sealed class ObjectsTool : EditorTool
 {
@@ -38,6 +40,18 @@ internal sealed class ObjectsTool : EditorTool
 
 	private string _loadingKey;
 
+	/// <summary>The properties panel shows the form of a new object.</summary>
+	private bool _creating;
+
+	private string _newName = "";
+
+	private string _newKey = "";
+
+	private NewObjectKind _newKind = NewObjectKind.Scenery;
+
+	/// <summary>The path of the image of the new object, or null for a placeholder image.</summary>
+	private string _newImagePath;
+
 	public ObjectsTool(LevelEditor editor)
 		: base(editor)
 	{
@@ -45,7 +59,9 @@ internal sealed class ObjectsTool : EditorTool
 
 	public override string Name => "Objects";
 
-	public override string Hint => _placeKey != null
+	public override string Hint => _creating
+		? "Type a name, choose a kind and an image, then click Create. Esc: close the form."
+		: _placeKey != null
 		? $"Click in the level to add {ShortName(_placeKey)}. Hold Shift to add more. Esc to stop."
 		: "Drag: move or select.  Right drag, Space drag or wheel: scroll.  Ctrl+wheel: zoom.  Del: delete.  Ctrl+Z: undo.";
 
@@ -53,7 +69,7 @@ internal sealed class ObjectsTool : EditorTool
 
 	public override string ListHeading => "Object types (click, then click in the level)";
 
-	public override string PropertiesHeading => Selection.Count == 0 ? "Properties (select an object)" : "Properties (click a value to change it)";
+	public override string PropertiesHeading => _creating ? "New object (click a value to change it)" : Selection.Count == 0 ? "Properties (select an object)" : "Properties (click a value to change it)";
 
 	public override bool HasSelection => Selection.Count > 0;
 
@@ -68,6 +84,11 @@ internal sealed class ObjectsTool : EditorTool
 		_placeKey = null;
 		_moving = false;
 		GiveUniqueIds();
+		ReadTypeKeys();
+	}
+
+	private void ReadTypeKeys()
+	{
 		_allTypeKeys = Editor.GameContext.ResourceTree.GetResourceListing()
 			.Where(x => (x.Value.Identifier == ResourceTypeIdentifier.Object || x.Value.Identifier == ResourceTypeIdentifier.LuaObject) && x.Key.StartsWith(ObjectKeyPrefix, StringComparison.OrdinalIgnoreCase))
 			.Select(x => x.Key)
@@ -113,6 +134,9 @@ internal sealed class ObjectsTool : EditorTool
 
 	#region List
 
+	/// <summary>The first row makes a new object. The other rows are the object types.</summary>
+	private const int NewRowCount = 1;
+
 	/// <summary>The types that the user cannot add: characters, animals and particles.</summary>
 	private static bool IsPlaceable(ObjectType type)
 	{
@@ -128,6 +152,7 @@ internal sealed class ObjectsTool : EditorTool
 	public override IReadOnlyList<EditorListRow> GetListRows()
 	{
 		Dictionary<string, int> counts = Placements.GroupBy(p => p.Key, StringComparer.OrdinalIgnoreCase).ToDictionary(x => x.Key, x => x.Count(), StringComparer.OrdinalIgnoreCase);
+		EditorListRow newRow = new EditorListRow { Text = "+ New object", Active = _creating };
 		return GetListKeys().Select(key =>
 		{
 			bool loaded = FindType(key) != null;
@@ -138,22 +163,37 @@ internal sealed class ObjectsTool : EditorTool
 				Active = string.Equals(key, _placeKey, StringComparison.OrdinalIgnoreCase),
 				Dim = !loaded
 			};
-		}).ToArray();
+		}).Prepend(newRow).ToArray();
 	}
 
 	public override void OnListClick(int index, int direction)
 	{
+		if (index < NewRowCount)
+		{
+			_creating = true;
+			_placeKey = null;
+			Editor.ShowMessage(Hint);
+			return;
+		}
 		string[] keys = GetListKeys();
+		index -= NewRowCount;
 		if (index < 0 || index >= keys.Length || _loadTask != null)
 		{
 			return;
 		}
+		_creating = false;
 		string key = keys[index];
 		if (string.Equals(key, _placeKey, StringComparison.OrdinalIgnoreCase))
 		{
 			_placeKey = null;
 			return;
 		}
+		ChooseType(key);
+	}
+
+	/// <summary>Starts to add objects of a type. A type that is not loaded loads first.</summary>
+	private void ChooseType(string key)
+	{
 		if (FindType(key) != null)
 		{
 			_placeKey = key;
@@ -173,6 +213,7 @@ internal sealed class ObjectsTool : EditorTool
 
 	public override void OnLevelPress()
 	{
+		_creating = false;
 		if (_placeKey != null)
 		{
 			PlaceObject(_placeKey, Editor.Snap(Editor.MouseWorld));
@@ -256,6 +297,11 @@ internal sealed class ObjectsTool : EditorTool
 
 	public override bool Cancel()
 	{
+		if (_creating)
+		{
+			_creating = false;
+			return true;
+		}
 		if (_placeKey == null)
 		{
 			return false;
@@ -439,6 +485,10 @@ internal sealed class ObjectsTool : EditorTool
 
 	public override List<EditorPropertyRow> GetPropertyRows()
 	{
+		if (_creating)
+		{
+			return GetNewObjectRows();
+		}
 		List<EditorPropertyRow> rows = new List<EditorPropertyRow>();
 		ObjectPlacement[] selected = Placements.Where(p => Selection.Contains(p.Uid)).ToArray();
 		if (selected.Length != 1)
@@ -489,6 +539,15 @@ internal sealed class ObjectsTool : EditorTool
 		{
 			return rows;
 		}
+		if (GetScriptPath(type) is string scriptPath)
+		{
+			rows.Add(new EditorPropertyRow
+			{
+				Label = "Script",
+				Value = OperatingSystem.IsBrowser() ? Path.GetFileName(Path.GetDirectoryName(scriptPath)) : "click to show the file",
+				Step = _ => ShowFile(scriptPath)
+			});
+		}
 		rows.Add(new EditorPropertyRow { Label = "Properties", Value = "", IsHeading = true });
 		foreach (EditorProperty property in EditorProperty.For(type))
 		{
@@ -508,6 +567,147 @@ internal sealed class ObjectsTool : EditorTool
 			rows.Add(row);
 		}
 		return rows;
+	}
+
+	/// <summary>The path of the script of a Lua type in a mod folder, or null.</summary>
+	private static string GetScriptPath(ObjectType type)
+	{
+		return type.Resource?.Identifier == ResourceTypeIdentifier.LuaObject && type.Resource.Source is FileResourceSource file && file.Offset == 0
+			? file.Path
+			: null;
+	}
+
+	private void ShowFile(string path)
+	{
+		if (!AnimationTextureFiles.ShowInFileManager(path))
+		{
+			Editor.ShowMessage(path);
+		}
+	}
+
+	#endregion
+
+	#region New object
+
+	/// <summary>
+	/// The mod folder of a new object: the folder of the open level when it is a mod folder, so a level and its
+	/// objects stay together. Otherwise the folder <see cref="NewObject.DefaultModName"/>.
+	/// </summary>
+	private string GetNewObjectFolder()
+	{
+		string mods = Path.Combine(Editor.GameContext.UserDataDirectory, "mods");
+		string[] parts = Editor.Level.Binding.Resource.FullKeyPath.Split('/');
+		string mnemonic = parts.Length >= 2 ? parts[parts.Length - 2].ToLowerInvariant() : null;
+		if (mnemonic != null && Directory.Exists(Path.Combine(mods, mnemonic, "SONICORCA", "LEVELS")))
+		{
+			return Path.Combine(mods, mnemonic);
+		}
+		return Path.Combine(mods, NewObject.DefaultModName);
+	}
+
+	/// <summary>The form of a new object: the name, the key, the kind, the image, the folder and Create.</summary>
+	private List<EditorPropertyRow> GetNewObjectRows()
+	{
+		NewObjectKind[] kinds = Enum.GetValues<NewObjectKind>();
+		return new List<EditorPropertyRow>
+		{
+			new EditorPropertyRow
+			{
+				Label = "Name",
+				Value = _newName.Length > 0 ? _newName : "click to type",
+				Commit = text =>
+				{
+					// The key follows the name until the user types a key
+					if (_newKey == NewObject.MakeKey(_newName))
+					{
+						_newKey = NewObject.MakeKey(text);
+					}
+					_newName = text.Trim();
+					return true;
+				}
+			},
+			new EditorPropertyRow
+			{
+				Label = "Key",
+				Value = _newKey.Length > 0 ? ObjectKeyPrefix + _newKey : "capital letters and digits",
+				Commit = text =>
+				{
+					string key = text.Trim().ToUpperInvariant();
+					if (key.StartsWith(ObjectKeyPrefix, StringComparison.Ordinal))
+					{
+						key = key.Substring(ObjectKeyPrefix.Length);
+					}
+					if (NewObject.CheckKey(key) is string problem)
+					{
+						Editor.ShowMessage(problem);
+						return false;
+					}
+					_newKey = key;
+					return true;
+				}
+			},
+			new EditorPropertyRow
+			{
+				Label = "Kind",
+				Value = NewObject.GetKindName(_newKind),
+				Step = direction => _newKind = kinds[((Array.IndexOf(kinds, _newKind) + direction) % kinds.Length + kinds.Length) % kinds.Length]
+			},
+			new EditorPropertyRow
+			{
+				Label = "Image",
+				Value = _newImagePath ?? "placeholder (type a PNG path)",
+				Commit = text =>
+				{
+					string path = text.Trim().Trim('"');
+					if (path.Length == 0)
+					{
+						_newImagePath = null;
+						return true;
+					}
+					if (NewObject.GetPngSize(File.Exists(path) ? AnimationTextureFiles.TryRead(path) : null) == null)
+					{
+						Editor.ShowMessage("Not a PNG file: " + path);
+						return false;
+					}
+					_newImagePath = path;
+					return true;
+				}
+			},
+			new EditorPropertyRow { Label = "Folder", Value = "mods/" + Path.GetFileName(GetNewObjectFolder()) },
+			new EditorPropertyRow { Label = "Create", Value = "click to make and add it", Step = _ => CreateObject() }
+		};
+	}
+
+	/// <summary>Makes the files of the new object, loads its type, and starts to add objects of it.</summary>
+	private void CreateObject()
+	{
+		if (_loadTask != null)
+		{
+			return;
+		}
+		string folder = GetNewObjectFolder();
+		try
+		{
+			byte[] image = _newImagePath == null ? null : AnimationTextureFiles.TryRead(_newImagePath);
+			if (_newImagePath != null && image == null)
+			{
+				throw new InvalidOperationException("The image did not load: " + _newImagePath);
+			}
+			NewObject.Create(Editor.GameContext.ResourceTree, folder, _newKey, _newName, _newKind, image);
+		}
+		catch (Exception ex) when (ex is InvalidOperationException || ex is IOException || ex is UnauthorizedAccessException)
+		{
+			Editor.ShowMessage(ex.Message);
+			return;
+		}
+		string key = ObjectKeyPrefix + _newKey;
+		_creating = false;
+		_newName = "";
+		_newKey = "";
+		_newImagePath = null;
+		ReadTypeKeys();
+		ChooseType(key);
+		Editor.ShowMessage($"Made {ShortName(key)} in mods/{Path.GetFileName(folder)}. Click in the level to add it.");
 	}
 
 	#endregion

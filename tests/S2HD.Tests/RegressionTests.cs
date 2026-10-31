@@ -68,11 +68,38 @@ public sealed class RegressionTests
 	public void Editor_MatchesGoldenScreenshots()
 	{
 		const string script = "5:mouse 1167 215;12:down left;13:up left;" +
-			"28:mouse 1600 300;29:wheel -30;30:mouse 1600 423;31:down left;32:up left;40:mouse 700 560;41:down left;42:up left;" +
+			"28:mouse 1600 300;29:wheel -30;30:mouse 1600 453;31:down left;32:up left;40:mouse 700 560;41:down left;42:up left;" +
 			"50:mouse 1700 725;51:down left;52:up left;53:down left;54:up left;" +
 			"70:mouse 560 450;71:tap 62";
 		RunAndCompare("--level ehz --editor", new[] { 10020, 10060, 300 }, Path.Combine(TestPaths.GoldenDirectory, "editor"), "editor",
 			new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script });
+	}
+
+	/// <summary>
+	/// Opens the level editor in Emerald Hill with scripted input. It makes a new enemy object with the form of the
+	/// Objects tool, adds it to the level, and plays from the mouse position. The files of the object must be in the
+	/// mod folder for new objects.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void EditorNewObject_MatchesGoldenScreenshots()
+	{
+		// "+ New object" is the first row of the list. Name, Kind and Create are rows 1, 3 and 6 of the properties.
+		const string script = "5:mouse 1600 92;6:down left;7:up left;" +
+			"10:mouse 1600 546;11:down left;12:up left;14:type Test walker;15:tap 40;" +
+			"18:mouse 1600 606;19:down left;20:up left;21:down left;22:up left;23:down left;24:up left;" +
+			"28:mouse 1600 696;29:down left;30:up left;" +
+			"50:mouse 1100 520;51:down left;52:up left;" +
+			"60:mouse 560 450;61:tap 62";
+		RunAndCompare("--level ehz --editor", new[] { 10026, 10055, 300 }, Path.Combine(TestPaths.GoldenDirectory, "editor-new-object"), "editor-new-object",
+			new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script },
+			checkUserData: userData =>
+			{
+				string folder = Path.Combine(userData, "mods", SonicOrca.Core.Editor.NewObject.DefaultModName, "SONICORCA", "OBJECTS", "TESTWALKER");
+				Assert.True(File.Exists(Path.Combine(folder, "_.object.lua")), "The editor did not make the script in " + folder);
+				Assert.Contains("classification = \"badnik\"", File.ReadAllText(Path.Combine(folder, "_.object.lua")));
+				Assert.True(File.Exists(Path.Combine(folder, "TEXTURE.png")), "The editor did not make the image in " + folder);
+			});
 	}
 
 	/// <summary>
