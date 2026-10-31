@@ -306,6 +306,25 @@ public sealed class RegressionTests
 		}
 	}
 
+	/// <summary>
+	/// Plays Sunny Meadow, the level of the example mod sunny-meadow, which has a level script. The script makes the
+	/// water of the pits go up and down. The captures show the water low, high and low again. Sonic walks to the right
+	/// for a short time, so that the walking beetle near the start does not hurt him.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void LuaLevelScript_MatchesGoldenScreenshots()
+	{
+		RunTwoRuns("lua-level-script", Path.Combine(TestPaths.GoldenDirectory, "lua-level-script"), new[] { 200, 600, 800 }, userData =>
+		{
+			CopyExampleMod(userData);
+			CopyDirectory(Path.Combine(TestPaths.RepoRoot, "examples", "mods", "sunny-meadow", "SONICORCA"), Path.Combine(userData, "mods", "sunny-meadow", "SONICORCA"));
+			string recording = Path.Combine(userData, "meadow.rec");
+			File.WriteAllBytes(recording, MakeRecording(900, tick => (tick >= 200 && tick < 330 ? 1.0 : 0.0, false)));
+			return $"--level meadow --playback \"{recording}\"";
+		});
+	}
+
 	private static void CopyExampleMod(string userData)
 	{
 		CopyDirectory(Path.Combine(TestPaths.RepoRoot, "examples", "mods", "lua-item-block", "SONICORCA"), Path.Combine(userData, "mods", "lua-item-block", "SONICORCA"));

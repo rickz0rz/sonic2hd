@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Makes the Sunny Meadow level: the tile set, the map, the binding, the area and the info file.
+"""Makes the Sunny Meadow level: the tile set, the map, the binding, the area, the info file and the level script.
 
 Run it from any folder: python3 generate.py. It writes the files into SONICORCA/LEVELS/MEADOW next to this script.
 The level uses the item block of the lua-item-block mod, so install both mods.
@@ -376,6 +376,33 @@ def write_beetle():
         f.write(BEETLE_ANIGROUP)
     with open(os.path.join(folder, '_.object.lua'), 'w') as f:
         f.write(BEETLE_SCRIPT)
+# The level script (see "Lua objects and mod levels" in the README of the game): the water of the pits goes up and
+# down slowly, as a tide.
+LEVEL_SCRIPT = '''-- The level script of Sunny Meadow. The game makes one object of it when the level starts, and the object
+-- stays for all the level. It gives the pits water that goes up and down slowly, as a tide. This file comes from
+-- generate.py.
+object {
+  api = 7,
+  name = "Sunny Meadow script",
+  description = "The tide of the pits",
+  classification = "general",
+}
+
+-- The water goes from LOW to HIGH units above the bottom of the level, in PERIOD ticks
+local LOW, HIGH, PERIOD = 96, 224, 900
+
+function start(self)
+  self.bottom = self:camera_bounds().bottom
+  self.ticks = 0
+end
+
+function update(self)
+  self.ticks = self.ticks + 1
+  local tide = (1 - math.cos(2 * math.pi * self.ticks / PERIOD)) / 2
+  self:set_water_top(self.bottom - LOW - (HIGH - LOW) * tide)
+end
+'''
+
 RING = 'SONICORCA/OBJECTS/RING'
 
 
@@ -571,6 +598,8 @@ def main():
         f.write('<?xml version="1.0" encoding="utf-8"?>\n'
                 '<level name="Sunny Meadow" music="SONICORCA/MUSIC/LEVELS/EHZ/COOPERATIVE/ACT1" start="startpos"'
                 ' animals="SONICORCA/OBJECTS/FLICKY SONICORCA/OBJECTS/RICKY" />\n')
+    with open(os.path.join(OUT, 'SCRIPT.object.lua'), 'w') as f:
+        f.write(LEVEL_SCRIPT)
     write_beetle()
     print(f'{cols} columns, {len(ids)} tiles, {len(vectors)} lines')
 

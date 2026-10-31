@@ -198,6 +198,10 @@ the properties of the object, and the functions that the game calls on each tick
 objects, and the game loads a script again when its file changes.
 
 A mod can also add a level in `SONICORCA/LEVELS/NAME`, with a tile set, a map, a binding and an `INFO.xml` file.
+A level script is the optional file `SCRIPT.object.lua` in the folder of the level. It is a Lua object script. When
+the level starts, the game makes one object of it, and the object stays for all the level: its `start` function runs
+when the level starts, and its `update` function on each tick. A level script can use all the functions of a Lua
+object, for example to change the water, to start an earthquake, to play music or to make objects.
 `--level NAME` starts it, and the level select shows it after the zones of the game. With the attribute `tileset`
 in `INFO.xml`, for example `tileset="SONICORCA/LEVELS/EHZ/TILESET"`, the level uses the tile set of another level
 and needs no tile set of its own.

@@ -234,7 +234,7 @@ This tier is enough for the item block of the use case, rings, simple enemies th
 
 - A free renderer for scripts: done in API 6. `self:draw` takes options (flip, scale, rotation, offset, color, alpha, additive color and blend mode), and `self:fill_rectangle` and `self:draw_line` draw shapes.
 - The `BossObject` base: done in API 7 with `base = "boss"`, `self.health`, `self.flashing`, `self.defeated`, `self:explode` and the `hit` and `defeat` functions. A Lua boss locks its arena with `set_camera_bounds` and plays its music with `play_music`.
-- Lua areas: level scripts with `prepare`, `start` and `update`
+- Lua areas: level scripts. Done for mod levels: the file `SCRIPT.object.lua` in the folder of the level is a Lua object script. `ModArea` loads it with the level, makes one object of it when the level starts, and keeps the object alive. Its `start` and `update` are the start and the update of the level. There is no `prepare`: `INFO.xml` gives the name, the music and the tile set, and `start` runs before the first tick.
 
 ### Tier 4: character abilities
 

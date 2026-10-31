@@ -21,6 +21,11 @@ namespace SONICORCA.MODAREA;
 /// tile set of another level and needs no TILESET of its own.
 /// The game starts the level with --level NAME. The bounds of the level are the bounds of the map, or the rectangle
 /// between the markers "bounds_lt" and "bounds_rb" when the map has them.
+/// <para>
+/// A level script is the optional resource SCRIPT: a Lua object script, the file SCRIPT.object.lua. When the level
+/// starts, the area makes one object of it, and the object stays for all the level. Its start function runs when the
+/// level starts, and its update function on each tick, with all the functions of a Lua object.
+/// </para>
 /// </summary>
 public class ModArea : Area
 {
@@ -29,6 +34,9 @@ public class ModArea : Area
 	private const string BindingResourceKey = "//BINDING";
 	private const string InfoResourceKey = "//INFO";
 	private const string DefaultStartMarker = "startpos";
+	private const string ScriptResourceKey = "//SCRIPT";
+
+	private Level _level;
 
 	public ModArea()
 		: base(new[] { MapResourceKey, BindingResourceKey, InfoResourceKey })
@@ -40,6 +48,9 @@ public class ModArea : Area
 	{
 		XmlElement info = ReadInfo(resourceTree);
 		List<string> keys = new List<string> { GetTileSetKey(info) };
+		string script = this.GetAbsolutePath(ScriptResourceKey);
+		if (resourceTree[script]?.Resource != null)
+			keys.Add(script);
 		if (info == null)
 			return keys;
 		string music = info.GetAttribute("music");
@@ -57,6 +68,7 @@ public class ModArea : Area
 
 	public override void Prepare(Level level, LevelPrepareSettings settings)
 	{
+		_level = level;
 		ResourceTree tree = level.GameContext.ResourceTree;
 		XmlElement info = ((XmlLoadedResource)tree.GetLoadedResource<ILoadedResource>(this, InfoResourceKey)).XmlDocument.DocumentElement;
 		// The level editor can change the name, and a test play does not load the area again. So the name comes from
@@ -81,6 +93,18 @@ public class ModArea : Area
 		level.Bounds = GetBounds(level);
 		level.RingsPerfectTarget = level.ObjectManager.ObjectEntryTable.GetRingCountInRegion(level.Bounds);
 		settings.StartPath = 0;
+	}
+
+	/// <summary>Makes the object of the level script, if the level has one. It stays alive out of view.</summary>
+	public override void OnStart()
+	{
+		string script = this.GetAbsolutePath(ScriptResourceKey);
+		if (_level == null || _level.GameContext.ResourceTree.GetLoadedResource<ObjectType>(script) == null)
+			return;
+		int layer = _level.Player?.Protagonist != null ? _level.Map.Layers.IndexOf(_level.Player.Protagonist.Layer) : 0;
+		ActiveObject scriptObject = _level.ObjectManager.AddObject(new ObjectPlacement(script, System.Math.Max(layer, 0), _level.GetPlayerStartPosition()));
+		if (scriptObject != null)
+			scriptObject.LockLifetime = true;
 	}
 
 	private static Rectanglei GetBounds(Level level)

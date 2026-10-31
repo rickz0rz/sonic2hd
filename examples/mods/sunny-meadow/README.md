@@ -4,6 +4,8 @@ This mod adds an original level, Sunny Meadow. It has rolling grass, slopes, gap
 
 The burr beetle (`SONICORCA/OBJECTS/BURRBEETLE`) is an original enemy with a Lua script. It walks on the ground, and turns at an edge or at a slope that is too steep. A character that rolls or jumps into it breaks it. A character that only touches it gets hurt. Its `speed` property sets how far it walks on each tick, and `start_right` makes it start to the right.
 
+The level has a level script, `SCRIPT.object.lua`. The water of the pits goes up and down slowly, as a tide.
+
 The level uses the item block of the `lua-item-block` mod. Install both mods.
 
 ## Play the level
@@ -24,6 +26,7 @@ The folder `SONICORCA/LEVELS/MEADOW` has these files:
 | `TILESET` | The tiles: a texture and a list of the tiles in it |
 | `MAP.map.xml` | The layers, the tiles of each cell, the collision lines and the markers |
 | `BINDING.binding.xml` | The objects: item blocks, rings, a spring and the signpost |
+| `SCRIPT.object.lua` | The level script: the tide of the pits |
 
 ## Make the level again
 
