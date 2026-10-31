@@ -175,6 +175,25 @@ public sealed partial class LuaNativeObject
 		return table;
 	}
 
+	/// <summary>The y of the top of the water of the level, or nil when the level has no water.</summary>
+	[LuaMember("water_top")]
+	public LuaValue WaterTop() => _owner.GetWaterTop() is double top ? top : LuaValue.Nil;
+
+	/// <summary>
+	/// Gives the level water from <paramref name="top"/> down to the bottom of the map. nil removes the water. To
+	/// raise or lower the water slowly, call it on each tick with a new value.
+	/// </summary>
+	[LuaMember("set_water_top")]
+	public void SetWaterTop(LuaValue top) => _owner.SetWaterTop(top.TryRead(out double value) ? value : null);
+
+	/// <summary>Starts or stops the earthquake of the level: the screen shakes, and the rumble plays.</summary>
+	[LuaMember("set_earthquake")]
+	public void SetEarthquake(bool active) => _owner.Level.EarthquakeActive = active;
+
+	/// <summary>Ends the act, as a signpost does. The score count shows, then the next act or level starts.</summary>
+	[LuaMember("complete_level")]
+	public void CompleteLevel() => _owner.CompleteLevel();
+
 	[LuaMember("clear_solid")]
 	public void ClearSolid() => _owner.SetCollisionVectors(new CollisionVector[0]);
 

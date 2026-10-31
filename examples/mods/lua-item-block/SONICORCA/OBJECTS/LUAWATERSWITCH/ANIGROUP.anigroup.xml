@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<anigroup>
+  <textures>
+    <texture>//TEXTURE</texture>
+  </textures>
+  <animations>
+    <!-- 0: up -->
+    <animation>
+      <frame texture="0" x="0" y="0" w="64" h="32" />
+    </animation>
+    <!-- 1: pressed -->
+    <animation>
+      <frame texture="0" x="64" y="0" w="64" h="32" />
+    </animation>
+  </animations>
+</anigroup>
