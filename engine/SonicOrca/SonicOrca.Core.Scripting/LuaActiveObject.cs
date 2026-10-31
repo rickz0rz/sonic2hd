@@ -129,6 +129,10 @@ public sealed class LuaActiveObject : ActiveObject, IStateTable, SonicOrca.Core.
 		{
 			PositionPrecise += _movement;
 		}
+		if (LuaType.IsBoss)
+		{
+			UpdateBoss();
+		}
 		CheckScript();
 		Call(LuaType.UpdateFunction, true, _self);
 	}
@@ -163,6 +167,10 @@ public sealed class LuaActiveObject : ActiveObject, IStateTable, SonicOrca.Core.
 
 	protected override void OnCollision(CollisionEvent e)
 	{
+		if (LuaType.IsBoss && e.ActiveObject is ICharacter character)
+		{
+			BossCollision(character);
+		}
 		if (LuaType.CollisionFunction.Type == LuaValueType.Nil)
 		{
 			return;
@@ -364,6 +372,84 @@ public sealed class LuaActiveObject : ActiveObject, IStateTable, SonicOrca.Core.
 		_carryingVectors = carrying;
 		RegisterCollisionUpdate();
 	}
+
+	#region Boss
+
+	/// <summary>The ticks after a hit when the boss cannot be hit again, as for <see cref="BossObject"/>.</summary>
+	private const int BossHitInvincibilityTicks = 32;
+
+	internal int BossHealth { get; set; } = 8;
+
+	internal int BossInvincibleTicks { get; private set; }
+
+	internal bool BossDefeated { get; private set; }
+
+	/// <summary>The boss flashes on every second tick while it cannot be hit.</summary>
+	internal bool BossFlashing => BossInvincibleTicks > 0 && BossInvincibleTicks % 2 == 0;
+
+	/// <summary>
+	/// The boss fight is on while the boss is not defeated: the characters cannot go past the right side of the
+	/// screen. After the defeat, they can go on.
+	/// </summary>
+	private void UpdateBoss()
+	{
+		Level.BossFight = !BossDefeated;
+		if (BossInvincibleTicks > 0)
+		{
+			BossInvincibleTicks--;
+		}
+	}
+
+	/// <summary>
+	/// The rules of <see cref="BossObject"/>: a character that rolls or jumps into the boss hits it and bounces back.
+	/// Another touch hurts the character. A defeated boss does neither.
+	/// </summary>
+	private void BossCollision(ICharacter character)
+	{
+		if (BossDefeated || character.IsDebug)
+		{
+			return;
+		}
+		if (!character.IsDeadly)
+		{
+			if (character.CanBeHurt)
+			{
+				character.Hurt(Math.Sign(character.Position.X - Position.X));
+			}
+			return;
+		}
+		if (BossInvincibleTicks > 0)
+		{
+			return;
+		}
+		if (character.IsAirborne || Level.OriginalPhysics)
+		{
+			character.Velocity *= -1.0;
+		}
+		else
+		{
+			character.GroundVelocity *= -1.0;
+		}
+		BossHealth--;
+		BossInvincibleTicks = BossHitInvincibilityTicks;
+		if (BossHealth > 0)
+		{
+			Level.SoundManager.PlaySound(this, LuaObjectType.BossHitSoundKey);
+			Call(LuaType.HitFunction, true, _self, new LuaCharacter(this, character));
+			return;
+		}
+		BossDefeated = true;
+		Level.BossFight = false;
+		Call(LuaType.DefeatFunction, true, _self);
+	}
+
+	/// <summary>Makes a boss explosion at an offset from the object.</summary>
+	internal void Explode(Vector2 offset)
+	{
+		Level.ObjectManager.AddObject(new ObjectPlacement(LuaObjectType.BossExplosionKey, Level.Map.Layers.IndexOf(Layer), Position + new Vector2i((int)offset.X, (int)offset.Y)));
+	}
+
+	#endregion
 
 	#region Level
 

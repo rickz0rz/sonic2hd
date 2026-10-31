@@ -493,7 +493,8 @@ The editor saves the map in a way that keeps all the other data of the map file.
 
 A new level is a mod folder, `mods/<short name>/`, in the user data folder. It uses the tile set of the level that
 you chose, so the folder has no tiles. The map has an empty background layer, an empty front layer, a floor line, and
-a start position. A signpost near the right end ends the level. The level is not in the story until you add it. The
+a start position. A signpost near the right end ends the level. To end it with a boss, delete the signpost and add a
+Lua boss, for example `LUAWISP` of the example mod `lua-item-block`. The level is not in the story until you add it. The
 editor saves the changes of the level to `mods/editor/<SHORT NAME>.dat`, as for the other levels.
 
 A new object is a Lua object (see "Lua objects and mod levels"). Click "+ New object" at the top of the list of

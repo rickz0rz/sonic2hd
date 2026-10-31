@@ -233,7 +233,7 @@ This tier is enough for the item block of the use case, rings, simple enemies th
 ### Tier 3: full control
 
 - A free renderer for scripts: done in API 6. `self:draw` takes options (flip, scale, rotation, offset, color, alpha, additive color and blend mode), and `self:fill_rectangle` and `self:draw_line` draw shapes.
-- The `BossObject` base
+- The `BossObject` base: done in API 7 with `base = "boss"`, `self.health`, `self.flashing`, `self.defeated`, `self:explode` and the `hit` and `defeat` functions. A Lua boss locks its arena with `set_camera_bounds` and plays its music with `play_music`.
 - Lua areas: level scripts with `prepare`, `start` and `update`
 
 ### Tier 4: character abilities

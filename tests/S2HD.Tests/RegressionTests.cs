@@ -206,6 +206,106 @@ public sealed class RegressionTests
 			"lua-wheel", new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script }, prepareUserData: CopyExampleMod);
 	}
 
+	/// <summary>
+	/// Fights the wisp of the example mod lua-item-block, a Lua boss, in Emerald Hill. The first run places the wisp
+	/// with the level editor, sets its health to 2, and saves. The second run plays the level with recorded input:
+	/// Sonic holds right and jumps again and again. The camera locks, the wisp comes over Sonic, and Sonic hits it two
+	/// times. The wisp explodes and flies away, and the act ends.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void LuaBoss_MatchesGoldenScreenshots()
+	{
+		// LUAWISP is eight rows under LOCKY in the list of the objects tool. The list scrolls five more rows for it.
+		// The wisp floats high, so that only a jump reaches it. "health" is the first state value in the properties.
+		// Ctrl+S saves (224 is Ctrl, 22 is S).
+		const string editorScript = "28:mouse 1600 300;29:wheel -35;30:mouse 1600 483;31:down left;32:up left;" +
+			"45:mouse 1100 240;46:down left;47:up left;" +
+			"50:mouse 1600 756;51:down left;52:up left;54:type 2;55:tap 40;" +
+			"60:keydown 224;61:tap 22;62:keyup 224";
+		string goldenDirectory = Path.Combine(TestPaths.GoldenDirectory, "lua-boss");
+		int[] ticks = { 300, 350, 450, 800 };
+		RunTwoRuns("lua-boss", goldenDirectory, ticks, userData =>
+		{
+			CopyExampleMod(userData);
+			RunGame(TestPaths.GameExecutable, "--level ehz --editor", new[] { 10066 }, userData,
+				new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = editorScript });
+			Assert.True(File.Exists(Path.Combine(userData, "mods", "editor", "EHZ.dat")), "The editor did not save the wisp.");
+			string recording = Path.Combine(userData, "boss.rec");
+			// Sonic holds right and jumps again and again, with full jumps. A jump makes him hit the wisp, not get hurt.
+			File.WriteAllBytes(recording, MakeRecording(1000, tick => (1.0, tick % 40 < 25)));
+			return $"--level ehz --playback \"{recording}\"";
+		});
+	}
+
+	/// <summary>
+	/// Makes an input recording: one record of 40 bytes for each level tick, with the horizontal direction and the
+	/// action button. The other fields are 0.
+	/// </summary>
+	private static byte[] MakeRecording(int tickCount, Func<int, (double ThrottleX, bool Action)> input)
+	{
+		using MemoryStream stream = new MemoryStream();
+		using BinaryWriter writer = new BinaryWriter(stream);
+		for (int tick = 0; tick < tickCount; tick++)
+		{
+			(double throttleX, bool action) = input(tick);
+			writer.Write(throttleX);
+			writer.Write(0.0);
+			writer.Write(action);
+			writer.Write(false);
+			writer.Write(0);
+			writer.Write(0);
+			writer.Write((short)0);
+			writer.Write(0);
+			writer.Write((short)0);
+			writer.Write((short)0);
+			writer.Write(0f);
+		}
+		writer.Flush();
+		return stream.ToArray();
+	}
+
+	/// <summary>
+	/// Runs a test that needs a preparation run, for example a run of the editor that saves a level. The preparation
+	/// gives the arguments of the run that the test compares with the golden screenshots.
+	/// </summary>
+	private static void RunTwoRuns(string name, string goldenDirectory, int[] ticks, Func<string, string> prepare)
+	{
+		if (!File.Exists(TestPaths.GameExecutable))
+		{
+			Assert.Skip($"Game not built: {TestPaths.GameExecutable}.");
+		}
+		bool record = Environment.GetEnvironmentVariable("S2HD_RECORD_GOLDEN") == "1";
+		if (!record && !ticks.All(tick => File.Exists(GoldenPath(goldenDirectory, tick))))
+		{
+			Assert.Skip($"No golden screenshots in {goldenDirectory}. Record them with S2HD_RECORD_GOLDEN=1.");
+		}
+		string userData = Directory.CreateTempSubdirectory("s2hd-regression-").FullName;
+		try
+		{
+			string arguments = prepare(userData);
+			RunGame(TestPaths.GameExecutable, arguments, ticks, userData, null);
+			if (record)
+			{
+				Directory.CreateDirectory(goldenDirectory);
+				foreach (int tick in ticks)
+				{
+					File.Copy(CapturePath(userData, tick), GoldenPath(goldenDirectory, tick), overwrite: true);
+				}
+				return;
+			}
+			string[] failures = ticks
+				.Select(tick => CompareWithGolden(CapturePath(userData, tick), GoldenPath(goldenDirectory, tick), name))
+				.Where(failure => failure != null)
+				.ToArray();
+			Assert.True(failures.Length == 0, string.Join(Environment.NewLine, failures));
+		}
+		finally
+		{
+			Directory.Delete(userData, recursive: true);
+		}
+	}
+
 	private static void CopyExampleMod(string userData)
 	{
 		CopyDirectory(Path.Combine(TestPaths.RepoRoot, "examples", "mods", "lua-item-block", "SONICORCA"), Path.Combine(userData, "mods", "lua-item-block", "SONICORCA"));
