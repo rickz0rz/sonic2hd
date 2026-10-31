@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Lua;
 using SonicOrca.Core.Collision;
 using SonicOrca.Core.Objects;
+using SonicOrca.Core.Objects.Base;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
 
@@ -48,6 +49,15 @@ public sealed class LuaActiveObject : ActiveObject, IStateTable, SonicOrca.Core.
 	internal Vector2 ScriptVelocity { get; set; }
 
 	public Vector2 Velocity => _movement;
+
+	/// <summary>The characters that this object holds.</summary>
+	private readonly HashSet<ICharacter> _held = new HashSet<ICharacter>();
+
+	/// <summary>The characters that the script held in this tick. The others let go at the start of the next tick.</summary>
+	private readonly HashSet<ICharacter> _heldThisTick = new HashSet<ICharacter>();
+
+	/// <summary>The buttons of each character at the start of the tick (see <see cref="ReadInput"/>).</summary>
+	private readonly Dictionary<ICharacter, (bool Jump, int X, int Y)> _input = new Dictionary<ICharacter, (bool, int, int)>();
 
 	/// <summary>The generation of the script that made <see cref="_self"/> (see <see cref="LuaObjectType.Generation"/>).</summary>
 	private int _generation;
@@ -104,6 +114,8 @@ public sealed class LuaActiveObject : ActiveObject, IStateTable, SonicOrca.Core.
 	/// </summary>
 	protected override void OnUpdatePrepare()
 	{
+		ReleaseUnheldCharacters();
+		ReadInput();
 		_movement = ScriptVelocity;
 		foreach (CollisionVector vector in _carryingVectors)
 		{
@@ -155,7 +167,7 @@ public sealed class LuaActiveObject : ActiveObject, IStateTable, SonicOrca.Core.
 		{
 			return;
 		}
-		LuaCollisionEvent luaEvent = new LuaCollisionEvent(e);
+		LuaCollisionEvent luaEvent = new LuaCollisionEvent(this, e);
 		Call(LuaType.CollisionFunction, true, _self, luaEvent);
 		e.MaintainVelocity |= luaEvent.MaintainVelocity;
 		e.IgnoreCollision |= luaEvent.Ignore;
@@ -163,6 +175,7 @@ public sealed class LuaActiveObject : ActiveObject, IStateTable, SonicOrca.Core.
 
 	protected override void OnStop()
 	{
+		ReleaseAll();
 		if (!_stopped)
 		{
 			_stopped = true;
@@ -187,6 +200,7 @@ public sealed class LuaActiveObject : ActiveObject, IStateTable, SonicOrca.Core.
 			// The object goes, but the game continues
 			Trace.WriteLine($"Script error in {Type?.ResourceKey}: {ex.Message}");
 			_failed = true;
+			ReleaseAll();
 			Finish();
 			return null;
 		}
@@ -268,6 +282,125 @@ public sealed class LuaActiveObject : ActiveObject, IStateTable, SonicOrca.Core.
 		_carryingVectors = carrying;
 		RegisterCollisionUpdate();
 	}
+
+	#region Held characters
+
+	/// <summary>
+	/// A character that the script did not hold in the last tick lets go. A character that dies or goes into debug
+	/// mode also lets go. Thus a mistake in a script cannot keep a character for ever.
+	/// </summary>
+	private void ReleaseUnheldCharacters()
+	{
+		foreach (ICharacter character in _held.ToArray())
+		{
+			if (!_heldThisTick.Contains(character) || !CanHold(character))
+			{
+				Release(character, null);
+			}
+		}
+		_heldThisTick.Clear();
+	}
+
+	/// <summary>
+	/// Reads the buttons of the characters before they update: a character clears its buttons while an object holds
+	/// it. The sidekick of the computer gets no buttons while an object holds it. As in the original, where the
+	/// sidekick copies the buttons of the player, it jumps when the player presses jump.
+	/// </summary>
+	private void ReadInput()
+	{
+		_input.Clear();
+		foreach (ICharacter character in Level.ObjectManager.Characters)
+		{
+			CharacterInputState input = character.Input;
+			if (input != null)
+			{
+				_input[character] = (input.ABC == CharacterInputButtonState.Pressed, input.HorizontalDirection, input.VerticalDirection);
+			}
+		}
+		ICharacter protagonist = Level.Player?.Protagonist;
+		if (protagonist != null && _input.TryGetValue(protagonist, out var main) && main.Jump)
+		{
+			foreach (ICharacter character in _input.Keys.Where(c => c.IsSidekick).ToArray())
+			{
+				_input[character] = (true, _input[character].X, _input[character].Y);
+			}
+		}
+	}
+
+	internal (bool Jump, int X, int Y) GetInput(ICharacter character) => _input.TryGetValue(character, out var input) ? input : default;
+
+	private static bool CanHold(ICharacter character) => !character.IsDebug && !character.IsDying && !character.IsDead;
+
+	/// <summary>
+	/// Holds a character at a position for this tick. A script calls it on each tick that it holds the character.
+	/// </summary>
+	/// <returns>False when the character cannot be held, for example when another object holds it.</returns>
+	internal bool Hold(ICharacter character, Vector2 position, string pose)
+	{
+		if (!CanHold(character) || (character.IsObjectControlled && !_held.Contains(character)))
+		{
+			return false;
+		}
+		if (_held.Add(character))
+		{
+			character.IsJumping = false;
+			character.GroundVelocity = 0.0;
+		}
+		_heldThisTick.Add(character);
+		character.IsObjectControlled = true;
+		character.IsAirborne = true;
+		character.PositionPrecise = position;
+		character.Velocity = new Vector2();
+		switch (pose)
+		{
+			case "hanging":
+				character.SpecialState = CharacterSpecialState.Hanging;
+				character.IsSpinball = false;
+				break;
+			case "spinball":
+				character.SpecialState = CharacterSpecialState.Normal;
+				character.IsSpinball = true;
+				break;
+			case null:
+			case "normal":
+				character.SpecialState = CharacterSpecialState.Normal;
+				character.IsSpinball = false;
+				break;
+			default:
+				throw new ArgumentException($"\"{pose}\" is not a pose. Use \"normal\", \"hanging\" or \"spinball\".");
+		}
+		return true;
+	}
+
+	/// <summary>Lets go of a character that this object holds. With a velocity, the character gets it.</summary>
+	internal void Release(ICharacter character, Vector2? velocity)
+	{
+		if (!_held.Remove(character))
+		{
+			return;
+		}
+		_heldThisTick.Remove(character);
+		character.IsObjectControlled = false;
+		character.SpecialState = CharacterSpecialState.Normal;
+		character.LeaveGround();
+		character.IsAirborne = true;
+		if (velocity is Vector2 v)
+		{
+			character.Velocity = v;
+		}
+	}
+
+	internal bool IsHolding(ICharacter character) => _held.Contains(character);
+
+	private void ReleaseAll()
+	{
+		foreach (ICharacter character in _held.ToArray())
+		{
+			Release(character, null);
+		}
+	}
+
+	#endregion
 
 	/// <summary>The characters that stand on a solid line of this object, as for <see cref="Objects.Base.Platform"/>.</summary>
 	internal IEnumerable<ICharacter> GetStandingCharacters() => Level.ObjectManager.Characters.Where(c => c.ObjectLink == this).ToArray();

@@ -157,7 +157,20 @@ public sealed partial class LuaNativeObject
 		int index = 1;
 		foreach (ICharacter character in _owner.GetStandingCharacters())
 		{
-			table[index++] = new LuaCharacter(character);
+			table[index++] = new LuaCharacter(_owner, character);
+		}
+		return table;
+	}
+
+	/// <summary>Gives a table of all the characters of the level, for example to find a character near the object.</summary>
+	[LuaMember("characters")]
+	public LuaTable Characters()
+	{
+		LuaTable table = new LuaTable();
+		int index = 1;
+		foreach (ICharacter character in _owner.Level.ObjectManager.Characters)
+		{
+			table[index++] = new LuaCharacter(_owner, character);
 		}
 		return table;
 	}
@@ -223,13 +236,13 @@ public sealed partial class LuaCollisionEvent
 {
 	private readonly LuaCharacter _character;
 
-	internal LuaCollisionEvent(CollisionEvent e)
+	internal LuaCollisionEvent(LuaActiveObject owner, CollisionEvent e)
 	{
 		Id = e.Id;
 		OtherKey = e.ActiveObject.Type?.ResourceKey;
 		if (e.ActiveObject is ICharacter character)
 		{
-			_character = new LuaCharacter(character);
+			_character = new LuaCharacter(owner, character);
 		}
 	}
 
@@ -260,10 +273,14 @@ public sealed partial class LuaCharacter
 {
 	private readonly ICharacter _character;
 
+	/// <summary>The object of the script that sees the character. It holds the character and reads its buttons.</summary>
+	private readonly LuaActiveObject _owner;
+
 	internal ICharacter Character => _character;
 
-	internal LuaCharacter(ICharacter character)
+	internal LuaCharacter(LuaActiveObject owner, ICharacter character)
 	{
+		_owner = owner;
 		_character = character;
 	}
 
@@ -312,4 +329,42 @@ public sealed partial class LuaCharacter
 	/// <summary>Hurts the character. The direction is -1 to push it left or 1 to push it right.</summary>
 	[LuaMember("hurt")]
 	public void Hurt(int direction) => _character.Hurt(direction);
+
+	/// <summary>True when an object holds the character: this object or another object.</summary>
+	[LuaMember("is_held")]
+	public bool IsHeld => _character.IsObjectControlled;
+
+	/// <summary>True on the tick when the player presses a jump button. The sidekick of the computer copies the player.</summary>
+	[LuaMember("jump_pressed")]
+	public bool JumpPressed => _owner.GetInput(_character).Jump;
+
+	/// <summary>The direction that the player holds: -1 left, 0, or 1 right.</summary>
+	[LuaMember("input_x")]
+	public int InputX => _owner.GetInput(_character).X;
+
+	/// <summary>The direction that the player holds: -1 up, 0, or 1 down.</summary>
+	[LuaMember("input_y")]
+	public int InputY => _owner.GetInput(_character).Y;
+
+	/// <summary>
+	/// Holds the character at a position for this tick. The character does not move, fall or react to the level while
+	/// the object holds it. Call it on each tick: a character that the script did not hold in a tick lets go at the
+	/// start of the next tick. The pose is "normal", "hanging" or "spinball". It gives false when the character cannot
+	/// be held, for example when another object holds it, or when it dies.
+	/// </summary>
+	[LuaMember("hold")]
+	public bool Hold(double x, double y, ReadOnlySpan<LuaValue> pose) =>
+		_owner.Hold(_character, new Vector2(x, y), pose.Length > 0 && pose[0].TryRead(out string name) ? name : null);
+
+	/// <summary>Lets go of the character. An optional velocity, in units per tick, is the velocity of the character.</summary>
+	[LuaMember("release")]
+	public void Release(ReadOnlySpan<LuaValue> velocity)
+	{
+		Vector2? value = null;
+		if (velocity.Length >= 2 && velocity[0].TryRead(out double vx) && velocity[1].TryRead(out double vy))
+		{
+			value = new Vector2(vx, vy);
+		}
+		_owner.Release(_character, value);
+	}
 }
