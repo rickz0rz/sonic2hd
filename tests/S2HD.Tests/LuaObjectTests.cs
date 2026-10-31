@@ -93,6 +93,23 @@ public sealed class LuaObjectTests
 	}
 
 	[Fact]
+	public async Task Script_WithTheBossBase_IsABoss_ThatLoadsTheExplosionAndTheHitSound()
+	{
+		LuaObjectType type = await Load("object { api = 7, base = \"boss\" }");
+
+		Assert.True(type.IsBoss);
+		Assert.Contains("SONICORCA/OBJECTS/EXPLOSION/BOSS", type.Dependencies);
+		Assert.Contains("SONICORCA/SOUND/BOSSHIT", type.Dependencies);
+	}
+
+	[Fact]
+	public async Task Script_WithAnUnknownBase_DoesNotLoad()
+	{
+		ResourceException error = await Assert.ThrowsAsync<ResourceException>(() => Load("object { base = \"dragon\" }"));
+		Assert.Contains("dragon", error.Message);
+	}
+
+	[Fact]
 	public async Task Script_WithoutADefinition_DoesNotLoad()
 	{
 		ResourceException error = await Assert.ThrowsAsync<ResourceException>(() => Load("function start(self) end"));

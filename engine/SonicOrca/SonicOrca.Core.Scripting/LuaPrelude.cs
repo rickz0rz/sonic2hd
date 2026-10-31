@@ -16,14 +16,16 @@ internal static class LuaPrelude
 
 		-- The values of the object that the engine keeps. The other fields of self belong to the script.
 		local properties = {
-		  x = true, y = true, velocity_x = true, velocity_y = true, layer = true, priority = true, lock_lifetime = true }
+		  x = true, y = true, velocity_x = true, velocity_y = true, layer = true, priority = true, lock_lifetime = true,
+		  health = true, flashing = true, defeated = true }
 
 		local methods = {}
 		for _, name in ipairs({
 		  "animation", "draw", "move", "set_design_bounds", "set_solid_box", "set_solid_top", "clear_solid", "add_hitbox",
 		  "clear_hitboxes", "play_sound", "spawn", "finish", "finish_forever", "find_floor", "destroy_enemy",
 		  "standing_characters", "characters", "water_top", "set_water_top", "set_earthquake", "complete_level",
-		  "fill_rectangle", "draw_line" }) do
+		  "fill_rectangle", "draw_line", "explode", "play_music", "play_level_music", "fade_out_music", "view_bounds",
+		  "camera_bounds", "set_camera_bounds" }) do
 		  methods[name] = function(self, ...)
 		    local native = rawget(self, "__native")
 		    return native[name](native, ...)

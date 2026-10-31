@@ -1,6 +1,6 @@
 # Lua item block: an example mod
 
-This mod adds seven objects with Lua scripts:
+This mod adds eight objects with Lua scripts:
 
 - `LUAITEMBLOCK`: an item block. A character that hits it from below gets rings, and a coin jumps out of it. Then the block is used. A used block is still solid, but it does not react to more hits.
 - `LUACOIN`: the coin that jumps out of the block.
@@ -9,8 +9,9 @@ This mod adds seven objects with Lua scripts:
 - `LUAGOAL`: a goal. When the player touches it, the act ends, as at a signpost.
 - `LUAWATERSWITCH`: a water switch. In a level without water, it gives the level water `depth` units below the switch. When a character touches it, the water rises by `rise` units, and the ground shakes while the water rises.
 - `LUAWHEEL`: a wheel that hangs from a rope and turns. It shows the drawing functions of API 6. A character that touches it makes it flash.
+- `LUAWISP`: a small boss. The camera locks on an arena around it, and the boss music plays. It floats over the nearest character. After `health` hits, it explodes and flies away, and the act ends. A mod level can end with it in place of a signpost.
 
-The API of the scripts is version 4. API 2 adds the velocity of an object and `set_solid_top`. API 3 adds `standing_characters`. API 4 adds `characters`, and lets an object hold a character and read its buttons. API 5 adds the water, the earthquake and the end of the act. API 6 adds the options of `draw`, `fill_rectangle` and `draw_line`. A script for an older API works without a change. The API can change. Set `api` to the version that the script needs: a game with an older API does not load the script. See `docs/lua-modding-design.md` for the design.
+The API of the scripts is version 4. API 2 adds the velocity of an object and `set_solid_top`. API 3 adds `standing_characters`. API 4 adds `characters`, and lets an object hold a character and read its buttons. API 5 adds the water, the earthquake and the end of the act. API 6 adds the options of `draw`, `fill_rectangle` and `draw_line`. API 7 adds the boss base, music and the limits of the camera. A script for an older API works without a change. The API can change. Set `api` to the version that the script needs: a game with an older API does not load the script. See `docs/lua-modding-design.md` for the design.
 
 ## Install the mod
 
@@ -44,7 +45,8 @@ A script calls `object { ... }` one time, with these fields:
 
 | Field | Content |
 | --- | --- |
-| `api` | The API version that the script needs: 1 to 6 |
+| `api` | The API version that the script needs: 1 to 7 |
+| `base` | Optional. `"boss"` gives the object the rules of a boss (API 7). See "Bosses" below. |
 | `name`, `description` | The text of the level editor |
 | `classification` | `general`, `badnik`, `obstacle`, `platform`, `ring`, `scenery` and so on |
 | `dependencies` | A name for each resource that the object uses. A path that starts with `/` is in the folder of the object. |
@@ -61,6 +63,8 @@ The game calls these functions of the script. Each function is optional.
 | `draw(self)` | Each frame |
 | `collision(self, event)` | Another object touches a solid side or a hit box of this object. |
 | `stop(self)` | The object goes out of view. |
+| `hit(self, character)` | A character hit a boss, and the boss has more health (API 7, base `"boss"`). |
+| `defeat(self)` | A boss has no more health (API 7, base `"boss"`). |
 
 ## The object: self
 
@@ -84,6 +88,12 @@ The game calls these functions of the script. Each function is optional.
 | `self:set_water_top(y)` | Gives the level water from `y` down to the bottom of the map, over all the width of the map. `nil` removes the water. To move the water slowly, call it on each tick with a new value. The water of a level that had none is blue-green, as in Aquatic Ruin. |
 | `self:set_earthquake(on)` | Starts or stops the earthquake: the screen shakes and the rumble plays. Stop it in `stop`, so that it does not continue after the object goes out of view. |
 | `self:complete_level()` | Ends the act, as a signpost does. The timer stops and the score count shows, then the next act or level starts. When the player is in the air, the count waits until the player lands. A second call does nothing. |
+| `self:play_music(name)` | Plays music from a dependency (API 7) |
+| `self:play_level_music()` | Plays the music of the level again (API 7) |
+| `self:fade_out_music(ticks)` | Fades out the music (API 7) |
+| `self:view_bounds()` | The area that the camera shows, as a table with `left`, `top`, `right` and `bottom` (API 7) |
+| `self:camera_bounds()` | The limits of the camera, as a table with `left`, `top`, `right` and `bottom` (API 7) |
+| `self:set_camera_bounds(left, top, right, bottom, speed)` | Changes the limits of the camera (API 7). With the optional speed in units per tick, the limits move slowly. Else they change at once. |
 | `self:characters()` | A table of all the characters of the level (API 4), for example to find a character near the object |
 | `self:standing_characters()` | A table of the characters that stand on the object (API 3). It is empty when no character stands on it. For example, `#self:standing_characters() > 0` is true when a character stands on the object. |
 | `self:add_hitbox(id, x, y, w, h)` | Adds a box that gives a collision event, but is not solid |
@@ -117,6 +127,19 @@ The options table of `self:draw` can have these fields (API 6):
 The scale and the rotation turn the image around the position of the object. Then the offset moves it.
 
 An animation has `index`, the animation in its group, and `cycles`, the number of times that it got to its end.
+
+## Bosses
+
+With `base = "boss"` in the definition, the game gives the object the rules of the bosses of the game (API 7):
+
+- A character that rolls or jumps into a hit box of the boss hits it. The character bounces back, and the boss loses 1 of its health and plays the hit sound. Then the boss cannot be hit for 32 ticks.
+- Another touch hurts the character.
+- The game calls `hit(self, character)` after a hit, and `defeat(self)` when the health gets to 0. After the defeat, the boss does not hit or hurt.
+- While the boss is not defeated, the characters cannot go past the right side of the screen.
+
+The script reads and writes `self.health`. The default is 8. It reads `self.flashing`, which is true on every second tick while the boss cannot be hit. Draw the boss with a flash then. `self.defeated` is true after the defeat. `self:explode(x, y)` makes a boss explosion at an offset from the object.
+
+The game does not lock the camera or play music for a Lua boss. The script does it, for example as `LUAWISP` does: `set_camera_bounds` locks the arena, and `play_music` plays the boss music. After the defeat, the script gives back the old limits, plays the level music, and calls `complete_level`.
 
 ## The collision event
 

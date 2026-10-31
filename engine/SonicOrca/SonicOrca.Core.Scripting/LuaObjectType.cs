@@ -21,7 +21,7 @@ namespace SonicOrca.Core.Scripting;
 public sealed class LuaObjectType : ObjectType, IStateTableType
 {
 	/// <summary>The API version that this engine gives to scripts.</summary>
-	public const int ApiVersion = 6;
+	public const int ApiVersion = 7;
 
 	private readonly Dictionary<string, string> _dependencyKeys = new Dictionary<string, string>(StringComparer.Ordinal);
 
@@ -69,6 +69,19 @@ public sealed class LuaObjectType : ObjectType, IStateTableType
 	internal LuaValue CollisionFunction { get; private set; }
 
 	internal LuaValue StopFunction { get; private set; }
+
+	/// <summary>The functions of the boss base: a character hits the boss, and the boss has no more health.</summary>
+	internal LuaValue HitFunction { get; private set; }
+
+	internal LuaValue DefeatFunction { get; private set; }
+
+	/// <summary>The definition has <c>base = "boss"</c>: the engine gives the object the rules of a boss.</summary>
+	public bool IsBoss { get; private set; }
+
+	/// <summary>The explosion and the hit sound of a boss, as <see cref="Objects.Base.BossObject"/> has them.</summary>
+	internal const string BossExplosionKey = "SONICORCA/OBJECTS/EXPLOSION/BOSS";
+
+	internal const string BossHitSoundKey = "SONICORCA/SOUND/BOSSHIT";
 
 	public IReadOnlyList<ObjectEditorProperty> StateProperties => _stateProperties;
 
@@ -213,6 +226,9 @@ public sealed class LuaObjectType : ObjectType, IStateTableType
 			DrawFunction = reloaded.DrawFunction;
 			CollisionFunction = reloaded.CollisionFunction;
 			StopFunction = reloaded.StopFunction;
+			HitFunction = reloaded.HitFunction;
+			DefeatFunction = reloaded.DefeatFunction;
+			IsBoss = reloaded.IsBoss;
 			Generation++;
 			Trace.WriteLine($"Reloaded the script {ResourceKey}");
 		}
@@ -285,7 +301,18 @@ public sealed class LuaObjectType : ObjectType, IStateTableType
 				}
 			}
 		}
-		SetMetadata(name, description, classification, _dependencyKeys.Values.Distinct(), _stateProperties);
+		IsBoss = false;
+		if (definition["base"].TryRead(out string baseName))
+		{
+			IsBoss = baseName == "boss" ? true : throw new ResourceException($"\"{baseName}\" is not a base. Use \"boss\".");
+		}
+		IEnumerable<string> dependencyKeys = _dependencyKeys.Values;
+		if (IsBoss)
+		{
+			// The engine makes the explosions and plays the hit sound of a boss, so these resources must load
+			dependencyKeys = dependencyKeys.Append(BossExplosionKey).Append(BossHitSoundKey);
+		}
+		SetMetadata(name, description, classification, dependencyKeys.Distinct(), _stateProperties);
 		MakeSelf = environment["__make_self"];
 		StartFunction = environment["start"];
 		UpdateFunction = environment["update"];
@@ -293,6 +320,8 @@ public sealed class LuaObjectType : ObjectType, IStateTableType
 		DrawFunction = environment["draw"];
 		CollisionFunction = environment["collision"];
 		StopFunction = environment["stop"];
+		HitFunction = environment["hit"];
+		DefeatFunction = environment["defeat"];
 	}
 
 	/// <summary>Converts a default value to the type of a state variable: a whole number is an int.</summary>

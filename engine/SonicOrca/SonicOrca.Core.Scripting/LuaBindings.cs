@@ -76,6 +76,96 @@ public sealed partial class LuaNativeObject
 		set => _owner.ScriptVelocity = new Vector2(_owner.ScriptVelocity.X, value);
 	}
 
+	/// <summary>The health of a boss (API 7, base "boss"). A hit takes 1. At 0, the boss is defeated.</summary>
+	[LuaMember("health")]
+	public int Health
+	{
+		get => _owner.BossHealth;
+		set => _owner.BossHealth = value;
+	}
+
+	/// <summary>True on every second tick after a hit, while the boss cannot be hit. Draw the boss with a flash then.</summary>
+	[LuaMember("flashing")]
+	public bool Flashing => _owner.BossFlashing;
+
+	/// <summary>True after the boss lost all its health</summary>
+	[LuaMember("defeated")]
+	public bool Defeated => _owner.BossDefeated;
+
+	/// <summary>Makes a boss explosion at an offset from the object (API 7, base "boss").</summary>
+	[LuaMember("explode")]
+	public void Explode(double x, double y)
+	{
+		if (!_owner.LuaType.IsBoss)
+		{
+			throw new InvalidOperationException("explode needs base = \"boss\" in the definition.");
+		}
+		_owner.Explode(new Vector2(x, y));
+	}
+
+	/// <summary>Plays music from a dependency (API 7), for example the music of a boss.</summary>
+	[LuaMember("play_music")]
+	public void PlayMusic(string dependency) => _owner.Level.SoundManager.PlayMusic(_owner.LuaType.GetDependencyKey(dependency));
+
+	/// <summary>Plays the music of the level again (API 7), for example after a boss.</summary>
+	[LuaMember("play_level_music")]
+	public void PlayLevelMusic()
+	{
+		string key = _owner.Level.LevelMusic;
+		if (!string.IsNullOrEmpty(key) && _owner.ResourceTree[key]?.Resource != null)
+		{
+			_owner.Level.SoundManager.PlayMusic(key);
+		}
+	}
+
+	/// <summary>Fades out the music in a number of ticks (API 7).</summary>
+	[LuaMember("fade_out_music")]
+	public void FadeOutMusic(int ticks) => _owner.Level.SoundManager.FadeOutMusic(ticks);
+
+	/// <summary>The area that the camera shows now, as a table with left, top, right and bottom (API 7).</summary>
+	[LuaMember("view_bounds")]
+	public LuaTable ViewBounds()
+	{
+		Rectangle view = _owner.Level.Camera.Bounds;
+		return MakeBounds(view.Left, view.Top, view.Right, view.Bottom);
+	}
+
+	/// <summary>The limits of the camera, as a table with left, top, right and bottom (API 7).</summary>
+	[LuaMember("camera_bounds")]
+	public LuaTable CameraBounds()
+	{
+		Rectanglei bounds = _owner.Level.Bounds;
+		return MakeBounds(bounds.Left, bounds.Top, bounds.Right, bounds.Bottom);
+	}
+
+	/// <summary>
+	/// Changes the limits of the camera (API 7), for example to lock the camera in the arena of a boss. With a speed
+	/// in units per tick, the limits move to the new values at that speed. Else they change at once.
+	/// </summary>
+	[LuaMember("set_camera_bounds")]
+	public void SetCameraBounds(double left, double top, double right, double bottom, ReadOnlySpan<LuaValue> speed)
+	{
+		Rectanglei bounds = Rectanglei.FromLTRB((int)left, (int)top, (int)right, (int)bottom);
+		if (speed.Length > 0 && speed[0].TryRead(out double value) && value > 0)
+		{
+			_owner.Level.ScrollBoundsTo(bounds, (int)Math.Ceiling(value));
+		}
+		else
+		{
+			_owner.Level.Bounds = bounds;
+		}
+	}
+
+	private static LuaTable MakeBounds(double left, double top, double right, double bottom)
+	{
+		LuaTable table = new LuaTable();
+		table["left"] = left;
+		table["top"] = top;
+		table["right"] = right;
+		table["bottom"] = bottom;
+		return table;
+	}
+
 	[LuaMember("move")]
 	public void Move(double x, double y) => _owner.MovePrecise(x, y);
 
