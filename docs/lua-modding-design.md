@@ -240,7 +240,7 @@ This tier is enough for the item block of the use case, rings, simple enemies th
 
 A new item that gives a new ability changes how the character moves. `Character.cs` and its partial files have about 5,200 lines with no events or hooks. This tier needs work in the engine first. The movement code needs a set of points where a script can read and change the state. Examples are "the jump button is pressed in the air" and "the character lands".
 
-This tier has the most value for "custom items", but it also has the most risk. It needs its own design after Tier 1 shows how the API works.
+This tier has the most value for "custom items", but it also has the most risk. It needs its own design after Tier 1 shows how the API works. The design is in `lua-abilities-design.md`.
 
 ## Rules for all tiers
 
