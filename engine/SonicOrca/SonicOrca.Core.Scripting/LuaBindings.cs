@@ -58,6 +58,24 @@ public sealed partial class LuaNativeObject
 		set => _owner.LockLifetime = value;
 	}
 
+	/// <summary>
+	/// The velocity in units per tick. The engine moves the object by it on each tick, and the characters that stand on
+	/// the object move with it. A change of the position or <c>move</c> does not move the characters.
+	/// </summary>
+	[LuaMember("velocity_x")]
+	public double VelocityX
+	{
+		get => _owner.ScriptVelocity.X;
+		set => _owner.ScriptVelocity = new Vector2(value, _owner.ScriptVelocity.Y);
+	}
+
+	[LuaMember("velocity_y")]
+	public double VelocityY
+	{
+		get => _owner.ScriptVelocity.Y;
+		set => _owner.ScriptVelocity = new Vector2(_owner.ScriptVelocity.X, value);
+	}
+
 	[LuaMember("move")]
 	public void Move(double x, double y) => _owner.MovePrecise(x, y);
 
@@ -109,7 +127,23 @@ public sealed partial class LuaNativeObject
 				}
 			}
 		}
-		_owner.SetCollisionVectors(vectors);
+		// The top carries the characters that stand on it
+		_owner.SetCollisionVectors(vectors, vectors[1]);
+	}
+
+	/// <summary>
+	/// Makes the object a platform: a line that the characters stand on, and that they can jump through from below.
+	/// <paramref name="id"/> is optional, and the collision event gives it.
+	/// </summary>
+	[LuaMember("set_solid_top")]
+	public void SetSolidTop(int x, int y, int width, ReadOnlySpan<LuaValue> id)
+	{
+		CollisionVector vector = new CollisionVector(_owner, new Vector2i(x, y), new Vector2i(x + width, y));
+		if (id.Length > 0 && id[0].TryRead(out double value))
+		{
+			vector.Id = (int)value;
+		}
+		_owner.SetCollisionVectors(new[] { vector }, vector);
 	}
 
 	[LuaMember("clear_solid")]

@@ -103,6 +103,34 @@ public sealed class RegressionTests
 	}
 
 	/// <summary>
+	/// Adds the moving platform of the example mod lua-item-block to Emerald Hill with the level editor, and plays from
+	/// a position over it. Sonic lands on the platform, and the platform carries him to the right and back.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void LuaMovingPlatform_MatchesGoldenScreenshots()
+	{
+		// LUAPLATFORM is three rows under LOCKY in the list of the objects tool
+		const string script = "28:mouse 1600 300;29:wheel -30;30:mouse 1600 483;31:down left;32:up left;" +
+			"45:mouse 700 430;46:down left;47:up left;" +
+			"55:mouse 720 250;56:tap 62";
+		RunAndCompare("--level ehz --editor", new[] { 10050, 230, 280, 330, 380 }, Path.Combine(TestPaths.GoldenDirectory, "lua-moving-platform"),
+			"lua-moving-platform", new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script },
+			prepareUserData: userData => CopyDirectory(Path.Combine(TestPaths.RepoRoot, "examples", "mods", "lua-item-block", "SONICORCA"),
+				Path.Combine(userData, "mods", "lua-item-block", "SONICORCA")));
+	}
+
+	private static void CopyDirectory(string source, string destination)
+	{
+		foreach (string file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
+		{
+			string target = Path.Combine(destination, Path.GetRelativePath(source, file));
+			Directory.CreateDirectory(Path.GetDirectoryName(target));
+			File.Copy(file, target);
+		}
+	}
+
+	/// <summary>
 	/// Opens the animation editor on Sonic with scripted input. It selects the walk animation, clicks its third frame,
 	/// types a delay of 9, adds a frame after it and saves. The saved file must have the changes.
 	/// </summary>
@@ -310,8 +338,9 @@ public sealed class RegressionTests
 	}
 
 	/// <param name="checkUserData">Checks the user data folder after the game ends, for example a file that the game saved.</param>
+	/// <param name="prepareUserData">Changes the user data folder before the game starts, for example to add a mod.</param>
 	private static void RunAndCompare(string arguments, int[] ticks, string goldenDirectory, string name, IReadOnlyDictionary<string, string> environment = null,
-		bool withImportedMods = false, Action<string> checkUserData = null)
+		bool withImportedMods = false, Action<string> checkUserData = null, Action<string> prepareUserData = null)
 	{
 		string exe = TestPaths.GameExecutable;
 		if (!File.Exists(exe))
@@ -331,6 +360,7 @@ public sealed class RegressionTests
 		}
 		try
 		{
+			prepareUserData?.Invoke(userData);
 			RunGame(exe, arguments, ticks, userData, environment);
 			checkUserData?.Invoke(userData);
 			if (record)

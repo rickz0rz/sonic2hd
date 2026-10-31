@@ -1,11 +1,12 @@
 # Lua item block: an example mod
 
-This mod adds two objects with Lua scripts:
+This mod adds three objects with Lua scripts:
 
 - `LUAITEMBLOCK`: an item block. A character that hits it from below gets rings, and a coin jumps out of it. Then the block is used. A used block is still solid, but it does not react to more hits.
 - `LUACOIN`: the coin that jumps out of the block.
+- `LUAPLATFORM`: a platform that moves to and fro. It carries the characters that stand on it, and a character can jump through it from below. The `distance`, `speed` and `vertical` properties change its path.
 
-The API of the scripts is a first version (API 1). It can change. See `docs/lua-modding-design.md` for the design.
+The API of the scripts is version 2. API 2 adds the velocity of an object and `set_solid_top`. A script for API 1 works without a change. The API can change. Set `api` to the version that the script needs: a game with an older API does not load the script. See `docs/lua-modding-design.md` for the design.
 
 ## Install the mod
 
@@ -39,7 +40,7 @@ A script calls `object { ... }` one time, with these fields:
 
 | Field | Content |
 | --- | --- |
-| `api` | The API version of the script. Use 1. |
+| `api` | The API version that the script needs: 1 or 2 |
 | `name`, `description` | The text of the level editor |
 | `classification` | `general`, `badnik`, `obstacle`, `platform`, `ring`, `scenery` and so on |
 | `dependencies` | A name for each resource that the object uses. A path that starts with `/` is in the folder of the object. |
@@ -61,16 +62,18 @@ The game calls these functions of the script. Each function is optional.
 
 | Name | Content |
 | --- | --- |
-| `self.x`, `self.y` | The position. One pixel of the original game is four units. |
+| `self.x`, `self.y` | The position. One pixel of the original game is four units. A change of the position does not move the characters that stand on the object. |
+| `self.velocity_x`, `self.velocity_y` | The velocity in units per tick (API 2). At the start of each tick, the game moves the object by its velocity, before `update`. The characters that stand on the object move with it. |
 | `self.layer` | The index of the layer of the object |
 | `self.priority` | The draw order |
 | `self.lock_lifetime` | True keeps the object alive out of view. |
 | `self:animation(name, index)` | Makes an animation from a dependency. The game moves it to its next frame on each tick. |
 | `self:draw(animation, flip_x)` | Draws an animation. Use it only in `draw`. `flip_x` is optional: true mirrors the animation from left to right. |
-| `self:move(dx, dy)` | Moves the object. |
+| `self:move(dx, dy)` | Moves the object. It does not move the characters that stand on it. To carry them, use the velocity. |
 | `self:set_design_bounds(x, y, w, h)` | The box of the object in the level editor |
 | `self:set_solid_box(x, y, w, h, ids)` | Makes the object solid. `ids` can give an ID to a side, for example `{ bottom = 1 }`. |
-| `self:clear_solid()` | Removes the solid box. |
+| `self:set_solid_top(x, y, w, id)` | Makes the object a platform (API 2): a line from `(x, y)` to `(x + w, y)` that the characters stand on. A character can jump through it from below. `id` is optional. |
+| `self:clear_solid()` | Removes the solid box or the platform line. |
 | `self:add_hitbox(id, x, y, w, h)` | Adds a box that gives a collision event, but is not solid |
 | `self:clear_hitboxes()` | Removes the hit boxes. |
 | `self:play_sound(name)` | Plays a sound from a dependency. |

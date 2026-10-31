@@ -77,6 +77,22 @@ public sealed class LuaObjectTests
 	}
 
 	[Fact]
+	public async Task Instance_IsAPlatform_ThatTheCharactersRide()
+	{
+		LuaObjectType type = await Load(BlockScript);
+
+		Assert.IsAssignableFrom<SonicOrca.Core.Objects.IPlatform>(type.CreateInstance());
+	}
+
+	[Fact]
+	public async Task Script_ForApi2_Loads()
+	{
+		LuaObjectType type = await Load("object { api = 2, name = \"Platform\" }");
+
+		Assert.Equal("Platform", type.Name);
+	}
+
+	[Fact]
 	public async Task Script_WithoutADefinition_DoesNotLoad()
 	{
 		ResourceException error = await Assert.ThrowsAsync<ResourceException>(() => Load("function start(self) end"));
