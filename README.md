@@ -101,7 +101,7 @@ dotnet run --project tools/web-server -- publish/web/wwwroot 8080
 
 Then open http://localhost:8080. The `?data=<url>` query parameter loads a zip from the same site instead of asking,
 which is useful for testing. `?args=` gives options as on the desktop command line, for example
-`?args=--halfpipe%201` or `?args=--level%20arz`. `?profile` turns on the frame profiler, as `S2HD_PROFILE=1` does on
+`?args=--halfpipe%201`, `?args=--level%20arz` or `?args=--ending%20super`. Write `%20` for each space. `?profile` turns on the frame profiler, as `S2HD_PROFILE=1` does on
 the desktop. The green text at the top left shows the frame rate, the CPU time of a game step and the time of the
 audio mix, every 5 seconds. Keyboard controls match the desktop game. Sound starts at the first key press or click,
 because browsers block audio until then. Gamepads and the credits video are not implemented yet, and a browser
@@ -616,7 +616,7 @@ The behavior of the levels and the objects of the game is C# code in `SONICORCA/
 | `--nologos` | Skips the disclaimer and the logo screens |
 | `--no-error-dialog` | Writes an error to the console and the log, not to a dialog box. Test runs with `S2HD_EXIT_AFTER_CAPTURES=1` do this too |
 | `--credits`, `--options` | Opens the credits or the options screen |
-| `--ending` | Plays the ending cutscene of the original, then the credits |
+| `--ending [super\|tails]` | Plays the ending cutscene of the original, then the credits. `super` plays the ending of Super Sonic, and `tails` plays the ending of Tails |
 | `--halfpipe [1-7]` | Opens a 3D special stage. Left and right move Sonic around the pipe, and an action button jumps, with the physics of Sonic 2. Collect enough rings for each of the three checkpoints, and avoid the bombs. Tails follows Sonic. Add `--sidekick none` to play Sonic alone. Escape closes it |
 
 On macOS, pass options to the executable in the app bundle, for example
