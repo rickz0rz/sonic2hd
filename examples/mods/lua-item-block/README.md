@@ -1,6 +1,6 @@
 # Lua item block: an example mod
 
-This mod adds eight objects with Lua scripts:
+This mod adds ten objects with Lua scripts:
 
 - `LUAITEMBLOCK`: an item block. A character that hits it from below gets rings, and a coin jumps out of it. Then the block is used. A used block is still solid, but it does not react to more hits.
 - `LUACOIN`: the coin that jumps out of the block.
@@ -10,8 +10,10 @@ This mod adds eight objects with Lua scripts:
 - `LUAWATERSWITCH`: a water switch. In a level without water, it gives the level water `depth` units below the switch. When a character touches it, the water rises by `rise` units, and the ground shakes while the water rises.
 - `LUAWHEEL`: a wheel that hangs from a rope and turns. It shows the drawing functions of API 6. A character that touches it makes it flash.
 - `LUAWISP`: a small boss. The camera locks on an arena around it, and the boss music plays. It floats over the nearest character. After `health` hits, it explodes and flies away, and the act ends. A mod level can end with it in place of a signpost.
+- `LUAFEATHER`: a feather. A character that touches it gets the double jump, and the feather goes away.
+- `LUADOUBLEJUMP`: the double jump, an ability (API 8). In the air, after a jump, a jump press gives a second jump, one time until the character lands. The character loses the ability when it gets hurt. It is not for a place in a level: the feather gives it.
 
-The API of the scripts is version 4. API 2 adds the velocity of an object and `set_solid_top`. API 3 adds `standing_characters`. API 4 adds `characters`, and lets an object hold a character and read its buttons. API 5 adds the water, the earthquake and the end of the act. API 6 adds the options of `draw`, `fill_rectangle` and `draw_line`. API 7 adds the boss base, music and the limits of the camera. A script for an older API works without a change. The API can change. Set `api` to the version that the script needs: a game with an older API does not load the script. See `docs/lua-modding-design.md` for the design.
+The API of the scripts is version 4. API 2 adds the velocity of an object and `set_solid_top`. API 3 adds `standing_characters`. API 4 adds `characters`, and lets an object hold a character and read its buttons. API 5 adds the water, the earthquake and the end of the act. API 6 adds the options of `draw`, `fill_rectangle` and `draw_line`. API 7 adds the boss base, music and the limits of the camera. API 8 adds abilities. A script for an older API works without a change. The API can change. Set `api` to the version that the script needs: a game with an older API does not load the script. See `docs/lua-modding-design.md` for the design.
 
 ## Install the mod
 
@@ -45,8 +47,8 @@ A script calls `object { ... }` one time, with these fields:
 
 | Field | Content |
 | --- | --- |
-| `api` | The API version that the script needs: 1 to 7 |
-| `base` | Optional. `"boss"` gives the object the rules of a boss (API 7). See "Bosses" below. |
+| `api` | The API version that the script needs: 1 to 8 |
+| `base` | Optional. `"boss"` gives the object the rules of a boss (API 7). See "Bosses" below. `"ability"` makes the object an ability (API 8). See "Abilities" below. |
 | `name`, `description` | The text of the level editor |
 | `classification` | `general`, `badnik`, `obstacle`, `platform`, `ring`, `scenery` and so on |
 | `dependencies` | A name for each resource that the object uses. A path that starts with `/` is in the folder of the object. |
@@ -140,6 +142,34 @@ With `base = "boss"` in the definition, the game gives the object the rules of t
 The script reads and writes `self.health`. The default is 8. It reads `self.flashing`, which is true on every second tick while the boss cannot be hit. Draw the boss with a flash then. `self.defeated` is true after the defeat. `self:explode(x, y)` makes a boss explosion at an offset from the object.
 
 The game does not lock the camera or play music for a Lua boss. The script does it, for example as `LUAWISP` does: `set_camera_bounds` locks the arena, and `play_music` plays the boss music. After the defeat, the script gives back the old limits, plays the level music, and calls `complete_level`.
+
+## Abilities
+
+An ability is a new move of a character, for example the double jump. Its script has `base = "ability"` (API 8). An item gives it: the script of the item calls `character:give_ability(name)`, where `name` is a dependency of the item. The game makes one object of the ability for the character. The object follows the character and can draw, for example a puff of air.
+
+The game calls these functions of an ability:
+
+| Function | When |
+| --- | --- |
+| `given(self, character)` | The character gets the ability. |
+| `air_jump(self, character)` | The player presses jump in the air, after a jump. Return true when the ability used the press. Then the character does not do its own action, for example the flight of Tails. |
+| `jump(self, character)` | The character jumps from the ground. |
+| `land(self, character)` | The character lands. |
+| `tick(self, character)` | Each tick, after the character set its speed values. Change them here. |
+| `lost(self, character)` | The character loses the ability. Then the object goes. |
+
+The character loses all its abilities when it gets hurt, also when only its barrier goes, when it dies, and at the end of the act. An error in the script of an ability removes the ability.
+
+A character has these members for abilities (API 8):
+
+| Name | Content |
+| --- | --- |
+| `character:give_ability(name)` | Gives the ability of a dependency. It gives false when the character has it. |
+| `character:has_ability(name)` | True when the character has the ability of a dependency |
+| `character:remove_ability(name)` | Removes the ability of a dependency |
+| `character.top_speed`, `acceleration`, `jump_force`, `gravity` | The speed values of this tick. The values of the original physics and the HD physics are different, so change them with a factor. |
+| `character.is_jumping` | True while the jump button is held after a jump. A release then makes the jump shorter. |
+| `character:set_spinball(on)` | Rolls the character into a ball, or stops the roll |
 
 ## The collision event
 

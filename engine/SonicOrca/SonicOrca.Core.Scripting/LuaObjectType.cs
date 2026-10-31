@@ -21,7 +21,7 @@ namespace SonicOrca.Core.Scripting;
 public sealed class LuaObjectType : ObjectType, IStateTableType
 {
 	/// <summary>The API version that this engine gives to scripts.</summary>
-	public const int ApiVersion = 7;
+	public const int ApiVersion = 8;
 
 	private readonly Dictionary<string, string> _dependencyKeys = new Dictionary<string, string>(StringComparer.Ordinal);
 
@@ -77,6 +77,22 @@ public sealed class LuaObjectType : ObjectType, IStateTableType
 
 	/// <summary>The definition has <c>base = "boss"</c>: the engine gives the object the rules of a boss.</summary>
 	public bool IsBoss { get; private set; }
+
+	/// <summary>The definition has <c>base = "ability"</c>: an item gives the object to a character as an ability.</summary>
+	public bool IsAbility { get; private set; }
+
+	/// <summary>The functions of an ability (see <see cref="Objects.ICharacterAbility"/>).</summary>
+	internal LuaValue GivenFunction { get; private set; }
+
+	internal LuaValue AirJumpFunction { get; private set; }
+
+	internal LuaValue JumpFunction { get; private set; }
+
+	internal LuaValue LandFunction { get; private set; }
+
+	internal LuaValue TickFunction { get; private set; }
+
+	internal LuaValue LostFunction { get; private set; }
 
 	/// <summary>The explosion and the hit sound of a boss, as <see cref="Objects.Base.BossObject"/> has them.</summary>
 	internal const string BossExplosionKey = "SONICORCA/OBJECTS/EXPLOSION/BOSS";
@@ -229,6 +245,13 @@ public sealed class LuaObjectType : ObjectType, IStateTableType
 			HitFunction = reloaded.HitFunction;
 			DefeatFunction = reloaded.DefeatFunction;
 			IsBoss = reloaded.IsBoss;
+			IsAbility = reloaded.IsAbility;
+			GivenFunction = reloaded.GivenFunction;
+			AirJumpFunction = reloaded.AirJumpFunction;
+			JumpFunction = reloaded.JumpFunction;
+			LandFunction = reloaded.LandFunction;
+			TickFunction = reloaded.TickFunction;
+			LostFunction = reloaded.LostFunction;
 			Generation++;
 			Trace.WriteLine($"Reloaded the script {ResourceKey}");
 		}
@@ -302,9 +325,20 @@ public sealed class LuaObjectType : ObjectType, IStateTableType
 			}
 		}
 		IsBoss = false;
+		IsAbility = false;
 		if (definition["base"].TryRead(out string baseName))
 		{
-			IsBoss = baseName == "boss" ? true : throw new ResourceException($"\"{baseName}\" is not a base. Use \"boss\".");
+			switch (baseName)
+			{
+				case "boss":
+					IsBoss = true;
+					break;
+				case "ability":
+					IsAbility = true;
+					break;
+				default:
+					throw new ResourceException($"\"{baseName}\" is not a base. Use \"boss\" or \"ability\".");
+			}
 		}
 		IEnumerable<string> dependencyKeys = _dependencyKeys.Values;
 		if (IsBoss)
@@ -322,6 +356,12 @@ public sealed class LuaObjectType : ObjectType, IStateTableType
 		StopFunction = environment["stop"];
 		HitFunction = environment["hit"];
 		DefeatFunction = environment["defeat"];
+		GivenFunction = environment["given"];
+		AirJumpFunction = environment["air_jump"];
+		JumpFunction = environment["jump"];
+		LandFunction = environment["land"];
+		TickFunction = environment["tick"];
+		LostFunction = environment["lost"];
 	}
 
 	/// <summary>Converts a default value to the type of a state variable: a whole number is an int.</summary>

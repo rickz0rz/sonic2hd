@@ -18,7 +18,7 @@ namespace SonicOrca.Core.Scripting;
 /// log. The game does not stop. The object is a platform: it moves by its velocity on each tick, and the characters
 /// that stand on its carrying lines move with it.
 /// </summary>
-public sealed class LuaActiveObject : ActiveObject, IStateTable, SonicOrca.Core.Objects.IPlatform
+public sealed class LuaActiveObject : ActiveObject, IStateTable, SonicOrca.Core.Objects.IPlatform, ICharacterAbility
 {
 	private readonly List<AnimationInstance> _animations = new List<AnimationInstance>();
 
@@ -133,6 +133,12 @@ public sealed class LuaActiveObject : ActiveObject, IStateTable, SonicOrca.Core.
 		{
 			UpdateBoss();
 		}
+		if (_abilityCharacter != null)
+		{
+			// An ability follows its character, so that it can draw at the character
+			PositionPrecise = _abilityCharacter.PositionPrecise;
+			Layer = _abilityCharacter.Layer;
+		}
 		CheckScript();
 		Call(LuaType.UpdateFunction, true, _self);
 	}
@@ -209,6 +215,8 @@ public sealed class LuaActiveObject : ActiveObject, IStateTable, SonicOrca.Core.
 			Trace.WriteLine($"Script error in {Type?.ResourceKey}: {ex.Message}");
 			_failed = true;
 			ReleaseAll();
+			// An ability with an error goes from its character. The character moves on as without it.
+			_abilityCharacter?.RemoveAbility(this);
 			Finish();
 			return null;
 		}
@@ -372,6 +380,68 @@ public sealed class LuaActiveObject : ActiveObject, IStateTable, SonicOrca.Core.
 		_carryingVectors = carrying;
 		RegisterCollisionUpdate();
 	}
+
+	#region Ability
+
+	/// <summary>The character that has this object as an ability, or null.</summary>
+	private ICharacter _abilityCharacter;
+
+	public string AbilityKey => Type.ResourceKey;
+
+	public void OnGiven(ICharacter character)
+	{
+		_abilityCharacter = character;
+		LockLifetime = true;
+		Call(LuaType.GivenFunction, true, _self, new LuaCharacter(this, character));
+	}
+
+	public bool OnAirJump(ICharacter character)
+	{
+		LuaValue[] results = Call(LuaType.AirJumpFunction, true, _self, new LuaCharacter(this, character));
+		return results != null && results.Length > 0 && results[0].TryRead(out bool used) && used;
+	}
+
+	public void OnJump(ICharacter character) => Call(LuaType.JumpFunction, true, _self, new LuaCharacter(this, character));
+
+	public void OnLand(ICharacter character) => Call(LuaType.LandFunction, true, _self, new LuaCharacter(this, character));
+
+	public void OnTick(ICharacter character) => Call(LuaType.TickFunction, true, _self, new LuaCharacter(this, character));
+
+	/// <summary>The character lost the ability: the script hears it, and the object goes.</summary>
+	public void OnLost(ICharacter character)
+	{
+		_abilityCharacter = null;
+		Call(LuaType.LostFunction, true, _self, new LuaCharacter(this, character));
+		FinishForever();
+	}
+
+	/// <summary>Gives a character an ability of a type. The object of the ability starts at the character.</summary>
+	/// <returns>True when the character got the ability, false when it has one of the type.</returns>
+	internal bool GiveAbility(ICharacter character, string key)
+	{
+		if (ResourceTree.GetLoadedResource<ObjectType>(key) is not LuaObjectType type || !type.IsAbility)
+		{
+			throw new InvalidOperationException($"{key} is not a loaded ability. Add it to the dependencies of the script, and give its script base = \"ability\".");
+		}
+		if (character.Abilities.Any(a => a.AbilityKey == key))
+		{
+			return false;
+		}
+		ActiveObject activeObject = Level.ObjectManager.AddObject(new ObjectPlacement(key, Level.Map.Layers.IndexOf(character.Layer), character.Position));
+		if (activeObject is not LuaActiveObject ability)
+		{
+			activeObject?.FinishForever();
+			return false;
+		}
+		if (!character.AddAbility(ability))
+		{
+			ability.FinishForever();
+			return false;
+		}
+		return true;
+	}
+
+	#endregion
 
 	#region Boss
 

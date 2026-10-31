@@ -619,13 +619,44 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 
 	private double Friction { get; set; }
 
-	private double TopSpeed { get; set; }
+	internal double TopSpeed { get; set; }
 
-	private double JumpForce { get; set; }
+	internal double JumpForce { get; set; }
 
 	private double JumpReleaseForce { get; set; }
 
-	private double Gravity { get; set; }
+	internal double Gravity { get; set; }
+
+	private readonly List<ICharacterAbility> _abilities = new List<ICharacterAbility>();
+
+	public IReadOnlyList<ICharacterAbility> Abilities => _abilities;
+
+	public bool AddAbility(ICharacterAbility ability)
+	{
+		if (_abilities.Any(a => a.AbilityKey == ability.AbilityKey))
+		{
+			return false;
+		}
+		_abilities.Add(ability);
+		ability.OnGiven(this);
+		return true;
+	}
+
+	public void RemoveAbility(ICharacterAbility ability)
+	{
+		if (_abilities.Remove(ability))
+		{
+			ability.OnLost(this);
+		}
+	}
+
+	public void RemoveAllAbilities()
+	{
+		foreach (ICharacterAbility ability in _abilities.ToArray())
+		{
+			RemoveAbility(ability);
+		}
+	}
 
 	public int SlopeLockTicks { get; set; }
 
@@ -1718,6 +1749,10 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			IsFlying = false;
 			HasPerformedBarrierAttack = false;
 			ShowAngle = GroundAngle;
+			foreach (ICharacterAbility ability in _abilities.ToArray())
+			{
+				ability.OnLand(this);
+			}
 			Jumped = false;
 			if (updateSpeed)
 			{
@@ -2886,6 +2921,11 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			return;
 		}
 		UpdateVariables();
+		// The abilities can change the speed values of this tick
+		foreach (ICharacterAbility ability in _abilities.ToArray())
+		{
+			ability.OnTick(this);
+		}
 		UpdateMovement();
 		UpdateSpindash();
 		UpdateSpinning();
@@ -3374,6 +3414,14 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 				{
 					return;
 				}
+				// The abilities come first. One that uses the press stops the action of the character.
+				foreach (ICharacterAbility ability in _abilities.ToArray())
+				{
+					if (ability.OnAirJump(this))
+					{
+						return;
+					}
+				}
 				if (CanFly && _humanControlled)
 				{
 					CharacterEvents |= CharacterEvent.Fly;
@@ -3405,6 +3453,10 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 				CharacterEvents |= CharacterEvent.Fall;
 				CharacterEvents |= CharacterEvent.Jump;
 				Level.SoundManager.PlaySound(this, "SONICORCA/SOUND/JUMP");
+				foreach (ICharacterAbility ability in _abilities.ToArray())
+				{
+					ability.OnJump(this);
+				}
 			}
 		}
 	}
@@ -4293,6 +4345,8 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		{
 			return;
 		}
+		// A hit takes the abilities, also when only the barrier goes
+		RemoveAllAbilities();
 		LeaveGround();
 		if (IsSidekick)
 		{
@@ -4349,6 +4403,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 
 	public void Kill(PlayerDeathCause cause)
 	{
+		RemoveAllAbilities();
 		_deathCause = cause;
 		Velocity = new Vector2(0.0, -28.0);
 		_dyingTicks = DyingTicks;
