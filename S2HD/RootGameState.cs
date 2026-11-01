@@ -63,6 +63,13 @@ internal class RootGameState : IGameState, IDisposable
 				ChangeGameState(newGameState);
 				foreach (UpdateResult updateResult in _currentGameState.Update())
 					yield return updateResult;
+				// After the last level, the ending and the credits play, as in the story from the title screen. A play
+				// of the level editor does not go on to them.
+				if (newGameState.Finished && !_cmdLineArgs.HasOption("editor"))
+				{
+					foreach (UpdateResult updateResult in PlayEndingAndCredits(newGameState))
+						yield return updateResult;
+				}
 			}
 		}
 		else
@@ -218,16 +225,27 @@ internal class RootGameState : IGameState, IDisposable
 		// The ending cutscene plays when the player completed the last level
 		if (storyState.Finished)
 		{
-			ChangeGameState(new S2HD.Ending.EndingGameState(_gameContext, S2HD.Ending.EndingGameState.ChooseCharacter(storyState.Settings)));
-			foreach (UpdateResult updateResult in _currentGameState.Update())
+			foreach (UpdateResult updateResult in PlayEndingAndCredits(storyState))
 				yield return updateResult;
 		}
 		// Show the credits only when the player finished the game, not when the player quit from the pause menu.
-		if (!storyState.QuitViaOptions)
+		else if (!storyState.QuitViaOptions)
 		{
 			foreach (UpdateResult updateResult in PlayCredits())
 				yield return updateResult;
 		}
+	}
+
+	/// <summary>The ending cutscene of the original for the characters of the story, then the credits.</summary>
+	private IEnumerable<UpdateResult> PlayEndingAndCredits(StoryPlaythroughGameState storyState)
+	{
+		S2HD.Ending.EndingCharacter character = S2HD.Ending.EndingGameState.ChooseCharacter(storyState.Settings);
+		System.Diagnostics.Trace.WriteLine($"Playing the ending of {character}");
+		ChangeGameState(new S2HD.Ending.EndingGameState(_gameContext, character));
+		foreach (UpdateResult updateResult in _currentGameState.Update())
+			yield return updateResult;
+		foreach (UpdateResult updateResult in PlayCredits())
+			yield return updateResult;
 	}
 
 	public void Draw()
@@ -281,6 +299,7 @@ internal class RootGameState : IGameState, IDisposable
 	/// </summary>
 	private IEnumerable<UpdateResult> PlayCredits()
 	{
+		System.Diagnostics.Trace.WriteLine("Playing the credits");
 		ChangeGameState(new OriginalCreditsGameState(_gameContext));
 		foreach (UpdateResult updateResult in _currentGameState.Update())
 			yield return updateResult;

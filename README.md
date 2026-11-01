@@ -619,7 +619,7 @@ The behavior of the levels and the objects of the game is C# code in `SONICORCA/
 
 | Option | Effect |
 |---|---|
-| `--level <zone> [--act <n>]` | Starts a level directly, for example `--level htz --act 2` |
+| `--level <zone> [--act <n>]` | Starts a level directly, for example `--level htz --act 2`. The story goes on from that level. After the last level, the ending and the credits play, but not with `--editor` |
 | `--protagonist <name>`, `--sidekick <name>` | Chooses the characters for `--level` (`sonic`, `tails`, `knuckles`). Use `--sidekick none` with `--protagonist` to play alone |
 | `--startpos <x> <y>` | Starts `--level` at this position, in level units |
 | `--levelselect` | Opens the level select at once. On the title screen, press up, down, left and right, then hold the jump button and press Start |
