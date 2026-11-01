@@ -81,6 +81,17 @@ public sealed class LuaActiveObject : ActiveObject, IStateTable, SonicOrca.Core.
 	private void StartScript()
 	{
 		_generation = LuaType.Generation;
+		if (LuaType.IsAbility && !_creatingAbility)
+		{
+			// An ability in a level, not from an item. The editor shows it, so that the user can delete it, but its
+			// script does not run. The play removes it.
+			if (Level.State != LevelState.Editing)
+			{
+				LuaType.LogOnce($"{Type.ResourceKey} is an ability: an item gives it to a character. It is not for a place in a level.");
+				FinishForever();
+			}
+			return;
+		}
 		_animations.Clear();
 		LuaTable state = new LuaTable();
 		foreach (ObjectEditorProperty property in LuaType.StateProperties)
@@ -211,13 +222,22 @@ public sealed class LuaActiveObject : ActiveObject, IStateTable, SonicOrca.Core.
 		}
 		catch (Exception ex)
 		{
-			// The object goes, but the game continues
-			Trace.WriteLine($"Script error in {Type?.ResourceKey}: {ex.Message}");
+			// The object goes, but the game continues. The log has each error one time only.
+			LuaType.LogOnce($"Script error in {Type?.ResourceKey}: {ex.Message}");
 			_failed = true;
 			ReleaseAll();
 			// An ability with an error goes from its character. The character moves on as without it.
 			_abilityCharacter?.RemoveAbility(this);
-			Finish();
+			if (Level.State == LevelState.Editing)
+			{
+				// The editor must still show the object, so that the user can select it
+				Finish();
+			}
+			else
+			{
+				// The object would come back on the next tick and fail again, so it stays away until the level starts again
+				FinishForever();
+			}
 			return null;
 		}
 	}
@@ -386,6 +406,10 @@ public sealed class LuaActiveObject : ActiveObject, IStateTable, SonicOrca.Core.
 	/// <summary>The character that has this object as an ability, or null.</summary>
 	private ICharacter _abilityCharacter;
 
+	/// <summary>True while <see cref="GiveAbility"/> makes the object of an ability. Only then does its script start.</summary>
+	[ThreadStatic]
+	private static bool _creatingAbility;
+
 	public string AbilityKey => Type.ResourceKey;
 
 	public void OnGiven(ICharacter character)
@@ -427,7 +451,16 @@ public sealed class LuaActiveObject : ActiveObject, IStateTable, SonicOrca.Core.
 		{
 			return false;
 		}
-		ActiveObject activeObject = Level.ObjectManager.AddObject(new ObjectPlacement(key, Level.Map.Layers.IndexOf(character.Layer), character.Position));
+		ActiveObject activeObject;
+		_creatingAbility = true;
+		try
+		{
+			activeObject = Level.ObjectManager.AddObject(new ObjectPlacement(key, Level.Map.Layers.IndexOf(character.Layer), character.Position));
+		}
+		finally
+		{
+			_creatingAbility = false;
+		}
 		if (activeObject is not LuaActiveObject ability)
 		{
 			activeObject?.FinishForever();

@@ -118,9 +118,17 @@ internal sealed class ObjectsTool : EditorTool
 			Editor.ShowMessage("Loaded the object types of the property.");
 			return;
 		}
-		if (FindType(key) == null)
+		ObjectType loaded = FindType(key);
+		if (loaded == null)
 		{
 			Editor.ShowMessage($"{ShortName(key)} is not an object type that the editor can add.");
+			return;
+		}
+		if (!IsPlaceable(loaded))
+		{
+			Editor.ShowMessage(loaded is SonicOrca.Core.Scripting.LuaObjectType { IsAbility: true }
+				? $"{ShortName(key)} is an ability. Add the item that gives it, for example LUAFEATHER for LUADOUBLEJUMP."
+				: $"{ShortName(key)} is not an object type that the editor can add.");
 			return;
 		}
 		_placeKey = key;
@@ -137,11 +145,14 @@ internal sealed class ObjectsTool : EditorTool
 	/// <summary>The first row makes a new object. The other rows are the object types.</summary>
 	private const int NewRowCount = 1;
 
-	/// <summary>The types that the user cannot add: characters, animals and particles.</summary>
+	/// <summary>
+	/// The types that the user cannot add: characters, animals, particles, and Lua abilities. An item gives an ability
+	/// to a character.
+	/// </summary>
 	private static bool IsPlaceable(ObjectType type)
 	{
 		return type.Classification != ObjectClassification.Character && type.Classification != ObjectClassification.Animal &&
-			type.Classification != ObjectClassification.Particle;
+			type.Classification != ObjectClassification.Particle && !(type is SonicOrca.Core.Scripting.LuaObjectType { IsAbility: true });
 	}
 
 	private string[] GetListKeys()

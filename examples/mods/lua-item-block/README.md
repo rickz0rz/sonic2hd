@@ -147,6 +147,8 @@ The game does not lock the camera or play music for a Lua boss. The script does 
 
 An ability is a new move of a character, for example the double jump. Its script has `base = "ability"` (API 8). An item gives it: the script of the item calls `character:give_ability(name)`, where `name` is a dependency of the item. The game makes one object of the ability for the character. The object follows the character and can draw, for example a puff of air.
 
+Do not place an ability in a level. Place the item that gives it, for example `LUAFEATHER`. The level editor does not add an ability, and the game removes an ability that a level has.
+
 The game calls these functions of an ability:
 
 | Function | When |
@@ -199,5 +201,5 @@ Call `hold` on each tick that the object holds the character. When a script does
 
 - `math.random` gives the random numbers of the level. Thus a replay gives the same numbers.
 - A script cannot read files. The `io`, `os`, `debug` and `require` functions are not available.
-- An error in a script removes the object and writes the error to the log. The game continues.
+- An error in a script removes the object until the level starts again, and writes the error to the log. The log has each error one time only. The game continues.
 - One call of a script function can run 2,000,000 Lua instructions. A call that runs longer, for example an endless loop, is an error. `pcall` cannot catch this error.
