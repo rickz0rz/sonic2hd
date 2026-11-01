@@ -310,6 +310,38 @@ public sealed class RegressionTests
 	}
 
 	/// <summary>
+	/// A character loses its abilities when it gets hurt. The first run places the feather on the start position and
+	/// makes a walking enemy with the form of the objects tool, to the right of the start, and saves. In the second run,
+	/// Sonic alone gets the feather, stands, and the enemy hurts him before tick 200 (he has 10 rings, so he does not
+	/// die). Then he jumps at tick 360 and presses jump again in the air at tick 386, as in the double jump test. Without
+	/// the double jump, he is on the ground again at tick 425. With it, he would still be in the air.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void LuaAbility_IsLostOnAHit()
+	{
+		// LUAFEATHER is two rows under LOCKY in the list of the objects tool. Then the list scrolls back to the top for
+		// "+ New object". Kind goes from scenery to enemy in three clicks.
+		string kind = string.Concat(Enumerable.Range(0, 3).Select(i => $"{79 + i * 2}:down left;{80 + i * 2}:up left;"));
+		string editorScript = "28:mouse 1600 300;29:wheel -29;30:mouse 1600 483;31:down left;32:up left;" +
+			"45:mouse 400 520;46:down left;47:up left;" +
+			"60:mouse 1600 300;61:wheel 60;65:mouse 1600 92;66:down left;67:up left;" +
+			"70:mouse 1600 546;71:down left;72:up left;74:type Test walker;75:tap 40;78:mouse 1600 606;" + kind +
+			"90:mouse 1600 696;91:down left;92:up left;" +
+			"110:mouse 640 520;111:down left;112:up left;" +
+			"120:keydown 224;121:tap 22;122:keyup 224";
+		RunTwoRuns("lua-ability-lost", Path.Combine(TestPaths.GoldenDirectory, "lua-ability-lost"), new[] { 200, 388, 425 }, userData =>
+		{
+			CopyExampleMod(userData);
+			RunGame(TestPaths.GameExecutable, "--level ehz --editor", new[] { 10125 }, userData,
+				new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = editorScript });
+			string recording = Path.Combine(userData, "hit.rec");
+			File.WriteAllBytes(recording, MakeRecording(600, tick => (0.0, (tick >= 360 && tick < 384) || (tick >= 386 && tick < 430))));
+			return $"--level ehz --protagonist sonic --sidekick none --playback \"{recording}\"";
+		}, new Dictionary<string, string> { ["S2HD_TEST_START_RINGS"] = "10" });
+	}
+
+	/// <summary>
 	/// Makes an input recording: one record of 40 bytes for each level tick, with the horizontal direction and the
 	/// action button. The other fields are 0.
 	/// </summary>
@@ -340,7 +372,9 @@ public sealed class RegressionTests
 	/// Runs a test that needs a preparation run, for example a run of the editor that saves a level. The preparation
 	/// gives the arguments of the run that the test compares with the golden screenshots.
 	/// </summary>
-	private static void RunTwoRuns(string name, string goldenDirectory, int[] ticks, Func<string, string> prepare)
+	/// <param name="environment">More environment variables for the run that the test compares, or null.</param>
+	private static void RunTwoRuns(string name, string goldenDirectory, int[] ticks, Func<string, string> prepare,
+		IReadOnlyDictionary<string, string> environment = null)
 	{
 		if (!File.Exists(TestPaths.GameExecutable))
 		{
@@ -355,7 +389,7 @@ public sealed class RegressionTests
 		try
 		{
 			string arguments = prepare(userData);
-			RunGame(TestPaths.GameExecutable, arguments, ticks, userData, null);
+			RunGame(TestPaths.GameExecutable, arguments, ticks, userData, environment);
 			if (record)
 			{
 				Directory.CreateDirectory(goldenDirectory);
