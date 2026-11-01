@@ -147,7 +147,7 @@ The game does not lock the camera or play music for a Lua boss. The script does 
 
 An ability is a new move of a character, for example the double jump. Its script has `base = "ability"` (API 8). An item gives it: the script of the item calls `character:give_ability(name)`, where `name` is a dependency of the item. The game makes one object of the ability for the character. The object follows the character and can draw, for example a puff of air.
 
-Do not place an ability in a level. Place the item that gives it, for example `LUAFEATHER`. The level editor does not add an ability, and the game removes an ability that a level has.
+Do not place an ability in a level. Place the item that gives it, for example `LUAFEATHER`. The list of the level editor does not show abilities, and the game removes an ability that a level has.
 
 The game calls these functions of an ability:
 
