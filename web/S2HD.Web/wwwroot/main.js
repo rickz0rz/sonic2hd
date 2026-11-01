@@ -142,8 +142,9 @@ const game = (await runtime.getAssemblyExports(runtime.getConfig().mainAssemblyN
 const FS = runtime.Module.FS;
 setStatus('Choose the game data, then click Go.');
 
-// Browser storage (IndexedDB) for the zip of the Sonic 2 disassembly and the mods that the page makes from it. The
-// files stay in this browser. 'mods' holds { version, files: { name: Uint8Array } }
+// Browser storage (IndexedDB) for the zip of the Sonic 2 disassembly, the mods that the page makes from it, and the
+// mods that the player chose. The files stay in this browser. 'mods' holds { version, files: { name: Uint8Array } },
+// and 'chosen-mods' holds [{ name, data: Blob }]
 const storage = {
   db: new Promise((resolve, reject) => {
     const request = indexedDB.open('s2hd', 1);
@@ -170,10 +171,12 @@ async function showStored() {
   try {
     const disasm = await storage.get('s2disasm.zip');
     const mods = await storage.get('mods');
+    const chosen = await storage.get('chosen-mods');
     const count = mods ? Object.keys(mods.files).length : 0;
     const parts = [];
     if (disasm) parts.push(`the disassembly zip (${(disasm.size / 1048576).toFixed(0)} MB)`);
     if (count) parts.push(`${count} imported mods`);
+    if (chosen && chosen.length) parts.push(`${chosen.length} chosen mods`);
     storedText.textContent = parts.length ? `Stored in this browser: ${parts.join(' and ')}.` : 'No disassembly is stored.';
     forget.hidden = parts.length === 0;
     console.log(storedText.textContent);
@@ -198,6 +201,8 @@ document.getElementById('disasm').addEventListener('change', async (e) => {
 });
 forget.addEventListener('click', async () => {
   await storage.clear();
+  modFiles = [];
+  showChosenMods();
   await showStored();
   setStatus('The stored files are deleted.');
 });
@@ -257,8 +262,41 @@ function writeFile(path, data) {
   FS.writeFile(path, data);
 }
 
-// The mods that the player chose: .dat files go to /content/mods, and zips of mod folders to /userdata/mods
+// The mods that the player chose: .dat files go to /content/mods, and zips of mod folders to /userdata/mods. The
+// page stores them, so that the next visit has them too, until the player chooses other mods or clicks No mods.
 let modFiles = [];
+const clearMods = document.getElementById('clear-mods');
+function showChosenMods(stored = false) {
+  document.getElementById('mods-chosen').textContent = modFiles.length
+    ? `Mods${stored ? ' from your last visit' : ''}: ${modFiles.map((f) => f.name).join(', ')}.` : '';
+  clearMods.hidden = modFiles.length === 0;
+}
+async function storeChosenMods() {
+  try {
+    await storage.put('chosen-mods', modFiles.map((file) => ({ name: file.name, data: file })));
+  } catch (e) {
+    console.warn(`Cannot store the mods: ${e}`);
+  }
+  await showStored();
+}
+clearMods.addEventListener('click', async () => {
+  modFiles = [];
+  showChosenMods();
+  await storeChosenMods();
+});
+// The mods of the last visit. ?mods= in the address replaces them, for tests.
+async function loadStoredMods() {
+  try {
+    const stored = await storage.get('chosen-mods');
+    if (stored && stored.length && modFiles.length === 0) {
+      modFiles = stored.map((mod) => new File([mod.data], mod.name));
+      showChosenMods(true);
+    }
+  } catch (e) {
+    console.warn(`Cannot read the stored mods: ${e}`);
+  }
+}
+if (!params.has('mods')) loadStoredMods();
 async function installMods() {
   for (const file of modFiles) {
     const data = new Uint8Array(await file.arrayBuffer());
@@ -342,9 +380,10 @@ document.getElementById('zip').addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (file) choose(`${file.name} (${(file.size / 1048576).toFixed(0)} MB)`, () => loadZip(file));
 });
-document.getElementById('mods').addEventListener('change', (e) => {
+document.getElementById('mods').addEventListener('change', async (e) => {
   modFiles = [...e.target.files];
-  document.getElementById('mods-chosen').textContent = modFiles.length ? `Mods: ${modFiles.map((f) => f.name).join(', ')}.` : '';
+  showChosenMods();
+  await storeChosenMods();
 });
 document.getElementById('folder').addEventListener('change', (e) => {
   const files = [...e.target.files];
@@ -357,7 +396,13 @@ document.getElementById('folder').addEventListener('change', (e) => {
 Promise.all((params.get('mods') || '').split(',').filter(Boolean).map(async (url) => {
   const response = await fetch(url);
   if (response.ok) modFiles.push(new File([await response.blob()], url.split('/').pop()));
-})).then(() => params.has('disasm') ? downloadZip(params.get('disasm')).then((blob) => (disasmZip = blob) && storage.put('s2disasm.zip', blob)) : Promise.resolve())
+})).then(async () => {
+  if (params.has('mods')) {
+    // As the Choose mods button, also for the next visit
+    showChosenMods();
+    await storeChosenMods();
+  }
+}).then(() => params.has('disasm') ? downloadZip(params.get('disasm')).then((blob) => (disasmZip = blob) && storage.put('s2disasm.zip', blob)) : Promise.resolve())
   .then(() => downloadZip(params.get('data') || 'game.zip'))
   .then((blob) => {
     if (blob && params.has('data')) loadZip(blob);

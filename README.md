@@ -115,6 +115,11 @@ where you have permission. A publish without the property removes `game.zip`.
 
 When players choose their own files, the page also loads the `.dat` files in a `mods/` folder of the zip or folder.
 
+**Choose mods** adds mods: `.dat` files, or zips of mod folders such as the examples in `examples/mods`. The page
+keeps the chosen mods in the browser storage, so later visits have them too. **No mods** removes them, and
+**Delete stored files** removes them with the other stored files. For tests, `?mods=<url>,<url>` chooses mods from
+the same site, as the button does.
+
 ### Parts from the Sonic 2 disassembly
 
 The demo data has only Emerald Hill, Chemical Plant and Hill Top. On the desktop, `tools/import-all.sh` makes the
