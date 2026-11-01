@@ -442,9 +442,18 @@ public class Level : IDisposable
 			{
 				_playRecorder.BeginPlaying(PrepareSettings.RecordedPlayGhostReadPath);
 			}
+			// A recording with a header starts with the rings, the emeralds and the lives of the recorded play, so
+			// that a play with emeralds (Super Sonic) plays back in the same way. A ghost does not change the player.
+			if (_playRecorder.PlayingHeader is PlayRecorder.Header header && string.IsNullOrEmpty(PrepareSettings.RecordedPlayGhostReadPath))
+			{
+				_player.CurrentRings = header.Rings;
+				_player.Emeralds = header.Emeralds;
+				_player.Lives = header.Lives;
+			}
 			if (!string.IsNullOrEmpty(PrepareSettings.RecordedPlayWritePath))
 			{
-				_playRecorder.BeginRecording(PrepareSettings.RecordedPlayWritePath);
+				_playRecorder.BeginRecording(PrepareSettings.RecordedPlayWritePath,
+					new PlayRecorder.Header { Rings = _player.CurrentRings, Emeralds = _player.Emeralds, Lives = _player.Lives });
 			}
 			if (_playRecorder.Playing || _playRecorder.Recording)
 			{

@@ -633,8 +633,8 @@ The behavior of the levels and the objects of the game is C# code in `SONICORCA/
 | `--editor` | Turns on the level editor: F2 in a level opens it. With `--level`, the editor opens when the level starts. Alone, it opens the editor with the form of a new level |
 | `--physics original`, `--physics hd` | Plays the `--level` level with this physics, whatever the PHYSICS setting is |
 | `--demo` | Plays the attract demo (the demos of all zones that have one play in turn) |
-| `--record <file>` | Records the input of the level to a file, for example for a demo |
-| `--playback <file>` | Plays a recorded input in place of the controller |
+| `--record <file>` | Records the input of the level to a file, for example for a demo. The file also keeps the rings, the emeralds and the lives at the start |
+| `--playback <file>` | Plays a recorded input in place of the controller. The play starts with the rings, the emeralds and the lives of the recording, so that a play with Super Sonic plays back in the same way. A recording from before this change has no start values, and plays with the values of the game |
 | `--nologos` | Skips the disclaimer and the logo screens |
 | `--no-error-dialog` | Writes an error to the console and the log, not to a dialog box. Test runs with `S2HD_EXIT_AFTER_CAPTURES=1` do this too |
 | `--credits`, `--options` | Opens the credits or the options screen |
