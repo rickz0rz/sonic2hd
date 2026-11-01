@@ -474,6 +474,94 @@ public sealed class AnimationEditorScreen : Screen
 		}
 	}
 
+	/// <summary>
+	/// The key of the group that "Make a group" makes for an image: ANIGROUP in the folder of the image, or null for
+	/// an image that is not in a folder.
+	/// </summary>
+	public static string GetNewGroupKey(string imageKey)
+	{
+		int slash = imageKey.LastIndexOf('/');
+		return slash > 0 ? imageKey.Substring(0, slash) + "/ANIGROUP" : null;
+	}
+
+	/// <summary>
+	/// The images that a new group for an image takes: the image first, then the other images of the same folder that
+	/// are not in a group, in name order. They would be in the folder of the group, so the list would not show them.
+	/// </summary>
+	public static List<string> GetNewGroupImages(string imageKey, IEnumerable<string> imageKeys)
+	{
+		string folder = imageKey.Substring(0, imageKey.LastIndexOf('/') + 1);
+		List<string> images = new List<string> { imageKey };
+		images.AddRange(imageKeys
+			.Where(key => key != imageKey && key.StartsWith(folder, StringComparison.Ordinal) && key.IndexOf('/', folder.Length) < 0)
+			.OrderBy(key => key, StringComparer.Ordinal));
+		return images;
+	}
+
+	/// <summary>
+	/// A new group for images: a texture for each image, as a path next to the group ("//NAME"), and one animation
+	/// with one frame that covers the first image.
+	/// </summary>
+	public static AnimationGroupDocument CreateGroupDocument(IEnumerable<string> imageKeys, int width, int height)
+	{
+		AnimationGroupDocument document = new AnimationGroupDocument();
+		foreach (string key in imageKeys)
+		{
+			document.Textures.Add("//" + key.Substring(key.LastIndexOf('/') + 1));
+		}
+		AnimationDocument animation = new AnimationDocument { Name = "image" };
+		animation.Frames.Add(new AnimationFrameDocument { Texture = 0, X = 0, Y = 0, Width = width, Height = height });
+		document.Animations.Add(animation);
+		return document;
+	}
+
+	/// <summary>
+	/// Makes an animation group for the open image, in the folder of the image. The group is a resource at once, so
+	/// that the editor finds its textures. Save writes it to the folder of the editor.
+	/// </summary>
+	private void MakeGroup()
+	{
+		string imageKey = _groupKey;
+		string groupKey = GetNewGroupKey(imageKey);
+		if (groupKey == null)
+		{
+			ShowMessage("The image is not in a folder, so it cannot have a group.");
+			return;
+		}
+		if (_gameContext.ResourceTree[groupKey]?.Resource != null || _documents.ContainsKey(groupKey))
+		{
+			ShowMessage(groupKey + " exists.");
+			return;
+		}
+		ITexture image = _textures.Count > 0 ? _textures[0] : null;
+		if (image == null)
+		{
+			ShowMessage("Wait until the image is loaded.");
+			return;
+		}
+		List<string> images = GetNewGroupImages(imageKey, _imageKeys);
+		AnimationGroupDocument document = CreateGroupDocument(images, image.Width, image.Height);
+		_documents[groupKey] = document;
+		_gameContext.ResourceTree.SetOrAdd(groupKey, new Resource(groupKey, ResourceTypeIdentifier.AnimationGroup,
+			new MemoryResourceSource(Encoding.UTF8.GetBytes(document.ToXml()))));
+		foreach (string key in images)
+		{
+			_imageKeys.Remove(key);
+			_groupKeys.Remove(key);
+			_documents.Remove(key);
+		}
+		// The groups come first in name order, then the images
+		int index = _groupKeys.TakeWhile(key => !_imageKeys.Contains(key) && string.CompareOrdinal(key, groupKey) < 0).Count();
+		_groupKeys.Insert(index, groupKey);
+		_dirty.Add(groupKey);
+		_changed.Add(groupKey);
+		SelectGroup(groupKey);
+		ScrollToGroup();
+		ShowMessage(images.Count == 1
+			? $"Made {groupKey}. Save writes it."
+			: $"Made {groupKey} with {images.Count} images as its textures. Save writes it.");
+	}
+
 	/// <summary>A document for an image: one texture, the image, and one frame of the whole image. The editor never saves it.</summary>
 	private static AnimationGroupDocument CreateImageDocument(string key)
 	{
@@ -1621,6 +1709,10 @@ public sealed class AnimationEditorScreen : Screen
 			rows.Add(new EditorPropertyRow { Label = "Image", IsHeading = true });
 			rows.Add(new EditorPropertyRow { Label = "Key", Value = _groupKey });
 			rows.Add(new EditorPropertyRow { Label = "Size", Value = image != null ? $"{image.Width} x {image.Height}" : "loading" });
+			if (GetNewGroupKey(_groupKey) is string newGroupKey)
+			{
+				rows.Add(new EditorPropertyRow { Label = "Make a group", Value = "click to make the group " + ShortName(newGroupKey), Step = _ => MakeGroup() });
+			}
 			AddTextureRows(rows);
 			return rows;
 		}

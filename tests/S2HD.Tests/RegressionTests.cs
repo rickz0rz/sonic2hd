@@ -407,6 +407,30 @@ public sealed class RegressionTests
 	}
 
 	/// <summary>
+	/// Opens the animation editor on the image SONICORCA/HUD/LIFE/SONIC, which has no animation group. A click on
+	/// "Make a group" makes SONICORCA/HUD/LIFE/ANIGROUP, and Ctrl+S saves it. The group must have the image and the
+	/// other image of the folder, TAILS, as its textures, and one frame that covers the image.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void AnimationEditorNewGroup_MatchesGoldenScreenshots()
+	{
+		// "Make a group" is row 4 of the properties of an image. 224 is Ctrl, 22 is S.
+		const string script = "5:mouse 1700 604;6:down left;7:up left;12:keydown 224;13:tap 22;14:keyup 224";
+		RunAndCompare("--animations SONICORCA/HUD/LIFE/SONIC", new[] { 10020 }, Path.Combine(TestPaths.GoldenDirectory, "animation-editor-new-group"),
+			"animation-editor-new-group", new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script },
+			checkUserData: userData =>
+			{
+				string path = Path.Combine(userData, "mods", "editor", "animations", "SONICORCA", "HUD", "LIFE", "ANIGROUP.anigroup.xml");
+				Assert.True(File.Exists(path), "The animation editor did not save " + path);
+				SonicOrca.Core.Editor.AnimationGroupDocument document = SonicOrca.Core.Editor.AnimationGroupDocument.Parse(File.ReadAllText(path));
+				Assert.Equal(new[] { "//SONIC", "//TAILS" }, document.Textures);
+				SonicOrca.Core.Editor.AnimationFrameDocument frame = Assert.Single(Assert.Single(document.Animations).Frames);
+				Assert.Equal((0, 0, 68, 68), (frame.X, frame.Y, frame.Width, frame.Height));
+			});
+	}
+
+	/// <summary>
 	/// Opens the animation editor on Sonic with scripted input. In the texture view, it drags the right edge of the
 	/// rectangle of a frame 32 pixels to the right. In the preview, it drags the frame by (20, 10), and saves.
 	/// </summary>
