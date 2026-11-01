@@ -113,6 +113,18 @@ public sealed class LuaObjectTests
 		Assert.IsAssignableFrom<ICharacterAbility>(type.CreateInstance());
 	}
 
+	[Theory]
+	[InlineData("object { api = 8, base = \"ability\" }", true)]
+	[InlineData("object {\n  base='ability',\n}", true)]
+	[InlineData("object { base = \"boss\" }", false)]
+	[InlineData("-- the database = \"ability\" is not a base\nobject { }", false)]
+	public void IsAbilityScript_ReadsTheBaseFromTheText(string source, bool ability)
+	{
+		Resource resource = new Resource("SONICORCA/OBJECTS/TEST", ResourceTypeIdentifier.LuaObject, new MemoryResourceSource(Encoding.UTF8.GetBytes(source)));
+
+		Assert.Equal(ability, LuaObjectType.IsAbilityScript(resource));
+	}
+
 	[Fact]
 	public async Task Script_WithAnUnknownBase_DoesNotLoad()
 	{

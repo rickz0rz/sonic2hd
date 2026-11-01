@@ -20,6 +20,27 @@ namespace SonicOrca.Core.Scripting;
 /// </summary>
 public sealed class LuaObjectType : ObjectType, IStateTableType
 {
+	/// <summary>The text <c>base = "ability"</c> of a definition, with any spaces and quotes.</summary>
+	private static readonly System.Text.RegularExpressions.Regex AbilityBase =
+		new System.Text.RegularExpressions.Regex(@"\bbase\s*=\s*[""']ability[""']", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+	/// <summary>
+	/// True when the text of a script names the ability base, for example for the level editor, which does not load
+	/// the scripts of the types that a level does not use. A script that cannot be read is not an ability.
+	/// </summary>
+	public static bool IsAbilityScript(Resource resource)
+	{
+		try
+		{
+			using StreamReader reader = new StreamReader(resource.Source.ReadUncompressed());
+			return AbilityBase.IsMatch(reader.ReadToEnd());
+		}
+		catch (Exception ex) when (ex is IOException || ex is InvalidOperationException)
+		{
+			return false;
+		}
+	}
+
 	/// <summary>The API version that this engine gives to scripts.</summary>
 	public const int ApiVersion = 8;
 

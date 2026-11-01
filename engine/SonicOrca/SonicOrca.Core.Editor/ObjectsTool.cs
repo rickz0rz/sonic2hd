@@ -91,6 +91,8 @@ internal sealed class ObjectsTool : EditorTool
 	{
 		_allTypeKeys = Editor.GameContext.ResourceTree.GetResourceListing()
 			.Where(x => (x.Value.Identifier == ResourceTypeIdentifier.Object || x.Value.Identifier == ResourceTypeIdentifier.LuaObject) && x.Key.StartsWith(ObjectKeyPrefix, StringComparison.OrdinalIgnoreCase))
+			// An item gives an ability to a character, so the list does not show abilities, also before they load
+			.Where(x => x.Value.Identifier != ResourceTypeIdentifier.LuaObject || !SonicOrca.Core.Scripting.LuaObjectType.IsAbilityScript(x.Value))
 			.Select(x => x.Key)
 			.OrderBy(ShortName, StringComparer.Ordinal)
 			.ToArray();
