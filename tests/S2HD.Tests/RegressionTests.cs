@@ -278,6 +278,38 @@ public sealed class RegressionTests
 	}
 
 	/// <summary>
+	/// Makes a power-up with the form of the objects tool, places it on the start position, and saves. Then Sonic alone
+	/// gets it and jumps. The ability of the power-up makes the jump higher. A normal full jump from tick 220 lands at
+	/// about tick 281, the higher jump at about tick 294. So Sonic must still be in the air at tick 288.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void EditorNewPowerUp_MatchesGoldenScreenshots()
+	{
+		// "+ New object" is the first row of the list. Name, Kind and Create are rows 1, 3 and 6 of the properties.
+		// Kind goes from scenery to power-up in six clicks.
+		string kind = string.Concat(Enumerable.Range(0, 6).Select(i => $"{19 + i * 2}:down left;{20 + i * 2}:up left;"));
+		string editorScript = "5:mouse 1600 92;6:down left;7:up left;" +
+			"10:mouse 1600 546;11:down left;12:up left;14:type Spring shoes;15:tap 40;" +
+			"18:mouse 1600 606;" + kind +
+			"34:mouse 1600 696;35:down left;36:up left;" +
+			"55:mouse 400 520;56:down left;57:up left;" +
+			"65:keydown 224;66:tap 22;67:keyup 224";
+		RunTwoRuns("editor-new-power-up", Path.Combine(TestPaths.GoldenDirectory, "editor-new-power-up"), new[] { 250, 288 }, userData =>
+		{
+			RunGame(TestPaths.GameExecutable, "--level ehz --editor", new[] { 10070 }, userData,
+				new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = editorScript });
+			string objects = Path.Combine(userData, "mods", SonicOrca.Core.Editor.NewObject.DefaultModName, "SONICORCA", "OBJECTS");
+			Assert.True(File.Exists(Path.Combine(objects, "SPRINGSHOES", "_.object.lua")), "The editor did not make the power-up.");
+			Assert.True(File.Exists(Path.Combine(objects, "SPRINGSHOESABILITY.object.lua")), "The editor did not make the ability.");
+			Assert.True(File.Exists(Path.Combine(userData, "mods", "editor", "EHZ.dat")), "The editor did not save the level.");
+			string recording = Path.Combine(userData, "jump.rec");
+			File.WriteAllBytes(recording, MakeRecording(400, tick => (0.0, tick >= 220 && tick < 270)));
+			return $"--level ehz --protagonist sonic --sidekick none --playback \"{recording}\"";
+		});
+	}
+
+	/// <summary>
 	/// Makes an input recording: one record of 40 bytes for each level tick, with the horizontal direction and the
 	/// action button. The other fields are 0.
 	/// </summary>

@@ -511,6 +511,9 @@ to choose the script:
 | solid block | A solid box. The characters can stand on it. |
 | collectible | Gives rings to a character that touches it, then goes away. The `rings` property sets the count. |
 | enemy | Walks on the ground and turns at edges and walls. A character that rolls or jumps into it breaks it. A touch hurts the character. The `speed` and `start_right` properties change the walk. An enemy image looks to the left. |
+| moving platform | Moves to and fro and carries the characters that stand on it. A character can jump through it from below. The `distance`, `speed` and `vertical` properties change the path. With `fall`, it falls a short time after a character stands on it. |
+| boss | A boss. When it comes into view, the camera locks on an arena around it and the boss music plays. It floats over the nearest character. After `health` hits, it explodes, flies away, and the act ends. |
+| power-up | An item that gives an ability, and the ability. The ability is a second script, `<KEY>ABILITY.object.lua`, next to the folder of the item. Its first version makes the jump higher. The character keeps the ability until it gets hurt. |
 
 To use your art, click "Image" and type the path of a PNG file. Without an image, the object gets a placeholder
 image. One pixel of the image is one unit of the level, and four units are one pixel of the original game. Click

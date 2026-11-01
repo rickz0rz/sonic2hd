@@ -714,13 +714,16 @@ internal sealed class ObjectsTool : EditorTool
 			return;
 		}
 		string key = ObjectKeyPrefix + _newKey;
+		string ability = _newKind == NewObjectKind.PowerUp ? NewObject.GetAbilityKey(_newKey) : null;
 		_creating = false;
 		_newName = "";
 		_newKey = "";
 		_newImagePath = null;
 		ReadTypeKeys();
 		ChooseType(key);
-		Editor.ShowMessage($"Made {ShortName(key)} in mods/{Path.GetFileName(folder)}. Click in the level to add it.");
+		Editor.ShowMessage(ability == null
+			? $"Made {ShortName(key)} in mods/{Path.GetFileName(folder)}. Click in the level to add it."
+			: $"Made {ShortName(key)} and its ability {ability} in mods/{Path.GetFileName(folder)}. Click in the level to add {ShortName(key)}.");
 	}
 
 	#endregion
