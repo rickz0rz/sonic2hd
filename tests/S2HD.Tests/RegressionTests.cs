@@ -342,6 +342,22 @@ public sealed class RegressionTests
 	}
 
 	/// <summary>
+	/// Co-op: player 2 controls Tails. Sonic gets no input and stands at the start. A recording gives the input of
+	/// player 2 (S2HD_TEST_PLAYER2_PLAYBACK, because a test cannot press keys): right from tick 200, and a jump at tick
+	/// 260. Tails runs away from Sonic, jumps, and collects rings for both. A Tails of the computer stays near Sonic.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void CoopPlayer2_MatchesGoldenScreenshots()
+	{
+		RunTwoRuns("coop-player2", Path.Combine(TestPaths.GoldenDirectory, "coop-player2"), new[] { 270, 320 }, userData =>
+		{
+			File.WriteAllBytes(Path.Combine(userData, "player2.rec"), MakeRecording(600, tick => (tick >= 200 && tick < 400 ? 1.0 : 0.0, tick >= 260 && tick < 285)));
+			return "--level ehz";
+		}, new Dictionary<string, string> { ["S2HD_TEST_PLAYER2_PLAYBACK"] = Path.Combine("{userData}", "player2.rec") });
+	}
+
+	/// <summary>
 	/// Makes an input recording: one record of 40 bytes for each level tick, with the horizontal direction and the
 	/// action button. The other fields are 0.
 	/// </summary>
@@ -372,7 +388,10 @@ public sealed class RegressionTests
 	/// Runs a test that needs a preparation run, for example a run of the editor that saves a level. The preparation
 	/// gives the arguments of the run that the test compares with the golden screenshots.
 	/// </summary>
-	/// <param name="environment">More environment variables for the run that the test compares, or null.</param>
+	/// <param name="environment">
+	/// More environment variables for the run that the test compares, or null. "{userData}" in a value is the user data
+	/// folder of the test.
+	/// </param>
 	private static void RunTwoRuns(string name, string goldenDirectory, int[] ticks, Func<string, string> prepare,
 		IReadOnlyDictionary<string, string> environment = null)
 	{
@@ -389,7 +408,8 @@ public sealed class RegressionTests
 		try
 		{
 			string arguments = prepare(userData);
-			RunGame(TestPaths.GameExecutable, arguments, ticks, userData, environment);
+			RunGame(TestPaths.GameExecutable, arguments, ticks, userData,
+				environment?.ToDictionary(item => item.Key, item => item.Value.Replace("{userData}", userData)));
 			if (record)
 			{
 				Directory.CreateDirectory(goldenDirectory);

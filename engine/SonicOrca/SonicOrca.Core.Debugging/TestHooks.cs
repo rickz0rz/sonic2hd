@@ -13,6 +13,7 @@ namespace SonicOrca.Core.Debugging;
 /// level start. Unlike frame numbers, ticks do not depend on how long the level took to load.</item>
 /// <item>S2HD_EXIT_AFTER_CAPTURES=1: quits after the last screenshot.</item>
 /// <item>S2HD_TEST_START_RINGS=60: gives the player this number of rings when a level starts.</item>
+/// <item>S2HD_TEST_PLAYER2_PLAYBACK=file: plays an input recording as the input of player 2, the sidekick.</item>
 /// <item>S2HD_TEST_EMERALDS=7: gives the player this number of emeralds when a level starts.</item>
 /// <item>S2HD_TEST_SPECIAL_STAGE_AT_TICK=300: at this level tick, goes to the special stage as from a star circle.</item>
 /// <item>S2HD_TEST_SPECIAL_STAGE_RESULTS=30,1,1: the special stage goes to its results screen at once, with these rings,
@@ -42,6 +43,9 @@ public static class TestHooks
 		Enum.TryParse(Environment.GetEnvironmentVariable("S2HD_PHYSICS"), ignoreCase: true, out PhysicsMode mode) ? mode : null;
 
 	public static readonly bool ExitAfterCaptures = Environment.GetEnvironmentVariable("S2HD_EXIT_AFTER_CAPTURES") == "1";
+
+	/// <summary>An input recording for player 2, the sidekick, or null. A test of co-op uses it, because it cannot press keys.</summary>
+	public static readonly string Player2Playback = Environment.GetEnvironmentVariable("S2HD_TEST_PLAYER2_PLAYBACK") is { Length: > 0 } path ? path : null;
 
 	public static readonly int? StartRings =
 		int.TryParse(Environment.GetEnvironmentVariable("S2HD_TEST_START_RINGS"), out int rings) ? rings : null;

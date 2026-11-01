@@ -99,6 +99,11 @@ public class Level : IDisposable
 
 	private PlayRecorder _playRecorder;
 
+	/// <summary>The input of player 2, the sidekick, from a recording (S2HD_TEST_PLAYER2_PLAYBACK), for tests.</summary>
+	private PlayRecorder _player2Recorder = new PlayRecorder();
+
+	private readonly CharacterInputState _player2Input = new CharacterInputState();
+
 	private Rectanglei _targetBounds;
 
 	private int _boundsScrollSpeed;
@@ -279,6 +284,7 @@ public class Level : IDisposable
 		}
 		Unload();
 		_playRecorder.Dispose();
+		_player2Recorder.Dispose();
 		_commonResources.Dispose();
 		_particleManager.Dispose();
 		_gameOverHud.Dispose();
@@ -450,6 +456,10 @@ public class Level : IDisposable
 				_player.Emeralds = header.Emeralds;
 				_player.Lives = header.Lives;
 			}
+			if (SonicOrca.Core.Debugging.TestHooks.Player2Playback is string player2Path && !_player2Recorder.Playing)
+			{
+				_player2Recorder.BeginPlaying(player2Path);
+			}
 			if (!string.IsNullOrEmpty(PrepareSettings.RecordedPlayWritePath))
 			{
 				_playRecorder.BeginRecording(PrepareSettings.RecordedPlayWritePath,
@@ -472,6 +482,7 @@ public class Level : IDisposable
 		if (_playRecorder != null)
 		{
 			_playRecorder.EndPlaying();
+			_player2Recorder.EndPlaying();
 			_playRecorder.EndRecording();
 		}
 		StopEarthquake();
@@ -673,6 +684,7 @@ public class Level : IDisposable
 		{
 			playbackEntry = _playRecorder.GetNextEntry();
 		}
+		PlayRecorder.Entry player2Entry = _player2Recorder.Playing ? _player2Recorder.GetNextEntry() : null;
 		if (StateFlags.HasFlag(LevelStateFlags.Updating))
 		{
 			if (playbackEntry != null)
@@ -680,28 +692,7 @@ public class Level : IDisposable
 				// A recording without a ghost controls the protagonist. A ghost recording moves the ghost only.
 				if (string.IsNullOrEmpty(PrepareSettings.RecordedPlayGhostReadPath))
 				{
-					CharacterInputState input = _player.Protagonist.Input;
-					input.Throttle = playbackEntry.Direction.X;
-					input.VerticalDirection = Math.Sign(playbackEntry.Direction.Y);
-					if (playbackEntry.Action)
-					{
-						if (input.A == CharacterInputButtonState.Up || input.A == CharacterInputButtonState.Released)
-						{
-							input.A = CharacterInputButtonState.Pressed;
-						}
-						else
-						{
-							input.A = CharacterInputButtonState.Down;
-						}
-					}
-					else if (input.A == CharacterInputButtonState.Down || input.A == CharacterInputButtonState.Pressed)
-					{
-						input.A = CharacterInputButtonState.Released;
-					}
-					else
-					{
-						input.A = CharacterInputButtonState.Up;
-					}
+					ApplyRecordedInput(_player.Protagonist.Input, playbackEntry);
 				}
 				else
 				{
@@ -712,6 +703,12 @@ public class Level : IDisposable
 			else
 			{
 				ReadPlayerInput();
+			}
+			if (player2Entry != null && _player.Sidekick != null)
+			{
+				// The input of player 2 stays from tick to tick, so that a held button is not a new press
+				ApplyRecordedInput(_player2Input, player2Entry);
+				_player.Sidekick.Input = _player2Input;
 			}
 			SonicOrca.Core.Debugging.StoryTest.Update(this);
 			SetObjectLifetimeArea();
@@ -873,6 +870,32 @@ public class Level : IDisposable
 			{
 				_earthquakeSampleInstance.Play();
 			}
+		}
+	}
+
+	/// <summary>Gives a character the input of one tick of a recording.</summary>
+	private static void ApplyRecordedInput(CharacterInputState input, PlayRecorder.Entry entry)
+	{
+		input.Throttle = entry.Direction.X;
+		input.VerticalDirection = Math.Sign(entry.Direction.Y);
+		if (entry.Action)
+		{
+			if (input.A == CharacterInputButtonState.Up || input.A == CharacterInputButtonState.Released)
+			{
+				input.A = CharacterInputButtonState.Pressed;
+			}
+			else
+			{
+				input.A = CharacterInputButtonState.Down;
+			}
+		}
+		else if (input.A == CharacterInputButtonState.Down || input.A == CharacterInputButtonState.Pressed)
+		{
+			input.A = CharacterInputButtonState.Released;
+		}
+		else
+		{
+			input.A = CharacterInputButtonState.Up;
 		}
 	}
 

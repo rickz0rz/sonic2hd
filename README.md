@@ -620,6 +620,21 @@ The behavior of the levels and the objects of the game is C# code in `SONICORCA/
 `.object.cs` resources only name the class to use. A mod adds new behavior with
 [Lua objects](#lua-objects-and-mod-levels).
 
+## Controls
+
+| Action | Player 1 | Player 2 |
+|---|---|---|
+| Move | Arrow keys, or game pad 1 | I, J, K and L, or game pad 2 |
+| Jump | A, S or D | Q, W or E |
+| Start, pause | Return | Return |
+
+### Two players: co-op
+
+When Tails follows Sonic, a second player can play Tails, as in the original. Player 2 uses the keys of player 2
+or the second game pad. Tails comes under the control of player 2 at the first input, and the computer takes
+control again 10 seconds after the last input. The camera follows Sonic. Both players collect rings for the same
+count. In the special stage, each player has their own rings (see "Entering a special stage").
+
 ## Command-line options
 
 | Option | Effect |
