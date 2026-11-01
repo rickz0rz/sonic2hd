@@ -265,6 +265,21 @@ public sealed class RegressionTests
 	}
 
 	/// <summary>
+	/// The level editor does not add an ability, because an item gives an ability to a character. A click on
+	/// LUADOUBLEJUMP in the list shows a message that names the item, and a click in the level adds nothing.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void EditorLuaAbility_IsNotPlaced()
+	{
+		// LUADOUBLEJUMP is two rows under LOCKY in the list of the objects tool
+		const string script = "28:mouse 1600 300;29:wheel -30;30:mouse 1600 453;31:down left;32:up left;" +
+			"45:mouse 700 430;46:down left;47:up left";
+		RunAndCompare("--level ehz --editor", new[] { 10050 }, Path.Combine(TestPaths.GoldenDirectory, "editor-lua-ability"), "editor-lua-ability",
+			new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script }, prepareUserData: CopyExampleMod);
+	}
+
+	/// <summary>
 	/// Makes an input recording: one record of 40 bytes for each level tick, with the horizontal direction and the
 	/// action button. The other fields are 0.
 	/// </summary>

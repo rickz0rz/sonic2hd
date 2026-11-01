@@ -53,6 +53,21 @@ public sealed class LuaObjectType : ObjectType, IStateTableType
 
 	internal LuaState Lua { get; private set; }
 
+	/// <summary>The messages in the log of this script since it loaded (see <see cref="LogOnce"/>).</summary>
+	private readonly HashSet<string> _loggedMessages = new HashSet<string>(StringComparer.Ordinal);
+
+	/// <summary>
+	/// Writes a message to the log, one time only for each version of the script. An error in a function that runs on
+	/// each tick then does not fill the log and slow the game.
+	/// </summary>
+	internal void LogOnce(string message)
+	{
+		if (_loggedMessages.Add(message))
+		{
+			Trace.WriteLine(message);
+		}
+	}
+
 	/// <summary>Changes on each reload of the script. An object then starts again with the new script.</summary>
 	internal int Generation { get; private set; }
 
@@ -253,6 +268,7 @@ public sealed class LuaObjectType : ObjectType, IStateTableType
 			TickFunction = reloaded.TickFunction;
 			LostFunction = reloaded.LostFunction;
 			Generation++;
+			_loggedMessages.Clear();
 			Trace.WriteLine($"Reloaded the script {ResourceKey}");
 		}
 		catch (Exception ex)

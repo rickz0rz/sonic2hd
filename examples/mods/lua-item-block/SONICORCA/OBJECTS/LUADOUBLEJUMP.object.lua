@@ -15,9 +15,14 @@ object {
 local POWER = 0.85
 local PUFF_TICKS = 16
 
-function given(self, character)
+function start(self)
   self.used = false
   self.puff = 0
+  self.puff_x, self.puff_y = 0, 0
+end
+
+function given(self, character)
+  self.used = false
 end
 
 function air_jump(self, character)
