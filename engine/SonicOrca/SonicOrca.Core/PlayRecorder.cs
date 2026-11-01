@@ -5,10 +5,32 @@ using SonicOrca.Geometry;
 namespace SonicOrca.Core;
 
 /// <summary>
-/// Writes the input and state of the player to a stream each frame, and reads them back for playback.
+/// Writes the input and state of the player to a stream each frame, and reads them back for playback. A new recording
+/// starts with a <see cref="Header"/>: the state of the player when the recording started, which the input alone does
+/// not give. An older recording has no header, and plays as before.
 /// </summary>
 internal class PlayRecorder : IDisposable
 {
+	/// <summary>The first bytes of a recording with a header. An entry cannot start with them.</summary>
+	private static readonly byte[] Magic = { (byte)'S', (byte)'2', (byte)'H', (byte)'D', (byte)'R', (byte)'E', (byte)'C', 0 };
+
+	private const int HeaderVersion = 1;
+
+	/// <summary>The size of the header in bytes: the magic, the version, the rings, the emeralds and the lives.</summary>
+	public const int HeaderSize = 24;
+
+	/// <summary>The state of the player at the start of a recording. A playback starts with the same state.</summary>
+	public sealed class Header
+	{
+		public int Rings { get; set; }
+
+		public int Emeralds { get; set; }
+
+		public int Lives { get; set; }
+	}
+
+	/// <summary>The header of the recording that plays, or null for an older recording without a header.</summary>
+	public Header PlayingHeader { get; private set; }
 	/// <summary>
 	/// The recorded data for one frame.
 	/// </summary>
@@ -49,16 +71,17 @@ internal class PlayRecorder : IDisposable
 		}
 	}
 
-	public void BeginRecording(string path)
+	public void BeginRecording(string path, Header header = null)
 	{
 		if (_outputStream != null)
 		{
 			throw new InvalidOperationException("Already recording.");
 		}
-		BeginRecording(new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read));
+		BeginRecording(new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read), header);
 	}
 
-	public void BeginRecording(Stream stream)
+	/// <param name="header">The state of the player at the start, or null to write no header.</param>
+	public void BeginRecording(Stream stream, Header header = null)
 	{
 		if (_outputStream != null)
 		{
@@ -66,6 +89,16 @@ internal class PlayRecorder : IDisposable
 		}
 		_outputStream = stream;
 		_gameTick = 0;
+		if (header != null)
+		{
+			BinaryWriter writer = new BinaryWriter(_outputStream);
+			writer.Write(Magic);
+			writer.Write(HeaderVersion);
+			writer.Write(header.Rings);
+			writer.Write(header.Emeralds);
+			writer.Write(header.Lives);
+			writer.Flush();
+		}
 	}
 
 	public void WriteEntry(Entry entry)
@@ -113,6 +146,31 @@ internal class PlayRecorder : IDisposable
 		}
 		_inputStream = stream;
 		_gameTick = 0;
+		PlayingHeader = ReadHeader(stream);
+	}
+
+	/// <summary>Reads the header at the start of a recording. Without a header, the stream goes back to the start.</summary>
+	private static Header ReadHeader(Stream stream)
+	{
+		if (!stream.CanSeek)
+		{
+			return null;
+		}
+		long start = stream.Position;
+		byte[] magic = new byte[Magic.Length];
+		if (stream.Read(magic, 0, magic.Length) != magic.Length || !magic.AsSpan().SequenceEqual(Magic))
+		{
+			stream.Position = start;
+			return null;
+		}
+		BinaryReader reader = new BinaryReader(stream);
+		int version = reader.ReadInt32();
+		Header header = new Header { Rings = reader.ReadInt32(), Emeralds = reader.ReadInt32(), Lives = reader.ReadInt32() };
+		if (version != HeaderVersion)
+		{
+			throw new InvalidDataException($"The recording has the header version {version}. This game reads version {HeaderVersion}.");
+		}
+		return header;
 	}
 
 	public Entry GetNextEntry()
