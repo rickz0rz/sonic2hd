@@ -268,6 +268,40 @@ public sealed class AnimationDocumentEditTests
 /// <summary>Tests the list of the images of the animation editor: the images that are not in an animation group.</summary>
 public sealed class AnimationEditorImageTests
 {
+	[Theory]
+	[InlineData("SONICORCA/HUD/LIFE/SONIC", "SONICORCA/HUD/LIFE/ANIGROUP")]
+	[InlineData("SONICORCA/DISCLAIMER", "SONICORCA/ANIGROUP")]
+	[InlineData("LOGO", null)]
+	public void NewGroupKey_IsAnigroupInTheFolderOfTheImage(string image, string group)
+	{
+		Assert.Equal(group, AnimationEditorScreen.GetNewGroupKey(image));
+	}
+
+	[Fact]
+	public void NewGroupImages_AreTheImageThenTheOtherImagesOfItsFolder()
+	{
+		string[] images = { "SONICORCA/HUD/LIFE/TAILS", "SONICORCA/HUD/LIFE/SONIC", "SONICORCA/HUD/LIFE/OLD/SONIC", "SONICORCA/HUD/LIFEBAR", "SONICORCA/HUD/LIFE/KNUCKLES" };
+
+		List<string> group = AnimationEditorScreen.GetNewGroupImages("SONICORCA/HUD/LIFE/SONIC", images);
+
+		// Not the image in a folder under the folder, and not the image of another folder with the same start
+		Assert.Equal(new[] { "SONICORCA/HUD/LIFE/SONIC", "SONICORCA/HUD/LIFE/KNUCKLES", "SONICORCA/HUD/LIFE/TAILS" }, group);
+	}
+
+	[Fact]
+	public void NewGroupDocument_HasATextureForEachImage_AndOneFrameOfTheFirstImage()
+	{
+		AnimationGroupDocument document = AnimationEditorScreen.CreateGroupDocument(new[] { "SONICORCA/HUD/LIFE/SONIC", "SONICORCA/HUD/LIFE/TAILS" }, 68, 64);
+
+		Assert.Equal(new[] { "//SONIC", "//TAILS" }, document.Textures);
+		AnimationDocument animation = Assert.Single(document.Animations);
+		Assert.Equal("image", animation.Name);
+		AnimationFrameDocument frame = Assert.Single(animation.Frames);
+		Assert.Equal((0, 0, 0, 68, 64), (frame.Texture, frame.X, frame.Y, frame.Width, frame.Height));
+		// The XML of the group loads again with the same values
+		Assert.Equal(document.ToXml(), AnimationGroupDocument.Parse(document.ToXml()).ToXml());
+	}
+
 	[Fact]
 	public void ImageKeys_AreThePngImagesWithoutAGroupNextToThem()
 	{
