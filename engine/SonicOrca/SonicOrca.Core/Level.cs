@@ -534,6 +534,7 @@ public class Level : IDisposable
 		// In versus mode, Tails is the protagonist of player 2, not a sidekick
 		_player2 = null;
 		VersusTimeLeft = null;
+		_versusTeleportTicks = 0;
 		if (PrepareSettings.Versus)
 		{
 			sidekickType = CharacterType.Null;
@@ -720,6 +721,69 @@ public class Level : IDisposable
 			player.StoppedTime = null;
 			player.StarpostIndex = Player.UndefinedStarpostIndex;
 		}
+	}
+
+	/// <summary>
+	/// The ticks that the teleport of versus mode still stops the level, or 0. As Teleport_timer of the original, the
+	/// screen flashes white and the objects stop while the cameras go to the new places of the players.
+	/// </summary>
+	private int _versusTeleportTicks;
+
+	private const int VersusTeleportTicks = 64;
+
+	/// <summary>The last ticks of the teleport, in which the white flash goes away.</summary>
+	private const int VersusTeleportFadeTicks = 16;
+
+	/// <summary>
+	/// True when a teleport monitor can swap the players. As Obj2E_Init of the original, a monitor gives
+	/// invincibility in place of the teleport when a player has finished the act.
+	/// </summary>
+	public bool CanSwapVersusPlayers => Versus && Players.All(player => player.StoppedTime == null);
+
+	/// <summary>
+	/// The teleport monitor of versus mode, as swap_players of the original: the two players change places. Each
+	/// character takes the position, the layer, the path, the speed and the spin of the other character. Nothing
+	/// happens when a player is dead or comes back. The power-ups stay with each player.
+	/// </summary>
+	public void SwapVersusPlayers()
+	{
+		ICharacter first = _player.Protagonist;
+		ICharacter second = _player2?.Protagonist;
+		if (first == null || second == null || IsOutOfPlay(first) || IsOutOfPlay(second))
+		{
+			return;
+		}
+		first.LeaveGround();
+		second.LeaveGround();
+		// The spin moves the character up or down, so the position changes after the spin
+		(first.IsSpinball, second.IsSpinball) = (second.IsSpinball, first.IsSpinball);
+		(first.ForceSpinball, second.ForceSpinball) = (second.ForceSpinball, first.ForceSpinball);
+		(first.PositionPrecise, second.PositionPrecise) = (second.PositionPrecise, first.PositionPrecise);
+		(first.Layer, second.Layer) = (second.Layer, first.Layer);
+		(first.Path, second.Path) = (second.Path, first.Path);
+		(first.Velocity, second.Velocity) = (second.Velocity, first.Velocity);
+		(first.GroundVelocity, second.GroundVelocity) = (second.GroundVelocity, first.GroundVelocity);
+		(first.Facing, second.Facing) = (second.Facing, first.Facing);
+		foreach (Camera camera in Cameras)
+		{
+			camera.CentreObjectToTrack();
+		}
+		_versusTeleportTicks = VersusTeleportTicks;
+		_soundManager.PlaySound("SONICORCA/SOUND/SPECIALSTAGETRIGGER");
+		Trace.WriteLine("Versus: the players change places");
+	}
+
+	private static bool IsOutOfPlay(ICharacter character) => character.IsDead || character.IsDying || character.Respawning;
+
+	/// <summary>Counts down the teleport. Returns true while the teleport stops the level.</summary>
+	private bool UpdateVersusTeleport()
+	{
+		if (_versusTeleportTicks == 0)
+		{
+			return false;
+		}
+		_versusTeleportTicks--;
+		return true;
 	}
 
 	/// <summary>The start of each player in versus mode: the position, the path and the layer.</summary>
@@ -917,7 +981,7 @@ public class Level : IDisposable
 			playbackEntry = _playRecorder.GetNextEntry();
 		}
 		PlayRecorder.Entry player2Entry = _player2Recorder.Playing ? _player2Recorder.GetNextEntry() : null;
-		if (StateFlags.HasFlag(LevelStateFlags.Updating))
+		if (StateFlags.HasFlag(LevelStateFlags.Updating) && !UpdateVersusTeleport())
 		{
 			if (playbackEntry != null)
 			{
@@ -1223,6 +1287,13 @@ public class Level : IDisposable
 			g.ModelMatrix = Matrix4.Identity;
 			g.BlendMode = BlendMode.Opaque;
 			g.RenderQuad(Colours.Black, new Rectangle(0.0, ScreenHeight / 2.0 - 2.0, ScreenWidth, 4.0));
+			if (_versusTeleportTicks > 0)
+			{
+				// The white flash of the teleport goes away in its last ticks
+				double flash = Math.Min(1.0, _versusTeleportTicks / (double)VersusTeleportFadeTicks);
+				g.BlendMode = BlendMode.Alpha;
+				g.RenderQuad(new Colour(0.75 * flash, 1.0, 1.0, 1.0), new Rectangle(0.0, 0.0, ScreenWidth, ScreenHeight));
+			}
 			renderer.DeativateRenderer();
 		}
 		if (_layerViewOptions.ShowObjectCollision)

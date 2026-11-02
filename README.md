@@ -644,7 +644,8 @@ own camera and their own HUD. Each camera starts zoomed out, so that the half sh
 of their half with their zoom key. A player who loses a life comes back at their own star post. When a player passes
 the signpost, their time stops. The other player then has 60 seconds to finish, and their time counts down in red.
 The act ends when both players finished or the time ran out. Act 2 has no boss: it ends at a signpost, as in the
-original. See `docs/two-player-design.md` for the plan.
+original. Each monitor shows a question mark and gives a random item. The teleport item makes the players change
+places. See `docs/two-player-design.md` for the plan.
 
 ## Command-line options
 

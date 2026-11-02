@@ -464,6 +464,24 @@ public sealed class RegressionTests
 	}
 
 	/// <summary>
+	/// Versus mode: the teleport monitor. Both players start near the second monitor of Emerald Hill 1. Sonic stands on
+	/// a ledge, and Tails is on the path below. The monitor shows a question mark. Sonic jumps onto it, and the test
+	/// hook makes its item the teleport. The players change places, and the screen flashes white.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void VersusTeleport_MatchesGoldenScreenshots()
+	{
+		RunTwoRuns("versus-teleport", Path.Combine(TestPaths.GoldenDirectory, "versus-teleport"), new[] { 200, 320, 420 }, userData =>
+		{
+			string recording = Path.Combine(userData, "player1.rec");
+			File.WriteAllBytes(recording, MakeRecording(600, tick => (tick >= 200 && tick < 225 ? 1.0 : 0.0, tick >= 205 && tick < 220)));
+			return $"--level ehz --versus --startpos 11500 2500 --playback \"{recording}\"";
+		}, new Dictionary<string, string> { ["S2HD_TEST_VERSUS_MONITOR_ITEM"] = "8" },
+		userData => Assert.Contains("Versus: the players change places", File.ReadAllText(Path.Combine(userData, "sonicorca.log"))));
+	}
+
+	/// <summary>
 	/// Makes an input recording: one record of 40 bytes for each level tick, with the horizontal direction and the
 	/// action button. The other fields are 0.
 	/// </summary>
