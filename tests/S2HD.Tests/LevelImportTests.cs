@@ -172,4 +172,21 @@ public sealed class LevelImportTests
 		Assert.Equal(10, back.LayerRowDefinitions.Count);
 		Assert.Equal(1.0 / 8.0, back.LayerRowDefinitions[^1].Parallax);
 	}
+
+	[Fact]
+	public void SolidBlackBlocks_HaveABlackColourOtherThanColour0()
+	{
+		// Block 0 uses pattern 0, which has colour 1. Block 1 uses pattern 1, which has only colour 0.
+		byte[] art = new byte[64];
+		art[0] = 0x10;
+		byte[] blockMappings = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1 };
+		uint[] palette = new uint[64];
+		palette[0] = 0x000000FF;
+		palette[1] = 0x000000FF;
+
+		// Colour 0 is transparent, but black from colour 1 is solid, as in the original
+		Assert.Equal(new[] { 0 }, PriorityTiles.GetSolidBlackBlocks(art, blockMappings, palette));
+		palette[1] = 0xFF0000FF;
+		Assert.Empty(PriorityTiles.GetSolidBlackBlocks(art, blockMappings, palette));
+	}
 }
