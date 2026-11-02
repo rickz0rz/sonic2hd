@@ -14,7 +14,9 @@ public enum HalfPipeFlowEvent
 	EmeraldWon,
 	/// <summary>The won emerald is at its nearest: the emerald jingle plays (MusID_Emerald).</summary>
 	EmeraldJingle,
-	EmeraldMissed
+	EmeraldMissed,
+	/// <summary>Versus mode: a player reached a checkpoint, and a segment of the stage ended.</summary>
+	SegmentEnded
 }
 
 /// <summary>
@@ -97,10 +99,24 @@ public sealed class HalfPipeStageFlow
 
 	private int _counterZeroFrames;
 
-	public HalfPipeStageFlow(HalfPipeTrack track)
+	/// <summary>
+	/// Versus mode, as SS_2p_Flag of the original: no ring goals and no emerald. Each checkpoint ends a segment of the
+	/// stage, and the stage ends after the third one. The screen counts the rings of each player in each segment.
+	/// </summary>
+	private readonly bool _versus;
+
+	/// <param name="versus">True for the special stage of versus mode.</param>
+	public HalfPipeStageFlow(HalfPipeTrack track, bool versus = false)
 	{
 		_track = track;
+		_versus = versus;
 	}
+
+	/// <summary>The number of segments that ended in versus mode.</summary>
+	public int SegmentsEnded => _versus ? _nextCheckpoint : 0;
+
+	/// <summary>Shows a message of the screen, for example the winner of a segment in versus mode.</summary>
+	public void ShowScreenMessage(string message) => ShowMessage(message);
 
 	/// <summary>The message in the centre of the screen, or null.</summary>
 	public string Message => _messageFramesLeft > 0 ? _message : null;
@@ -151,13 +167,20 @@ public sealed class HalfPipeStageFlow
 		_frame++;
 		// Count down the current message first, so that a new message shows for its full time
 		UpdateMessage();
-		if (_frame == FirstMessageFrame)
+		if (_versus)
+		{
+			UpdateSegments(playerNode, events);
+		}
+		else if (_frame == FirstMessageFrame)
 		{
 			ShowMessage(GetRingsMessage(CurrentGoal));
 		}
-		UpdateCounter(playerNode, rings);
-		UpdateCheckpoints(playerNode, rings, events);
-		UpdateEmerald(playerNode, rings, events);
+		if (!_versus)
+		{
+			UpdateCounter(playerNode, rings);
+			UpdateCheckpoints(playerNode, rings, events);
+			UpdateEmerald(playerNode, rings, events);
+		}
 		if (EmeraldWon && _frame > _emeraldWonFrame + EmeraldJingleFrames)
 		{
 			EmeraldBobFrames++;
@@ -170,6 +193,24 @@ public sealed class HalfPipeStageFlow
 	}
 
 	public static string GetRingsMessage(int goal) => $"GET {goal} RINGS!";
+
+	/// <summary>
+	/// Versus mode: each checkpoint ends a segment (Obj5A_VSReset). After the last checkpoint, the stage ends when the
+	/// message of the segment has shown.
+	/// </summary>
+	private void UpdateSegments(int playerNode, List<HalfPipeFlowEvent> events)
+	{
+		if (_nextCheckpoint >= _track.Checkpoints.Count || playerNode < _track.Checkpoints[_nextCheckpoint].TrackNode)
+		{
+			return;
+		}
+		_nextCheckpoint++;
+		events.Add(HalfPipeFlowEvent.SegmentEnded);
+		if (_nextCheckpoint == _track.Checkpoints.Count)
+		{
+			_endFrame = _frame + MessageFrames + FailEndFrames;
+		}
+	}
 
 	private void ShowMessage(string message, string next = null)
 	{

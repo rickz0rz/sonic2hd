@@ -126,7 +126,7 @@ internal class RootGameState : IGameState, IDisposable
 						yield return updateResult;
 				}
 			}
-			else if (_cmdLineArgs.HasOption("versus"))
+			else if (_cmdLineArgs.HasOption("versus") && !_cmdLineArgs.HasOption("halfpipe"))
 			{
 				// --versus without --level opens the setup screen of a versus match
 				ChangeGameState(new S2HD.Versus.VersusGameState(_gameContext));
@@ -149,7 +149,9 @@ internal class RootGameState : IGameState, IDisposable
 				int stage = values.Length > 0 && int.TryParse(values[0], out int number) ? Math.Clamp(number, 1, HalfPipeLayout.StageCount) - 1 : 0;
 				string[] sidekick = _cmdLineArgs.GetOptionValues("sidekick");
 				bool withTails = sidekick.Length == 0 || GetCharacterType(sidekick[0]) == CharacterType.Tails;
-				ChangeGameState(new ScreenGameState(_gameContext, new HalfPipeSpecialStageScreen(_gameContext, stage, withTails, TestHooks.Emeralds ?? 0)));
+				// "--halfpipe 2 --versus" plays the special stage of versus mode
+				ChangeGameState(new ScreenGameState(_gameContext, new HalfPipeSpecialStageScreen(_gameContext, stage, withTails, TestHooks.Emeralds ?? 0,
+					versus: _cmdLineArgs.HasOption("versus"))));
 				foreach (UpdateResult updateResult in _currentGameState.Update())
 					yield return updateResult;
 			}

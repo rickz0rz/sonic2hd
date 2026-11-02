@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using S2HD.Menu;
 using SonicOrca;
 using SonicOrca.Core;
+using SonicOrca.Core.SpecialStage;
 using SonicOrca.Menu;
 
 namespace S2HD.Versus;
@@ -164,12 +165,35 @@ internal sealed class VersusGameState : IGameState, IDisposable
 			foreach (UpdateResult result in ShowScreen(VersusResultsScreen.ForAct(_gameContext, name, act, actResult)))
 				yield return result;
 		}
+		// A tie of the acts goes to the special stage of the zone, as in the original: Emerald Hill plays stage 2,
+		// Mystic Cave stage 3 and Casino Night stage 4
+		if (zoneIndex >= 0 && zone.NeedsTieBreak && zone.Acts.Count == ActsPerZone)
+		{
+			foreach (UpdateResult result in PlaySpecialStage(zone, zoneIndex + 1))
+				yield return result;
+		}
 		if (zoneIndex >= 0)
 		{
 			_match.Zones[zoneIndex] = zone;
 		}
 		Trace.WriteLine($"Versus: zone {name} winner {zone.Winner}");
 		foreach (UpdateResult result in ShowScreen(VersusResultsScreen.ForZone(_gameContext, zone, firstAct)))
+			yield return result;
+	}
+
+	/// <summary>
+	/// Plays the special stage that breaks a tie of the acts. Each player plays their own character, and the player
+	/// who collects more rings in more segments wins the stage, which counts as one more act of the zone.
+	/// </summary>
+	private IEnumerable<UpdateResult> PlaySpecialStage(VersusZoneResult zone, int stage)
+	{
+		Trace.WriteLine($"Versus: the acts of {zone.Name} end in a tie, special stage {stage + 1}");
+		HalfPipeSpecialStageScreen specialStage = new HalfPipeSpecialStageScreen(_gameContext, Math.Min(stage, HalfPipeLayout.StageCount - 1), versus: true);
+		foreach (UpdateResult result in ShowScreen(specialStage))
+			yield return result;
+		zone.SpecialStage = new VersusSpecialStageResult(specialStage.VersusSegments.Select(s => (s.Sonic, s.Tails)).ToArray());
+		Trace.WriteLine($"Versus: special stage points {zone.SpecialStage.Player1Points} to {zone.SpecialStage.Player2Points}");
+		foreach (UpdateResult result in ShowScreen(VersusResultsScreen.ForSpecialStage(_gameContext, zone.Name, zone.SpecialStage)))
 			yield return result;
 	}
 
