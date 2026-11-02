@@ -150,7 +150,7 @@ public class SignpostInstance : ActiveObject
 				lastX[player] = x;
 				if (!passed || player.StoppedTime != null || character.IsDebug || character.IsDead || character.IsDying)
 					continue;
-				Level.FinishVersusPlayer(player);
+				Level.VersusRules?.FinishPlayer(player);
 				Level.SoundManager.PlaySound(this, Type.GetAbsolutePath(SignpostType.SoundResourceKey));
 				winnerCharacterIndex ??= player.ProtagonistCharacterType == CharacterType.Tails ? CharacterIndexTails : CharacterIndexSonic;
 				// A new pass starts the spin again, as in the original
