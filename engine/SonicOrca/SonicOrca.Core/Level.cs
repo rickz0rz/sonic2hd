@@ -141,6 +141,21 @@ public class Level : IDisposable
 	/// <summary>True in versus mode (see <see cref="LevelPrepareSettings.Versus"/>).</summary>
 	public bool Versus => _player2 != null;
 
+	/// <summary>The camera of player 2 in versus mode, else null. <see cref="Camera"/> is the camera of player 1.</summary>
+	private Camera _camera2;
+
+	/// <summary>The cameras: the camera of player 1, and of player 2 in versus mode.</summary>
+	public IReadOnlyList<Camera> Cameras => _camera2 == null ? new[] { _camera } : new[] { _camera, _camera2 };
+
+	/// <summary>
+	/// The scale of a camera that is zoomed out in versus mode. Each half of the screen then shows 2880 x 810 units of
+	/// the level, in place of 1920 x 540.
+	/// </summary>
+	private const double VersusZoomedOutScale = 2.0 / 3.0;
+
+	/// <summary>For each player in versus mode, true when their camera is zoomed out. A match starts zoomed out.</summary>
+	private readonly bool[] _versusZoomedOut = { true, true };
+
 	public Area Area { get; private set; }
 
 	public LevelPrepareSettings PrepareSettings { get; set; }
@@ -529,9 +544,11 @@ public class Level : IDisposable
 		SetupCharacters(protagonist, sidekick, startPath);
 		Player.ProtagonistCharacterType = protagonistType;
 		Player.SidekickCharacterType = sidekickType;
+		_camera2 = null;
 		if (PrepareSettings.Versus)
 		{
 			SetupPlayer2(sidekickStartPosition, startLayerIndex, startPath);
+			SetupVersusCameras();
 		}
 		if (!string.IsNullOrEmpty(PrepareSettings.RecordedPlayGhostReadPath))
 		{
@@ -571,6 +588,59 @@ public class Level : IDisposable
 		_player2.ProtagonistGamepadIndex = 1;
 		_player2.SidekickCharacterType = CharacterType.Null;
 		PlaceOnFloor(tails);
+	}
+
+	/// <summary>
+	/// Versus mode: each player has a camera for one half of the screen, player 1 at the top and player 2 at the
+	/// bottom, as in the original.
+	/// </summary>
+	private void SetupVersusCameras()
+	{
+		_camera.ScreenBounds = new Rectangle(0.0, 0.0, ScreenWidth, ScreenHeight / 2.0);
+		_camera2 = new Camera(this)
+		{
+			ScreenBounds = new Rectangle(0.0, 0.0, ScreenWidth, ScreenHeight / 2.0),
+			ObjectToTrack = (ActiveObject)_player2.Protagonist
+		};
+		if (SonicOrca.Core.Debugging.TestHooks.VersusZoomedOut is bool[] zoom)
+		{
+			for (int i = 0; i < Math.Min(zoom.Length, _versusZoomedOut.Length); i++)
+			{
+				_versusZoomedOut[i] = zoom[i];
+			}
+		}
+		ApplyVersusZoom(0);
+		ApplyVersusZoom(1);
+	}
+
+	/// <summary>Gives the camera of a player the scale of their zoom, and centres it on their character again.</summary>
+	private void ApplyVersusZoom(int playerIndex)
+	{
+		Camera camera = playerIndex == 0 ? _camera : _camera2;
+		camera.SetScale(_versusZoomedOut[playerIndex] ? VersusZoomedOutScale : 1.0);
+		camera.CentreObjectToTrack();
+	}
+
+	/// <summary>
+	/// Versus mode: each player changes the zoom of their camera with their zoom key (Z for player 1, R for player 2)
+	/// or the Select button of their game pad.
+	/// </summary>
+	private void UpdateVersusZoom()
+	{
+		if (_camera2 == null || _gameContext.Console.IsOpen)
+		{
+			return;
+		}
+		InputState pressed = _gameContext.Input.GetInputState(InputStateEventType.Pressed);
+		int[] keys = { KeyboardState.KEY_Z, KeyboardState.KEY_R };
+		for (int i = 0; i < 2; i++)
+		{
+			if (pressed.Keyboard.Keys[keys[i]] || pressed.GamePad[i].Select)
+			{
+				_versusZoomedOut[i] = !_versusZoomedOut[i];
+				ApplyVersusZoom(i);
+			}
+		}
 	}
 
 	/// <summary>The character of player 2: the protagonist of player 2 in versus mode, else the sidekick, or null.</summary>
@@ -753,6 +823,8 @@ public class Level : IDisposable
 			_waterManager.Update();
 			UpdateScrollBounds();
 			_camera.Update();
+			_camera2?.Update();
+			UpdateVersusZoom();
 			UpdateInverals();
 			Player.Update();
 			_player2?.Update();
@@ -1000,9 +1072,24 @@ public class Level : IDisposable
 	public void Draw(Renderer renderer)
 	{
 		SonicOrca.Core.Debugging.TestHooks.DrawnLevelTick = State == LevelState.Editing ? SonicOrca.Core.Debugging.TestHooks.EditorCaptureOffset + SonicOrca.Core.Debugging.TestHooks.EditorFrame : Ticks;
-		Viewport viewport = new Viewport(new Rectangle(0.0, 0.0, ScreenWidth, ScreenHeight));
+		Viewport viewport = new Viewport(new Rectangle(0.0, 0.0, ScreenWidth, ScreenHeight / (_camera2 == null ? 1.0 : 2.0)));
 		viewport.Bounds = _camera.Bounds;
 		_levelRenderer.Render(renderer, viewport, _layerViewOptions);
+		if (_camera2 != null && State != LevelState.Editing)
+		{
+			// Versus mode: player 2 in the bottom half, and a line between the halves
+			Viewport viewport2 = new Viewport(new Rectangle(0.0, ScreenHeight / 2.0, ScreenWidth, ScreenHeight / 2.0));
+			viewport2.Bounds = _camera2.Bounds;
+			_levelRenderer.Render(renderer, viewport2, _layerViewOptions);
+			I2dRenderer g = renderer.Get2dRenderer();
+			// The copy of the bottom half leaves the clip on the bottom half. The line, the HUD and the title card are
+			// on all the screen.
+			g.ClipRectangle = new Rectangle(0.0, 0.0, ScreenWidth, ScreenHeight);
+			g.ModelMatrix = Matrix4.Identity;
+			g.BlendMode = BlendMode.Opaque;
+			g.RenderQuad(Colours.Black, new Rectangle(0.0, ScreenHeight / 2.0 - 2.0, ScreenWidth, 4.0));
+			renderer.DeativateRenderer();
+		}
 		if (_layerViewOptions.ShowObjectCollision)
 		{
 			DrawObjectCollision(renderer, viewport);
@@ -1214,8 +1301,11 @@ public class Level : IDisposable
 		{
 			_objectManager.AddLifeArea(new Rectanglei(character.Position.X - ObjectLifeRadius, character.Position.Y - ObjectLifeRadius, ObjectLifeRadius * 2, ObjectLifeRadius * 2));
 		}
-		Rectanglei area = ((Rectanglei)_camera.Bounds).Inflate(new Vector2i(ObjectLifeRadius, ObjectLifeRadius));
-		_objectManager.AddLifeArea(area);
+		foreach (Camera camera in Cameras)
+		{
+			Rectanglei area = ((Rectanglei)camera.Bounds).Inflate(new Vector2i(ObjectLifeRadius, ObjectLifeRadius));
+			_objectManager.AddLifeArea(area);
+		}
 	}
 
 	public void CreateScoreObject(int points, Vector2i position)

@@ -46,7 +46,7 @@ The disassembly (s2disasm, `master`) has these parts:
 ## The work for versus mode
 
 1. **Two players in the level (done):** `Level` gets a list of players. Player 2 has their own character (Tails) as a protagonist, not as a sidekick. Each player has their own rings, score and time. Objects that use `Level.Player` change to the player of the character that touches them, or to all players.
-2. **Two cameras and a split screen:** a camera for each player. `Level.Draw` draws the level two times, into the top half and the bottom half. The post effects (water, lighting) must work in each half. This step has the most risk, because it changes the renderer.
+2. **Two cameras and a split screen (done):** a camera for each player. `Level.Draw` draws the level two times, into the top half and the bottom half. The post effects (water, lighting) must work in each half. This step has the most risk, because it changes the renderer.
 3. **A HUD for each player** in their half of the screen.
 4. **The rules:** the 60-second time limit, the end of an act when both players finished or the time ran out, game over in versus mode, and the teleport monitor.
 5. **The flow:** the versus level select, the act, zone and game results, and the special stage that breaks a tie.
@@ -55,6 +55,7 @@ The disassembly (s2disasm, `master`) has these parts:
 ## Status
 
 - Step 1 is done: `--versus` (`LevelPrepareSettings.Versus`) makes player 2 a second protagonist, Tails, with their own `Player`: rings, score and lives. `Level.Players` lists the players. The Casino Night bumper, bonus block and slot cage give their points and rings to the player of the character. The camera and the HUD still show player 1. The death of player 2, the signpost, the star posts and the monitor icons are for step 4.
+- Step 2 is done: in versus mode, `Level` has a camera for each player (`Level.Cameras`), each for one half of the screen (1920 x 540). `Level.Draw` draws the level two times, player 1 at the top, and a black line between the halves. Each camera starts zoomed out (a scale of 2/3: 2880 x 810 units of the level in each half). Z or the Select button of pad 1, and R or the Select button of pad 2, change the zoom of a player. Objects stay alive around both cameras. `LevelRenderer` draws a zoomed-out view at the normal scale into a larger canvas and makes the copy smaller, because tiles that are drawn smaller leave thin lines between them. The HUD still shows player 1 over all the screen (step 3).
 
 ## Decisions for versus mode
 

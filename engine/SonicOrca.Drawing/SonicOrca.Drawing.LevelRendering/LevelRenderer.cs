@@ -123,11 +123,23 @@ public class LevelRenderer : ILevelRenderer, IDisposable
 	{
 		renderer.DeativateRenderer();
 		IFramebuffer currentFramebuffer = _graphicsContext.CurrentFramebuffer;
-		if (_screenBounds != screenViewport.Destination)
+		// The canvas starts at (0, 0). Only the last copy goes to the place of the destination on the screen, for
+		// example the bottom half of the screen in versus mode. A view that shows more of the level than the size of
+		// the destination (a camera that is zoomed out) draws at the normal scale into a larger canvas, and the copy
+		// makes it smaller. A tile that is drawn smaller leaves thin gaps between the tiles. The canvas is at most two
+		// times the destination, so a far zoom of the level editor keeps the size of the destination.
+		Rectanglei bounds = screenViewport.Bounds;
+		Rectanglei destination = screenViewport.Destination;
+		bool largerCanvas = bounds.Width > destination.Width && bounds.Height > destination.Height &&
+			bounds.Width <= destination.Width * 2 && bounds.Height <= destination.Height * 2;
+		Rectanglei canvas = largerCanvas
+			? new Rectanglei(0, 0, bounds.Width, bounds.Height)
+			: new Rectanglei(0, 0, screenViewport.Destination.Width, screenViewport.Destination.Height);
+		_screenBounds = screenViewport.Destination;
+		if (_canvasViewport.Destination != canvas)
 		{
-			_screenBounds = screenViewport.Destination;
-			_canvasViewport = new Viewport(_screenBounds);
-			InitialiseCanvas(_canvasViewport.Destination.Width, _canvasViewport.Destination.Height);
+			_canvasViewport = new Viewport(canvas);
+			InitialiseCanvas(canvas.Width, canvas.Height);
 		}
 		_canvasViewport.Bounds = screenViewport.Bounds;
 		if (_canvasViewport.Bounds.X != _previousCanvasViewport.X || _canvasViewport.Bounds.Y != _previousCanvasViewport.Y)
@@ -145,7 +157,7 @@ public class LevelRenderer : ILevelRenderer, IDisposable
 		}
 		_level.WaterManager.Draw(renderer, _canvasViewport);
 		renderer.DeativateRenderer();
-		RenderingHelpers.RenderToFramebuffer(renderer, _canvasFramebuffer.Textures[0], currentFramebuffer, _canvasViewport.Destination, BlendMode.Opaque);
+		RenderingHelpers.RenderToFramebuffer(renderer, _canvasFramebuffer.Textures[0], currentFramebuffer, _screenBounds, BlendMode.Opaque);
 		renderer.DeativateRenderer();
 	}
 
