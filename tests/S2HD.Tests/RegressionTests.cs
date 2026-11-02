@@ -626,7 +626,7 @@ public sealed partial class RegressionTests
 	[Trait("Category", "Regression")]
 	public void EditorTilesAndCollision_MatchesGoldenScreenshots()
 	{
-		const string script = "3:tap 32;6:mouse 1555 831;7:down left;8:up left;" +
+		const string script = "3:tap 32;6:mouse 1555 861;7:down left;8:up left;" +
 			"11:mouse 700 400;12:down left;14:mouse 800 400;16:mouse 900 400;18:up left;" +
 			"22:tap 33;24:mouse 1600 93;25:down left;26:up left;28:mouse 300 300;29:down left;30:up left;" +
 			"32:mouse 900 300;33:down left;34:up left;35:tap 41;45:mouse 600 150;46:tap 62";
@@ -635,16 +635,16 @@ public sealed partial class RegressionTests
 	}
 
 	/// <summary>
-	/// The tiles tool shows the animation of a tile. In Aquatic Ruin, the brush takes the waterfall tile 2078, which the
-	/// import animates with the palette cycle of the original. The panel shows its frames and where they come from,
-	/// and the palette marks each animated tile.
+	/// The tiles tool shows the animation of a tile. In Aquatic Ruin, the palette shows only the animated tiles, and the
+	/// brush takes the waterfall tile 2078, which the import animates with the palette cycle of the original. The panel
+	/// shows its frames and where they come from, and the palette marks each animated tile.
 	/// </summary>
 	[Fact]
 	[Trait("Category", "Regression")]
 	public void EditorTileAnimation_MatchesGoldenScreenshots()
 	{
-		// The tile is at index 1254 of the palette: 152 rows down, then row 4 and column 6 of the view
-		const string script = "3:tap 32;6:mouse 1700 900;8:wheel -152;12:mouse 1826 995;14:down left;15:up left";
+		// The "Palette" row shows only the animated tiles. The tile is then at index 30: row 3, column 6.
+		const string script = "3:tap 32;6:mouse 1700 668;7:down left;8:up left;10:mouse 1826 971;12:down left;13:up left";
 		RunAndCompare("--level arz --editor", new[] { 10030 }, Path.Combine(TestPaths.GoldenDirectory, "editor-tile-animation"), "editor-tile-animation",
 			new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script }, withImportedMods: true);
 	}
