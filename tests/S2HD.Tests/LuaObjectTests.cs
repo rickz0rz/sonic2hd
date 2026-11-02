@@ -183,7 +183,7 @@ public sealed class LuaObjectTests
 			string path = Path.Combine(folder, "_.object.lua");
 			File.WriteAllText(path, "object { name = \"First\" }");
 			Resource resource = new Resource("SONICORCA/OBJECTS/BLOCK", ResourceTypeIdentifier.LuaObject, new FileResourceSource(path, 0, new FileInfo(path).Length));
-			LuaObjectType type = await LuaObjectType.LoadAsync(resource, File.ReadAllText(path));
+			LuaObjectType type = await LuaObjectType.LoadAsync(resource, File.ReadAllText(path), TestContext.Current.CancellationToken);
 			Assert.Equal("First", type.Name);
 
 			File.WriteAllText(path, "object { name = \"Second\", state = { speed = 2 } }");
@@ -193,7 +193,7 @@ public sealed class LuaObjectTests
 			Assert.Equal("speed", Assert.Single(type.StateProperties).Name);
 
 			// The checks have a minimum interval, so wait for the next check
-			await Task.Delay(600);
+			await Task.Delay(600, TestContext.Current.CancellationToken);
 			File.WriteAllText(path, "object { name = ");
 			File.SetLastWriteTimeUtc(path, DateTime.UtcNow.AddSeconds(2));
 			type.ReloadIfChanged();

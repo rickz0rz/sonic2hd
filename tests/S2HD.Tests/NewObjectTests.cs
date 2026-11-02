@@ -44,7 +44,7 @@ public sealed class NewObjectTests
 		string source = NewObject.MakeScript(kind, "A \"test\" object", 96, 72);
 		Resource resource = new Resource("SONICORCA/OBJECTS/TEST", ResourceTypeIdentifier.LuaObject, new MemoryResourceSource(Encoding.UTF8.GetBytes(source)));
 
-		LuaObjectType type = await LuaObjectType.LoadAsync(resource, source);
+		LuaObjectType type = await LuaObjectType.LoadAsync(resource, source, TestContext.Current.CancellationToken);
 
 		Assert.Equal("A \"test\" object", type.Name);
 		Assert.Equal(classification, type.Classification);
@@ -60,7 +60,7 @@ public sealed class NewObjectTests
 		string source = NewObject.MakeAbilityScript("Spring shoes");
 		Resource resource = new Resource("SONICORCA/OBJECTS/SHOESABILITY", ResourceTypeIdentifier.LuaObject, new MemoryResourceSource(Encoding.UTF8.GetBytes(source)));
 
-		LuaObjectType type = await LuaObjectType.LoadAsync(resource, source);
+		LuaObjectType type = await LuaObjectType.LoadAsync(resource, source, TestContext.Current.CancellationToken);
 
 		Assert.True(type.IsAbility);
 		Assert.Equal("Spring shoes ability", type.Name);

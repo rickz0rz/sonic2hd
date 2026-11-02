@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
 using SonicOrca.Audio;
+using SonicOrca.Core.Debugging;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
 using SonicOrca.Input;
@@ -648,7 +649,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		_pipeBuffer = _graphicsContext.CreateVertexBuffer(3, 2);
 		FillPipeBuffer();
 		_originalArt?.UseSharpPixels();
-		if (SonicOrca.Core.Debugging.TestHooks.SpecialStageResults is (int rings, bool emerald, bool perfect))
+		if (TestHooks.SpecialStageResults is (int rings, bool emerald, bool perfect))
 		{
 			_rings = rings;
 			StartResults(emerald, perfect ? _track.RingCount : 0);
@@ -1130,7 +1131,7 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	public override void Draw(Renderer renderer)
 	{
-		SonicOrca.Core.Debugging.TestHooks.DrawnLevelTick = SonicOrca.Core.Debugging.TestHooks.SpecialStageCaptureOffset + _frames;
+		TestHooks.DrawnLevelTick = TestHooks.SpecialStageCaptureOffset + _frames;
 		DrawBackground(renderer);
 		DrawScene(renderer);
 		DrawHud(renderer);

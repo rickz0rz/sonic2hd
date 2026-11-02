@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
 using SDL2;
+using SonicOrca.Core.Debugging;
 using SonicOrca;
 using SonicOrca.SDL2;
 
@@ -177,7 +178,7 @@ public static class Program
 	private static bool NoErrorDialog =>
 		(CommandLineArguments?.Any(a => a.Equals("--no-error-dialog", StringComparison.OrdinalIgnoreCase)) ?? false) ||
 		Environment.GetEnvironmentVariable("S2HD_NO_ERROR_DIALOG") == "1" ||
-		SonicOrca.Core.Debugging.TestHooks.ExitAfterCaptures;
+		TestHooks.ExitAfterCaptures;
 
 	public static void ShowErrorMessageBox(string text)
 	{

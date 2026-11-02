@@ -19,7 +19,6 @@ internal class StoryPlaythroughGameState : IGameState, IDisposable
 	private LevelGameState _levelGameState;
 	private int _levelNumber;
 	private OptionsMenu _optionsMenu;
-	private bool _optionsMenuShowing;
 
 	public bool QuitViaOptions { get; private set; }
 
@@ -71,33 +70,12 @@ internal class StoryPlaythroughGameState : IGameState, IDisposable
 			yield return UpdateResult.Next();
 		if (_levelGameState == null)
 			SetLevel(_levelNumber);
+		PausableLevel pausableLevel = new PausableLevel(_optionsMenu);
 		bool playNextLevel;
 		do
 		{
-			foreach (UpdateResult updateResult in _levelGameState.Update())
-			{
-				Level level = _levelGameState.Level;
-				if (level != null && level.StateFlags.HasFlag(LevelStateFlags.Paused))
-				{
-					if (!_optionsMenuShowing)
-					{
-						_optionsMenuShowing = true;
-						_optionsMenu.CanRestart = _levelGameState.Player.Lives > 1;
-						_optionsMenu.Show();
-					}
-				}
-				else if (_optionsMenuShowing)
-				{
-					_optionsMenuShowing = false;
-					_optionsMenu.Hide();
-				}
-				else
-				{
-					_levelGameState.HandleInput();
-				}
-				_optionsMenu.Update();
+			foreach (UpdateResult updateResult in pausableLevel.Run(_levelGameState, () => _levelGameState.Player.Lives > 1))
 				yield return updateResult;
-			}
 			if (_levelGameState.LoadError != null)
 			{
 				// A level that cannot load, for example with a broken mod file, ends the story without the credits.

@@ -1,5 +1,6 @@
 using System.Threading;
 using System.Threading.Tasks;
+using SonicOrca.Core.Debugging;
 using SonicOrca;
 using SonicOrca.Audio;
 using SonicOrca.Geometry;
@@ -86,7 +87,7 @@ internal abstract class VersusScreen : Screen
 
 	public override void Initialise()
 	{
-		_captureNumber = SonicOrca.Core.Debugging.TestHooks.VersusScreenCaptureOffset + 1000 * SonicOrca.Core.Debugging.TestHooks.VersusScreensShown++;
+		_captureNumber = TestHooks.VersusScreenCaptureOffset + 1000 * TestHooks.VersusScreensShown++;
 		SampleInfo music = _playMusic ? GameContext.ResourceTree.GetLoadedResource<SampleInfo>(MusicResourceKey) : null;
 		if (music != null)
 		{
@@ -123,7 +124,7 @@ internal abstract class VersusScreen : Screen
 
 	protected void DrawBackground(Renderer renderer, string title)
 	{
-		SonicOrca.Core.Debugging.TestHooks.DrawnLevelTick = _captureNumber + Frames;
+		TestHooks.DrawnLevelTick = _captureNumber + Frames;
 		I2dRenderer g = renderer.Get2dRenderer();
 		IFontRenderer fontRenderer = renderer.GetFontRenderer();
 		g.BlendMode = BlendMode.Alpha;

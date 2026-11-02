@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using SonicOrca.Core.Debugging;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
 using SonicOrca.Resources;
@@ -39,7 +40,7 @@ public class ParticleManager : IDisposable
 
 	private readonly Level _level;
 
-	private readonly Random _random = SonicOrca.Core.Debugging.TestHooks.CreateRandom();
+	private readonly Random _random = TestHooks.CreateRandom();
 
 	private readonly List<Particle> _particles = new List<Particle>();
 

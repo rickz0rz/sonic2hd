@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using SonicOrca.Core.Debugging;
 using SonicOrca;
 using SonicOrca.Audio;
 using SonicOrca.Core;
@@ -140,7 +141,7 @@ internal sealed partial class EndingGameState : IGameState, IDisposable
 			_pictureIndex = PictureCount;
 			_timer = 0x100;
 		}
-		_random.Seed = (uint)SonicOrca.Core.Debugging.TestHooks.CreateRandom().Next();
+		_random.Seed = (uint)TestHooks.CreateRandom().Next();
 	}
 
 	/// <summary>

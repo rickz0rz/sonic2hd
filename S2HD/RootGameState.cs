@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using S2HD.Menu;
 using S2HD.Title;
+using SonicOrca.Core.Debugging;
 using SonicOrca;
 using SonicOrca.Core;
 using SonicOrca.Core.Editor;
@@ -148,7 +149,7 @@ internal class RootGameState : IGameState, IDisposable
 				int stage = values.Length > 0 && int.TryParse(values[0], out int number) ? Math.Clamp(number, 1, HalfPipeLayout.StageCount) - 1 : 0;
 				string[] sidekick = _cmdLineArgs.GetOptionValues("sidekick");
 				bool withTails = sidekick.Length == 0 || GetCharacterType(sidekick[0]) == CharacterType.Tails;
-				ChangeGameState(new ScreenGameState(_gameContext, new HalfPipeSpecialStageScreen(_gameContext, stage, withTails, SonicOrca.Core.Debugging.TestHooks.Emeralds ?? 0)));
+				ChangeGameState(new ScreenGameState(_gameContext, new HalfPipeSpecialStageScreen(_gameContext, stage, withTails, TestHooks.Emeralds ?? 0)));
 				foreach (UpdateResult updateResult in _currentGameState.Update())
 					yield return updateResult;
 			}

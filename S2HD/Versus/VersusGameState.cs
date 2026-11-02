@@ -34,7 +34,7 @@ internal sealed class VersusGameState : IGameState, IDisposable
 
 	private OptionsMenu _optionsMenu;
 
-	private bool _optionsMenuShowing;
+	private PausableLevel _pausableLevel;
 
 	private bool _quit;
 
@@ -67,6 +67,7 @@ internal sealed class VersusGameState : IGameState, IDisposable
 			level.FadeOut(LevelState.Quit);
 			_quit = true;
 		};
+		_pausableLevel = new PausableLevel(_optionsMenu);
 		Task optionsLoadTask = _optionsMenu.LoadAsync();
 		while (!optionsLoadTask.IsCompleted)
 			yield return UpdateResult.Next();
@@ -131,7 +132,8 @@ internal sealed class VersusGameState : IGameState, IDisposable
 			_levelGameState = new LevelGameState(_gameContext) { PrepareSettings = settings };
 			_gameContext.Console.LevelGameState = _levelGameState;
 			_current = _levelGameState;
-			foreach (UpdateResult result in PlayLevel())
+			// A versus act cannot restart: each player comes back at their own star post
+			foreach (UpdateResult result in _pausableLevel.Run(_levelGameState, () => false))
 				yield return result;
 			if (_levelGameState.LoadError != null)
 			{
@@ -169,35 +171,6 @@ internal sealed class VersusGameState : IGameState, IDisposable
 		Trace.WriteLine($"Versus: zone {name} winner {zone.Winner}");
 		foreach (UpdateResult result in ShowScreen(VersusResultsScreen.ForZone(_gameContext, zone, firstAct)))
 			yield return result;
-	}
-
-	/// <summary>Runs the level, and shows the pause menu when a player pauses it.</summary>
-	private IEnumerable<UpdateResult> PlayLevel()
-	{
-		foreach (UpdateResult result in _levelGameState.Update())
-		{
-			Level level = _levelGameState.Level;
-			if (level != null && level.StateFlags.HasFlag(LevelStateFlags.Paused))
-			{
-				if (!_optionsMenuShowing)
-				{
-					_optionsMenuShowing = true;
-					_optionsMenu.CanRestart = false;
-					_optionsMenu.Show();
-				}
-			}
-			else if (_optionsMenuShowing)
-			{
-				_optionsMenuShowing = false;
-				_optionsMenu.Hide();
-			}
-			else
-			{
-				_levelGameState.HandleInput();
-			}
-			_optionsMenu.Update();
-			yield return result;
-		}
 	}
 
 	private IEnumerable<UpdateResult> ShowScreen(Screen screen)
