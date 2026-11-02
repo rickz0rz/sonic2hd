@@ -703,6 +703,8 @@ public static class LevelImport
 			// art, with a frame for each change of the colours
 			paletteCycles = PaletteCycles.Read(disassembly, zone.Name);
 			animatedBlocks.UnionWith(PriorityTiles.GetPaletteCycleBlocks(art, blockMappings, paletteCycles));
+			// The HD tiles show black as transparent, so the blocks with solid black are drawn from the original art too
+			animatedBlocks.UnionWith(PriorityTiles.GetSolidBlackBlocks(art, blockMappings, palette));
 			// The HD tiles of the blocks that use the extra art are the tiles of the other zone (WFZ has the SCZ
 			// tiles), so these blocks are drawn from the original art too, as for the animated blocks
 			for (int block = 0; block * 8 + 7 < blockMappings.Length; block++)

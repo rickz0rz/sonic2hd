@@ -75,6 +75,23 @@ public static class PriorityTiles
 	/// </summary>
 	private const int MaxPaletteFrames = 64;
 
+	/// <summary>
+	/// The blocks with a solid black pixel: a pixel of a colour other than 0 that is black in the palette. The HD
+	/// tiles show black as transparent, so the background shows through these pixels. The original shows them black.
+	/// </summary>
+	public static HashSet<int> GetSolidBlackBlocks(byte[] art, byte[] blockMappings, uint[] palette)
+	{
+		var result = new HashSet<int>();
+		for (int block = 0; block * 8 + 7 < blockMappings.Length; block++)
+		{
+			if (GetEntries(art, blockMappings, block).Any(entry => (palette[entry] & 0xFFFFFF00) == 0))
+			{
+				result.Add(block);
+			}
+		}
+		return result;
+	}
+
 	/// <summary>The blocks with a pattern that has a colour of a palette cycle.</summary>
 	public static HashSet<int> GetPaletteCycleBlocks(byte[] art, byte[] blockMappings, IReadOnlyList<PaletteCycle> cycles)
 	{
@@ -288,8 +305,9 @@ public static class PriorityTiles
 					}
 					int index = (tx % 2 == 0 ? art[offset] >> 4 : art[offset]) & 0xF;
 					uint colour = palette[line * 16 + index];
-					// The HD tiles show black as transparent, so these tiles do too
-					if (index == 0 || (colour & 0xFFFFFF00) == 0)
+					// Only colour 0 of a palette line is transparent. Black from another colour is solid, as in the
+					// original, for example the windows of the buildings of CNZ.
+					if (index == 0)
 					{
 						continue;
 					}
