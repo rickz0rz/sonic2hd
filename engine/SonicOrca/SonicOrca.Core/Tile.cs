@@ -138,11 +138,11 @@ public class Tile : ITile
 			X = frame.Source.X,
 			Y = frame.Source.Y,
 			Delay = frame.Delay,
-			Opacity = 1f
+			Opacity = frame.Opacity
 		}).ToArray();
 		_currentFrameIndex %= _frames.Length;
-		_opacity = 1f;
-		_opacityChange = 0f;
+		_frameTime = 0;
+		StartOpacityFade();
 	}
 
 	public void Animate()
@@ -162,28 +162,24 @@ public class Tile : ITile
 			_currentFrameIndex = (_currentFrameIndex + 1) % _frames.Length;
 			_frameTime = 0;
 			frame = _frames[_currentFrameIndex];
-			_opacity = frame.Opacity;
-			// Fade the opacity to the opacity of the next frame during the delay of this frame.
-			int nextFrameIndex = _currentFrameIndex + 1;
-			if (nextFrameIndex >= _frames.Length)
-			{
-				nextFrameIndex = 0;
-			}
-			Frame nextFrame = _frames[nextFrameIndex];
-			if (nextFrame.Opacity != _opacity && frame.Delay > 0)
-			{
-				_opacityChange = (nextFrame.Opacity - _opacity) / (frame.Delay + 1);
-			}
-			else
-			{
-				_opacityChange = 0f;
-			}
+			StartOpacityFade();
 		}
 		else
 		{
 			_frameTime++;
 			_opacity += _opacityChange;
 		}
+	}
+
+	/// <summary>
+	/// Sets the opacity of the current frame, and fades it to the opacity of the next frame during the delay of this frame.
+	/// </summary>
+	private void StartOpacityFade()
+	{
+		Frame frame = _frames[_currentFrameIndex];
+		Frame nextFrame = _frames[(_currentFrameIndex + 1) % _frames.Length];
+		_opacity = frame.Opacity;
+		_opacityChange = nextFrame.Opacity != _opacity && frame.Delay > 0 ? (nextFrame.Opacity - _opacity) / (frame.Delay + 1) : 0f;
 	}
 
 	public void Draw(Renderer renderer, int flags, int x, int y)

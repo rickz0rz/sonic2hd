@@ -26,7 +26,7 @@ internal sealed class TilesTool : EditorTool
 	private const int PaletteColumns = 8;
 
 	/// <summary>The rows of settings above the palette.</summary>
-	private const int SettingRows = 8;
+	private const int SettingRows = 7;
 
 	/// <summary>The size of the mark of an animated tile in the palette, in screen pixels.</summary>
 	private const double AnimatedMarkSize = 10.0;
@@ -124,7 +124,9 @@ internal sealed class TilesTool : EditorTool
 		? $"Layer {Layer.Name}{(IsSolidLayer(_layerIndex) ? " (solid: Sonic and objects collide with it)" : " (not solid)")}{(Layer.Editing ? " (alone, without parallax)" : "")}   Brush {(_brush == null ? "none" : $"{_brush.Columns} x {_brush.Rows}")}" +
 			(GetHoveredTile() is Tile hovered && hovered.Animated
 				? $"   Tile {hovered.Id}: {DescribeFrames(hovered)}{(hovered.Source != null ? $", {hovered.Source}" : "")}"
-				: GetBrushTile()?.Source is string source ? $"   Animation: {source}" : "")
+				: GetBrushTile() is Tile brushTile && brushTile.AnimationGroupKey != null
+					? $"   Animation #{brushTile.AnimationIndex}{(brushTile.Source != null ? $": {brushTile.Source}" : "")}"
+					: "")
 		: "";
 
 	/// <summary>The tile of the layer under the mouse, or null.</summary>
@@ -588,19 +590,17 @@ internal sealed class TilesTool : EditorTool
 			},
 			new EditorPropertyRow
 			{
-				Label = "Palette",
-				Value = _animatedOnly ? "animated tiles only (click for all)" : "all tiles (click for animated only)",
+				Label = "Show",
+				Value = _animatedOnly ? "animated tiles (click for all)" : "all tiles (click for animated)",
 				Step = _ => { _animatedOnly = !_animatedOnly; UpdatePaletteTiles(); }
 			},
 			new EditorPropertyRow
 			{
 				Label = "Animation",
-				Value = GetAnimationText() + (GetBrushTile()?.AnimationGroupKey != null ? " (click to edit)" : ""),
+				Value = GetAnimationText(),
 				// A tile with an animation group opens its animation in the animation editor
 				Step = GetBrushTile()?.AnimationGroupKey != null ? _ => Editor.OpenAnimationEditor(GetBrushTile().AnimationGroupKey, GetBrushTile().AnimationIndex) : null
 			},
-			// The panel shows the source without the details in brackets. The status line shows all of it.
-			new EditorPropertyRow { Label = "From", Value = GetBrushTile()?.Source?.Split(" (")[0] ?? (GetBrushTile()?.Animated == true ? "the tile set" : "-") },
 			new EditorPropertyRow
 			{
 				Label = "Scroll",
@@ -621,7 +621,10 @@ internal sealed class TilesTool : EditorTool
 		return Editor.Level.TileSet.TryGetValue(id, out ITile tile) ? tile as Tile : null;
 	}
 
-	/// <summary>The frames of the tile of the brush and their delays in ticks, for example "4 frames of 6 ticks".</summary>
+	/// <summary>
+	/// The animation of the tile of the brush, for example "#3: 4 frames of 6 ticks (click to edit)". The status line
+	/// shows where the frames come from.
+	/// </summary>
 	private string GetAnimationText()
 	{
 		Tile tile = GetBrushTile();
@@ -629,7 +632,9 @@ internal sealed class TilesTool : EditorTool
 		{
 			return _brush == null || _brush.Columns != 1 || _brush.Rows != 1 ? "-" : "none";
 		}
-		return DescribeFrames(tile);
+		return tile.AnimationGroupKey != null
+			? $"#{tile.AnimationIndex}: {DescribeFrames(tile)} (click to edit)"
+			: $"{DescribeFrames(tile)} (in the tile set)";
 	}
 
 	/// <summary>The frames of an animated tile and their delays in ticks, for example "4 frames of 6 ticks".</summary>
