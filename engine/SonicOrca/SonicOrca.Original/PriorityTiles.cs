@@ -92,6 +92,20 @@ public static class PriorityTiles
 		return result;
 	}
 
+	/// <summary>The blocks that use one of the patterns.</summary>
+	public static HashSet<int> GetBlocksWithPatterns(byte[] blockMappings, IReadOnlyCollection<int> patterns)
+	{
+		var result = new HashSet<int>();
+		for (int block = 0; block * 8 + 7 < blockMappings.Length; block++)
+		{
+			if (Enumerable.Range(0, 4).Any(q => patterns.Contains(GetWord(blockMappings, block, q) & 0x7FF)))
+			{
+				result.Add(block);
+			}
+		}
+		return result;
+	}
+
 	/// <summary>The blocks with a pattern that has a colour of a palette cycle.</summary>
 	public static HashSet<int> GetPaletteCycleBlocks(byte[] art, byte[] blockMappings, IReadOnlyList<PaletteCycle> cycles)
 	{
@@ -185,8 +199,9 @@ public static class PriorityTiles
 	/// <param name="blockMappings">The 16 x 16 block mappings: four pattern words for each block.</param>
 	public static (string TileSet, byte[] Texture) Create(int hdTiles, byte[] art, byte[] blockMappings, uint[] palette,
 		ICollection<int> priorityBlocks, ICollection<int> animatedBlocks, IReadOnlyList<AnimatedArt> animations, int scale,
-		ICollection<int> backgroundBlocks = null, IReadOnlyList<PaletteCycle> paletteCycles = null)
+		ICollection<int> backgroundBlocks = null, IReadOnlyList<PaletteCycle> paletteCycles = null, IReadOnlyCollection<int> solidPatterns = null)
 	{
+		solidPatterns ??= Array.Empty<int>();
 		backgroundBlocks ??= Array.Empty<int>();
 		paletteCycles ??= Array.Empty<PaletteCycle>();
 		int tileSize = BlockSize * scale;
@@ -243,7 +258,7 @@ public static class PriorityTiles
 		var pixels = new byte[width * height * 4];
 		foreach ((int slot, byte[] slotArt, uint[] slotPalette, int block, bool? priority) in drawings)
 		{
-			DrawBlock(pixels, width, slot % TilesPerRow * tileSize, slot / TilesPerRow * tileSize, slotArt, blockMappings, slotPalette, block, priority, scale);
+			DrawBlock(pixels, width, slot % TilesPerRow * tileSize, slot / TilesPerRow * tileSize, slotArt, blockMappings, slotPalette, block, priority, scale, solidPatterns);
 		}
 
 		var xml = new StringBuilder();
@@ -291,7 +306,7 @@ public static class PriorityTiles
 
 	/// <summary>Draws the high-priority or the low-priority patterns of a block (or all of them) at four times the size.</summary>
 	private static void DrawBlock(byte[] pixels, int width, int left, int top, byte[] art, byte[] blockMappings, uint[] palette,
-		int block, bool? priority, int scale)
+		int block, bool? priority, int scale, IReadOnlyCollection<int> solidPatterns)
 	{
 		for (int quarter = 0; quarter < 4; quarter++)
 		{
@@ -318,10 +333,15 @@ public static class PriorityTiles
 					int index = (tx % 2 == 0 ? art[offset] >> 4 : art[offset]) & 0xF;
 					uint colour = palette[line * 16 + index];
 					// Only colour 0 of a palette line is transparent. Black from another colour is solid, as in the
-					// original, for example the windows of the buildings of CNZ.
+					// original, for example the windows of the buildings of CNZ. The solid patterns of a zone draw colour
+					// 0 black too.
 					if (index == 0)
 					{
-						continue;
+						if (!solidPatterns.Contains(pattern))
+						{
+							continue;
+						}
+						colour = 0x000000FF;
 					}
 					int px = left + ((quarter % 2) * 8 + x) * scale;
 					int py = top + ((quarter / 2) * 8 + y) * scale;
