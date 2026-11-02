@@ -26,7 +26,7 @@ internal sealed class TilesTool : EditorTool
 	private const int PaletteColumns = 8;
 
 	/// <summary>The rows of settings above the palette.</summary>
-	private const int SettingRows = 7;
+	private const int SettingRows = 8;
 
 	/// <summary>The size of the mark of an animated tile in the palette, in screen pixels.</summary>
 	private const double AnimatedMarkSize = 10.0;
@@ -122,8 +122,26 @@ internal sealed class TilesTool : EditorTool
 
 	public override string Status => _layerIndex >= 0
 		? $"Layer {Layer.Name}{(IsSolidLayer(_layerIndex) ? " (solid: Sonic and objects collide with it)" : " (not solid)")}{(Layer.Editing ? " (alone, without parallax)" : "")}   Brush {(_brush == null ? "none" : $"{_brush.Columns} x {_brush.Rows}")}" +
-			(GetBrushTile()?.Source is string source ? $"   Animation: {source}" : "")
+			(GetHoveredTile() is Tile hovered && hovered.Animated
+				? $"   Tile {hovered.Id}: {DescribeFrames(hovered)}{(hovered.Source != null ? $", {hovered.Source}" : "")}"
+				: GetBrushTile()?.Source is string source ? $"   Animation: {source}" : "")
 		: "";
+
+	/// <summary>The tile of the layer under the mouse, or null.</summary>
+	private Tile GetHoveredTile()
+	{
+		if (!Editor.IsMouseOverLevel)
+		{
+			return null;
+		}
+		(int column, int row) = GetCell(Editor.MouseWorld);
+		if (column < 0 || row < 0 || column >= Layer.Columns || row >= Layer.Rows)
+		{
+			return null;
+		}
+		int id = Layer.Tiles[column, row] & ~(FlipXFlag | FlipYFlag);
+		return id != 0 && Editor.Level.TileSet.TryGetValue(id, out ITile tile) ? tile as Tile : null;
+	}
 
 	/// <summary>The layer that the tool paints on, or -1.</summary>
 	public int LayerIndex => _layerIndex;
@@ -185,7 +203,18 @@ internal sealed class TilesTool : EditorTool
 			IList<int> collisionLayers = Editor.Level.Map.CollisionPathLayers;
 			_layerIndex = collisionLayers.Count > 0 ? collisionLayers[0] : Math.Max(0, Layers.Count - 1);
 		}
-		_paletteTiles = new[] { 0 }.Concat(Editor.Level.TileSet.Keys.Where(k => k != 0).OrderBy(k => k)).ToArray();
+		UpdatePaletteTiles();
+	}
+
+	/// <summary>The palette shows only the tiles with more than one frame.</summary>
+	private bool _animatedOnly;
+
+	/// <summary>The tiles of the palette: all the tiles of the tile set, or only the animated tiles.</summary>
+	private void UpdatePaletteTiles()
+	{
+		TileSet tileSet = Editor.Level.TileSet;
+		_paletteTiles = new[] { 0 }.Concat(tileSet.Keys.Where(k => k != 0 && (!_animatedOnly || tileSet[k].Animated)).OrderBy(k => k)).ToArray();
+		_paletteScroll = 0.0;
 	}
 
 	public override void Update()
@@ -528,6 +557,12 @@ internal sealed class TilesTool : EditorTool
 				Value = Editor.TileCollision == null ? "no tile collision" : SolidityNames[_solidity2],
 				Step = Editor.TileCollision == null ? null : direction => _solidity2 = (_solidity2 + direction + 3) % 3
 			},
+			new EditorPropertyRow
+			{
+				Label = "Palette",
+				Value = _animatedOnly ? "animated tiles only (click for all)" : "all tiles (click for animated only)",
+				Step = _ => { _animatedOnly = !_animatedOnly; UpdatePaletteTiles(); }
+			},
 			new EditorPropertyRow { Label = "Animation", Value = GetAnimationText() },
 			// The panel shows the source without the details in brackets. The status line shows all of it.
 			new EditorPropertyRow { Label = "From", Value = GetBrushTile()?.Source?.Split(" (")[0] ?? (GetBrushTile()?.Animated == true ? "the tile set" : "-") },
@@ -559,6 +594,12 @@ internal sealed class TilesTool : EditorTool
 		{
 			return _brush == null || _brush.Columns != 1 || _brush.Rows != 1 ? "-" : "none";
 		}
+		return DescribeFrames(tile);
+	}
+
+	/// <summary>The frames of an animated tile and their delays in ticks, for example "4 frames of 6 ticks".</summary>
+	private static string DescribeFrames(Tile tile)
+	{
 		int[] delays = tile.Frames.Select(frame => frame.Delay).ToArray();
 		return delays.Distinct().Count() == 1
 			? $"{delays.Length} frames of {delays[0]} ticks"
@@ -991,7 +1032,9 @@ internal sealed class TilesTool : EditorTool
 		int value = Layer.Tiles[column, row];
 		string flips = ((value & FlipXFlag) != 0 ? " X" : "") + ((value & FlipYFlag) != 0 ? " Y" : "");
 		string solidity = IsCollisionLayer ? $"  solid {Editor.TileCollision.GetSolidity(column, row)}" : "";
-		return $"tile {value & ~(FlipXFlag | FlipYFlag)}{flips}{solidity}";
+		// An animated tile shows its frames. The status line shows where they come from.
+		string frames = GetHoveredTile() is Tile hovered && hovered.Animated ? $"  {hovered.Frames.Count} frames" : "";
+		return $"tile {value & ~(FlipXFlag | FlipYFlag)}{flips}{frames}{solidity}";
 	}
 
 	#endregion
