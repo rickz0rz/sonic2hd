@@ -60,7 +60,7 @@ internal class S2HDSonicOrcaGameContext(IPlatform platform) : SonicOrcaGameConte
 		Configuration = Program.Configuration;
 		UserDataDirectory = Program.UserDataDirectory;
 		SonicOrca.Core.Debugging.FrameProfiler.Initialise(UserDataDirectory);
-		_canvas = Window.GraphicsContext.CreateFrameBuffer(1920, 1080);
+		_canvas = Window.GraphicsContext.CreateFrameBuffer(ScreenSize.Width, ScreenSize.Height);
 		IsMaxPerformance = Configuration.GetPropertyBoolean("graphics", "max_performance");
 		if (Configuration.GetPropertyBoolean("graphics", "vsync"))
 			Window.VSync = true;
@@ -254,7 +254,7 @@ internal class S2HDSonicOrcaGameContext(IPlatform platform) : SonicOrcaGameConte
 	{
 		SonicOrca.Core.Debugging.TestHooks.DrawnLevelTick = -1;
 		I2dRenderer g = Renderer.Get2dRenderer();
-		g.ClipRectangle = new Rectangle(0.0, 0.0, 1920.0, 1080.0);
+		g.ClipRectangle = new Rectangle(0.0, 0.0, ScreenSize.Width, ScreenSize.Height);
 		// With ForceHD, draw to a 1920 x 1080 canvas first, and then scale the canvas to the window.
 		if (ForceHD)
 			_canvas.Activate();

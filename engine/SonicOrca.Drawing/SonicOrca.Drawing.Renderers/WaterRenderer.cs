@@ -24,9 +24,9 @@ internal class WaterRenderer : IWaterRenderer, IRenderer, IDisposable
 		public vec2 texcoords;
 	}
 
-	private const int ScreenWidth = 1920;
+	private const int ScreenWidth = ScreenSize.Width;
 
-	private const int ScreenHeight = 1080;
+	private const int ScreenHeight = ScreenSize.Height;
 
 	// The effect starts this number of pixels above the water level
 	private const float WaterSurfaceMargin = 80f;

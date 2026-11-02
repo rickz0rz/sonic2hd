@@ -8,9 +8,9 @@ namespace SonicOrca.Menu;
 /// </summary>
 public class FadeTransition
 {
-	private const double ScreenWidth = 1920.0;
+	private const double ScreenWidth = ScreenSize.Width;
 
-	private const double ScreenHeight = 1080.0;
+	private const double ScreenHeight = ScreenSize.Height;
 
 	private bool _decreasingOpacity;
 

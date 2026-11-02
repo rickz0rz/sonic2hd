@@ -4,6 +4,7 @@ using System.Globalization;
 using SonicOrca.Core.Debugging;
 using SonicOrca.Geometry;
 using SonicOrca.Input;
+using SonicOrca.Graphics;
 
 namespace SonicOrca.Core.Editor;
 
@@ -94,7 +95,7 @@ public sealed class EditorInput
 		Vector2i clientSize = gameContext.Window.ClientSize;
 		if (clientSize.X > 0 && clientSize.Y > 0)
 		{
-			Mouse = new Vector2(state.Mouse.X * 1920.0 / clientSize.X, state.Mouse.Y * 1080.0 / clientSize.Y);
+			Mouse = new Vector2(state.Mouse.X * (double)ScreenSize.Width / clientSize.X, state.Mouse.Y * (double)ScreenSize.Height / clientSize.Y);
 		}
 		Left = state.Mouse.Left;
 		Right = state.Mouse.Right;

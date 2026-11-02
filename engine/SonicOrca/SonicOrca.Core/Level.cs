@@ -33,9 +33,9 @@ public class Level : IDisposable
 	/// <summary>The largest distance from the feet of a character at the start down to the floor that it starts on.</summary>
 	private const int StartFloorDistance = 32;
 
-	private const double ScreenWidth = 1920.0;
+	private const double ScreenWidth = ScreenSize.Width;
 
-	private const double ScreenHeight = 1080.0;
+	private const double ScreenHeight = ScreenSize.Height;
 
 	private const double CameraMaxVelocity = 64.0;
 

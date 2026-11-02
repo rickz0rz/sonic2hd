@@ -20,9 +20,9 @@ namespace SonicOrca.Drawing.LevelRendering;
 /// </summary>
 public class LevelRenderer : ILevelRenderer, IDisposable
 {
-	private const int ScreenWidth = 1920;
+	private const int ScreenWidth = ScreenSize.Width;
 
-	private const int ScreenHeight = 1080;
+	private const int ScreenHeight = ScreenSize.Height;
 
 	private const int TileSize = 64;
 

@@ -23,9 +23,9 @@ public class CharacterRenderer : ICharacterRenderer, IRenderer, IDisposable
 		public vec2 texcoords;
 	}
 
-	private const double ScreenWidth = 1920.0;
+	private const double ScreenWidth = ScreenSize.Width;
 
-	private const double ScreenHeight = 1080.0;
+	private const double ScreenHeight = ScreenSize.Height;
 
 	private static readonly Dictionary<Renderer, CharacterRenderer> RendererDictionary = new();
 

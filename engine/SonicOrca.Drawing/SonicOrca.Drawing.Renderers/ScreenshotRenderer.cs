@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using OpenTK.Graphics.OpenGL;
+using SonicOrca.Graphics;
 
 namespace SonicOrca.Drawing.Renderers;
 
@@ -9,9 +10,9 @@ namespace SonicOrca.Drawing.Renderers;
 /// </summary>
 public class ScreenshotRenderer
 {
-	private const int ScreenWidth = 1920;
+	private const int ScreenWidth = ScreenSize.Width;
 
-	private const int ScreenHeight = 1080;
+	private const int ScreenHeight = ScreenSize.Height;
 
 	public static void GrabScreenshot(string directory, string filename = null)
 	{

@@ -138,7 +138,7 @@ internal class LevelHud : IDisposable
 	}
 
 	/// <summary>The height of a half of the screen in versus mode.</summary>
-	private const double VersusHalfHeight = 540.0;
+	private const double VersusHalfHeight = ScreenSize.Height / 2.0;
 
 	private void DrawFor(Renderer renderer, Player player, Camera camera)
 	{

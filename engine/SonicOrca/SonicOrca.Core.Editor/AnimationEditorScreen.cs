@@ -39,9 +39,9 @@ public sealed class AnimationEditorScreen : Screen
 	/// <summary>The folder in the editor folder of the mods folder.</summary>
 	public const string FolderName = "animations";
 
-	private const double ScreenWidth = 1920.0;
+	private const double ScreenWidth = ScreenSize.Width;
 
-	private const double ScreenHeight = 1080.0;
+	private const double ScreenHeight = ScreenSize.Height;
 
 	/// <summary>The animations use the top part of the right panel, down to this y value. The properties use the rest.</summary>
 	private const double ListBottom = 470.0;

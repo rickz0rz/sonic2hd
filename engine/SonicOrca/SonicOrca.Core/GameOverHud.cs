@@ -27,9 +27,9 @@ public class GameOverHud : IDisposable
 
 	private const int FlyTime = 15;
 
-	private const double ScreenWidth = 1920.0;
+	private const double ScreenWidth = ScreenSize.Width;
 
-	private const double ScreenHeight = 1080.0;
+	private const double ScreenHeight = ScreenSize.Height;
 
 	private const double ScreenCentreX = 960.0;
 

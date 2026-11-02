@@ -30,9 +30,9 @@ public class TileRenderer : ITileRenderer, IRenderer, IDisposable
 		public float opacity;
 	}
 
-	private const double ScreenWidth = 1920.0;
+	private const double ScreenWidth = ScreenSize.Width;
 
-	private const double ScreenHeight = 1080.0;
+	private const double ScreenHeight = ScreenSize.Height;
 
 	// The number of tile textures that the tile shader can sample
 	private const int ShaderTextureCount = 4;
