@@ -26,7 +26,10 @@ internal sealed class TilesTool : EditorTool
 	private const int PaletteColumns = 8;
 
 	/// <summary>The rows of settings above the palette.</summary>
-	private const int SettingRows = 5;
+	private const int SettingRows = 7;
+
+	/// <summary>The size of the mark of an animated tile in the palette, in screen pixels.</summary>
+	private const double AnimatedMarkSize = 10.0;
 
 	private const int FlipXFlag = 0x4000;
 
@@ -118,7 +121,8 @@ internal sealed class TilesTool : EditorTool
 		: "Click or drag: paint.  Ctrl+drag: take tiles.  X, Y: flip the brush.  Esc: no brush.";
 
 	public override string Status => _layerIndex >= 0
-		? $"Layer {Layer.Name}{(IsSolidLayer(_layerIndex) ? " (solid: Sonic and objects collide with it)" : " (not solid)")}{(Layer.Editing ? " (alone, without parallax)" : "")}   Brush {(_brush == null ? "none" : $"{_brush.Columns} x {_brush.Rows}")}"
+		? $"Layer {Layer.Name}{(IsSolidLayer(_layerIndex) ? " (solid: Sonic and objects collide with it)" : " (not solid)")}{(Layer.Editing ? " (alone, without parallax)" : "")}   Brush {(_brush == null ? "none" : $"{_brush.Columns} x {_brush.Rows}")}" +
+			(GetBrushTile()?.Source is string source ? $"   Animation: {source}" : "")
 		: "";
 
 	/// <summary>The layer that the tool paints on, or -1.</summary>
@@ -524,6 +528,9 @@ internal sealed class TilesTool : EditorTool
 				Value = Editor.TileCollision == null ? "no tile collision" : SolidityNames[_solidity2],
 				Step = Editor.TileCollision == null ? null : direction => _solidity2 = (_solidity2 + direction + 3) % 3
 			},
+			new EditorPropertyRow { Label = "Animation", Value = GetAnimationText() },
+			// The panel shows the source without the details in brackets. The status line shows all of it.
+			new EditorPropertyRow { Label = "From", Value = GetBrushTile()?.Source?.Split(" (")[0] ?? (GetBrushTile()?.Animated == true ? "the tile set" : "-") },
 			new EditorPropertyRow
 			{
 				Label = "Scroll",
@@ -531,6 +538,31 @@ internal sealed class TilesTool : EditorTool
 				Step = IsSolidLayer(_layerIndex) ? null : _ => _scrollPage = true
 			}
 		};
+	}
+
+	/// <summary>The tile of a brush of one tile, or null.</summary>
+	private Tile GetBrushTile()
+	{
+		if (_brush == null || _brush.Columns != 1 || _brush.Rows != 1)
+		{
+			return null;
+		}
+		int id = _brush.Tiles[0, 0] & ~(FlipXFlag | FlipYFlag);
+		return Editor.Level.TileSet.TryGetValue(id, out ITile tile) ? tile as Tile : null;
+	}
+
+	/// <summary>The frames of the tile of the brush and their delays in ticks, for example "4 frames of 6 ticks".</summary>
+	private string GetAnimationText()
+	{
+		Tile tile = GetBrushTile();
+		if (tile == null || !tile.Animated)
+		{
+			return _brush == null || _brush.Columns != 1 || _brush.Rows != 1 ? "-" : "none";
+		}
+		int[] delays = tile.Frames.Select(frame => frame.Delay).ToArray();
+		return delays.Distinct().Count() == 1
+			? $"{delays.Length} frames of {delays[0]} ticks"
+			: $"{delays.Length} frames: {string.Join(", ", delays)} ticks";
 	}
 
 	private Rectangle GetPaletteArea(Rectangle area)
@@ -578,6 +610,11 @@ internal sealed class TilesTool : EditorTool
 			if (tile != 0)
 			{
 				tileSet.DrawTile(renderer, tile, new Rectanglei(0, 0, TileSize, TileSize), destination);
+				// A mark in the top right corner shows a tile with more than one frame
+				if (tileSet.TryGetValue(tile, out ITile paletteTile) && paletteTile.Animated)
+				{
+					g.RenderQuad(LevelEditor.SelectionColour, new Rectangle(destination.Right - AnimatedMarkSize, destination.Y, AnimatedMarkSize, AnimatedMarkSize));
+				}
 			}
 			else
 			{

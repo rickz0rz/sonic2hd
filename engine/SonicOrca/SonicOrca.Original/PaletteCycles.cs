@@ -15,6 +15,9 @@ namespace SonicOrca.Original;
 /// <param name="Steps">The colours of each step: the palette entry (from 0 to 63) and its colour.</param>
 public sealed record PaletteCycle(int Period, IReadOnlyList<IReadOnlyList<(int Entry, uint Colour)>> Steps)
 {
+	/// <summary>The routine and the colour table of the cycle, for the level editor, for example "PalCycle_ARZ (CyclingPal_EHZ_ARZ_Water)".</summary>
+	public string Name { get; init; }
+
 	/// <summary>The palette entries that the cycle changes.</summary>
 	public IEnumerable<int> Entries => Steps.SelectMany(step => step.Select(write => write.Entry)).Distinct();
 
@@ -50,23 +53,31 @@ public static class PaletteCycles
 	{
 		string source = File.ReadAllText(Path.Combine(disassembly, "s2.asm"));
 		byte[] Table(string label) => ReadTable(disassembly, source, label);
+		// Death Egg uses the routine of Chemical Plant, and Sky Chase the routine of Wing Fortress
+		string routine = zone switch { "DEZ" => "PalCycle_CPZ", "SCZ" => "PalCycle_WFZ", _ => "PalCycle_" + zone };
+		return ReadCycles(zone, Table).Select(cycle => cycle with { Name = $"{routine} ({cycle.Name})" }).ToArray();
+	}
+
+	/// <summary>The cycles of a zone. The name of each cycle is the name of its colour table.</summary>
+	private static IReadOnlyList<PaletteCycle> ReadCycles(string zone, Func<string, byte[]> Table)
+	{
 		switch (zone)
 		{
 			case "ARZ":
 				// PalCycle_ARZ: 4 colours from line 3 + 4, 4 steps of 8 bytes
-				return new[] { Cycle(Table("CyclingPal_EHZ_ARZ_Water"), 6, 4, step => Words(Line3 + 4, step * 8, 4)) };
+				return new[] { Cycle("CyclingPal_EHZ_ARZ_Water", Table, 6, 4, step => Words(Line3 + 4, step * 8, 4)) };
 			case "OOZ":
 				// PalCycle_OOZ: 4 colours from line 3 + $14, and each step moves 1 colour along the table
-				return new[] { Cycle(Table("CyclingPal_Oil"), 8, 4, step => Words(Line3 + 0x14, step * 2, 4)) };
+				return new[] { Cycle("CyclingPal_Oil", Table, 8, 4, step => Words(Line3 + 0x14, step * 2, 4)) };
 			case "MCZ":
 				// PalCycle_MCZ: the lanterns. The original stops the cycle during the boss.
-				return new[] { Cycle(Table("CyclingPal_Lantern"), 2, 4, step => Words(Line2 + 0x16, step * 2, 1)) };
+				return new[] { Cycle("CyclingPal_Lantern", Table, 2, 4, step => Words(Line2 + 0x16, step * 2, 1)) };
 			case "MTZ":
 				return new[]
 				{
-					Cycle(Table("CyclingPal_MTZ1"), 0x12, 6, step => Words(Line3 + 0xA, step * 2, 1)),
-					Cycle(Table("CyclingPal_MTZ2"), 3, 3, step => Words(Line3 + 2, step * 2, 3)),
-					Cycle(Table("CyclingPal_MTZ3"), 10, 10, step => Words(Line3 + 0x1E, step * 2, 1)),
+					Cycle("CyclingPal_MTZ1", Table, 0x12, 6, step => Words(Line3 + 0xA, step * 2, 1)),
+					Cycle("CyclingPal_MTZ2", Table, 3, 3, step => Words(Line3 + 2, step * 2, 3)),
+					Cycle("CyclingPal_MTZ3", Table, 10, 10, step => Words(Line3 + 0x1E, step * 2, 1)),
 				};
 			case "CNZ":
 			{
@@ -79,9 +90,12 @@ public static class PaletteCycles
 				{
 					new PaletteCycle(8, Enumerable.Range(0, 3).Select(step =>
 						(IReadOnlyList<(int, uint)>)cnz1Entries.Select((entry, i) => (entry / 2, Colour(cnz1, step * 2 + i * 6)))
-						.Concat(cnz3Entries.Select((entry, i) => (entry / 2, Colour(cnz3, step * 2 + i * 6)))).ToArray()).ToArray()),
+						.Concat(cnz3Entries.Select((entry, i) => (entry / 2, Colour(cnz3, step * 2 + i * 6)))).ToArray()).ToArray())
+					{
+						Name = "CyclingPal_CNZ1, CyclingPal_CNZ3"
+					},
 					// CNZ4 writes 3 colours from line 4 + $12 in the other order
-					Cycle(Table("CyclingPal_CNZ4"), 8, 18, step => new[] { (Line4 + 0x12, step * 2 + 4), (Line4 + 0x14, step * 2 + 2), (Line4 + 0x16, step * 2) }),
+					Cycle("CyclingPal_CNZ4", Table, 8, 18, step => new[] { (Line4 + 0x12, step * 2 + 4), (Line4 + 0x14, step * 2 + 2), (Line4 + 0x16, step * 2) }),
 				};
 			}
 			case "WFZ":
@@ -90,22 +104,22 @@ public static class PaletteCycles
 				// PalCycle_WFZ: an object switches the first cycle between the fire (SCZ starts with it) and the
 				// conveyor belts. The tiles of the importer cannot switch, so Wing Fortress has the belts.
 				PaletteCycle first = zone == "WFZ"
-					? Cycle(Table("CyclingPal_WFZBelt"), 6, 4, step => Words(Line3 + 0xE, step * 8, 4))
-					: Cycle(Table("CyclingPal_WFZFire"), 2, 4, step => Words(Line3 + 0xE, step * 8, 4));
+					? Cycle("CyclingPal_WFZBelt", Table, 6, 4, step => Words(Line3 + 0xE, step * 8, 4))
+					: Cycle("CyclingPal_WFZFire", Table, 2, 4, step => Words(Line3 + 0xE, step * 8, 4));
 				return new[]
 				{
 					first,
-					Cycle(Table("CyclingPal_WFZ1"), 4, 0x22, step => Words(Line3 + 0x1C, step * 2, 1)),
-					Cycle(Table("CyclingPal_WFZ2"), 6, 12, step => Words(Line3 + 0x1E, step * 2, 1)),
+					Cycle("CyclingPal_WFZ1", Table, 4, 0x22, step => Words(Line3 + 0x1C, step * 2, 1)),
+					Cycle("CyclingPal_WFZ2", Table, 6, 12, step => Words(Line3 + 0x1E, step * 2, 1)),
 				};
 			}
 			case "DEZ":
 				// Death Egg uses PalCycle_CPZ: one timer for three tables
 				return new[]
 				{
-					Cycle(Table("CyclingPal_CPZ1"), 8, 9, step => Words(Line4 + 0x18, step * 6, 3)),
-					Cycle(Table("CyclingPal_CPZ2"), 8, 21, step => Words(Line4 + 0x1E, step * 2, 1)),
-					Cycle(Table("CyclingPal_CPZ3"), 8, 16, step => Words(Line3 + 0x1E, step * 2, 1)),
+					Cycle("CyclingPal_CPZ1", Table, 8, 9, step => Words(Line4 + 0x18, step * 6, 3)),
+					Cycle("CyclingPal_CPZ2", Table, 8, 21, step => Words(Line4 + 0x1E, step * 2, 1)),
+					Cycle("CyclingPal_CPZ3", Table, 8, 16, step => Words(Line3 + 0x1E, step * 2, 1)),
 				};
 			default:
 				return Array.Empty<PaletteCycle>();
@@ -118,10 +132,15 @@ public static class PaletteCycles
 		return Enumerable.Range(0, count).Select(i => (destination + i * 2, source + i * 2)).ToArray();
 	}
 
-	private static PaletteCycle Cycle(byte[] table, int period, int steps, Func<int, (int Destination, int Source)[]> writes)
+	/// <param name="label">The label of the colour table in s2.asm.</param>
+	private static PaletteCycle Cycle(string label, Func<string, byte[]> tables, int period, int steps, Func<int, (int Destination, int Source)[]> writes)
 	{
+		byte[] table = tables(label);
 		return new PaletteCycle(period, Enumerable.Range(0, steps).Select(step =>
-			(IReadOnlyList<(int, uint)>)writes(step).Select(w => (w.Destination / 2, Colour(table, w.Source))).ToArray()).ToArray());
+			(IReadOnlyList<(int, uint)>)writes(step).Select(w => (w.Destination / 2, Colour(table, w.Source))).ToArray()).ToArray())
+		{
+			Name = label
+		};
 	}
 
 	private static uint Colour(byte[] table, int offset)

@@ -85,7 +85,8 @@ internal class TileSetResourceType : ResourceType
 		{
 			frames = frameNodes.Select(x => ParseXmlTileFrame(x, defaultX, defaultY, defaultTextureId, defaultDelay, defaultOpacity));
 		}
-		return new Tile(tileSet, id, frames, blend);
+		string source = node.TryGetAttributeValue("source", out value) ? value : null;
+		return new Tile(tileSet, id, frames, blend, source);
 	}
 
 	private static Tile.Frame ParseXmlTileFrame(XmlNode node, int defaultX, int defaultY, int defaultTextureId, int defaultDelay, float defaultOpacity)

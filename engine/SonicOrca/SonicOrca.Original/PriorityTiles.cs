@@ -143,16 +143,18 @@ public static class PriorityTiles
 	/// The frames of a block with colours of palette cycles: the time of each frame and its palette. The frames follow
 	/// all the cycles of the block until they all start again together.
 	/// </summary>
-	private static List<(int Duration, uint[] Palette)> GetPaletteFrames(uint[] palette, IReadOnlyList<PaletteCycle> cycles, HashSet<int> entries)
+	private static List<(int Duration, uint[] Palette)> GetPaletteFrames(uint[] palette, IReadOnlyList<PaletteCycle> cycles, HashSet<int> entries,
+		out List<PaletteCycle> used)
 	{
-		List<PaletteCycle> used = cycles.Where(c => c.Entries.Any(entries.Contains)).ToList();
+		used = cycles.Where(c => c.Entries.Any(entries.Contains)).ToList();
 		int length = used.Aggregate(1, (total, cycle) => Lcm(total, cycle.Length));
 		List<int> changes = used.SelectMany(c => Enumerable.Range(0, length / c.Period).Select(step => step * c.Period)).Distinct().OrderBy(t => t).ToList();
 		if (changes.Count > MaxPaletteFrames)
 		{
-			used = new List<PaletteCycle> { used.OrderByDescending(c => c.Entries.Count(entries.Contains)).First() };
-			length = used[0].Length;
-			changes = Enumerable.Range(0, used[0].Steps.Count).Select(step => step * used[0].Period).ToList();
+			PaletteCycle main = used.OrderByDescending(c => c.Entries.Count(entries.Contains)).First();
+			used = new List<PaletteCycle> { main };
+			length = main.Length;
+			changes = Enumerable.Range(0, main.Steps.Count).Select(step => step * main.Period).ToList();
 		}
 		var frames = new List<(int, uint[])>();
 		for (int i = 0; i < changes.Count; i++)
@@ -190,6 +192,8 @@ public static class PriorityTiles
 		int tileSize = BlockSize * scale;
 		// The tile id, then the texture slot and the time of each frame
 		var tiles = new SortedDictionary<int, List<(int Slot, int Duration)>>();
+		// Where the frames of an animated tile come from, for the level editor
+		var sources = new Dictionary<int, string>();
 		// The priority of the patterns to draw: high, low, or null for all the patterns (the background)
 		var drawings = new List<(int Slot, byte[] Art, uint[] Palette, int Block, bool? Priority)>();
 		foreach (int block in priorityBlocks.Where(b => !animatedBlocks.Contains(b)))
@@ -203,11 +207,13 @@ public static class PriorityTiles
 			// A block with animated art has its frames. A block with colours of palette cycles has a frame for each change
 			// of the colours. Another block (for example one with patterns that the HD tiles do not have) has one frame.
 			AnimatedArt animation = animations.FirstOrDefault(a => Enumerable.Range(0, 4).Any(q => a.Contains(GetWord(blockMappings, block, q) & 0x7FF)));
-			List<(int Duration, uint[] Palette)> paletteFrames = animation == null ? GetPaletteFrames(palette, paletteCycles, GetEntries(art, blockMappings, block)) : null;
+			List<PaletteCycle> usedCycles = null;
+			List<(int Duration, uint[] Palette)> paletteFrames = animation == null ? GetPaletteFrames(palette, paletteCycles, GetEntries(art, blockMappings, block), out usedCycles) : null;
 			if (paletteFrames != null && paletteFrames.Count <= 1)
 			{
 				paletteFrames = null;
 			}
+			string source = animation?.Source ?? (paletteFrames != null ? "palette cycle " + string.Join(", ", usedCycles.Select(c => c.Name)) : null);
 			int frameCount = animation?.Frames.Count ?? paletteFrames?.Count ?? 1;
 			foreach (bool? priority in new bool?[] { true, false, null })
 			{
@@ -223,7 +229,12 @@ public static class PriorityTiles
 					drawings.Add((nextSlot, animation?.Apply(art, frame) ?? art, paletteFrames?[frame].Palette ?? palette, block, priority));
 					nextSlot++;
 				}
-				tiles[(priority == null ? BackgroundFirstTile : priority.Value ? FirstTile : AnimatedFirstTile) + block] = frames;
+				int id = (priority == null ? BackgroundFirstTile : priority.Value ? FirstTile : AnimatedFirstTile) + block;
+				tiles[id] = frames;
+				if (source != null && frames.Count > 1)
+				{
+					sources[id] = source;
+				}
 			}
 		}
 
@@ -254,7 +265,8 @@ public static class PriorityTiles
 				xml.AppendLine($"    <tile id=\"{id}\" texture=\"1\" x=\"{frames[0].Slot % TilesPerRow * tileSize}\" y=\"{frames[0].Slot / TilesPerRow * tileSize}\" />");
 				continue;
 			}
-			xml.AppendLine($"    <tile id=\"{id}\">");
+			string sourceAttribute = sources.TryGetValue(id, out string tileSource) ? $" source=\"{System.Security.SecurityElement.Escape(tileSource)}\"" : "";
+			xml.AppendLine($"    <tile id=\"{id}\"{sourceAttribute}>");
 			foreach ((int slot, int duration) in frames)
 			{
 				xml.AppendLine($"      <frame texture=\"1\" x=\"{slot % TilesPerRow * tileSize}\" y=\"{slot / TilesPerRow * tileSize}\" delay=\"{duration}\" />");

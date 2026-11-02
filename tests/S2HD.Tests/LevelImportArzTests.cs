@@ -85,5 +85,7 @@ public sealed class LevelImportArzTests
 	{
 		// The waterfalls use the colours of the cycle, so their blocks get a frame for each step of 6 ticks
 		Assert.Contains("delay=\"6\"", Arz.Value.TileSet);
+		// The level editor shows where the frames come from
+		Assert.Contains("source=\"palette cycle PalCycle_ARZ (CyclingPal_EHZ_ARZ_Water)\"", Arz.Value.TileSet);
 	}
 }

@@ -65,10 +65,17 @@ public class Tile : ITile
 
 	public TileBlendMode Blend => _blend;
 
-	public Tile(TileSet tileSet, int id, IEnumerable<Frame> frames, TileBlendMode blend = TileBlendMode.Alpha)
+	/// <summary>
+	/// Where the frames of the tile come from, for the level editor, or null. The importer writes it for the tiles that
+	/// it animates, for example "palette cycle PalCycle_CNZ".
+	/// </summary>
+	public string Source { get; }
+
+	public Tile(TileSet tileSet, int id, IEnumerable<Frame> frames, TileBlendMode blend = TileBlendMode.Alpha, string source = null)
 	{
 		_tileSet = tileSet;
 		_id = id;
+		Source = source;
 		_frames = frames.ToArray();
 		_blend = blend;
 		if (_frames.Length >= 1)
