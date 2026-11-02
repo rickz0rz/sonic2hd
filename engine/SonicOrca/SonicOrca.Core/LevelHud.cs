@@ -108,9 +108,43 @@ internal class LevelHud : IDisposable
 		_redAnimation = (_redAnimation + RedAnimationSpeed) % 2.0;
 	}
 
+	/// <summary>The player of the HUD that draws now: player 1, or a player of versus mode.</summary>
+	private Player _drawPlayer;
+
+	private Camera _drawCamera;
+
+	private Player Player => _drawPlayer ?? _level.Player;
+
+	/// <summary>
+	/// Draws the HUD. In versus mode, each player has a HUD in their half of the screen, at half size: the score, the
+	/// time and the rings at the top left of the half, and the lives at the bottom left.
+	/// </summary>
 	public void Draw(Renderer renderer)
 	{
-		ICharacter protagonist = _level.Player.Protagonist;
+		if (!_level.Versus)
+		{
+			DrawFor(renderer, _level.Player, _level.Camera);
+			return;
+		}
+		I2dRenderer i2dRenderer = renderer.Get2dRenderer();
+		using (i2dRenderer.BeginMatixState())
+		{
+			for (int i = 0; i < _level.Players.Count; i++)
+			{
+				i2dRenderer.ModelMatrix = Matrix4.CreateTranslation(0.0, i * VersusHalfHeight) * Matrix4.CreateScale(0.5, 0.5);
+				DrawFor(renderer, _level.Players[i], _level.Cameras[i]);
+			}
+		}
+	}
+
+	/// <summary>The height of a half of the screen in versus mode.</summary>
+	private const double VersusHalfHeight = 540.0;
+
+	private void DrawFor(Renderer renderer, Player player, Camera camera)
+	{
+		_drawPlayer = player;
+		_drawCamera = camera;
+		ICharacter protagonist = player.Protagonist;
 		if (protagonist != null && protagonist.IsDebug)
 		{
 			DrawDebug(renderer);
@@ -119,11 +153,13 @@ internal class LevelHud : IDisposable
 		{
 			DrawNormal(renderer);
 		}
+		_drawPlayer = null;
+		_drawCamera = null;
 	}
 
 	private void DrawNormal(Renderer renderer)
 	{
-		DrawTLInfo(renderer, 226.0, 610.0, 98.0, szScore, _level.Player.Score.ToString());
+		DrawTLInfo(renderer, 226.0, 610.0, 98.0, szScore, Player.Score.ToString());
 		// The level time is in ticks. The hundredths come from the ticks that are left after the full seconds.
 		int minutes = _level.Time / TicksPerSecond / 60;
 		int seconds = _level.Time / TicksPerSecond % 60;
@@ -136,8 +172,8 @@ internal class LevelHud : IDisposable
 		{
 			DrawTLInfo(renderer, 226.0, 400.0, 162.0, szTime, $"{minutes}:{seconds:00}", minutes >= TimeWarningMinutes, rightAligned: false);
 		}
-		DrawTLInfo(renderer, 226.0, 516.0, 226.0, szRings, _level.Player.CurrentRings.ToString(), _level.Player.CurrentRings == 0);
-		if (_level.Player.Lives >= 0)
+		DrawTLInfo(renderer, 226.0, 516.0, 226.0, szRings, Player.CurrentRings.ToString(), Player.CurrentRings == 0);
+		if (Player.Lives >= 0)
 		{
 			DrawLives(renderer);
 		}
@@ -145,9 +181,9 @@ internal class LevelHud : IDisposable
 
 	private void DrawDebug(Renderer renderer)
 	{
-		ICharacter protagonist = _level.Player.Protagonist;
+		ICharacter protagonist = Player.Protagonist;
 		DrawTLInfoHexCoordinate(renderer, 226.0, 98.0, "PLAYER", protagonist.Position);
-		DrawTLInfoHexCoordinate(renderer, 226.0, 162.0, "SCROLL", (Vector2i)_level.Camera.Bounds.TopLeft);
+		DrawTLInfoHexCoordinate(renderer, 226.0, 162.0, "SCROLL", (Vector2i)(_drawCamera ?? _level.Camera).Bounds.TopLeft);
 		DrawBottomText(renderer, "DEBUG MODE");
 	}
 
@@ -163,7 +199,7 @@ internal class LevelHud : IDisposable
 		i2dRenderer.BlendMode = BlendMode.Alpha;
 		i2dRenderer.Colour = new Colour(96, byte.MaxValue, byte.MaxValue, byte.MaxValue);
 		// A character without its own art, for example Knuckles, uses the art of Sonic
-		if (_level.Player.ProtagonistCharacterType == CharacterType.Tails)
+		if (Player.ProtagonistCharacterType == CharacterType.Tails)
 		{
 			i2dRenderer.RenderTexture(_checkeredTextureTails, new Vector2(captionLeft - _checkeredTextureTails.Width / 2 - 8.0, top + _font.Height / 2.0));
 		}
@@ -183,11 +219,11 @@ internal class LevelHud : IDisposable
 		FontAlignment captionAlignment = FontAlignment.Left;
 		Rectangle captionBounds = _font.MeasureString(caption, boundary, captionAlignment);
 		i2dRenderer.Colour = new Colour(155, byte.MaxValue, byte.MaxValue, byte.MaxValue);
-		if (_level.Player.ProtagonistCharacterType == CharacterType.Sonic)
+		if (Player.ProtagonistCharacterType == CharacterType.Sonic)
 		{
 			i2dRenderer.RenderTexture(_triangleTextureSonic, new Vector2(captionBounds.Right - 8.0, captionBounds.Bottom - 4.0));
 		}
-		else if (_level.Player.ProtagonistCharacterType == CharacterType.Tails)
+		else if (Player.ProtagonistCharacterType == CharacterType.Tails)
 		{
 			i2dRenderer.RenderTexture(_triangleTextureTails, new Vector2(captionBounds.Right - 8.0, captionBounds.Bottom - 4.0));
 		}
@@ -212,7 +248,7 @@ internal class LevelHud : IDisposable
 		i2dRenderer.Colour = Colours.White;
 		DrawLifeIcon(i2dRenderer);
 		fontRenderer.RenderStringWithShadow("×", new Rectangle(300.0, 934.0, 0.0, 0.0), FontAlignment.Left, _font, 1);
-		fontRenderer.RenderStringWithShadow(_level.Player.Lives.ToString(), new Rectangle(370.0, 934.0, 0.0, 0.0), FontAlignment.Left, _font, 0);
+		fontRenderer.RenderStringWithShadow(Player.Lives.ToString(), new Rectangle(370.0, 934.0, 0.0, 0.0), FontAlignment.Left, _font, 0);
 	}
 
 	private void DrawBottomText(Renderer renderer, string text)
@@ -229,11 +265,11 @@ internal class LevelHud : IDisposable
 	/// </summary>
 	private void DrawLifeIcon(I2dRenderer i2dRenderer)
 	{
-		if (_level.Player.ProtagonistCharacterType == CharacterType.Sonic)
+		if (Player.ProtagonistCharacterType == CharacterType.Sonic)
 		{
 			i2dRenderer.RenderTexture(_lifeTextureSonic, new Vector2(264.0, 958.0));
 		}
-		else if (_level.Player.ProtagonistCharacterType == CharacterType.Tails)
+		else if (Player.ProtagonistCharacterType == CharacterType.Tails)
 		{
 			i2dRenderer.RenderTexture(_lifeTextureTails, new Vector2(264.0, 958.0));
 		}

@@ -640,7 +640,7 @@ count. In the special stage, each player has their own rings (see "Entering a sp
 
 Versus mode is not complete yet. `--level ehz --versus` starts a test of it: player 2 plays Tails, with their own
 rings, score and lives. The screen splits: player 1 in the top half and player 2 in the bottom half, each with their
-own camera. Each camera starts zoomed out, so that the half shows more of the level. Each player changes the zoom
+own camera and their own HUD. Each camera starts zoomed out, so that the half shows more of the level. Each player changes the zoom
 of their half with their zoom key. See `docs/two-player-design.md` for the plan.
 
 ## Command-line options
