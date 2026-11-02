@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
+using SonicOrca.Resources;
 
 namespace SonicOrca.Core;
 
@@ -45,7 +46,13 @@ public class Tile : ITile
 
 	private readonly int _id;
 
-	private readonly Frame[] _frames;
+	private Frame[] _frames;
+
+	/// <summary>The animation group of the frames, or null when the tile set has the frames.</summary>
+	private AnimationGroup _animationGroup;
+
+	/// <summary>The animation that gave the frames. A new animation (for example after a change in the animation editor) gives new frames.</summary>
+	private Animation _animation;
 
 	private readonly TileBlendMode _blend;
 
@@ -71,11 +78,23 @@ public class Tile : ITile
 	/// </summary>
 	public string Source { get; }
 
-	public Tile(TileSet tileSet, int id, IEnumerable<Frame> frames, TileBlendMode blend = TileBlendMode.Alpha, string source = null)
+	/// <summary>
+	/// The key of the animation group (ANIGROUP) that has the frames of the tile, or null when the tile set has the
+	/// frames. The animation editor can change such an animation.
+	/// </summary>
+	public string AnimationGroupKey { get; }
+
+	/// <summary>The index of the animation of the tile in <see cref="AnimationGroupKey"/>.</summary>
+	public int AnimationIndex { get; }
+
+	public Tile(TileSet tileSet, int id, IEnumerable<Frame> frames, TileBlendMode blend = TileBlendMode.Alpha, string source = null,
+		string animationGroupKey = null, int animationIndex = 0)
 	{
 		_tileSet = tileSet;
 		_id = id;
 		Source = source;
+		AnimationGroupKey = animationGroupKey;
+		AnimationIndex = animationIndex;
 		_frames = frames.ToArray();
 		_blend = blend;
 		if (_frames.Length >= 1)
@@ -88,8 +107,51 @@ public class Tile : ITile
 		}
 	}
 
+	/// <summary>Takes the frames from the animation of <see cref="AnimationGroupKey"/>, when the tile has one.</summary>
+	internal void LoadAnimation(ResourceTree resourceTree)
+	{
+		if (AnimationGroupKey == null)
+		{
+			return;
+		}
+		_animationGroup = resourceTree.GetLoadedResource<AnimationGroup>(AnimationGroupKey);
+		UpdateAnimationFrames();
+	}
+
+	/// <summary>
+	/// Makes the frames of the tile from its animation. The textures of the animation become textures of the tile set.
+	/// </summary>
+	private void UpdateAnimationFrames()
+	{
+		if (_animationGroup == null || AnimationIndex < 0 || AnimationIndex >= _animationGroup.Count)
+		{
+			return;
+		}
+		_animation = _animationGroup[AnimationIndex];
+		if (_animation.Frames.Count == 0)
+		{
+			return;
+		}
+		_frames = _animation.Frames.Select(frame => new Frame
+		{
+			TextureId = _tileSet.GetTextureIndex(_animationGroup.Textures[frame.TextureIndex]),
+			X = frame.Source.X,
+			Y = frame.Source.Y,
+			Delay = frame.Delay,
+			Opacity = 1f
+		}).ToArray();
+		_currentFrameIndex %= _frames.Length;
+		_opacity = 1f;
+		_opacityChange = 0f;
+	}
+
 	public void Animate()
 	{
+		// The animation editor replaces the animations of a group when the user changes them
+		if (_animationGroup != null && AnimationIndex < _animationGroup.Count && _animationGroup[AnimationIndex] != _animation)
+		{
+			UpdateAnimationFrames();
+		}
 		if (_frames.Length <= 1)
 		{
 			return;

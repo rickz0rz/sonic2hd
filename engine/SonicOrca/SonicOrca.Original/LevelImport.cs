@@ -450,10 +450,11 @@ public sealed record OriginalZone(string Name, string Key, string ChunksFile, st
 /// <param name="PriorityTexture">The texture of the tiles in front of the characters, or null.</param>
 /// <param name="Textures">Other textures, by resource key, for example the slot machine reels.</param>
 /// <param name="TileCollision">The collision data of the front layer, for the level editor.</param>
+/// <param name="TileAnimations">The animation group (ANIGROUP) of the animated tiles of the tile set, or null.</param>
 public sealed record ImportedLevel(LevelMap Map, LevelBinding Binding, IReadOnlyList<string> Notes,
 	IReadOnlyList<ImportedSprite> Sprites, IReadOnlyDictionary<string, string> NewObjects,
 	string TileSet = null, byte[] PriorityTexture = null, IReadOnlyDictionary<string, byte[]> Textures = null,
-	TileCollision TileCollision = null);
+	TileCollision TileCollision = null, string TileAnimations = null);
 
 /// <summary>
 /// Makes the map and the binding of a SonicOrca level from a zone of the original game. The tiles are the blocks of
@@ -677,6 +678,7 @@ public static class LevelImport
 		var layers = new List<LevelLayer> { back, front };
 		string tileSet = null;
 		byte[] priorityTexture = null;
+		string tileAnimations = null;
 		uint[] palette = SpriteImport.ReadPalette(disassembly, zone.PaletteFile);
 		byte[] art = null;
 		byte[] blockMappings = null;
@@ -792,7 +794,7 @@ public static class LevelImport
 
 		if (zone.ArtFile != null)
 		{
-			(tileSet, priorityTexture) = PriorityTiles.Create(zone.HdTiles, art, blockMappings, palette, used, usedAnimated, animations, Scale, usedBackground, paletteCycles, zone.SolidPatterns);
+			(tileSet, priorityTexture, tileAnimations) = PriorityTiles.Create(zone.HdTiles, art, blockMappings, palette, used, usedAnimated, animations, Scale, usedBackground, paletteCycles, zone.SolidPatterns);
 		}
 		foreach (LevelLayer layer in layers)
 		{
@@ -904,7 +906,7 @@ public static class LevelImport
 		var newObjects = binding.ObjectPlacements.Select(p => p.Key).Concat(zone.Sprites.Select(s => s.ObjectKey)).Concat(zone.AreaObjects).Distinct()
 			.Where(RepositoryObjects.ContainsKey).ToDictionary(key => key, key => RepositoryObjects[key]);
 		return new ImportedLevel(map, binding, notes, sprites, newObjects, tileSet, priorityTexture, textures,
-			TileCollision.FromBlocks(FrontLayerIndex, blocks, heights, primary, secondary));
+			TileCollision.FromBlocks(FrontLayerIndex, blocks, heights, primary, secondary), tileAnimations);
 	}
 
 	/// <summary>

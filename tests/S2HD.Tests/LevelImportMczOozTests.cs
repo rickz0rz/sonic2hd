@@ -67,9 +67,10 @@ public sealed class LevelImportMczOozTests
 		ImportedLevel level = Ooz.Value;
 
 		// The oil blocks use the patterns of the animated art (ArtUnc_Oil1 and 2, 6 frames each)
-		Assert.Contains("<frame ", level.TileSet);
-		Assert.Contains(Enumerable.Range(0, level.Map.Layers[2].Columns), x =>
-			Enumerable.Range(0, level.Map.Layers[2].Rows).Any(y => level.TileSet.Contains($"<tile id=\"{level.Map.Layers[2].Tiles[x, y] & 0xFFF}\" source=\"animated art Animated_OOZ")));
+		Assert.Contains("<frame ", level.TileAnimations);
+		string[] tiles = level.TileSet.Split('\n');
+		Assert.Contains(Enumerable.Range(0, level.Map.Layers[2].Columns), x => Enumerable.Range(0, level.Map.Layers[2].Rows).Any(y =>
+			tiles.Any(line => line.Contains($"<tile id=\"{level.Map.Layers[2].Tiles[x, y] & 0xFFF}\" ") && line.Contains("source=\"animated art Animated_OOZ"))));
 	}
 
 	[Fact]

@@ -812,8 +812,13 @@ public sealed class LevelEditor : IDisposable
 			ShowMessage("The selected object has no animation that the editor can find.");
 			return;
 		}
-		_animationTarget = (animation?.AnimationGroup.Resource.FullKeyPath, animation?.Index ?? 0,
-			target?.Hitboxes.ToArray() ?? Array.Empty<Rectanglei>());
+		OpenAnimationEditor(animation?.AnimationGroup.Resource.FullKeyPath, animation?.Index ?? 0, target?.Hitboxes.ToArray() ?? Array.Empty<Rectanglei>());
+	}
+
+	/// <summary>Opens the animation editor on an animation of an animation group, for example the animation of a tile.</summary>
+	internal void OpenAnimationEditor(string key, int index, Rectanglei[] hitboxes = null)
+	{
+		_animationTarget = (key, index, hitboxes ?? Array.Empty<Rectanglei>());
 		CompleteTraces();
 		_drag = DragMode.None;
 		if (_animationEditor == null)

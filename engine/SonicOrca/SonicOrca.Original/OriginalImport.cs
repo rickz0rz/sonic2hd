@@ -26,7 +26,7 @@ public static class OriginalImport
 	/// The version of the import. Change it when a change of the importers changes the mods, so that the web build
 	/// makes its stored mods again.
 	/// </summary>
-	public const int Version = 18;
+	public const int Version = 19;
 
 	/// <summary>The zones that the import makes, in the order of tools/import-all.sh.</summary>
 	public static readonly IReadOnlyList<string> Zones = new[] { "arz", "cnz", "mcz", "ooz", "mtz", "scz", "wfz", "dez" };
@@ -105,6 +105,11 @@ public static class OriginalImport
 			Directory.CreateDirectory(tileSetFolder);
 			File.WriteAllText(Path.Combine(tileSetFolder, "_.tileset.xml"), level.TileSet);
 			File.WriteAllBytes(Path.Combine(tileSetFolder, "PRIORITY.png"), level.PriorityTexture);
+			// The animations of the animated tiles, which the animation editor can change
+			if (level.TileAnimations != null)
+			{
+				File.WriteAllText(Path.Combine(tileSetFolder, "ANIGROUP.anigroup.xml"), level.TileAnimations);
+			}
 		}
 		// The art of the objects that the game data does not have
 		WriteSprites(folder, level.Sprites);

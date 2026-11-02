@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security;
 using System.Text;
 
 namespace SonicOrca.Original;
@@ -197,7 +198,11 @@ public static class PriorityTiles
 	/// </summary>
 	/// <param name="art">The level art: 8 x 8 patterns, 4 bits for each pixel.</param>
 	/// <param name="blockMappings">The 16 x 16 block mappings: four pattern words for each block.</param>
-	public static (string TileSet, byte[] Texture) Create(int hdTiles, byte[] art, byte[] blockMappings, uint[] palette,
+	/// <returns>
+	/// The tile set, its PRIORITY texture, and the animation group (ANIGROUP) with one animation for each animated tile,
+	/// or null when no tile is animated.
+	/// </returns>
+	public static (string TileSet, byte[] Texture, string Animations) Create(int hdTiles, byte[] art, byte[] blockMappings, uint[] palette,
 		ICollection<int> priorityBlocks, ICollection<int> animatedBlocks, IReadOnlyList<AnimatedArt> animations, int scale,
 		ICollection<int> backgroundBlocks = null, IReadOnlyList<PaletteCycle> paletteCycles = null, IReadOnlyCollection<int> solidPatterns = null)
 	{
@@ -273,24 +278,37 @@ public static class PriorityTiles
 		{
 			xml.AppendLine($"    <tile id=\"{tile}\" texture=\"0\" x=\"{tile % TilesPerRow * tileSize}\" y=\"{tile / TilesPerRow * tileSize}\" />");
 		}
+		// The animated tiles take their frames from the animation group, one animation for each tile. Each tile keeps its
+		// first frame, which it shows until the animation group has loaded.
+		var animationXml = new StringBuilder();
+		int animationCount = 0;
 		foreach ((int id, List<(int Slot, int Duration)> frames) in tiles)
 		{
+			string position = $"texture=\"1\" x=\"{frames[0].Slot % TilesPerRow * tileSize}\" y=\"{frames[0].Slot / TilesPerRow * tileSize}\"";
 			if (frames.Count == 1)
 			{
-				xml.AppendLine($"    <tile id=\"{id}\" texture=\"1\" x=\"{frames[0].Slot % TilesPerRow * tileSize}\" y=\"{frames[0].Slot / TilesPerRow * tileSize}\" />");
+				xml.AppendLine($"    <tile id=\"{id}\" {position} />");
 				continue;
 			}
-			string sourceAttribute = sources.TryGetValue(id, out string tileSource) ? $" source=\"{System.Security.SecurityElement.Escape(tileSource)}\"" : "";
-			xml.AppendLine($"    <tile id=\"{id}\"{sourceAttribute}>");
+			string tileSource = sources.TryGetValue(id, out string found) ? found : null;
+			string sourceAttribute = tileSource != null ? $" source=\"{SecurityElement.Escape(tileSource)}\"" : "";
+			xml.AppendLine($"    <tile id=\"{id}\" {position} anigroup=\"/ANIGROUP\" animation=\"{animationCount}\"{sourceAttribute} />");
+			animationXml.AppendLine($"    <!-- {animationCount}: tile {id}{(tileSource != null ? ", " + SecurityElement.Escape(tileSource).Replace("--", "-") : "")} -->");
+			animationXml.AppendLine("    <animation>");
 			foreach ((int slot, int duration) in frames)
 			{
-				xml.AppendLine($"      <frame texture=\"1\" x=\"{slot % TilesPerRow * tileSize}\" y=\"{slot / TilesPerRow * tileSize}\" delay=\"{duration}\" />");
+				// A frame shows for its delay plus 1 tick
+				animationXml.AppendLine($"      <frame x=\"{slot % TilesPerRow * tileSize}\" y=\"{slot / TilesPerRow * tileSize}\" w=\"{tileSize}\" h=\"{tileSize}\" delay=\"{Math.Max(0, duration - 1)}\" />");
 			}
-			xml.AppendLine("    </tile>");
+			animationXml.AppendLine("    </animation>");
+			animationCount++;
 		}
 		xml.AppendLine("  </tiles>");
 		xml.AppendLine("</tileset>");
-		return (xml.ToString(), SpriteImport.EncodePng(pixels, width, height));
+		string animationGroup = animationCount == 0 ? null
+			: "<?xml version=\"1.0\"?>\n<anigroup>\n  <textures>\n    <texture>//PRIORITY</texture>\n  </textures>\n  <animations>\n" +
+				animationXml + "  </animations>\n</anigroup>\n";
+		return (xml.ToString(), SpriteImport.EncodePng(pixels, width, height), animationGroup);
 	}
 
 	/// <summary>True when the block has a high-priority pattern (or a low-priority pattern).</summary>

@@ -101,6 +101,22 @@ public class TileSet : IReadOnlyDictionary<int, ITile>, IReadOnlyCollection<KeyV
 	public void OnLoaded()
 	{
 		Textures = _textureKeys.Select(x => _resourceTree.GetLoadedResource<ITexture>(x)).ToArray();
+		foreach (Tile tile in _tileIds.Select(i => _tiles[i]).OfType<Tile>())
+		{
+			tile.LoadAnimation(_resourceTree);
+		}
+	}
+
+	/// <summary>The index of a texture in <see cref="Textures"/>. A texture that the tile set does not have yet is added.</summary>
+	internal int GetTextureIndex(ITexture texture)
+	{
+		int index = Array.IndexOf(Textures.ToArray(), texture);
+		if (index >= 0)
+		{
+			return index;
+		}
+		Textures = Textures.Append(texture).ToArray();
+		return Textures.Count - 1;
 	}
 
 	public void Dispose()

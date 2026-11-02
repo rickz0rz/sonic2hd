@@ -84,8 +84,12 @@ public sealed class LevelImportArzTests
 	public void Arz_HasAnimatedTilesForThePaletteCycle()
 	{
 		// The waterfalls use the colours of the cycle, so their blocks get a frame for each step of 6 ticks
-		Assert.Contains("delay=\"6\"", Arz.Value.TileSet);
+		// The tile set takes the frames from its animation group (ANIGROUP), which the animation editor can change. A frame
+		// shows for its delay plus 1 tick.
+		Assert.Contains("anigroup=\"/ANIGROUP\"", Arz.Value.TileSet);
+		Assert.Contains("delay=\"5\"", Arz.Value.TileAnimations);
 		// The level editor shows where the frames come from
 		Assert.Contains("source=\"palette cycle PalCycle_ARZ (CyclingPal_EHZ_ARZ_Water)\"", Arz.Value.TileSet);
+		Assert.Contains("palette cycle PalCycle_ARZ (CyclingPal_EHZ_ARZ_Water)", Arz.Value.TileAnimations);
 	}
 }

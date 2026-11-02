@@ -39,8 +39,12 @@ internal class TileSetResourceType : ResourceType
 		e.PushDependencies(texturePaths);
 		TileSet tileSet = new TileSet(e.ResourceTree, texturePaths);
 		tileSet.Resource = e.Resource;
-		IEnumerable<Tile> tiles = from x in xmlNode.SelectNodes("tiles/tile").OfType<XmlNode>()
-								  select ParseXmlTile(x, tileSet);
+		// An animated tile can take its frames from an animation group (ANIGROUP), which the animation editor can change
+		XmlNode[] tileNodes = xmlNode.SelectNodes("tiles/tile").OfType<XmlNode>().ToArray();
+		e.PushDependencies(tileNodes.Select(x => x.TryGetAttributeValue("anigroup", out string key) ? e.GetAbsolutePath(key) : null)
+			.Where(key => key != null).Distinct());
+		IEnumerable<Tile> tiles = from x in tileNodes
+								  select ParseXmlTile(x, tileSet, e);
 		IEnumerable<TileSequence> tileSequences = from x in xmlNode.SelectNodes("tiles/tileseq").OfType<XmlNode>()
 												  select ParseXmlTileSequence(x, tileSet);
 		foreach (ITile tile in tiles.Cast<ITile>().Concat(tileSequences.Cast<ITile>()))
@@ -50,7 +54,7 @@ internal class TileSetResourceType : ResourceType
 		return tileSet;
 	}
 
-	private static Tile ParseXmlTile(XmlNode node, TileSet tileSet)
+	private static Tile ParseXmlTile(XmlNode node, TileSet tileSet, ResourceLoadArgs e)
 	{
 		int id = int.Parse(node.Attributes["id"].Value);
 		int defaultTextureId = (node.TryGetAttributeValue("texture", out string value) ? int.Parse(value) : 0);
@@ -86,7 +90,9 @@ internal class TileSetResourceType : ResourceType
 			frames = frameNodes.Select(x => ParseXmlTileFrame(x, defaultX, defaultY, defaultTextureId, defaultDelay, defaultOpacity));
 		}
 		string source = node.TryGetAttributeValue("source", out value) ? value : null;
-		return new Tile(tileSet, id, frames, blend, source);
+		string animationGroup = node.TryGetAttributeValue("anigroup", out value) ? e.GetAbsolutePath(value) : null;
+		int animation = node.TryGetAttributeValue("animation", out value) ? int.Parse(value) : 0;
+		return new Tile(tileSet, id, frames, blend, source, animationGroup, animation);
 	}
 
 	private static Tile.Frame ParseXmlTileFrame(XmlNode node, int defaultX, int defaultY, int defaultTextureId, int defaultDelay, float defaultOpacity)
