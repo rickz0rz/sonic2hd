@@ -127,38 +127,78 @@ public class SignpostInstance : ActiveObject
 
 	/// <summary>
 	/// The signpost of versus mode, as Obj0D of the original in two-player mode: each player who passes it finishes
-	/// the act, and their time stops. The sign turns to the face of the first player who passes it. The level ends
-	/// the act when all players finished, or when the time limit of the others runs out.
+	/// the act, and their time stops. Each pass makes the sign spin, and the spin stops on the face of the first player
+	/// who passed it. The level ends the act when all players finished, or when the time limit of the others runs out.
 	/// </summary>
 	private IEnumerable<UpdateResult> GetVersusUpdates()
 	{
-		bool turned = false;
-		// Act 2 follows act 1 in the same map, and the signpost of act 1 stays. It ends only the act of its start.
-		int act = Level.CurrentAct;
+		int? winnerCharacterIndex = null;
+		IEnumerator<UpdateResult> spin = null;
+		// The X position of each player at the last update of the sign. Only a pass from the left counts, because the
+		// map of act 2 also has the signpost of act 1, left of the start of act 2. The sign can update before the
+		// characters, so it keeps the positions itself.
+		Dictionary<Player, int> lastX = new Dictionary<Player, int>();
 		while (true)
 		{
-			if (Level.CurrentAct != act)
-			{
-				yield return UpdateResult.Next();
-				continue;
-			}
 			foreach (Player player in Level.Players)
 			{
 				ICharacter character = player.Protagonist;
-				if (player.StoppedTime != null || character == null || character.IsDebug || character.IsDead || character.IsDying)
+				if (character == null)
 					continue;
-				if (character.Position.X < Position.X)
+				int x = character.Position.X;
+				bool passed = lastX.TryGetValue(player, out int previousX) && previousX < Position.X && x >= Position.X;
+				lastX[player] = x;
+				if (!passed || player.StoppedTime != null || character.IsDebug || character.IsDead || character.IsDying)
 					continue;
 				Level.FinishVersusPlayer(player);
 				Level.SoundManager.PlaySound(this, Type.GetAbsolutePath(SignpostType.SoundResourceKey));
-				if (!turned)
-				{
-					turned = true;
-					int face = player.ProtagonistCharacterType == CharacterType.Tails ? CharacterIndexTails : CharacterIndexSonic;
-					_animation.Index = GetAnimationIndexFromCharacter(face) + OffsetFront;
-				}
+				winnerCharacterIndex ??= player.ProtagonistCharacterType == CharacterType.Tails ? CharacterIndexTails : CharacterIndexSonic;
+				// A new pass starts the spin again, as in the original
+				spin = GetSpinUpdates(winnerCharacterIndex.Value, moveCamera: false).GetEnumerator();
 			}
+			if (spin != null && !spin.MoveNext())
+				spin = null;
 			yield return UpdateResult.Next();
+		}
+	}
+
+	/// <summary>
+	/// Spins the sign through the faces at least <see cref="MinSpins"/> times (HD) or for
+	/// <see cref="OriginalSpinTicks"/> (Original), with sparkles, and stops on the face of a character.
+	/// </summary>
+	private IEnumerable<UpdateResult> GetSpinUpdates(int targetCharacterIndex, bool moveCamera)
+	{
+		int characterIndex = CharacterIndexRobotnik;
+		int spinTicks = 0;
+		_animation.Index = GetAnimationIndexFromCharacter(characterIndex) + OffsetFront;
+		for (int spins = 0; !IsSpinDone(spins, spinTicks) || characterIndex != targetCharacterIndex; ++spins)
+		{
+			// Turn to the side. The animation goes to AnimationSide when it ends.
+			++_animation.Index;
+			while (_animation.Index != AnimationSide)
+			{
+				if (moveCamera)
+					UpdateCamera();
+				UpdateSparkles();
+				++spinTicks;
+				yield return UpdateResult.Next();
+			}
+
+			// Turn to the front of the next character. The animation goes to the front animation when it ends.
+			// The original stops on the face of the target at once when the spin time ends.
+			characterIndex = Level.OriginalPhysics && spinTicks >= OriginalSpinTicks
+				? targetCharacterIndex
+				: (characterIndex + 1) % CharacterCount;
+			int animationIndex = GetAnimationIndexFromCharacter(characterIndex);
+			_animation.Index = animationIndex;
+			while (_animation.Index != animationIndex + OffsetFront)
+			{
+				if (moveCamera)
+					UpdateCamera();
+				UpdateSparkles();
+				++spinTicks;
+				yield return UpdateResult.Next();
+			}
 		}
 	}
 
@@ -192,38 +232,8 @@ public class SignpostInstance : ActiveObject
 				yield return UpdateResult.Next();
 			}
 
-			// Spin through the faces at least MinSpins times (HD) or for OriginalSpinTicks (Original), and stop on
-			// the face of the protagonist.
-			int characterIndex = CharacterIndexRobotnik;
-			int targetCharacterIndex = GetProtagonistCharacterIndex();
-			int spinTicks = 0;
-			for (int spins = 0; !IsSpinDone(spins, spinTicks) || characterIndex != targetCharacterIndex; ++spins)
-			{
-				// Turn to the side. The animation goes to AnimationSide when it ends.
-				++_animation.Index;
-				while (_animation.Index != AnimationSide)
-				{
-					UpdateCamera();
-					UpdateSparkles();
-					++spinTicks;
-					yield return UpdateResult.Next();
-				}
-
-				// Turn to the front of the next character. The animation goes to the front animation when it ends.
-				// The original stops on the face of the protagonist at once when the spin time ends.
-				characterIndex = Level.OriginalPhysics && spinTicks >= OriginalSpinTicks
-					? targetCharacterIndex
-					: (characterIndex + 1) % CharacterCount;
-				int animationIndex = GetAnimationIndexFromCharacter(characterIndex);
-				_animation.Index = animationIndex;
-				while (_animation.Index != animationIndex + OffsetFront)
-				{
-					UpdateCamera();
-					UpdateSparkles();
-					++spinTicks;
-					yield return UpdateResult.Next();
-				}
-			}
+			foreach (UpdateResult result in GetSpinUpdates(GetProtagonistCharacterIndex(), moveCamera: true))
+				yield return result;
 			if (Level.OriginalPhysics)
 			{
 				// The protagonist runs right with the controls locked. The level completes when it reaches the right

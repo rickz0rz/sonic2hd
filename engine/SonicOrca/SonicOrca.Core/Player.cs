@@ -98,6 +98,9 @@ public class Player
 	/// </summary>
 	public int? StoppedTime { get; set; }
 
+	/// <summary>The monitors that the player broke in the act (Monitors_Broken in the original), for the versus results.</summary>
+	public int MonitorsBroken { get; set; }
+
 	public Player(Level level)
 	{
 		_level = level;
