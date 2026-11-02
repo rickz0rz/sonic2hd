@@ -592,7 +592,13 @@ internal sealed class TilesTool : EditorTool
 				Value = _animatedOnly ? "animated tiles only (click for all)" : "all tiles (click for animated only)",
 				Step = _ => { _animatedOnly = !_animatedOnly; UpdatePaletteTiles(); }
 			},
-			new EditorPropertyRow { Label = "Animation", Value = GetAnimationText() },
+			new EditorPropertyRow
+			{
+				Label = "Animation",
+				Value = GetAnimationText() + (GetBrushTile()?.AnimationGroupKey != null ? " (click to edit)" : ""),
+				// A tile with an animation group opens its animation in the animation editor
+				Step = GetBrushTile()?.AnimationGroupKey != null ? _ => Editor.OpenAnimationEditor(GetBrushTile().AnimationGroupKey, GetBrushTile().AnimationIndex) : null
+			},
 			// The panel shows the source without the details in brackets. The status line shows all of it.
 			new EditorPropertyRow { Label = "From", Value = GetBrushTile()?.Source?.Split(" (")[0] ?? (GetBrushTile()?.Animated == true ? "the tile set" : "-") },
 			new EditorPropertyRow
@@ -629,7 +635,8 @@ internal sealed class TilesTool : EditorTool
 	/// <summary>The frames of an animated tile and their delays in ticks, for example "4 frames of 6 ticks".</summary>
 	private static string DescribeFrames(Tile tile)
 	{
-		int[] delays = tile.Frames.Select(frame => frame.Delay).ToArray();
+		// A frame shows for its delay plus 1 tick, as the animation editor counts
+		int[] delays = tile.Frames.Select(frame => frame.Delay + 1).ToArray();
 		return delays.Distinct().Count() == 1
 			? $"{delays.Length} frames of {delays[0]} ticks"
 			: $"{delays.Length} frames: {string.Join(", ", delays)} ticks";

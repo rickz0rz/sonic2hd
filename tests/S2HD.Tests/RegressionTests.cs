@@ -650,15 +650,18 @@ public sealed partial class RegressionTests
 	/// <summary>
 	/// The tiles tool shows the animation of a tile. In Aquatic Ruin, the palette shows only the animated tiles, and the
 	/// brush takes the waterfall tile 2078, which the import animates with the palette cycle of the original. The panel
-	/// shows its frames and where they come from, and the palette marks each animated tile.
+	/// shows its frames and where they come from, and the palette marks each animated tile. A click on the "Animation"
+	/// row opens the animation of the tile (animation 29 of the ANIGROUP of the tile set) in the animation editor.
 	/// </summary>
 	[Fact]
 	[Trait("Category", "Regression")]
 	public void EditorTileAnimation_MatchesGoldenScreenshots()
 	{
 		// The "Palette" row shows only the animated tiles. The tile is then at index 30: row 3, column 6.
-		const string script = "3:tap 32;6:mouse 1700 668;7:down left;8:up left;10:mouse 1826 971;12:down left;13:up left";
-		RunAndCompare("--level arz --editor", new[] { 10030 }, Path.Combine(TestPaths.GoldenDirectory, "editor-tile-animation"), "editor-tile-animation",
+		// A click on the "Animation" row then opens the animation of the tile in the animation editor
+		const string script = "3:tap 32;6:mouse 1700 668;7:down left;8:up left;10:mouse 1826 971;12:down left;13:up left;" +
+			"20:mouse 1700 698;21:down left;22:up left";
+		RunAndCompare("--level arz --editor", new[] { 10030, 10060 }, Path.Combine(TestPaths.GoldenDirectory, "editor-tile-animation"), "editor-tile-animation",
 			new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script }, withImportedMods: true);
 	}
 
