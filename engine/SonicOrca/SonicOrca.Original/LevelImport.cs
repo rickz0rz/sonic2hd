@@ -72,6 +72,12 @@ public sealed record OriginalZone(string Name, string Key, string ChunksFile, st
 	public IReadOnlyList<(string File, int Tile)> MoreArt { get; init; } = Array.Empty<(string, int)>();
 
 	/// <summary>
+	/// The patterns whose colour 0 the importer draws black, not transparent. This differs from the original, where the
+	/// background shows through colour 0. The HD screen is higher, so the background shows through more often.
+	/// </summary>
+	public IReadOnlyCollection<int> SolidPatterns { get; init; } = Array.Empty<int>();
+
+	/// <summary>
 	/// The width of a boss arena after its camera X: the HD screen shows 480 original pixels, 80 more on each side of
 	/// the 320 pixel screen of the original. An act that ends at the arena needs this room for the camera to lock.
 	/// </summary>
@@ -129,6 +135,8 @@ public sealed record OriginalZone(string Name, string Key, string ChunksFile, st
 			// of 16 pixels move slower from the top down, and the city moves at 1/16 and 1/8.
 			new BackgroundLayer("back", 128, 0.125, 1.0 / 64.0, 16 * 128 * 4, CnzBackgroundBands))
 		{
+			// The boxes of the "SONIC" and "MILES" signs: the left edge ($24A and $24B) and the letters ($24C to $25D)
+			SolidPatterns = Enumerable.Range(586, 20).ToArray(),
 			// LevEvents_CNZ2 closes the boss arena with chunk $F9: the right wall at the trigger, the left wall at the lock
 			LayoutChanges = new[]
 			{
@@ -705,6 +713,7 @@ public static class LevelImport
 			animatedBlocks.UnionWith(PriorityTiles.GetPaletteCycleBlocks(art, blockMappings, paletteCycles));
 			// The HD tiles show black as transparent, so the blocks with solid black are drawn from the original art too
 			animatedBlocks.UnionWith(PriorityTiles.GetSolidBlackBlocks(art, blockMappings, palette));
+			animatedBlocks.UnionWith(PriorityTiles.GetBlocksWithPatterns(blockMappings, zone.SolidPatterns));
 			// The HD tiles of the blocks that use the extra art are the tiles of the other zone (WFZ has the SCZ
 			// tiles), so these blocks are drawn from the original art too, as for the animated blocks
 			for (int block = 0; block * 8 + 7 < blockMappings.Length; block++)
@@ -783,7 +792,7 @@ public static class LevelImport
 
 		if (zone.ArtFile != null)
 		{
-			(tileSet, priorityTexture) = PriorityTiles.Create(zone.HdTiles, art, blockMappings, palette, used, usedAnimated, animations, Scale, usedBackground, paletteCycles);
+			(tileSet, priorityTexture) = PriorityTiles.Create(zone.HdTiles, art, blockMappings, palette, used, usedAnimated, animations, Scale, usedBackground, paletteCycles, zone.SolidPatterns);
 		}
 		foreach (LevelLayer layer in layers)
 		{

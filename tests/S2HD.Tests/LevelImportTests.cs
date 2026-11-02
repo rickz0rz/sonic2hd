@@ -189,4 +189,15 @@ public sealed class LevelImportTests
 		palette[1] = 0xFF0000FF;
 		Assert.Empty(PriorityTiles.GetSolidBlackBlocks(art, blockMappings, palette));
 	}
+
+	[Fact]
+	public void Cnz_SignBoxes_AreSolid()
+	{
+		// The boxes of the "SONIC" and "MILES" signs are colour 0 in the original. The importer draws them black, so
+		// the city of the background does not show through them. Block 210 is the left end of a "SONIC" sign.
+		OriginalZone cnz = OriginalZone.All["CNZ"];
+		Assert.Equal(Enumerable.Range(586, 20), cnz.SolidPatterns);
+		byte[] blockMappings = { 0x02, 0x68, 0x02, 0x4A, 0x02, 0x69, 0x02, 0x4B, 0, 0, 0, 0, 0, 0, 0, 0 };
+		Assert.Equal(new[] { 0 }, PriorityTiles.GetBlocksWithPatterns(blockMappings, cnz.SolidPatterns));
+	}
 }
