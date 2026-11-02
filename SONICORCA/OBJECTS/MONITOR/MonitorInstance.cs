@@ -1,4 +1,5 @@
 using System;
+using SonicOrca.Core.Debugging;
 using SonicOrca.Core;
 using SonicOrca.Core.Collision;
 using SonicOrca.Core.Objects;
@@ -238,7 +239,7 @@ public class MonitorInstance : ActiveObject
 	/// </summary>
 	private void ChooseVersusContents()
 	{
-		int index = SonicOrca.Core.Debugging.TestHooks.VersusMonitorItem is int testItem ? testItem - 1
+		int index = TestHooks.VersusMonitorItem is int testItem ? testItem - 1
 			: Level.PrepareSettings.VersusTeleportOnly ? VersusContents.Length - 1
 			: Level.Ticks & 7;
 		_contents = VersusContents[index];

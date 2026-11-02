@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using SonicOrca.Core.Debugging;
 using SonicOrca.Core.Objects;
 using SonicOrca.Core.Objects.Base;
 using SonicOrca.Geometry;
@@ -59,7 +60,7 @@ public sealed class VersusRules
 	{
 		_level = level;
 		_starts = starts;
-		if (SonicOrca.Core.Debugging.TestHooks.VersusZoomedOut is bool[] zoom)
+		if (TestHooks.VersusZoomedOut is bool[] zoom)
 		{
 			for (int i = 0; i < Math.Min(zoom.Length, _zoomedOut.Length); i++)
 			{
@@ -79,7 +80,7 @@ public sealed class VersusRules
 	public void Update()
 	{
 		Player player2 = _level.Players[1];
-		if (SonicOrca.Core.Debugging.TestHooks.KillPlayer2AtTick == _level.Ticks && player2.Protagonist != null)
+		if (TestHooks.KillPlayer2AtTick == _level.Ticks && player2.Protagonist != null)
 		{
 			player2.Protagonist.Kill(PlayerDeathCause.Hurt);
 		}

@@ -111,7 +111,7 @@ public sealed class SpriteImportTests
 		ImportedSprite sprite = SuperSonicArt.Import(disassembly);
 
 		XElement[] animations = XDocument.Parse(sprite.AnimationGroup).Descendants("animation").ToArray();
-		Assert.Equal(System.Enum.GetValues<SonicOrca.Core.Objects.Base.CharacterAnimation>().Length, SuperSonicArt.TransformAnimation);
+		Assert.Equal(SuperSonicArt.TransformAnimation, System.Enum.GetValues<SonicOrca.Core.Objects.Base.CharacterAnimation>().Length);
 		Assert.Equal(SuperSonicArt.TransformAnimation + 1, SuperSonicArt.WalkVariantAnimation);
 		Assert.Equal(SuperSonicArt.WalkVariantAnimation + 1, animations.Length);
 		int walk = (int)SonicOrca.Core.Objects.Base.CharacterAnimation.Walk;

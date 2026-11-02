@@ -50,7 +50,7 @@ public class Level : IDisposable
 
 	private readonly Player _player;
 
-	private Random _random = SonicOrca.Core.Debugging.TestHooks.CreateRandom();
+	private Random _random = TestHooks.CreateRandom();
 
 	/// <summary>
 	/// The seed of the random numbers while a recording plays or records, so that a recorded play gives the same
@@ -161,7 +161,7 @@ public class Level : IDisposable
 	/// The physics mode of the level: the mode of the prepare settings (a demo always plays in Original mode), the test
 	/// hook S2HD_PHYSICS, or the game settings.
 	/// </summary>
-	public PhysicsMode Physics => PrepareSettings?.Physics ?? SonicOrca.Core.Debugging.TestHooks.Physics ?? _gameContext.Physics;
+	public PhysicsMode Physics => PrepareSettings?.Physics ?? TestHooks.Physics ?? _gameContext.Physics;
 
 	/// <summary>True when the level plays as the original Sonic 2 (<see cref="PhysicsMode.Original"/>).</summary>
 	public bool OriginalPhysics => Physics == PhysicsMode.Original;
@@ -419,11 +419,11 @@ public class Level : IDisposable
 		}
 		_player.ResetScoreChain();
 		_player.ResetRings();
-		if (SonicOrca.Core.Debugging.TestHooks.StartRings is int testRings && _player.StarpostIndex == -1)
+		if (TestHooks.StartRings is int testRings && _player.StarpostIndex == -1)
 		{
 			_player.CurrentRings = testRings;
 		}
-		if (SonicOrca.Core.Debugging.TestHooks.Emeralds is int testEmeralds)
+		if (TestHooks.Emeralds is int testEmeralds)
 		{
 			_player.Emeralds = testEmeralds;
 		}
@@ -477,7 +477,7 @@ public class Level : IDisposable
 				_player.Emeralds = header.Emeralds;
 				_player.Lives = header.Lives;
 			}
-			if (SonicOrca.Core.Debugging.TestHooks.Player2Playback is string player2Path && !_player2Recorder.Playing)
+			if (TestHooks.Player2Playback is string player2Path && !_player2Recorder.Playing)
 			{
 				_player2Recorder.BeginPlaying(player2Path);
 			}
@@ -488,7 +488,7 @@ public class Level : IDisposable
 			}
 			if (_playRecorder.Playing || _playRecorder.Recording)
 			{
-				_random = SonicOrca.Core.Debugging.TestHooks.CreateRandom(RecordedPlaySeed);
+				_random = TestHooks.CreateRandom(RecordedPlaySeed);
 			}
 		}
 		State = LevelState.Playing;
@@ -881,9 +881,9 @@ public class Level : IDisposable
 			});
 		}
 		Ticks++;
-		if (SonicOrca.Core.Debugging.TestHooks.SpecialStageAtTick == Ticks && !SonicOrca.Core.Debugging.TestHooks.SpecialStageTestDone)
+		if (TestHooks.SpecialStageAtTick == Ticks && !TestHooks.SpecialStageTestDone)
 		{
-			SonicOrca.Core.Debugging.TestHooks.SpecialStageTestDone = true;
+			TestHooks.SpecialStageTestDone = true;
 			EnterSpecialStage();
 		}
 	}
@@ -1050,7 +1050,7 @@ public class Level : IDisposable
 
 	public void Draw(Renderer renderer)
 	{
-		SonicOrca.Core.Debugging.TestHooks.DrawnLevelTick = State == LevelState.Editing ? SonicOrca.Core.Debugging.TestHooks.EditorCaptureOffset + SonicOrca.Core.Debugging.TestHooks.EditorFrame : Ticks;
+		TestHooks.DrawnLevelTick = State == LevelState.Editing ? TestHooks.EditorCaptureOffset + TestHooks.EditorFrame : Ticks;
 		Viewport viewport = new Viewport(new Rectangle(0.0, 0.0, ScreenWidth, ScreenHeight / (_camera2 == null ? 1.0 : 2.0)));
 		viewport.Bounds = _camera.Bounds;
 		_levelRenderer.Render(renderer, viewport, _layerViewOptions);

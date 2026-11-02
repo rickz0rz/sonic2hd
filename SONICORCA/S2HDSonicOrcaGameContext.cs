@@ -5,6 +5,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using S2HD;
+using SonicOrca.Core.Debugging;
 using SonicOrca.Core;
 using SonicOrca.Core.Editor;
 using SonicOrca.Drawing;
@@ -252,7 +253,7 @@ internal class S2HDSonicOrcaGameContext(IPlatform platform) : SonicOrcaGameConte
 
 	protected override void OnDraw()
 	{
-		SonicOrca.Core.Debugging.TestHooks.DrawnLevelTick = -1;
+		TestHooks.DrawnLevelTick = -1;
 		I2dRenderer g = Renderer.Get2dRenderer();
 		g.ClipRectangle = new Rectangle(0.0, 0.0, ScreenSize.Width, ScreenSize.Height);
 		// With ForceHD, draw to a 1920 x 1080 canvas first, and then scale the canvas to the window.
@@ -268,10 +269,10 @@ internal class S2HDSonicOrcaGameContext(IPlatform platform) : SonicOrcaGameConte
 		// F10 takes a screenshot.
 		if (Singleton.Input.Pressed.Keyboard[F10Scancode] || SonicOrca.Core.Debugging.FrameProfiler.IsCaptureFrame(DrawCount))
 			ScreenshotRenderer.GrabScreenshot(UserDataDirectory);
-		if (SonicOrca.Core.Debugging.TestHooks.TakeLevelTickCapture(out string captureFilename))
+		if (TestHooks.TakeLevelTickCapture(out string captureFilename))
 		{
 			ScreenshotRenderer.GrabScreenshot(UserDataDirectory, captureFilename);
-			if (SonicOrca.Core.Debugging.TestHooks.ExitAfterCaptures && SonicOrca.Core.Debugging.TestHooks.AllCapturesTaken)
+			if (TestHooks.ExitAfterCaptures && TestHooks.AllCapturesTaken)
 				Finish = true;
 		}
 		if (!ForceHD)

@@ -1,3 +1,4 @@
+using SonicOrca.Core.Debugging;
 using SonicOrca;
 using SonicOrca.Core;
 using SonicOrca.Geometry;
@@ -100,7 +101,7 @@ internal sealed class VersusResultsScreen : VersusScreen
 	public override void Update()
 	{
 		base.Update();
-		int? testFrames = SonicOrca.Core.Debugging.TestHooks.VersusResultsFrames;
+		int? testFrames = TestHooks.VersusResultsFrames;
 		// A short wait, so that the Start press that ended the act does not also end the results
 		if ((testFrames == null && Frames > 30 && ConfirmPressed()) || Frames == testFrames)
 		{
