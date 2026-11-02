@@ -190,6 +190,25 @@ public class EmeraldHillZoneArea : Area
 			_level.Bounds = act2Bounds;
 		_state = 0;
 		_bossDefeated = false;
+		if (_level.PrepareSettings.Versus)
+			AddVersusSignpost();
+	}
+
+	/// <summary>The signpost of act 2 in versus mode: the original has it only in two-player mode (Obj0D in EHZ_2).</summary>
+	private static readonly Vector2i VersusSignpostOriginal = new Vector2i(10688, 1065);
+
+	/// <summary>The start position of act 2 in the original, in pixels (startpos/EHZ_2.bin).</summary>
+	private static readonly Vector2i Act2StartOriginal = new Vector2i(96, 687);
+
+	/// <summary>
+	/// Adds the signpost of versus mode to act 2. The HD map has both acts, so the place of act 2 in the map comes from
+	/// the start marker of act 2 and the start position of the original.
+	/// </summary>
+	private void AddVersusSignpost()
+	{
+		Vector2i origin = _level.GetMarker("startpos_stk_2").Position - Act2StartOriginal * 4;
+		int layer = _level.Map.Layers.IndexOf(_level.Player.Protagonist?.Layer ?? _level.Map.Layers.Last());
+		_level.ObjectManager.AddObject(new ObjectPlacement("SONICORCA/OBJECTS/SIGNPOST", Math.Max(layer, 0), origin + VersusSignpostOriginal * 4));
 	}
 
 	private void PrepareWaterfalls()
@@ -235,7 +254,8 @@ public class EmeraldHillZoneArea : Area
 	{
 		UpdateInsideLighting();
 		UpdateWaterfallSounds();
-		if (_level.CurrentAct == 1)
+		// Versus mode has no boss: act 2 ends at a signpost, as in the original (LevEvents_EHZ2_Routine1)
+		if (_level.CurrentAct == 1 || _level.Versus)
 			return;
 		_level.FinishOnCompleteLevel = false;
 		switch (_state)

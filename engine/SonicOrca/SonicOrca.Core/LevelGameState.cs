@@ -432,6 +432,7 @@ public class LevelGameState : IGameState, IDisposable
 			_level.Time = 0;
 			_level.RingsCollected = 0;
 			_level.Player.StarpostIndex = -1;
+			_level.ResetVersusAct();
 			PrepareSettings.Act++;
 			PrepareSettings.Seamless = true;
 			_levelLoader.LoadLevel();

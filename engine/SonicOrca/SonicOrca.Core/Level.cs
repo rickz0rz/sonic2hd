@@ -422,6 +422,11 @@ public class Level : IDisposable
 		}
 		_player.ResetScoreChain();
 		_player.ResetRings();
+		// In versus mode, player 2 also starts a new act with no rings. A new level makes a new player 2.
+		if (PrepareSettings.Seamless)
+		{
+			_player2?.ResetRings();
+		}
 		if (SonicOrca.Core.Debugging.TestHooks.StartRings is int testRings && _player.StarpostIndex == -1)
 		{
 			_player.CurrentRings = testRings;
@@ -528,6 +533,7 @@ public class Level : IDisposable
 		}
 		// In versus mode, Tails is the protagonist of player 2, not a sidekick
 		_player2 = null;
+		VersusTimeLeft = null;
 		if (PrepareSettings.Versus)
 		{
 			sidekickType = CharacterType.Null;
@@ -642,6 +648,77 @@ public class Level : IDisposable
 				_versusZoomedOut[i] = !_versusZoomedOut[i];
 				ApplyVersusZoom(i);
 			}
+		}
+	}
+
+	/// <summary>
+	/// The time that the players who did not finish have left, in ticks, after the first player finished the act in
+	/// versus mode, or null. The original gives 60 seconds (Loser_Time_Left).
+	/// </summary>
+	public int? VersusTimeLeft { get; private set; }
+
+	private const int VersusTimeLimit = 60 * 60;
+
+	/// <summary>
+	/// A player finished the act in versus mode, for example at a signpost: the time of the player stops. The first
+	/// player who finishes starts the time limit of the other players. The act ends when all players finished.
+	/// </summary>
+	public void FinishVersusPlayer(Player player)
+	{
+		if (!Versus || player.StoppedTime != null)
+		{
+			return;
+		}
+		player.StoppedTime = Time;
+		int index = Players.ToList().IndexOf(player);
+		Trace.WriteLine($"Versus: player {index + 1} finished at {Time / 60}.{Time % 60 * 100 / 60:00} s");
+		if (Players.All(p => p.StoppedTime != null))
+		{
+			EndVersusAct();
+			return;
+		}
+		VersusTimeLeft ??= VersusTimeLimit;
+	}
+
+	/// <summary>The time limit of versus mode: when it runs out, the act ends for all players.</summary>
+	private void UpdateVersusTimeLimit()
+	{
+		if (VersusTimeLeft is not int left || !StateFlags.HasFlag(LevelStateFlags.UpdateTime))
+		{
+			return;
+		}
+		VersusTimeLeft = left - 1;
+		if (VersusTimeLeft <= 0)
+		{
+			Trace.WriteLine("Versus: the time limit ran out");
+			EndVersusAct();
+		}
+	}
+
+	/// <summary>The act of versus mode ends: the next act starts. The results of the act are part of step 5.</summary>
+	private void EndVersusAct()
+	{
+		VersusTimeLeft = null;
+		StateFlags &= ~LevelStateFlags.UpdateTime;
+		Trace.WriteLine("Versus: the act ends");
+		if (SeamlessAct)
+		{
+			State = LevelState.StageCompleted;
+		}
+		else
+		{
+			FadeOut(LevelState.StageCompleted);
+		}
+	}
+
+	/// <summary>A new act of versus mode: no player has finished, and no player has a star post.</summary>
+	public void ResetVersusAct()
+	{
+		VersusTimeLeft = null;
+		foreach (Player player in Players)
+		{
+			player.StoppedTime = null;
+			player.StarpostIndex = Player.UndefinedStarpostIndex;
 		}
 	}
 
@@ -884,6 +961,7 @@ public class Level : IDisposable
 					_player2.Protagonist.Kill(PlayerDeathCause.Hurt);
 				}
 				UpdateVersusDeaths();
+				UpdateVersusTimeLimit();
 			}
 			else if (Player.Protagonist.IsDead)
 			{

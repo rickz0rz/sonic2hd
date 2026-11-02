@@ -784,9 +784,10 @@ public static class LevelImport
 			int index = 0;
 			foreach (ObjectPlacements.OriginalObjectPlacement original in ObjectPlacements.FromFile(Path(act.ObjectsFile)))
 			{
-				// The signpost of act 2 deletes itself (Obj0D_Init): it is only for two player mode. Metropolis act 2 is
-				// not the last act, so it keeps its signpost.
-				if ((original.Type == SignpostType && act.Number == 2 && zone.Name != "MTZ") || zone.SkippedObjects.Contains(original.Type))
+				// The signpost of act 2 deletes itself (Obj0D_Init) outside two player mode. The import keeps it as a
+				// signpost for versus mode only. Metropolis act 2 is not the last act, so its signpost is a normal one.
+				bool versusOnly = original.Type == SignpostType && act.Number == 2 && zone.Name != "MTZ";
+				if (zone.SkippedObjects.Contains(original.Type))
 				{
 					continue;
 				}
@@ -800,6 +801,10 @@ public static class LevelImport
 				foreach (KeyValuePair<string, object> value in converted.Behaviour)
 				{
 					state[value.Key] = value.Value;
+				}
+				if (versusOnly)
+				{
+					state["VersusOnly"] = true;
 				}
 				string name = converted.Key.Substring(converted.Key.LastIndexOf('/') + 1).ToLowerInvariant();
 				binding.ObjectPlacements.Add(new ObjectPlacement(converted.Key, MakeUid(zone, "object", act, index), $"{name} {n}-{index}",
