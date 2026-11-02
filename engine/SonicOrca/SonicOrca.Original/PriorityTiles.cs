@@ -10,7 +10,8 @@ namespace SonicOrca.Original;
 /// bit, and the high-priority patterns cover the sprites. The HD map of a zone that the HD developers did not finish
 /// has one front layer, so nothing covers the characters. These tiles have only the high-priority patterns of each
 /// block, at four times the size, for a layer above the characters. The HD tiles also do not have the animated
-/// level art, so the blocks with animated art get animated tiles from the original art.
+/// level art and the palette cycles, so the blocks with animated art or with a cycled colour get animated tiles from the
+/// original art.
 /// </summary>
 public static class PriorityTiles
 {
@@ -68,6 +69,93 @@ public static class PriorityTiles
 	}
 
 	/// <summary>
+	/// The most frames of a block with colours of more than one palette cycle. The cycles of a block can have lengths
+	/// with a large common multiple, for example 108 and 100 ticks in Metropolis. Such a block then follows only the
+	/// cycle with most of its colours.
+	/// </summary>
+	private const int MaxPaletteFrames = 64;
+
+	/// <summary>The blocks with a pattern that has a colour of a palette cycle.</summary>
+	public static HashSet<int> GetPaletteCycleBlocks(byte[] art, byte[] blockMappings, IReadOnlyList<PaletteCycle> cycles)
+	{
+		var result = new HashSet<int>();
+		var entries = new HashSet<int>(cycles.SelectMany(c => c.Entries));
+		if (entries.Count == 0)
+		{
+			return result;
+		}
+		for (int block = 0; block * 8 + 7 < blockMappings.Length; block++)
+		{
+			if (GetEntries(art, blockMappings, block).Overlaps(entries))
+			{
+				result.Add(block);
+			}
+		}
+		return result;
+	}
+
+	/// <summary>The palette entries (line * 16 + index) of the pixels of a block, without the transparent index 0.</summary>
+	private static HashSet<int> GetEntries(byte[] art, byte[] blockMappings, int block)
+	{
+		var entries = new HashSet<int>();
+		for (int quarter = 0; quarter < 4; quarter++)
+		{
+			int word = GetWord(blockMappings, block, quarter);
+			int pattern = word & 0x7FF;
+			int line = (word >> 13) & 3;
+			for (int i = 0; i < BytesPerPattern; i++)
+			{
+				int offset = pattern * BytesPerPattern + i;
+				if (offset >= art.Length)
+				{
+					break;
+				}
+				foreach (int index in new[] { art[offset] >> 4, art[offset] & 0xF })
+				{
+					if (index != 0)
+					{
+						entries.Add(line * 16 + index);
+					}
+				}
+			}
+		}
+		return entries;
+	}
+
+	/// <summary>
+	/// The frames of a block with colours of palette cycles: the time of each frame and its palette. The frames follow
+	/// all the cycles of the block until they all start again together.
+	/// </summary>
+	private static List<(int Duration, uint[] Palette)> GetPaletteFrames(uint[] palette, IReadOnlyList<PaletteCycle> cycles, HashSet<int> entries)
+	{
+		List<PaletteCycle> used = cycles.Where(c => c.Entries.Any(entries.Contains)).ToList();
+		int length = used.Aggregate(1, (total, cycle) => Lcm(total, cycle.Length));
+		List<int> changes = used.SelectMany(c => Enumerable.Range(0, length / c.Period).Select(step => step * c.Period)).Distinct().OrderBy(t => t).ToList();
+		if (changes.Count > MaxPaletteFrames)
+		{
+			used = new List<PaletteCycle> { used.OrderByDescending(c => c.Entries.Count(entries.Contains)).First() };
+			length = used[0].Length;
+			changes = Enumerable.Range(0, used[0].Steps.Count).Select(step => step * used[0].Period).ToList();
+		}
+		var frames = new List<(int, uint[])>();
+		for (int i = 0; i < changes.Count; i++)
+		{
+			uint[] framePalette = (uint[])palette.Clone();
+			foreach (PaletteCycle cycle in used)
+			{
+				cycle.Apply(framePalette, changes[i]);
+			}
+			int end = i + 1 < changes.Count ? changes[i + 1] : length;
+			frames.Add((end - changes[i], framePalette));
+		}
+		return frames;
+	}
+
+	private static int Lcm(int a, int b) => a / Gcd(a, b) * b;
+
+	private static int Gcd(int a, int b) => b == 0 ? a : Gcd(b, a % b);
+
+	/// <summary>
 	/// Makes the tile set of the zone and its second texture (PRIORITY). The tile set has the HD tiles (1 to
 	/// <paramref name="hdTiles"/>, in rows of 32 on TEXTURE), the high-priority part of the priority blocks
 	/// (FirstTile + block), and the low-priority part of the animated blocks (AnimatedFirstTile + block). The HD tiles
@@ -78,25 +166,32 @@ public static class PriorityTiles
 	/// <param name="blockMappings">The 16 x 16 block mappings: four pattern words for each block.</param>
 	public static (string TileSet, byte[] Texture) Create(int hdTiles, byte[] art, byte[] blockMappings, uint[] palette,
 		ICollection<int> priorityBlocks, ICollection<int> animatedBlocks, IReadOnlyList<AnimatedArt> animations, int scale,
-		ICollection<int> backgroundBlocks = null)
+		ICollection<int> backgroundBlocks = null, IReadOnlyList<PaletteCycle> paletteCycles = null)
 	{
 		backgroundBlocks ??= Array.Empty<int>();
+		paletteCycles ??= Array.Empty<PaletteCycle>();
 		int tileSize = BlockSize * scale;
 		// The tile id, then the texture slot and the time of each frame
 		var tiles = new SortedDictionary<int, List<(int Slot, int Duration)>>();
 		// The priority of the patterns to draw: high, low, or null for all the patterns (the background)
-		var drawings = new List<(int Slot, byte[] Art, int Block, bool? Priority)>();
+		var drawings = new List<(int Slot, byte[] Art, uint[] Palette, int Block, bool? Priority)>();
 		foreach (int block in priorityBlocks.Where(b => !animatedBlocks.Contains(b)))
 		{
 			tiles[FirstTile + block] = new List<(int, int)> { (block, 0) };
-			drawings.Add((block, art, block, true));
+			drawings.Add((block, art, palette, block, true));
 		}
 		int nextSlot = BlockCount;
 		foreach (int block in animatedBlocks.Union(backgroundBlocks).OrderBy(b => b))
 		{
-			// A block without animated art (for example one with patterns that the HD tiles do not have) has one frame
+			// A block with animated art has its frames. A block with colours of palette cycles has a frame for each change
+			// of the colours. Another block (for example one with patterns that the HD tiles do not have) has one frame.
 			AnimatedArt animation = animations.FirstOrDefault(a => Enumerable.Range(0, 4).Any(q => a.Contains(GetWord(blockMappings, block, q) & 0x7FF)));
-			int frameCount = animation?.Frames.Count ?? 1;
+			List<(int Duration, uint[] Palette)> paletteFrames = animation == null ? GetPaletteFrames(palette, paletteCycles, GetEntries(art, blockMappings, block)) : null;
+			if (paletteFrames != null && paletteFrames.Count <= 1)
+			{
+				paletteFrames = null;
+			}
+			int frameCount = animation?.Frames.Count ?? paletteFrames?.Count ?? 1;
 			foreach (bool? priority in new bool?[] { true, false, null })
 			{
 				bool wanted = priority == null ? backgroundBlocks.Contains(block) : animatedBlocks.Contains(block) && HasPatterns(blockMappings, block, priority.Value);
@@ -107,8 +202,8 @@ public static class PriorityTiles
 				var frames = new List<(int, int)>();
 				for (int frame = 0; frame < frameCount; frame++)
 				{
-					frames.Add((nextSlot, animation?.Frames[frame].Duration ?? 0));
-					drawings.Add((nextSlot, animation?.Apply(art, frame) ?? art, block, priority));
+					frames.Add((nextSlot, animation?.Frames[frame].Duration ?? paletteFrames?[frame].Duration ?? 0));
+					drawings.Add((nextSlot, animation?.Apply(art, frame) ?? art, paletteFrames?[frame].Palette ?? palette, block, priority));
 					nextSlot++;
 				}
 				tiles[(priority == null ? BackgroundFirstTile : priority.Value ? FirstTile : AnimatedFirstTile) + block] = frames;
@@ -118,9 +213,9 @@ public static class PriorityTiles
 		int width = TilesPerRow * tileSize;
 		int height = (nextSlot + TilesPerRow - 1) / TilesPerRow * tileSize;
 		var pixels = new byte[width * height * 4];
-		foreach ((int slot, byte[] slotArt, int block, bool? priority) in drawings)
+		foreach ((int slot, byte[] slotArt, uint[] slotPalette, int block, bool? priority) in drawings)
 		{
-			DrawBlock(pixels, width, slot % TilesPerRow * tileSize, slot / TilesPerRow * tileSize, slotArt, blockMappings, palette, block, priority, scale);
+			DrawBlock(pixels, width, slot % TilesPerRow * tileSize, slot / TilesPerRow * tileSize, slotArt, blockMappings, slotPalette, block, priority, scale);
 		}
 
 		var xml = new StringBuilder();

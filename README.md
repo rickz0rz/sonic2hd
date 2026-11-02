@@ -348,6 +348,11 @@ an update of this repository. The import does these steps:
   switches move a character in front of this layer or behind it, as the original sets the sprite priority.
 - It makes animated tiles from the animated level art of the original, for example the oil of OOZ and the
   flipping panels of CNZ. The HD tiles do not have this art.
+- It makes animated tiles from the palette cycles of the original. The original changes some colours of the palette
+  every few frames, for example the waterfalls of ARZ, the lights of CNZ and MTZ, the oil of OOZ and the conveyor
+  belts of WFZ. The HD tiles have one palette, so the blocks with these colours get one frame for each change.
+  Objects with these colours do not change yet. An object of WFZ switches its first cycle between the fire and the
+  conveyor belts in the original. The tiles cannot switch, so WFZ shows the belts and SCZ shows the fire.
 - In CNZ, it also adds the bumpers that are part of the landscape, and the reels of the slot machines.
 - It writes the collision data of the original for the front layer (`TILECOLLISION`), so that the level editor can
   trace the collision again after a change of tiles.

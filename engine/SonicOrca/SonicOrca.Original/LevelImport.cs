@@ -643,6 +643,7 @@ public static class LevelImport
 		HashSet<int> priorityBlocks = null;
 		HashSet<int> animatedBlocks = null;
 		IReadOnlyList<AnimatedArt> animations = null;
+		IReadOnlyList<PaletteCycle> paletteCycles = null;
 		var used = new HashSet<int>();
 		var usedAnimated = new HashSet<int>();
 		var usedBackground = new HashSet<int>();
@@ -666,6 +667,10 @@ public static class LevelImport
 			priorityBlocks = PriorityTiles.GetPriorityBlocks(blockMappings);
 			animations = AnimatedArt.Read(disassembly, zone.Name);
 			animatedBlocks = PriorityTiles.GetAnimatedBlocks(blockMappings, animations);
+			// The HD tiles have one palette, so the blocks with a colour of a palette cycle are drawn from the original
+			// art, with a frame for each change of the colours
+			paletteCycles = PaletteCycles.Read(disassembly, zone.Name);
+			animatedBlocks.UnionWith(PriorityTiles.GetPaletteCycleBlocks(art, blockMappings, paletteCycles));
 			// The HD tiles of the blocks that use the extra art are the tiles of the other zone (WFZ has the SCZ
 			// tiles), so these blocks are drawn from the original art too, as for the animated blocks
 			for (int block = 0; block * 8 + 7 < blockMappings.Length; block++)
@@ -706,7 +711,7 @@ public static class LevelImport
 			}
 		}
 
-		// The front tile of a block: the HD tile, or the animated tile of a block with animated art
+		// The front tile of a block: the HD tile, or the animated tile of a block with animated art or a cycled colour
 		int GetFrontTile(ushort entry)
 		{
 			int block = entry & 0x3FF;
@@ -744,7 +749,7 @@ public static class LevelImport
 
 		if (zone.ArtFile != null)
 		{
-			(tileSet, priorityTexture) = PriorityTiles.Create(zone.HdTiles, art, blockMappings, palette, used, usedAnimated, animations, Scale, usedBackground);
+			(tileSet, priorityTexture) = PriorityTiles.Create(zone.HdTiles, art, blockMappings, palette, used, usedAnimated, animations, Scale, usedBackground, paletteCycles);
 		}
 		foreach (LevelLayer layer in layers)
 		{
