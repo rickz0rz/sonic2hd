@@ -100,7 +100,8 @@ public class MysticCaveZoneArea : Area
 			LevelLayer background = _level.Map.Layers[0];
 			background.ParallaxY = act == 1 ? 1.0 / 3.0 : 1.0 / 6.0;
 			background.OffsetY = act == 1 ? (320 + 64 / 3) * 4 : 16 * 4;
-			if (act == 2 && _level.TryGetMarker("origin_2", out LevelMarker origin))
+			// Versus mode has no boss: act 2 ends at a signpost, as in the original (LevEvents_xxx2_Routine1)
+			if (act == 2 && !settings.Versus && _level.TryGetMarker("origin_2", out LevelMarker origin))
 			{
 				_bossArena = new BossArena(_level, origin.Position, BossArenaSettings, this.GetAbsolutePath(BossObjectResourceKey),
 					this.GetAbsolutePath(BossMusicResourceKey), this.GetAbsolutePath(LevelMusicResourceKey));

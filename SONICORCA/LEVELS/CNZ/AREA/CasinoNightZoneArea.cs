@@ -99,7 +99,8 @@ public class CasinoNightZoneArea : Area
 			{
 				_level.Bounds = bounds;
 			}
-			if (act == 2 && _level.TryGetMarker("origin_2", out LevelMarker origin))
+			// Versus mode has no boss: act 2 ends at a signpost, as in the original (LevEvents_xxx2_Routine1)
+			if (act == 2 && !settings.Versus && _level.TryGetMarker("origin_2", out LevelMarker origin))
 			{
 				_bossArena = new BossArena(_level, origin.Position, BossArenaSettings, this.GetAbsolutePath(BossObjectResourceKey),
 					this.GetAbsolutePath(BossMusicResourceKey), this.GetAbsolutePath(LevelMusicResourceKey));

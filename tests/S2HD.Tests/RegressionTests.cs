@@ -438,6 +438,32 @@ public sealed class RegressionTests
 	}
 
 	/// <summary>
+	/// Versus mode: the end of an act. Both players start just before the signpost of Emerald Hill 1. Tails runs past
+	/// it and Sonic stands. Tails finishes: his time stops and the sign shows his face. Sonic gets 60 seconds, and his
+	/// half shows the countdown in red. When the time runs out, act 1 ends and act 2 starts. The level ticks start again
+	/// at 0 in act 2, so the capture at tick 3900 is in act 2.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void VersusSignpost_MatchesGoldenScreenshots()
+	{
+		RunTwoRuns("versus-signpost", Path.Combine(TestPaths.GoldenDirectory, "versus-signpost"), new[] { 320, 1000, 3900 }, userData =>
+		{
+			File.WriteAllBytes(Path.Combine(userData, "player2.rec"), MakeRecording(5000, tick => (tick >= 200 && tick < 300 ? 1.0 : 0.0, false)));
+			return "--level ehz --versus --startpos 42900 2800";
+		}, new Dictionary<string, string> { ["S2HD_TEST_PLAYER2_PLAYBACK"] = Path.Combine("{userData}", "player2.rec") },
+		userData =>
+		{
+			string log = File.ReadAllText(Path.Combine(userData, "sonicorca.log"));
+			Assert.Contains("Versus: player 2 finished at", log);
+			Assert.Contains("Versus: the time limit ran out", log);
+			Assert.Contains("Versus: the act ends", log);
+			// The signpost of act 1 does not end act 2
+			Assert.Single(System.Text.RegularExpressions.Regex.Matches(log, "Versus: player 2 finished"));
+		});
+	}
+
+	/// <summary>
 	/// Makes an input recording: one record of 40 bytes for each level tick, with the horizontal direction and the
 	/// action button. The other fields are 0.
 	/// </summary>

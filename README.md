@@ -641,7 +641,10 @@ count. In the special stage, each player has their own rings (see "Entering a sp
 Versus mode is not complete yet. `--level ehz --versus` starts a test of it: player 2 plays Tails, with their own
 rings, score and lives. The screen splits: player 1 in the top half and player 2 in the bottom half, each with their
 own camera and their own HUD. Each camera starts zoomed out, so that the half shows more of the level. Each player changes the zoom
-of their half with their zoom key. See `docs/two-player-design.md` for the plan.
+of their half with their zoom key. A player who loses a life comes back at their own star post. When a player passes
+the signpost, their time stops. The other player then has 60 seconds to finish, and their time counts down in red.
+The act ends when both players finished or the time ran out. Act 2 has no boss: it ends at a signpost, as in the
+original. See `docs/two-player-design.md` for the plan.
 
 ## Command-line options
 

@@ -37,8 +37,9 @@ public sealed class LevelImportMczOozTests
 		ImportedLevel level = Mcz.Value;
 
 		Assert.Empty(level.Notes);
-		// The signpost of act 2 is only for two player mode
-		Assert.Single(level.Binding.ObjectPlacements, p => p.Key == "SONICORCA/OBJECTS/SIGNPOST");
+		// The signpost of act 2 is only for versus mode
+		Assert.Equal(2, level.Binding.ObjectPlacements.Count(p => p.Key == "SONICORCA/OBJECTS/SIGNPOST"));
+		Assert.Single(level.Binding.ObjectPlacements, p => p.Key == "SONICORCA/OBJECTS/SIGNPOST" && p.Behaviour.Any(e => e.Key == "VersusOnly" && Equals(e.Value, true)));
 		Assert.Equal(12, level.Binding.ObjectPlacements.Count(p => p.Key == "SONICORCA/OBJECTS/CRAWLTON"));
 		Assert.Equal(26, level.Binding.ObjectPlacements.Count(p => p.Key == "SONICORCA/OBJECTS/FLASHER"));
 		// The area makes the boss, so the import writes its object resource without a placement

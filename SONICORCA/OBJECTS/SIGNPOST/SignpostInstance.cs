@@ -86,6 +86,19 @@ public class SignpostInstance : ActiveObject
 		set => _activated = value;
 	}
 
+	private bool _versusOnly;
+
+	/// <summary>
+	/// The signpost is only for versus mode, as the signposts of act 2 in the original. Outside versus mode, the act
+	/// ends with its boss, so the signpost goes away.
+	/// </summary>
+	[StateVariable]
+	private bool VersusOnly
+	{
+		get => _versusOnly;
+		set => _versusOnly = value;
+	}
+
 	public SignpostInstance()
 	{
 		DesignBounds = new Rectanglei(-96, -96, 192, 192);
@@ -93,7 +106,13 @@ public class SignpostInstance : ActiveObject
 
 	protected override void OnStart()
 	{
-		_updater = new Updater(GetUpdates());
+		// The level editor shows the signpost, so that the user can see and move it
+		if (_versusOnly && !Level.Versus && Level.State != LevelState.Editing)
+		{
+			FinishForever();
+			return;
+		}
+		_updater = new Updater(Level.Versus ? GetVersusUpdates() : GetUpdates());
 		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath(SignpostType.AnimationGroupResourceKey));
 		_animation.Index = AnimationRobotnik + OffsetFront;
 		if (!_activated)
@@ -104,7 +123,44 @@ public class SignpostInstance : ActiveObject
 		_triggeredEndGame = true;
 	}
 
-	protected override void OnUpdate() => _updater.Update();
+	protected override void OnUpdate() => _updater?.Update();
+
+	/// <summary>
+	/// The signpost of versus mode, as Obj0D of the original in two-player mode: each player who passes it finishes
+	/// the act, and their time stops. The sign turns to the face of the first player who passes it. The level ends
+	/// the act when all players finished, or when the time limit of the others runs out.
+	/// </summary>
+	private IEnumerable<UpdateResult> GetVersusUpdates()
+	{
+		bool turned = false;
+		// Act 2 follows act 1 in the same map, and the signpost of act 1 stays. It ends only the act of its start.
+		int act = Level.CurrentAct;
+		while (true)
+		{
+			if (Level.CurrentAct != act)
+			{
+				yield return UpdateResult.Next();
+				continue;
+			}
+			foreach (Player player in Level.Players)
+			{
+				ICharacter character = player.Protagonist;
+				if (player.StoppedTime != null || character == null || character.IsDebug || character.IsDead || character.IsDying)
+					continue;
+				if (character.Position.X < Position.X)
+					continue;
+				Level.FinishVersusPlayer(player);
+				Level.SoundManager.PlaySound(this, Type.GetAbsolutePath(SignpostType.SoundResourceKey));
+				if (!turned)
+				{
+					turned = true;
+					int face = player.ProtagonistCharacterType == CharacterType.Tails ? CharacterIndexTails : CharacterIndexSonic;
+					_animation.Index = GetAnimationIndexFromCharacter(face) + OffsetFront;
+				}
+			}
+			yield return UpdateResult.Next();
+		}
+	}
 
 	/// <summary>
 	/// Holds right for the protagonist during the run at the end of the act. This runs before the update of the
