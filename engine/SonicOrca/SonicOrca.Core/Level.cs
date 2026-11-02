@@ -549,6 +549,8 @@ public class Level : IDisposable
 		{
 			SetupPlayer2(sidekickStartPosition, startLayerIndex, startPath);
 			SetupVersusCameras();
+			_versusStarts[0] = (protagonist.Position, startPath, startLayerIndex);
+			_versusStarts[1] = (_player2.Protagonist.Position, startPath, startLayerIndex);
 		}
 		if (!string.IsNullOrEmpty(PrepareSettings.RecordedPlayGhostReadPath))
 		{
@@ -640,6 +642,53 @@ public class Level : IDisposable
 				_versusZoomedOut[i] = !_versusZoomedOut[i];
 				ApplyVersusZoom(i);
 			}
+		}
+	}
+
+	/// <summary>The start of each player in versus mode: the position, the path and the layer.</summary>
+	private readonly (Vector2i Position, int Path, int LayerIndex)[] _versusStarts = new (Vector2i, int, int)[2];
+
+	/// <summary>
+	/// Versus mode, as Obj01_ResetLevel_Part2 of the original: a dead player does not restart the level. The player
+	/// loses a life and their rings, and comes back at their own star post, or at their start. A player with no
+	/// lives left ends the match with the game over of the level.
+	/// </summary>
+	private void UpdateVersusDeaths()
+	{
+		for (int i = 0; i < Players.Count; i++)
+		{
+			Player player = Players[i];
+			ICharacter character = player.Protagonist;
+			if (character == null || !character.IsDead)
+			{
+				continue;
+			}
+			if (player.Lives > 0)
+			{
+				player.Lives--;
+			}
+			if (player.Lives == 0)
+			{
+				StateFlags &= ~(LevelStateFlags.Animating | LevelStateFlags.Updating | LevelStateFlags.UpdateTime);
+				StateFlags |= LevelStateFlags.Dead;
+				StartGameOverSequence();
+				return;
+			}
+			// As the original: the rings of the player go, but the total of the act stays for the results
+			player.LoseAllRings();
+			bool atStarpost = player.StarpostIndex != Player.UndefinedStarpostIndex;
+			Vector2i position = atStarpost ? player.StarpostPosition : _versusStarts[i].Position;
+			character.Path = atStarpost ? player.StarpostPath : _versusStarts[i].Path;
+			int layerIndex = atStarpost && player.StarpostLayerIndex >= 0 ? player.StarpostLayerIndex : _versusStarts[i].LayerIndex;
+			if (layerIndex >= 0 && layerIndex < Map.Layers.Count)
+			{
+				character.Layer = Map.Layers[layerIndex];
+			}
+			character.Respawn(position);
+			Trace.WriteLine($"Versus: player {i + 1} comes back at {position.X}, {position.Y}" + (atStarpost ? $" (star post {player.StarpostIndex})" : " (start)"));
+			// The camera of the player goes to the player at once. The original scrolls back, but the HD levels are
+			// large, and the scroll would take many seconds.
+			Cameras[i].CentreObjectToTrack();
 		}
 	}
 
@@ -828,7 +877,15 @@ public class Level : IDisposable
 			UpdateInverals();
 			Player.Update();
 			_player2?.Update();
-			if (Player.Protagonist.IsDead)
+			if (Versus)
+			{
+				if (SonicOrca.Core.Debugging.TestHooks.KillPlayer2AtTick == Ticks && _player2.Protagonist != null)
+				{
+					_player2.Protagonist.Kill(PlayerDeathCause.Hurt);
+				}
+				UpdateVersusDeaths();
+			}
+			else if (Player.Protagonist.IsDead)
 			{
 				if (_player.Lives > 0)
 				{

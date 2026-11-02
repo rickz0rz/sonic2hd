@@ -4401,6 +4401,33 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		InvulnerabilityTicks = HurtInvulnerabilityTicks;
 	}
 
+	/// <summary>
+	/// Brings a dead character back at a position, in the air, as in versus mode of the original
+	/// (Obj01_ResetLevel_Part2). It undoes what <see cref="Kill"/> set.
+	/// </summary>
+	public void Respawn(Vector2i position)
+	{
+		_dyingTicks = 0;
+		IsDead = false;
+		IsDying = false;
+		StateFlags = 0;
+		IsAirborne = true;
+		Mode = CollisionMode.Air;
+		GroundVector = null;
+		ObjectLink = null;
+		GroundVelocity = 0.0;
+		Velocity = new Vector2(0.0, 0.0);
+		ShowAngle = 0.0;
+		SlopeLockTicks = 0;
+		BreathTicks = MaximumBreath;
+		CollisionRadius = NormalCollisionRadius;
+		CameraProperties.Delay = new Vector2i(0, 0);
+		ShouldReactToLevel = true;
+		SpecialState = CharacterSpecialState.Normal;
+		Priority = NormalPriority;
+		Position = position;
+	}
+
 	public void Kill(PlayerDeathCause cause)
 	{
 		RemoveAllAbilities();

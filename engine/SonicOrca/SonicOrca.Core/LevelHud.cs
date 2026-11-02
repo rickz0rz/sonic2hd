@@ -161,9 +161,11 @@ internal class LevelHud : IDisposable
 	{
 		DrawTLInfo(renderer, 226.0, 610.0, 98.0, szScore, Player.Score.ToString());
 		// The level time is in ticks. The hundredths come from the ticks that are left after the full seconds.
-		int minutes = _level.Time / TicksPerSecond / 60;
-		int seconds = _level.Time / TicksPerSecond % 60;
-		int hundredths = _level.Time % TicksPerSecond * 100 / TicksPerSecond;
+		// In versus mode, the time of a player stops when the player finishes the act
+		int time = Player.StoppedTime ?? _level.Time;
+		int minutes = time / TicksPerSecond / 60;
+		int seconds = time / TicksPerSecond % 60;
+		int hundredths = time % TicksPerSecond * 100 / TicksPerSecond;
 		if (ShowMiliseconds)
 		{
 			DrawTLInfo(renderer, 226.0, 400.0, 162.0, szTime, $"{minutes}'{seconds:00}\"{hundredths:00}", minutes >= TimeWarningMinutes, rightAligned: false);

@@ -15,6 +15,7 @@ namespace SonicOrca.Core.Debugging;
 /// <item>S2HD_TEST_START_RINGS=60: gives the player this number of rings when a level starts.</item>
 /// <item>S2HD_TEST_PLAYER2_PLAYBACK=file: plays an input recording as the input of player 2: the sidekick, or Tails in versus mode.</item>
 /// <item>S2HD_TEST_VERSUS_ZOOM=in,out: the zoom of player 1 and player 2 when a versus match starts.</item>
+/// <item>S2HD_TEST_KILL_PLAYER2_AT_TICK=300: kills the character of player 2 in versus mode at this level tick.</item>
 /// <item>S2HD_TEST_EMERALDS=7: gives the player this number of emeralds when a level starts.</item>
 /// <item>S2HD_TEST_SPECIAL_STAGE_AT_TICK=300: at this level tick, goes to the special stage as from a star circle.</item>
 /// <item>S2HD_TEST_SPECIAL_STAGE_RESULTS=30,1,1: the special stage goes to its results screen at once, with these rings,
@@ -55,6 +56,10 @@ public static class TestHooks
 	public static readonly bool[] VersusZoomedOut = Environment.GetEnvironmentVariable("S2HD_TEST_VERSUS_ZOOM") is { Length: > 0 } zoom
 		? zoom.Split(',').Select(value => value.Trim() != "in").ToArray()
 		: null;
+
+	/// <summary>The level tick when the character of player 2 dies in versus mode, to test the respawn, or null.</summary>
+	public static readonly int? KillPlayer2AtTick =
+		int.TryParse(Environment.GetEnvironmentVariable("S2HD_TEST_KILL_PLAYER2_AT_TICK"), out int killTick) ? killTick : null;
 
 	public static readonly int? StartRings =
 		int.TryParse(Environment.GetEnvironmentVariable("S2HD_TEST_START_RINGS"), out int rings) ? rings : null;

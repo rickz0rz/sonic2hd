@@ -398,6 +398,46 @@ public sealed class RegressionTests
 	}
 
 	/// <summary>
+	/// Versus mode: a dead player does not restart the level. The test kills Tails at tick 450
+	/// (S2HD_TEST_KILL_PLAYER2_AT_TICK) while he runs away. He loses a life and comes back at the start, next to Sonic,
+	/// and his camera goes to him. Sonic plays on.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void VersusRespawnAtStart_MatchesGoldenScreenshots()
+	{
+		RunTwoRuns("versus-respawn-start", Path.Combine(TestPaths.GoldenDirectory, "versus-respawn-start"), new[] { 460, 620 }, userData =>
+		{
+			File.WriteAllBytes(Path.Combine(userData, "player2.rec"), MakeRecording(800, tick => (tick >= 200 ? 1.0 : 0.0, false)));
+			return "--level ehz --versus";
+		}, new Dictionary<string, string>
+		{
+			["S2HD_TEST_PLAYER2_PLAYBACK"] = Path.Combine("{userData}", "player2.rec"),
+			["S2HD_TEST_KILL_PLAYER2_AT_TICK"] = "450"
+		}, userData => Assert.Contains("Versus: player 2 comes back at", File.ReadAllText(Path.Combine(userData, "sonicorca.log"))));
+	}
+
+	/// <summary>
+	/// Versus mode: each player has their own star posts. Both players start on the ledge of the first star post of
+	/// Emerald Hill 1. Tails walks into the star post, and Sonic does not. The test kills Tails, and he comes back at
+	/// the star post, not at the start.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void VersusRespawnAtStarpost_MatchesGoldenScreenshots()
+	{
+		RunTwoRuns("versus-respawn-starpost", Path.Combine(TestPaths.GoldenDirectory, "versus-respawn-starpost"), new[] { 650 }, userData =>
+		{
+			File.WriteAllBytes(Path.Combine(userData, "player2.rec"), MakeRecording(800, tick => (tick >= 200 && tick < 300 ? 1.0 : 0.0, false)));
+			return "--level ehz --versus --startpos 14180 650";
+		}, new Dictionary<string, string>
+		{
+			["S2HD_TEST_PLAYER2_PLAYBACK"] = Path.Combine("{userData}", "player2.rec"),
+			["S2HD_TEST_KILL_PLAYER2_AT_TICK"] = "400"
+		}, userData => Assert.Contains("Versus: player 2 comes back at 14272, 716 (star post 1)", File.ReadAllText(Path.Combine(userData, "sonicorca.log"))));
+	}
+
+	/// <summary>
 	/// Makes an input recording: one record of 40 bytes for each level tick, with the horizontal direction and the
 	/// action button. The other fields are 0.
 	/// </summary>
@@ -432,8 +472,9 @@ public sealed class RegressionTests
 	/// More environment variables for the run that the test compares, or null. "{userData}" in a value is the user data
 	/// folder of the test.
 	/// </param>
+	/// <param name="checkUserData">Checks the user data folder after the run, for example the log, or null.</param>
 	private static void RunTwoRuns(string name, string goldenDirectory, int[] ticks, Func<string, string> prepare,
-		IReadOnlyDictionary<string, string> environment = null)
+		IReadOnlyDictionary<string, string> environment = null, Action<string> checkUserData = null)
 	{
 		if (!File.Exists(TestPaths.GameExecutable))
 		{
@@ -450,6 +491,7 @@ public sealed class RegressionTests
 			string arguments = prepare(userData);
 			RunGame(TestPaths.GameExecutable, arguments, ticks, userData,
 				environment?.ToDictionary(item => item.Key, item => item.Value.Replace("{userData}", userData)));
+			checkUserData?.Invoke(userData);
 			if (record)
 			{
 				Directory.CreateDirectory(goldenDirectory);

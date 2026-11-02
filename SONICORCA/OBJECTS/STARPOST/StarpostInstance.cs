@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using SonicOrca.Core;
 using SonicOrca.Core.Collision;
 using SonicOrca.Core.Objects;
@@ -69,7 +70,7 @@ public class StarpostInstance : ActiveObject
 		{
 			new CollisionRectangle(this, 0, -32, -128, 64, 256)
 		};
-		_activated = Level.Player.IsStarpostActivated(_index);
+		_activated = IsActivatedByAnyPlayer();
 		_glowing = _activated;
 		UpdateStarPosition();
 	}
@@ -77,12 +78,12 @@ public class StarpostInstance : ActiveObject
 	protected override void OnUpdate()
 	{
 		// A starpost with a higher index also activates this starpost.
-		if (!_activated && Level.Player.IsStarpostActivated(_index))
+		if (!_activated && IsActivatedByAnyPlayer())
 		{
 			_activated = true;
 			_glowing = true;
 		}
-		if (Level.OriginalPhysics && !_activated)
+		if (Level.OriginalPhysics)
 			CheckOriginalActivation();
 		if (_starSpinning)
 		{
@@ -109,22 +110,29 @@ public class StarpostInstance : ActiveObject
 	/// </summary>
 	private void CheckOriginalActivation()
 	{
-		ICharacter character = Level.Player.Protagonist;
-		if (character == null || character.IsDebug)
-			return;
-		Vector2i offset = character.Position - Position;
-		if (offset.X < OriginalActivationArea.Left || offset.X >= OriginalActivationArea.Right
-			|| offset.Y < OriginalActivationArea.Top || offset.Y >= OriginalActivationArea.Bottom)
-			return;
-		Activate(character);
+		// In versus mode, each player activates the starpost for themselves
+		foreach (Player player in Level.Players)
+		{
+			ICharacter character = player.Protagonist;
+			if (character == null || character.IsDebug || player.IsStarpostActivated(_index))
+				continue;
+			Vector2i offset = character.Position - Position;
+			if (offset.X < OriginalActivationArea.Left || offset.X >= OriginalActivationArea.Right
+				|| offset.Y < OriginalActivationArea.Top || offset.Y >= OriginalActivationArea.Bottom)
+				continue;
+			Activate(character);
+		}
 	}
+
+	/// <summary>True when a player activated this starpost or a starpost after it. Then the star glows.</summary>
+	private bool IsActivatedByAnyPlayer() => Level.Players.Any(player => player.IsStarpostActivated(_index));
 
 	protected override void OnCollision(CollisionEvent e)
 	{
-		if (Level.OriginalPhysics || _activated || e.ActiveObject.Type.Classification != ObjectClassification.Character)
+		if (Level.OriginalPhysics || e.ActiveObject.Type.Classification != ObjectClassification.Character)
 			return;
 		ICharacter character = (ICharacter)e.ActiveObject;
-		if (character.IsSidekick)
+		if (character.IsSidekick || character.Player == null || character.Player.IsStarpostActivated(_index))
 			return;
 		Activate(character);
 	}
@@ -132,12 +140,15 @@ public class StarpostInstance : ActiveObject
 	private void Activate(ICharacter character)
 	{
 		character.Player.ActivateStarpost(_index, Position + new Vector2i(0, 64));
+		bool first = !_activated;
 		_activated = true;
-		_starSpinning = true;
+		// The star spins when the first player activates the starpost
+		_starSpinning |= first;
 		Level.SoundManager.PlaySound(this, Type.GetAbsolutePath(StarpostType.SoundResourceKey));
 		// With 50 rings and fewer than 7 emeralds, a star circle opens the special stage (Sonic 2)
 		Player player = character.Player;
-		if (player.CurrentRings >= SONICORCA.OBJECTS.STARPOSTBONUSSTAR.StarpostBonusStarInstance.RingsNeeded
+		// Versus mode has no star circles: its special stage is a zone of the match
+		if (!Level.Versus && player.CurrentRings >= SONICORCA.OBJECTS.STARPOSTBONUSSTAR.StarpostBonusStarInstance.RingsNeeded
 			&& player.Emeralds <= SONICORCA.OBJECTS.STARPOSTBONUSSTAR.StarpostBonusStarInstance.MaxEmeralds)
 		{
 			Level.ObjectManager.AddObject(new ObjectPlacement(Type.GetAbsolutePath(StarpostType.BonusStarResourceKey),
