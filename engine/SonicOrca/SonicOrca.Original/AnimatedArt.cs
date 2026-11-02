@@ -19,6 +19,9 @@ public readonly record struct AnimatedArtFrame(int Tile, int Duration);
 /// <param name="Data">The uncompressed art of all frames.</param>
 public sealed record AnimatedArt(int Tile, int Tiles, byte[] Data, IReadOnlyList<AnimatedArtFrame> Frames)
 {
+	/// <summary>Where the animation comes from, for the level editor, for example "animated art Animated_OOZ".</summary>
+	public string Source { get; init; }
+
 	private const int BytesPerPattern = 32;
 
 	/// <summary>True when the animation changes the pattern.</summary>
@@ -78,7 +81,10 @@ public sealed record AnimatedArt(int Tile, int Tiles, byte[] Data, IReadOnlyList
 					: new AnimatedArtFrame(values[f], duration + 1));
 			}
 			string file = lines.Select(l => Regex.Match(l, "^" + label + @":\s*BINCLUDE\s*""([^""]+)""")).First(m => m.Success).Groups[1].Value;
-			result.Add(new AnimatedArt(tile, tiles, File.ReadAllBytes(Path.Combine(disassembly, file)), frames));
+			result.Add(new AnimatedArt(tile, tiles, File.ReadAllBytes(Path.Combine(disassembly, file)), frames)
+			{
+				Source = $"animated art Animated_{zone} ({Path.GetFileName(file)})"
+			});
 		}
 		return result;
 	}
