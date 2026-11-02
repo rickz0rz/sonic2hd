@@ -627,6 +627,7 @@ The behavior of the levels and the objects of the game is C# code in `SONICORCA/
 | Move | Arrow keys, or game pad 1 | I, J, K and L, or game pad 2 |
 | Jump | A, S or D | Q, W or E |
 | Start, pause | Return | Return |
+| Zoom in versus mode | Z, or Select on game pad 1 | R, or Select on game pad 2 |
 
 ### Two players: co-op
 
@@ -634,6 +635,13 @@ When Tails follows Sonic, a second player can play Tails, as in the original. Pl
 or the second game pad. Tails comes under the control of player 2 at the first input, and the computer takes
 control again 10 seconds after the last input. The camera follows Sonic. Both players collect rings for the same
 count. In the special stage, each player has their own rings (see "Entering a special stage").
+
+### Two players: versus
+
+Versus mode is not complete yet. `--level ehz --versus` starts a test of it: player 2 plays Tails, with their own
+rings, score and lives. The screen splits: player 1 in the top half and player 2 in the bottom half, each with their
+own camera. Each camera starts zoomed out, so that the half shows more of the level. Each player changes the zoom
+of their half with their zoom key. See `docs/two-player-design.md` for the plan.
 
 ## Command-line options
 

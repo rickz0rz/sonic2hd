@@ -374,6 +374,30 @@ public sealed class RegressionTests
 	}
 
 	/// <summary>
+	/// Versus mode with the split screen: player 1 (Sonic) in the top half and player 2 (Tails) in the bottom half, each
+	/// with their own camera. Both cameras start zoomed out. Tails runs away, so the two halves show different parts of
+	/// the level. The second run has player 1 zoomed in and player 2 zoomed out (S2HD_TEST_VERSUS_ZOOM, because a test
+	/// cannot press the zoom keys).
+	/// </summary>
+	[Theory]
+	[Trait("Category", "Regression")]
+	[InlineData("out,out")]
+	[InlineData("in,out")]
+	public void VersusSplitScreen_MatchesGoldenScreenshots(string zoom)
+	{
+		string name = "versus-split-" + zoom.Replace(',', '-');
+		RunTwoRuns(name, Path.Combine(TestPaths.GoldenDirectory, name), new[] { 420 }, userData =>
+		{
+			File.WriteAllBytes(Path.Combine(userData, "player2.rec"), MakeRecording(600, tick => (tick >= 200 && tick < 400 ? 1.0 : 0.0, tick >= 260 && tick < 285)));
+			return "--level ehz --versus";
+		}, new Dictionary<string, string>
+		{
+			["S2HD_TEST_PLAYER2_PLAYBACK"] = Path.Combine("{userData}", "player2.rec"),
+			["S2HD_TEST_VERSUS_ZOOM"] = zoom
+		});
+	}
+
+	/// <summary>
 	/// Makes an input recording: one record of 40 bytes for each level tick, with the horizontal direction and the
 	/// action button. The other fields are 0.
 	/// </summary>
