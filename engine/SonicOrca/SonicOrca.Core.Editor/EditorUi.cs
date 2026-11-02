@@ -118,11 +118,52 @@ internal sealed class EditorUi
 			g.RenderQuad(ButtonHoverColour, bounds);
 		}
 		double textY = bounds.Y + (RowHeight - TextHeight) / 2.0;
-		DrawText(renderer, listRow.Text, bounds.X + Padding, textY, listRow.Dim ? DimTextColour : TextColour);
+		double textX = bounds.X + Padding;
+		if (listRow.Shown is bool shown)
+		{
+			DrawEye(g, GetEyeArea(bounds), shown, GetEyeArea(bounds).Contains(mouse));
+			textX += EyeWidth;
+		}
+		DrawText(renderer, listRow.Text, textX, textY, listRow.Dim || listRow.Shown == false ? DimTextColour : TextColour);
 		if (!string.IsNullOrEmpty(listRow.Detail))
 		{
 			DrawText(renderer, listRow.Detail, bounds.Right - Padding - MeasureText(listRow.Detail), textY, listRow.DetailColour ?? DimTextColour);
 		}
+	}
+
+	/// <summary>The width of the eye at the left of a list row.</summary>
+	public const double EyeWidth = 30.0;
+
+	/// <summary>The area of the eye of a list row: a click there shows or hides the item.</summary>
+	public static Rectangle GetEyeArea(Rectangle rowBounds) => new Rectangle(rowBounds.X + Padding - 4.0, rowBounds.Y, EyeWidth, rowBounds.Height);
+
+	/// <summary>
+	/// Draws an eye: open (an outline and a pupil) when the item shows, or closed (a dim line) when it is hidden.
+	/// </summary>
+	private static void DrawEye(I2dRenderer g, Rectangle area, bool open, bool hover)
+	{
+		Colour colour = hover ? TextColour : open ? TextColour : DimTextColour;
+		double cx = area.X + area.Width / 2.0 - 2.0;
+		double cy = area.Y + area.Height / 2.0;
+		const double HalfWidth = 9.0;
+		const double HalfHeight = 5.0;
+		if (!open)
+		{
+			// A closed eye: the lower lid and three lashes
+			g.RenderLine(colour, new Vector2(cx - HalfWidth, cy), new Vector2(cx, cy + HalfHeight), 2.0);
+			g.RenderLine(colour, new Vector2(cx, cy + HalfHeight), new Vector2(cx + HalfWidth, cy), 2.0);
+			for (int i = -1; i <= 1; i++)
+			{
+				g.RenderLine(colour, new Vector2(cx + i * 5.0, cy + HalfHeight - 1.0), new Vector2(cx + i * 7.0, cy + HalfHeight + 4.0), 1.5);
+			}
+			return;
+		}
+		// An open eye: the two lids and the pupil
+		g.RenderLine(colour, new Vector2(cx - HalfWidth, cy), new Vector2(cx, cy - HalfHeight), 2.0);
+		g.RenderLine(colour, new Vector2(cx, cy - HalfHeight), new Vector2(cx + HalfWidth, cy), 2.0);
+		g.RenderLine(colour, new Vector2(cx - HalfWidth, cy), new Vector2(cx, cy + HalfHeight), 2.0);
+		g.RenderLine(colour, new Vector2(cx, cy + HalfHeight), new Vector2(cx + HalfWidth, cy), 2.0);
+		g.RenderQuad(colour, new Rectangle(cx - 2.5, cy - 2.5, 5.0, 5.0));
 	}
 
 	/// <summary>Draws a row of the properties: the label, and the value or the text that the user types.</summary>

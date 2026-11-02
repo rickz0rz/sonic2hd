@@ -635,6 +635,19 @@ public sealed partial class RegressionTests
 	}
 
 	/// <summary>
+	/// The eye of a layer in the list of the tiles tool hides the layer in the editor. In Emerald Hill, a click on the
+	/// eye of layer 1 (background_sky) hides the sky, and its eye shows closed.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void EditorLayerEye_MatchesGoldenScreenshots()
+	{
+		const string script = "3:tap 32;6:mouse 1478 123;7:down left;8:up left;10:mouse 600 300";
+		RunAndCompare("--level ehz --editor", new[] { 10012 }, Path.Combine(TestPaths.GoldenDirectory, "editor-layer-eye"), "editor-layer-eye",
+			new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script });
+	}
+
+	/// <summary>
 	/// The tiles tool shows the animation of a tile. In Aquatic Ruin, the palette shows only the animated tiles, and the
 	/// brush takes the waterfall tile 2078, which the import animates with the palette cycle of the original. The panel
 	/// shows its frames and where they come from, and the palette marks each animated tile.

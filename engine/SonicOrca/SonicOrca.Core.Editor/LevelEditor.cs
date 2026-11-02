@@ -314,11 +314,32 @@ public sealed class LevelEditor : IDisposable
 		ShowMessage("Editor. F5: play here. F2: play from the start.");
 	}
 
+	/// <summary>
+	/// The layers that the user hid with their eye in the list of the tiles tool. Only the editor hides them: the game
+	/// and the saved level still have them.
+	/// </summary>
+	private readonly HashSet<LevelLayer> _hiddenLayers = new HashSet<LevelLayer>();
+
+	internal bool IsLayerHidden(LevelLayer layer) => _hiddenLayers.Contains(layer);
+
+	/// <summary>Hides or shows a layer in the editor.</summary>
+	internal void SetLayerHidden(LevelLayer layer, bool hidden)
+	{
+		if (hidden)
+		{
+			_hiddenLayers.Add(layer);
+		}
+		else
+		{
+			_hiddenLayers.Remove(layer);
+		}
+	}
+
 	public void Update()
 	{
 		_frames++;
 		// The tiles tool paints at level positions. Thus a background layer shows at these positions while the tool paints on it.
-		if (!EditorLayerView.Apply(_level.Map.Layers, _tool is TilesTool tiles ? tiles.AloneLayerIndex : -1))
+		if (!EditorLayerView.Apply(_level.Map.Layers, _tool is TilesTool tiles ? tiles.AloneLayerIndex : -1, _hiddenLayers))
 		{
 			RestoreViewBeforeLayerAlone();
 		}
@@ -1424,9 +1445,18 @@ public sealed class LevelEditor : IDisposable
 		if (Mouse.Y < ListBottom)
 		{
 			int index = (int)Math.Floor((Mouse.Y - (TopBarHeight + RowHeight) + _listScroll) / RowHeight);
-			if (Mouse.Y >= TopBarHeight + RowHeight && index >= 0 && index < _tool.GetListRows().Count)
+			IReadOnlyList<EditorListRow> listRows = _tool.GetListRows();
+			if (Mouse.Y >= TopBarHeight + RowHeight && index >= 0 && index < listRows.Count)
 			{
-				_tool.OnListClick(index, direction);
+				Rectangle rowBounds = new Rectangle(ScreenWidth - PanelWidth, TopBarHeight + RowHeight + index * RowHeight - _listScroll, PanelWidth, RowHeight);
+				if (listRows[index].Shown != null && EditorUi.GetEyeArea(rowBounds).Contains(Mouse))
+				{
+					_tool.OnListEyeClick(index, direction);
+				}
+				else
+				{
+					_tool.OnListClick(index, direction);
+				}
 			}
 			return;
 		}

@@ -20,16 +20,18 @@ public static class EditorLayerView
 
 	/// <summary>
 	/// Sets the view of the layers. When the layer at <paramref name="paintIndex"/> is shifted, the layer shows alone,
-	/// at its level positions. Else, or with -1, all layers show as in the game.
+	/// at its level positions. Else, or with -1, all layers show as in the game, without the layers that the user hid
+	/// with their eye in the editor.
 	/// </summary>
+	/// <param name="hidden">The layers that the user hid in the editor, or null.</param>
 	/// <returns>True when the layer at <paramref name="paintIndex"/> shows alone.</returns>
-	public static bool Apply(IList<LevelLayer> layers, int paintIndex)
+	public static bool Apply(IList<LevelLayer> layers, int paintIndex, ICollection<LevelLayer> hidden = null)
 	{
 		bool alone = paintIndex >= 0 && paintIndex < layers.Count && IsShifted(layers[paintIndex]);
 		for (int i = 0; i < layers.Count; i++)
 		{
 			layers[i].Editing = alone && i == paintIndex;
-			layers[i].HiddenInEditor = alone && i != paintIndex;
+			layers[i].HiddenInEditor = alone ? i != paintIndex : hidden?.Contains(layers[i]) == true;
 		}
 		return alone;
 	}
