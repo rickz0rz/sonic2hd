@@ -70,4 +70,20 @@ public sealed class LevelImportArzTests
 		// 14 frames, then the pieces of frames 7 to 13: 8 + 10 + 10 + 12 + 12 + 14 + 14
 		Assert.Equal(14 + 80, pillar.AnimationGroup.Split("<animation>").Length - 1);
 	}
+	[Fact]
+	public void PaletteCycle_OfArz_IsTheWaterOfThePalette()
+	{
+		// PalCycle_ARZ: 4 colours from entry 34 (line 3 + 4 bytes), 4 steps, a step every 6 ticks
+		PaletteCycle cycle = Assert.Single(PaletteCycles.Read(SpecialStageImportTests.FindDisassembly(), "ARZ"));
+		Assert.Equal(6, cycle.Period);
+		Assert.Equal(4, cycle.Steps.Count);
+		Assert.Equal(new[] { 34, 35, 36, 37 }, cycle.Entries.OrderBy(e => e));
+	}
+
+	[Fact]
+	public void Arz_HasAnimatedTilesForThePaletteCycle()
+	{
+		// The waterfalls use the colours of the cycle, so their blocks get a frame for each step of 6 ticks
+		Assert.Contains("delay=\"6\"", Arz.Value.TileSet);
+	}
 }
