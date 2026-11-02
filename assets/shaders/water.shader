@@ -30,6 +30,7 @@
     uniform float iGlobalTime;
     uniform float InputPositionX, InputPositionY;
     uniform float InputWaterLevel;// this is without the waves and the reflections
+    uniform vec2 InputCanvasSize;// the size of InputTexture in pixels: the screen, a half of versus mode, or a zoomed-out canvas
 #define TAU 6.28318530718
 #define MAX_ITER 5
 #define F length(.5-fract(k.xyw*=mat3(-2,-1,2, 3,-2,1, 1,2,2)*
@@ -193,7 +194,7 @@
     {
 		float waveTextureWidth = 256.0;
 		float waveTextureHeight = 106.0;
-        float xoffset =0.0* 0.5*sin(InputWavePhase + (FragmentTextureMapping.y * PI * 2.0 * InputNumWaves)) * (InputWaveSize / 1920.0);
+        float xoffset =0.0* 0.5*sin(InputWavePhase + (FragmentTextureMapping.y * PI * 2.0 * InputNumWaves)) * (InputWaveSize / InputCanvasSize.x);
 		
         // Get texture colour
 
@@ -210,9 +211,9 @@
 		
 
 
-		float waveTexelCoordinatesY=(1.0+0.065 - (InputWaterLevel+FragmentTextureMapping.y)) * 1080.0 / waveTextureHeight;
+		float waveTexelCoordinatesY=(1.0+0.065 - (InputWaterLevel+FragmentTextureMapping.y)) * InputCanvasSize.y / waveTextureHeight;
 		
-        vec4 waveTexel = texture(WaveTexture, vec2((InputPositionX + FragmentTextureMapping.x * 1920.0) / waveTextureWidth, waveTexelCoordinatesY));
+        vec4 waveTexel = texture(WaveTexture, vec2((InputPositionX + FragmentTextureMapping.x * InputCanvasSize.x) / waveTextureWidth, waveTexelCoordinatesY));
 
 		float topOfWaterHeight = 0.0;
         float waveBlendHeight = 0.0;
@@ -221,11 +222,11 @@
 		//CPZ
         {
             waterBlendFactor = 0.5f;
-            float waveHeight = 20.0 / 1080.0;
-            waveBlendHeight = sin(20.0 * (InputPositionX / 1920.0 + FragmentTextureMapping.x));//
+            float waveHeight = 20.0 / InputCanvasSize.y;
+            waveBlendHeight = sin(20.0 * (InputPositionX / InputCanvasSize.x + FragmentTextureMapping.x));//
             topOfWaterHeight = -waveHeight + waveBlendHeight *waveHeight *sin(iGlobalTime * 4.0);
         }
-		vec4 k =mainImageTransform((uv+0.0*FragmentTextureMapping.xy + vec2(InputPositionX / 1920.0, InputPositionY / 1080.0)) *1000.0);
+		vec4 k =mainImageTransform((uv+0.0*FragmentTextureMapping.xy + vec2(InputPositionX / InputCanvasSize.x, InputPositionY / InputCanvasSize.y)) *1000.0);
         vec3 b=k.xyz;//caustics
 	  	b=vec3(b.x+b.y+b.z)/10.0;
 		texel.xyz=texel.xyz+b;
@@ -246,7 +247,7 @@
 			transform =(1.0 - mixFactor) * mixColorB +  (mixFactor) * mixColorC;
 		}
         //transform.xyz = transform.xyz * 1 + vec3(1,1,1) * ov(FragmentTextureMapping.xy*10);
-      //  transform.xyz = transform.xyz * 1 + 0.25f * vec3(1, 1, 1) * causticsImage((FragmentTextureMapping.xy + vec2(InputPositionX / 1920.0f, InputPositionY / 1080.0f)) * 10).x;
+      //  transform.xyz = transform.xyz * 1 + 0.25f * vec3(1, 1, 1) * causticsImage((FragmentTextureMapping.xy + vec2(InputPositionX / InputCanvasSize.x, InputPositionY / InputCanvasSize.y)) * 10).x;
 	 
 	  vec3 a=transform.xyz;//color
 	

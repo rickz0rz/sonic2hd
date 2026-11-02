@@ -23,10 +23,6 @@ public class ParticleManager : IDisposable
 	/// </summary>
 	private const int WorkCanvasSize = 128;
 
-	private const int ScreenWidth = ScreenSize.Width;
-
-	private const int ScreenHeight = ScreenSize.Height;
-
 	/// <summary>
 	/// A heat particle fades out during its last frames.
 	/// </summary>
@@ -128,6 +124,9 @@ public class ParticleManager : IDisposable
 		IHeatRenderer heatRenderer = renderer.GetHeatRenderer();
 		heatRenderer.DistortionTexture = _heatParticleTexture;
 		Matrix4 modelMatrix = renderer2d.ModelMatrix;
+		// The particles draw into the canvas of the level view, which can be larger or smaller than the screen: a half of
+		// versus mode, or a zoomed-out view
+		Rectangle frameBounds = new Rectangle(0.0, 0.0, currentFramebuffer.Width, currentFramebuffer.Height);
 		foreach (Particle particle in _particles)
 		{
 			if (particle.Layer != layer)
@@ -156,10 +155,10 @@ public class ParticleManager : IDisposable
 							_workCanvas.Activate();
 							renderer2d.BlendMode = BlendMode.Opaque;
 							renderer2d.Colour = Colours.White;
-							renderer2d.ClipRectangle = new Rectangle(0.0, 0.0, ScreenWidth, ScreenHeight);
+							renderer2d.ClipRectangle = frameBounds;
 							renderer2d.ModelMatrix = Matrix4.Identity;
 							// The framebuffer texture is upside down, so the source Y counts from the bottom.
-							renderer2d.RenderTexture(currentFramebuffer.Textures[0], new Rectanglei(destination.X, ScreenHeight - destination.Bottom, destination.Width, destination.Height), new Rectanglei(0, 0, destination.Width, destination.Height));
+							renderer2d.RenderTexture(currentFramebuffer.Textures[0], new Rectanglei(destination.X, currentFramebuffer.Height - destination.Bottom, destination.Width, destination.Height), new Rectanglei(0, 0, destination.Width, destination.Height));
 							renderer2d.Deactivate();
 							currentFramebuffer.Activate();
 							heatRenderer.Render(_workCanvas.Textures[0], new Rectanglei(0, 0, destination.Width, destination.Height), destination);
@@ -175,7 +174,7 @@ public class ParticleManager : IDisposable
 							currentFramebuffer.Activate();
 							renderer2d.BlendMode = BlendMode.Alpha;
 							renderer2d.Colour = new Colour(opacity, 1.0, 1.0, 1.0);
-							renderer2d.ClipRectangle = new Rectangle(0.0, 0.0, ScreenWidth, ScreenHeight);
+							renderer2d.ClipRectangle = frameBounds;
 							renderer2d.ModelMatrix = Matrix4.CreateTranslation(screenPosition.X, screenPosition.Y) * Matrix4.CreateRotationZ(particle.Angle);
 							renderer2d.RenderTexture(_smokeParticleTexture, default(Vector2), false, false);
 						}
@@ -192,7 +191,7 @@ public class ParticleManager : IDisposable
 								currentFramebuffer.Activate();
 								renderer2d.BlendMode = BlendMode.Alpha;
 								renderer2d.Colour = new Colour(1.0, 1.0, 1.0, 1.0);
-								renderer2d.ClipRectangle = new Rectangle(0.0, 0.0, ScreenWidth, ScreenHeight);
+								renderer2d.ClipRectangle = frameBounds;
 								renderer2d.ModelMatrix = Matrix4.CreateTranslation(screenPosition.X, screenPosition.Y) * Matrix4.CreateRotationZ(particle.Angle) * Matrix4.CreateScale(particle.Size, particle.Size);
 								renderer2d.RenderTexture(customTexture, default(Vector2), false, false);
 							}
