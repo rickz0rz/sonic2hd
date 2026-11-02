@@ -138,8 +138,11 @@ public class Level : IDisposable
 	/// <summary>The players: player 1, and player 2 in versus mode.</summary>
 	public IReadOnlyList<Player> Players => _player2 == null ? new[] { _player } : new[] { _player, _player2 };
 
-	/// <summary>True in versus mode (see <see cref="LevelPrepareSettings.Versus"/>).</summary>
-	public bool Versus => _player2 != null;
+	/// <summary>
+	/// True in versus mode (see <see cref="LevelPrepareSettings.Versus"/>). The objects near the start start before
+	/// the characters, so this does not wait for player 2.
+	/// </summary>
+	public bool Versus => PrepareSettings?.Versus == true;
 
 	/// <summary>The camera of player 2 in versus mode, else null. <see cref="Camera"/> is the camera of player 1.</summary>
 	private Camera _camera2;
@@ -422,11 +425,6 @@ public class Level : IDisposable
 		}
 		_player.ResetScoreChain();
 		_player.ResetRings();
-		// In versus mode, player 2 also starts a new act with no rings. A new level makes a new player 2.
-		if (PrepareSettings.Seamless)
-		{
-			_player2?.ResetRings();
-		}
 		if (SonicOrca.Core.Debugging.TestHooks.StartRings is int testRings && _player.StarpostIndex == -1)
 		{
 			_player.CurrentRings = testRings;
@@ -588,7 +586,7 @@ public class Level : IDisposable
 	/// <summary>Makes player 2 of versus mode: Tails, with their own rings, score and lives, and the second controller.</summary>
 	private void SetupPlayer2(Vector2i position, int layerIndex, int startPath)
 	{
-		_player2 = new Player(this) { Lives = _player.Lives };
+		_player2 = new Player(this) { Lives = PrepareSettings.Player2Lives ?? _player.Lives };
 		ICharacter tails = CreateCharacter(CharacterTypeResourceKeys[(int)CharacterType.Tails], position, layerIndex);
 		tails.Player = _player2;
 		tails.Path = startPath;
@@ -696,31 +694,16 @@ public class Level : IDisposable
 		}
 	}
 
-	/// <summary>The act of versus mode ends: the next act starts. The results of the act are part of step 5.</summary>
+	/// <summary>
+	/// The act of versus mode ends. The level fades out, and the versus match shows the results of the act. Act 2
+	/// then starts at its own start, as in the original, not where the players ended act 1.
+	/// </summary>
 	private void EndVersusAct()
 	{
 		VersusTimeLeft = null;
 		StateFlags &= ~LevelStateFlags.UpdateTime;
 		Trace.WriteLine("Versus: the act ends");
-		if (SeamlessAct)
-		{
-			State = LevelState.StageCompleted;
-		}
-		else
-		{
-			FadeOut(LevelState.StageCompleted);
-		}
-	}
-
-	/// <summary>A new act of versus mode: no player has finished, and no player has a star post.</summary>
-	public void ResetVersusAct()
-	{
-		VersusTimeLeft = null;
-		foreach (Player player in Players)
-		{
-			player.StoppedTime = null;
-			player.StarpostIndex = Player.UndefinedStarpostIndex;
-		}
+		FadeOut(LevelState.StageCompleted);
 	}
 
 	/// <summary>
@@ -1018,7 +1001,7 @@ public class Level : IDisposable
 			UpdateInverals();
 			Player.Update();
 			_player2?.Update();
-			if (Versus)
+			if (_player2 != null)
 			{
 				if (SonicOrca.Core.Debugging.TestHooks.KillPlayer2AtTick == Ticks && _player2.Protagonist != null)
 				{

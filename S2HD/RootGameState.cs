@@ -56,6 +56,15 @@ internal class RootGameState : IGameState, IDisposable
 			{
 				Program.ShowErrorMessageBox("Level does not exist.");
 			}
+			else if (settingsFromCommandLine.Versus)
+			{
+				// "--level ehz --versus" starts a versus match with that zone
+				S2HD.Versus.VersusGameState versus = new S2HD.Versus.VersusGameState(_gameContext);
+				versus.StartFrom(settingsFromCommandLine);
+				ChangeGameState(versus);
+				foreach (UpdateResult updateResult in _currentGameState.Update())
+					yield return updateResult;
+			}
 			else
 			{
 				StoryPlaythroughGameState newGameState = new StoryPlaythroughGameState(_gameContext);
@@ -115,6 +124,13 @@ internal class RootGameState : IGameState, IDisposable
 					foreach (UpdateResult updateResult in PlayStory(levelSelect.Result))
 						yield return updateResult;
 				}
+			}
+			else if (_cmdLineArgs.HasOption("versus"))
+			{
+				// --versus without --level opens the setup screen of a versus match
+				ChangeGameState(new S2HD.Versus.VersusGameState(_gameContext));
+				foreach (UpdateResult updateResult in _currentGameState.Update())
+					yield return updateResult;
 			}
 			if (_cmdLineArgs.HasOption("animations"))
 			{
@@ -194,6 +210,11 @@ internal class RootGameState : IGameState, IDisposable
 							foreach (UpdateResult updateResult in PlayStory(levelSelect.Result))
 								yield return updateResult;
 						}
+						break;
+					case TitleGameState.ResultType.Versus:
+						ChangeGameState(new S2HD.Versus.VersusGameState(_gameContext));
+						foreach (UpdateResult updateResult in _currentGameState.Update())
+							yield return updateResult;
 						break;
 					case TitleGameState.ResultType.ShowOptions:
 						ShowOptions();

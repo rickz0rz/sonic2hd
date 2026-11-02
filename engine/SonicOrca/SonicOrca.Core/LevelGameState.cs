@@ -427,12 +427,18 @@ public class LevelGameState : IGameState, IDisposable
 			Completed = true;
 			_finished = true;
 		}
+		else if (_level.Versus)
+		{
+			// The versus match shows the results, and then loads the next act
+			_draw = false;
+			_finished = true;
+			Completed = true;
+		}
 		else if (_level.CurrentAct == 1)
 		{
 			_level.Time = 0;
 			_level.RingsCollected = 0;
 			_level.Player.StarpostIndex = -1;
-			_level.ResetVersusAct();
 			PrepareSettings.Act++;
 			PrepareSettings.Seamless = true;
 			_levelLoader.LoadLevel();

@@ -216,6 +216,9 @@ public abstract class ActiveObject : IActiveObject
 			i2dRenderer.ModelMatrix *= Matrix4.CreateTranslation((_position.X - viewport.Bounds.X + shadowOffset.X) * viewport.Scale.X, (_position.Y - viewport.Bounds.Y + shadowOffset.Y) * viewport.Scale.Y);
 			IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
 			objectRenderer.ClipRectangle = viewport.Destination;
+			// The characters draw with their own renderer. A zoomed-out view draws into a canvas that is larger than
+			// the screen, so the clip of the screen would cut the characters at the right of the view.
+			renderer.GetCharacterRenderer().ClipRectangle = viewport.Destination;
 			objectRenderer.ModelMatrix = i2dRenderer.ModelMatrix;
 			objectRenderer.SetDefault();
 			objectRenderer.Shadow = viewOptions.Shadows;

@@ -638,14 +638,21 @@ count. In the special stage, each player has their own rings (see "Entering a sp
 
 ### Two players: versus
 
-Versus mode is not complete yet. `--level ehz --versus` starts a test of it: player 2 plays Tails, with their own
-rings, score and lives. The screen splits: player 1 in the top half and player 2 in the bottom half, each with their
+Choose 2P VS on the title screen to start a versus match. Player 1 plays Sonic and player 2 plays Tails. Each player
+has their own rings, score and lives. The setup screen shows the zones: Emerald Hill, Mystic Cave and Casino Night.
+Mystic Cave and Casino Night show only after the import of these levels. Player 1 chooses a zone and the items of the
+monitors: all kinds, or teleport only. The screen splits: player 1 in the top half and player 2 in the bottom half, each with their
 own camera and their own HUD. Each camera starts zoomed out, so that the half shows more of the level. Each player changes the zoom
 of their half with their zoom key. A player who loses a life comes back at their own star post. When a player passes
 the signpost, their time stops. The other player then has 60 seconds to finish, and their time counts down in red.
 The act ends when both players finished or the time ran out. Act 2 has no boss: it ends at a signpost, as in the
 original. Each monitor shows a question mark and gives a random item. The teleport item makes the players change
-places. See `docs/two-player-design.md` for the plan.
+places.
+
+After each act, the results compare the score, the time, the rings, the total rings and the monitors of the players.
+Each category gives a point to the better player, and the player with more points wins the act. The player who won
+more acts wins the zone. When the players played all the zones, the game results show the winner of the match. A
+game over ends the match, and the results go. See `docs/two-player-design.md` for the plan.
 
 ## Command-line options
 
@@ -654,6 +661,7 @@ places. See `docs/two-player-design.md` for the plan.
 | `--level <zone> [--act <n>]` | Starts a level directly, for example `--level htz --act 2`. The story goes on from that level. After the last level, the ending and the credits play, but not with `--editor` |
 | `--protagonist <name>`, `--sidekick <name>` | Chooses the characters for `--level` (`sonic`, `tails`, `knuckles`). Use `--sidekick none` with `--protagonist` to play alone |
 | `--startpos <x> <y>` | Starts `--level` at this position, in level units |
+| `--versus` | Opens the setup screen of a versus match. With `--level`, for example `--level ehz --versus`, the match starts at once with that zone |
 | `--levelselect` | Opens the level select at once. On the title screen, press up, down, left and right, then hold the jump button and press Start |
 | `--debug` | Starts the level with debug mode on |
 | `--animations [KEY]` | Opens the animation editor, for example `--animations SONICORCA/OBJECTS/SONIC/ANIGROUP` |

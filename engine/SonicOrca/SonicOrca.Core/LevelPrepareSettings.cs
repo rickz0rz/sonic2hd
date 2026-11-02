@@ -42,6 +42,12 @@ public class LevelPrepareSettings
 	/// </summary>
 	public bool Versus { get; set; }
 
+	/// <summary>The lives of player 2 in versus mode, or null for the lives of player 1.</summary>
+	public int? Player2Lives { get; set; }
+
+	/// <summary>In versus mode, each monitor gives the teleport (the "teleport only" items of the original).</summary>
+	public bool VersusTeleportOnly { get; set; }
+
 	public int Lives { get; set; }
 
 	public int Score { get; set; }
