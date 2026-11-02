@@ -520,6 +520,19 @@ public sealed class RegressionTests
 	private static int VersusScreenCapture(int screen, int frame) => 100000 + 1000 * screen + frame;
 
 	/// <summary>
+	/// Versus mode: the water of Chemical Plant 2 in the halves. Player 1 is zoomed in and above the water. Player 2 is
+	/// zoomed out, and the half shows the surface of the water over all its width. The water effect draws into the
+	/// canvas of the half, which is not the size of the screen.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void VersusWater_MatchesGoldenScreenshots()
+	{
+		RunTwoRuns("versus-water", Path.Combine(TestPaths.GoldenDirectory, "versus-water"), new[] { 300 },
+			_ => "--level cpz --act 2 --versus --startpos 73000 7800", new Dictionary<string, string> { ["S2HD_TEST_VERSUS_ZOOM"] = "in,out" });
+	}
+
+	/// <summary>
 	/// Versus mode: the teleport monitor. Both players start near the second monitor of Emerald Hill 1. Sonic stands on
 	/// a ledge, and Tails is on the path below. The monitor shows a question mark. Sonic jumps onto it, and the test
 	/// hook makes its item the teleport. The players change places, and the screen flashes white.

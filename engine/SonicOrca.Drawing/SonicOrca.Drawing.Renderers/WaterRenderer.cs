@@ -24,10 +24,6 @@ internal class WaterRenderer : IWaterRenderer, IRenderer, IDisposable
 		public vec2 texcoords;
 	}
 
-	private const int ScreenWidth = ScreenSize.Width;
-
-	private const int ScreenHeight = ScreenSize.Height;
-
 	// The effect starts this number of pixels above the water level
 	private const float WaterSurfaceMargin = 80f;
 
@@ -92,7 +88,7 @@ internal class WaterRenderer : IWaterRenderer, IRenderer, IDisposable
 		_vbo = _graphicsContext.CreateBuffer();
 		_vao = _graphicsContext.CreateVertexArray();
 		_vao.DefineAttributes(_shaderProgram.Program, _vbo, typeof(Vertex));
-		_canvas = _graphicsContext.CreateFrameBuffer(ScreenWidth, ScreenHeight);
+		_canvas = _graphicsContext.CreateFrameBuffer(ScreenSize.Width, ScreenSize.Height);
 	}
 
 	public void Dispose()
@@ -107,22 +103,36 @@ internal class WaterRenderer : IWaterRenderer, IRenderer, IDisposable
 	{
 	}
 
+	/// <summary>
+	/// Draws the effect below the water level of the current framebuffer. The framebuffer is the canvas of the level
+	/// view: the screen, a half of versus mode, or a larger canvas when the view is zoomed out.
+	/// </summary>
 	public void Render(Rectanglei regionToFilter)
 	{
 		IFramebuffer currentFramebuffer = _graphicsContext.CurrentFramebuffer;
+		int width = currentFramebuffer.Width;
+		int height = currentFramebuffer.Height;
+		if (_canvas.Width != width || _canvas.Height != height)
+		{
+			_canvas.Dispose();
+			_canvas = _graphicsContext.CreateFrameBuffer(width, height);
+		}
 		// Was Repeat followed by a raw GL call clamping T on whichever texture happened to be bound
 		WaterManager.waveTexture.Wrapping = TextureWrapping.RepeatHorizontal;
-		int effectTop = Math.Clamp((int)(WaterManager.viewportWaterLevel - WaterSurfaceMargin), 0, ScreenHeight);
+		int effectTop = Math.Clamp((int)(WaterManager.viewportWaterLevel - WaterSurfaceMargin), 0, height);
 		// Draw the effect into the canvas, then copy the part below the effect top back to the current framebuffer
 		_canvas.Activate();
-		Render(currentFramebuffer.Textures[0], new Rectanglei(0, 0, ScreenWidth, ScreenHeight - effectTop), new Rectanglei(0, 0, ScreenWidth, ScreenHeight - effectTop));
+		Render(currentFramebuffer.Textures[0], new Rectanglei(0, 0, width, height - effectTop), new Rectanglei(0, 0, width, height - effectTop));
 		currentFramebuffer.Activate();
 		SimpleRenderer simpleRenderer = SimpleRenderer.FromRenderer(_renderer);
 		simpleRenderer.BlendMode = BlendMode.Alpha;
 		simpleRenderer.Colour = Colours.White;
-		simpleRenderer.RenderTexture(_canvas.Textures[0], new Rectanglei(0, effectTop, ScreenWidth, ScreenHeight), new Rectanglei(0, effectTop, ScreenWidth, ScreenHeight));
-		simpleRenderer.BlendMode = BlendMode.Alpha;
+		Rectangle clipRectangle = simpleRenderer.ClipRectangle;
+		simpleRenderer.ClipRectangle = new Rectangle(0.0, 0.0, width, height);
+		simpleRenderer.RenderTexture(_canvas.Textures[0], new Rectanglei(0, effectTop, width, height), new Rectanglei(0, effectTop, width, height));
 		simpleRenderer.Deactivate();
+		simpleRenderer.ClipRectangle = clipRectangle;
+		simpleRenderer.BlendMode = BlendMode.Alpha;
 	}
 
 	public void Render(ITexture texture, Rectanglei destination, bool flipX = false, bool flipY = false)
@@ -140,7 +150,8 @@ internal class WaterRenderer : IWaterRenderer, IRenderer, IDisposable
 			_vertices[i].texcoords = _vertexUVs[i].ToVec2();
 		}
 		_vbo.SetData(_vertices, 0, 4);
-		Matrix4 projectionMatrix = _renderer.Window.GraphicsContext.CurrentFramebuffer.CreateOrthographic();
+		IFramebuffer framebuffer = _renderer.Window.GraphicsContext.CurrentFramebuffer;
+		Matrix4 projectionMatrix = framebuffer.CreateOrthographic();
 		_renderer.ActivateRenderer(this);
 		_graphicsContext.BlendMode = BlendMode.Alpha;
 		_graphicsContext.SetTexture(0, texture);
@@ -163,7 +174,9 @@ internal class WaterRenderer : IWaterRenderer, IRenderer, IDisposable
 		program.SetUniform("iGlobalTime", Time);
 		program.SetUniform("InputPositionX", WaterManager.offsetX);
 		program.SetUniform("InputPositionY", 0f - WaterManager.offsetY);
-		program.SetUniform("InputWaterLevel", WaterManager.viewportWaterLevel / (float)ScreenHeight);
+		// The size of the source texture in pixels. The shader turns the texture mapping into pixels with it.
+		program.SetUniform("InputCanvasSize", new Vector2(texture.Width, texture.Height));
+		program.SetUniform("InputWaterLevel", WaterManager.viewportWaterLevel / (float)texture.Height);
 		_graphicsContext.BlendMode = BlendMode.Opaque;
 		_vao.Render(SonicOrca.Graphics.PrimitiveType.Quads, 0, 4);
 	}
