@@ -6,6 +6,7 @@
 //   dotnet run --project tools/s2hd-data -- import-special-stages <s2disasm folder> <folder>
 //   dotnet run --project tools/s2hd-data -- import-level <zone> <s2disasm folder> <folder>
 //   dotnet run --project tools/s2hd-data -- import-ending <s2disasm folder> <folder>
+//   dotnet run --project tools/s2hd-data -- convert-tile-animations <file.dat> <folder>
 // unpack writes each resource as a normal file (.png, .ogg, .map.xml and so on) that you can edit. With more than
 // one .dat file, a later file replaces the resources of an earlier one, as in the game. With --images, unpack
 // writes only the images. The game loads such a folder from its mods folder. prune deletes the files of a folder
@@ -15,7 +16,8 @@
 // stage layouts of the original game from a Sonic 2 disassembly (github.com/sonicretro/s2disasm) into that folder.
 // import-level makes the map (with collision) and the object binding of a zone, for example CNZ, from the same
 // disassembly. import-super-sonic makes the sprites of Super Sonic from the art of Sonic. import-music plays the songs and the sounds that the demo data does not have on emulated sound chips,
-// and uses ffmpeg (or S2HD_FFMPEG) to encode them as Ogg Vorbis. Each song gets a loop point.
+// and uses ffmpeg (or S2HD_FFMPEG) to encode them as Ogg Vorbis. Each song gets a loop point. convert-tile-animations
+// moves the frames of the animated tiles of the tile sets in a .dat file into an ANIGROUP for the animation editor.
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -43,6 +45,7 @@ try
 		["import-ending", string disassembly, string folder] => ImportEnding(disassembly, folder),
 		["import-super-sonic", string disassembly, string folder] => ImportSuperSonic(disassembly, folder),
 		["import-music", string disassembly, string folder] => ImportMusic(disassembly, folder),
+		["convert-tile-animations", string baseFile, string folder] => ConvertTileAnimations(baseFile, folder),
 		_ => Usage(),
 	};
 }
@@ -195,6 +198,13 @@ static int ImportLevel(string zoneName, string disassembly, string folder)
 	return 0;
 }
 
+static int ConvertTileAnimations(string baseFile, string folder)
+{
+	int count = TileAnimationConversion.ConvertAll(Scan(baseFile), folder, Console.WriteLine);
+	Console.WriteLine($"Converted {count} tile sets.");
+	return 0;
+}
+
 static ResourceTree Scan(string file)
 {
 	if (!File.Exists(file))
@@ -218,6 +228,7 @@ static int Usage()
 		  s2hd-data import-ending <s2disasm folder> <folder>
 		  s2hd-data import-super-sonic <s2disasm folder> <folder>
 		  s2hd-data import-music <s2disasm folder> <folder>
+		  s2hd-data convert-tile-animations <file.dat> <folder>
 		""");
 	return 2;
 }

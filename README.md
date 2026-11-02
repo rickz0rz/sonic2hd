@@ -235,6 +235,13 @@ The script finds the disassembly at `S2DISASM_DIR`, `../s2disasm` or `../../soni
 `.dat` files to the `mods` folder in the user data folder. To use other folders, give them as arguments:
 `./tools/import-all.sh <s2disasm> <mods>`. Run the script again after an update of this repository.
 
+The script also makes the mod `tile-animations` from the game data. The HD tile sets of Emerald Hill, Chemical Plant
+and Hill Top keep the frames of their animated tiles in the tile set. The mod moves these frames into an animation
+group (`ANIGROUP`) next to each tile set, as the import does for the other zones. Each frame keeps its delay and its
+opacity, and each tile keeps its blend mode. In the level editor, the "Animation" row of the Tiles tool then opens
+the animation of the brush tile in the animation editor. To make only this mod, run
+`dotnet run --project tools/s2hd-data -- convert-tile-animations data/sonicorca.dat <folder>`, then pack the folder.
+
 ### Ending cutscene
 
 The import also makes the art of the ending cutscene of the original game into `SONICORCA/ENDING`. Each image is a

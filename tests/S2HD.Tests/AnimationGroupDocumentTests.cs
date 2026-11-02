@@ -25,7 +25,7 @@ public sealed class AnimationGroupDocumentTests
 		    <!-- wait -->
 		    <animation delay="4" loop="1" offset_y="-7" w="10" h="20">
 		      <frame x="0" y="0" />
-		      <frame x="10" y="0" delay="8" />
+		      <frame x="10" y="0" delay="8" opacity="0.5" />
 		      <frame x="20" y="0" w="12" texture="1" offset_x="3" />
 		    </animation>
 		    <animation next="0">
@@ -48,7 +48,8 @@ public sealed class AnimationGroupDocumentTests
 		Assert.Equal(1, wait.Loop);
 		Assert.Null(wait.Next);
 		AnimationFrameDocument second = wait.Frames[1];
-		Assert.Equal((10, 0, 10, 20, -7, 8), (second.X, second.Y, second.Width, second.Height, second.OffsetY, second.Delay));
+		Assert.Equal((10, 0, 10, 20, -7, 8, 0.5f), (second.X, second.Y, second.Width, second.Height, second.OffsetY, second.Delay, second.Opacity));
+		Assert.Equal(1f, wait.Frames[0].Opacity);
 		AnimationFrameDocument third = wait.Frames[2];
 		Assert.Equal((12, 1, 3, 4), (third.Width, third.Texture, third.OffsetX, third.Delay));
 		Assert.Null(document.Animations[1].Name);
@@ -72,6 +73,7 @@ public sealed class AnimationGroupDocumentTests
 
 		Assert.Contains("<animation w=\"10\" h=\"20\" offset_y=\"-7\" delay=\"4\" loop=\"1\">", xml);
 		Assert.Contains("<frame x=\"20\" y=\"0\" w=\"12\" texture=\"1\" offset_x=\"3\" />", xml);
+		Assert.Contains("<frame x=\"10\" y=\"0\" delay=\"8\" opacity=\"0.5\" />", xml);
 		Assert.Contains("<!-- wait -->", xml);
 	}
 
@@ -136,7 +138,7 @@ public sealed class AnimationGroupDocumentTests
 			{
 				AnimationFrameDocument x = a.Frames[f];
 				AnimationFrameDocument y = b.Frames[f];
-				Assert.True((x.Texture, x.X, x.Y, x.Width, x.Height, x.OffsetX, x.OffsetY, x.Delay) == (y.Texture, y.X, y.Y, y.Width, y.Height, y.OffsetX, y.OffsetY, y.Delay),
+				Assert.True((x.Texture, x.X, x.Y, x.Width, x.Height, x.OffsetX, x.OffsetY, x.Delay, x.Opacity) == (y.Texture, y.X, y.Y, y.Width, y.Height, y.OffsetX, y.OffsetY, y.Delay, y.Opacity),
 					$"{name} animation {i} frame {f} changed.");
 			}
 		}
@@ -204,6 +206,7 @@ public sealed class AnimationDocumentEditTests
 		walk.Frames[1].Width = 30;
 		walk.Frames[1].OffsetY = -4;
 		walk.Frames[1].Delay = 3;
+		walk.Frames[1].Opacity = 0.25f;
 		document.AddAnimation(walk);
 		SonicOrca.Graphics.Animation old = new SonicOrca.Graphics.Animation();
 		SonicOrca.Graphics.Animation extra = new SonicOrca.Graphics.Animation();
@@ -213,7 +216,8 @@ public sealed class AnimationDocumentEditTests
 		Assert.Equal(2, animations.Count);
 		Assert.Same(extra, animations[1]);
 		SonicOrca.Graphics.Animation.Frame frame = animations[0].Frames[1];
-		Assert.Equal((1, 30, -4, 3), (frame.Source.X, frame.Source.Width, frame.Offset.Y, frame.Delay));
+		Assert.Equal((1, 30, -4, 3, 0.25f), (frame.Source.X, frame.Source.Width, frame.Offset.Y, frame.Delay, frame.Opacity));
+		Assert.Equal(1f, animations[0].Frames[0].Opacity);
 		Assert.Equal(1, animations[0].LoopFrameIndex);
 	}
 

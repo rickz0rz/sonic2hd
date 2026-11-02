@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -103,6 +104,10 @@ internal class AnimationGroupResourceType : ResourceType
 		int offsetX = node.TryGetAttributeValue("offset_x", out value) ? int.Parse(value) : defaultOffsetX;
 		int offsetY = node.TryGetAttributeValue("offset_y", out value) ? int.Parse(value) : defaultOffsetY;
 		frame.Delay = node.TryGetAttributeValue("delay", out value) ? int.Parse(value) : defaultDelay;
+		if (node.TryGetAttributeValue("opacity", out value))
+		{
+			frame.Opacity = float.Parse(value, CultureInfo.InvariantCulture);
+		}
 		frame.Offset = new Vector2i(offsetX, offsetY);
 		frame.Source = new Rectanglei(x, y, width, height);
 		return frame;

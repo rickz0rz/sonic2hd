@@ -1,7 +1,8 @@
 #!/bin/bash
 # Makes all the mods that come from a local copy of the Sonic 2 disassembly: the zones that the
 # demo data does not have, their music, the special stage layouts, the sprites of Super Sonic, the
-# attract demos and the original credits. Run it from any folder. The music needs ffmpeg (or S2HD_FFMPEG).
+# attract demos and the original credits. It also moves the frames of the animated HD tiles into an ANIGROUP
+# (the mod tile-animations). Run it from any folder. The music needs ffmpeg (or S2HD_FFMPEG).
 #
 #   ./tools/import-all.sh [s2disasm-dir] [mods-dir]
 #
@@ -77,5 +78,7 @@ import super-sonic import-super-sonic "$DISASM"
 import demos import-demos "$DISASM"
 import ending import-ending "$DISASM"
 import music import-music "$DISASM"
+# The HD zones have the frames of their animated tiles in the tile set. This mod moves them into an ANIGROUP.
+import tile-animations convert-tile-animations "$BASE"
 
 echo "Done. The game loads the mods from $MODS."

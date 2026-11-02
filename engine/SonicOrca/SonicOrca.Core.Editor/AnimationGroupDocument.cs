@@ -142,7 +142,8 @@ public sealed class AnimationGroupDocument
 				TextureIndex = Math.Clamp(frame.Texture, 0, Math.Max(0, textureCount - 1)),
 				Source = new Rectanglei(frame.X, frame.Y, frame.Width, frame.Height),
 				Offset = new Vector2i(frame.OffsetX, frame.OffsetY),
-				Delay = Math.Max(0, frame.Delay)
+				Delay = Math.Max(0, frame.Delay),
+				Opacity = Math.Clamp(frame.Opacity, 0f, 1f)
 			}).ToList();
 			if (frames.Count == 0)
 			{
@@ -273,7 +274,8 @@ public sealed class AnimationDocument
 				Texture = GetOptional(frame, "texture") ?? defaults.Texture,
 				OffsetX = GetOptional(frame, "offset_x") ?? defaults.OffsetX,
 				OffsetY = GetOptional(frame, "offset_y") ?? defaults.OffsetY,
-				Delay = GetOptional(frame, "delay") ?? defaults.Delay
+				Delay = GetOptional(frame, "delay") ?? defaults.Delay,
+				Opacity = frame.GetAttribute("opacity") is { Length: > 0 } opacity ? float.Parse(opacity, CultureInfo.InvariantCulture) : 1f
 			});
 		}
 		return animation;
@@ -331,6 +333,10 @@ public sealed class AnimationDocument
 			Attribute(xml, "offset_x", frame.OffsetX, offsetX);
 			Attribute(xml, "offset_y", frame.OffsetY, offsetY);
 			Attribute(xml, "delay", frame.Delay, delay);
+			if (frame.Opacity != 1f)
+			{
+				xml.Append(" opacity=\"").Append(frame.Opacity.ToString(CultureInfo.InvariantCulture)).Append('"');
+			}
 			xml.Append(" />\n");
 		}
 		xml.Append("    </animation>\n");
@@ -373,6 +379,9 @@ public sealed class AnimationFrameDocument
 
 	/// <summary>The extra frames that the frame shows: a delay of 0 shows the frame for one frame.</summary>
 	public int Delay { get; set; }
+
+	/// <summary>The opacity of the frame, from 0 to 1. A tile fades to the opacity of its next frame.</summary>
+	public float Opacity { get; set; } = 1f;
 
 	public AnimationFrameDocument Clone() => (AnimationFrameDocument)MemberwiseClone();
 }

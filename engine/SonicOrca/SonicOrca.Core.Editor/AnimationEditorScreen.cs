@@ -1807,6 +1807,22 @@ public sealed class AnimationEditorScreen : Screen
 		rows.Add(IntRow("Offset X", frame.OffsetX, -16384, 16384, value => frame.OffsetX = value));
 		rows.Add(IntRow("Offset Y", frame.OffsetY, -16384, 16384, value => frame.OffsetY = value));
 		rows.Add(IntRow("Delay", frame.Delay, 0, 255, value => frame.Delay = value));
+		rows.Add(new EditorPropertyRow
+		{
+			Label = "Opacity",
+			Value = frame.Opacity.ToString(CultureInfo.InvariantCulture),
+			Commit = text => CommitOpacity(text, value => frame.Opacity = value)
+		});
+	}
+
+	private bool CommitOpacity(string text, Action<float> set)
+	{
+		if (!float.TryParse(text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out float value) || value < 0f || value > 1f)
+		{
+			return false;
+		}
+		Change(() => set(value));
+		return true;
 	}
 
 	private EditorPropertyRow IntRow(string label, int value, int min, int max, Action<int> set)

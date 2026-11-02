@@ -626,7 +626,7 @@ public sealed partial class RegressionTests
 	[Trait("Category", "Regression")]
 	public void EditorTilesAndCollision_MatchesGoldenScreenshots()
 	{
-		const string script = "3:tap 32;6:mouse 1555 861;7:down left;8:up left;" +
+		const string script = "3:tap 32;6:mouse 1555 831;7:down left;8:up left;" +
 			"11:mouse 700 400;12:down left;14:mouse 800 400;16:mouse 900 400;18:up left;" +
 			"22:tap 33;24:mouse 1600 93;25:down left;26:up left;28:mouse 300 300;29:down left;30:up left;" +
 			"32:mouse 900 300;33:down left;34:up left;35:tap 41;45:mouse 600 150;46:tap 62";
@@ -650,18 +650,19 @@ public sealed partial class RegressionTests
 	/// <summary>
 	/// The tiles tool shows the animation of a tile. In Aquatic Ruin, the palette shows only the animated tiles, and the
 	/// brush takes the waterfall tile 2078, which the import animates with the palette cycle of the original. The panel
-	/// shows its frames and where they come from, and the palette marks each animated tile. A click on the "Animation"
-	/// row opens the animation of the tile (animation 29 of the ANIGROUP of the tile set) in the animation editor.
+	/// shows its frames, the status line shows where they come from, and the palette marks each animated tile. A click
+	/// on the "Animation" row opens the animation of the tile (animation 29 of the ANIGROUP of the tile set) in the
+	/// animation editor.
 	/// </summary>
 	[Fact]
 	[Trait("Category", "Regression")]
 	public void EditorTileAnimation_MatchesGoldenScreenshots()
 	{
-		// The "Palette" row shows only the animated tiles. The tile is then at index 30: row 3, column 6.
+		// The "Show" row shows only the animated tiles. The tile is then at index 30: row 3, column 6.
 		// A click on the "Animation" row then opens the animation of the tile in the animation editor
-		const string script = "3:tap 32;6:mouse 1700 668;7:down left;8:up left;10:mouse 1826 971;12:down left;13:up left;" +
+		const string script = "3:tap 32;6:mouse 1700 668;7:down left;8:up left;10:mouse 1826 941;12:down left;13:up left;" +
 			"20:mouse 1700 698;21:down left;22:up left";
-		RunAndCompare("--level arz --editor", new[] { 10030, 10060 }, Path.Combine(TestPaths.GoldenDirectory, "editor-tile-animation"), "editor-tile-animation",
+		RunAndCompare("--level arz --editor", new[] { 10016, 10030, 10060 }, Path.Combine(TestPaths.GoldenDirectory, "editor-tile-animation"), "editor-tile-animation",
 			new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script }, withImportedMods: true);
 	}
 
@@ -700,6 +701,23 @@ public sealed partial class RegressionTests
 	public void SpecialStage_MatchesGoldenScreenshots()
 	{
 		RunAndCompare("--halfpipe 1", new[] { 20300, 20600, 20900 }, Path.Combine(TestPaths.GoldenDirectory, "special-stage"), "special-stage");
+	}
+
+	/// <summary>
+	/// Starts an HD zone with the imported mods. The mod tile-animations moves the frames of the animated tiles into
+	/// an ANIGROUP, so the tiles must look the same as without the mods: the test uses the goldens of
+	/// <see cref="LevelStart_MatchesGoldenScreenshots"/>. Chemical Plant has fades and additive tiles.
+	/// </summary>
+	[Theory]
+	[Trait("Category", "Regression")]
+	[InlineData("ehz", 1)]
+	[InlineData("cpz", 1)]
+	[InlineData("htz", 1)]
+	public void ConvertedTileAnimations_MatchTheGoldenScreenshots(string level, int act)
+	{
+		ImportedMods.Get();
+		string name = $"{level}-{act}";
+		RunAndCompare($"--level {level} --act {act}", LevelTicks, Path.Combine(TestPaths.GoldenDirectory, "levels", name), name, withImportedMods: true);
 	}
 
 	/// <summary>

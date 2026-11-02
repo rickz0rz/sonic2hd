@@ -21,6 +21,15 @@ public class Animation
 		public Vector2i Offset { get; set; }
 
 		public int Delay { get; set; }
+
+		private float? _opacity;
+
+		/// <summary>The opacity of the frame, from 0 to 1. A tile fades to the opacity of its next frame. The default is 1.</summary>
+		public float Opacity
+		{
+			get => _opacity ?? 1f;
+			set => _opacity = value;
+		}
 	}
 
 	private Frame[] _frames = new Frame[0];
