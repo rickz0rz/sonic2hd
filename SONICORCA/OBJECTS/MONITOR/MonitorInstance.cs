@@ -243,7 +243,7 @@ public class MonitorInstance : ActiveObject
 			: Level.Ticks & 7;
 		_contents = VersusContents[index];
 		_lifeCharacter = index + 1;
-		if (_contents == MonitorContents.SwapPlaces && !Level.CanSwapVersusPlayers)
+		if (_contents == MonitorContents.SwapPlaces && Level.VersusRules?.CanSwapPlayers != true)
 		{
 			_contents = MonitorContents.Invincibility;
 		}
@@ -294,7 +294,7 @@ public class MonitorInstance : ActiveObject
 					_breaker.Hurt(Math.Sign(_breaker.Position.X - Position.X));
 				break;
 			case MonitorContents.SwapPlaces:
-				Level.SwapVersusPlayers();
+				Level.VersusRules?.SwapPlayers();
 				break;
 		}
 	}

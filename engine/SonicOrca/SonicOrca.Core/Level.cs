@@ -150,14 +150,8 @@ public class Level : IDisposable
 	/// <summary>The cameras: the camera of player 1, and of player 2 in versus mode.</summary>
 	public IReadOnlyList<Camera> Cameras => _camera2 == null ? new[] { _camera } : new[] { _camera, _camera2 };
 
-	/// <summary>
-	/// The scale of a camera that is zoomed out in versus mode. Each half of the screen then shows 2880 x 810 units of
-	/// the level, in place of 1920 x 540.
-	/// </summary>
-	private const double VersusZoomedOutScale = 2.0 / 3.0;
-
-	/// <summary>For each player in versus mode, true when their camera is zoomed out. A match starts zoomed out.</summary>
-	private readonly bool[] _versusZoomedOut = { true, true };
+	/// <summary>The rules of versus mode, or null outside versus mode and before the players start.</summary>
+	public VersusRules VersusRules { get; private set; }
 
 	public Area Area { get; private set; }
 
@@ -531,8 +525,7 @@ public class Level : IDisposable
 		}
 		// In versus mode, Tails is the protagonist of player 2, not a sidekick
 		_player2 = null;
-		VersusTimeLeft = null;
-		_versusTeleportTicks = 0;
+		VersusRules = null;
 		if (PrepareSettings.Versus)
 		{
 			sidekickType = CharacterType.Null;
@@ -554,8 +547,11 @@ public class Level : IDisposable
 		{
 			SetupPlayer2(sidekickStartPosition, startLayerIndex, startPath);
 			SetupVersusCameras();
-			_versusStarts[0] = (protagonist.Position, startPath, startLayerIndex);
-			_versusStarts[1] = (_player2.Protagonist.Position, startPath, startLayerIndex);
+			VersusRules = new VersusRules(this, new[]
+			{
+				(protagonist.Position, startPath, startLayerIndex),
+				(_player2.Protagonist.Position, startPath, startLayerIndex)
+			});
 		}
 		if (!string.IsNullOrEmpty(PrepareSettings.RecordedPlayGhostReadPath))
 		{
@@ -609,211 +605,16 @@ public class Level : IDisposable
 			ScreenBounds = new Rectangle(0.0, 0.0, ScreenWidth, ScreenHeight / 2.0),
 			ObjectToTrack = (ActiveObject)_player2.Protagonist
 		};
-		if (SonicOrca.Core.Debugging.TestHooks.VersusZoomedOut is bool[] zoom)
-		{
-			for (int i = 0; i < Math.Min(zoom.Length, _versusZoomedOut.Length); i++)
-			{
-				_versusZoomedOut[i] = zoom[i];
-			}
-		}
-		ApplyVersusZoom(0);
-		ApplyVersusZoom(1);
-	}
-
-	/// <summary>Gives the camera of a player the scale of their zoom, and centres it on their character again.</summary>
-	private void ApplyVersusZoom(int playerIndex)
-	{
-		Camera camera = playerIndex == 0 ? _camera : _camera2;
-		camera.SetScale(_versusZoomedOut[playerIndex] ? VersusZoomedOutScale : 1.0);
-		camera.CentreObjectToTrack();
 	}
 
 	/// <summary>
-	/// Versus mode: each player changes the zoom of their camera with their zoom key (Z for player 1, R for player 2)
-	/// or the Select button of their game pad.
+	/// Versus mode: a player has no lives left. The level stops and shows the game over, and the match ends.
 	/// </summary>
-	private void UpdateVersusZoom()
+	internal void StartVersusGameOver()
 	{
-		if (_camera2 == null || _gameContext.Console.IsOpen)
-		{
-			return;
-		}
-		InputState pressed = _gameContext.Input.GetInputState(InputStateEventType.Pressed);
-		int[] keys = { KeyboardState.KEY_Z, KeyboardState.KEY_R };
-		for (int i = 0; i < 2; i++)
-		{
-			if (pressed.Keyboard.Keys[keys[i]] || pressed.GamePad[i].Select)
-			{
-				_versusZoomedOut[i] = !_versusZoomedOut[i];
-				ApplyVersusZoom(i);
-			}
-		}
-	}
-
-	/// <summary>
-	/// The time that the players who did not finish have left, in ticks, after the first player finished the act in
-	/// versus mode, or null. The original gives 60 seconds (Loser_Time_Left).
-	/// </summary>
-	public int? VersusTimeLeft { get; private set; }
-
-	private const int VersusTimeLimit = 60 * 60;
-
-	/// <summary>
-	/// A player finished the act in versus mode, for example at a signpost: the time of the player stops. The first
-	/// player who finishes starts the time limit of the other players. The act ends when all players finished.
-	/// </summary>
-	public void FinishVersusPlayer(Player player)
-	{
-		if (!Versus || player.StoppedTime != null)
-		{
-			return;
-		}
-		player.StoppedTime = Time;
-		int index = Players.ToList().IndexOf(player);
-		Trace.WriteLine($"Versus: player {index + 1} finished at {Time / 60}.{Time % 60 * 100 / 60:00} s");
-		if (Players.All(p => p.StoppedTime != null))
-		{
-			EndVersusAct();
-			return;
-		}
-		VersusTimeLeft ??= VersusTimeLimit;
-	}
-
-	/// <summary>The time limit of versus mode: when it runs out, the act ends for all players.</summary>
-	private void UpdateVersusTimeLimit()
-	{
-		if (VersusTimeLeft is not int left || !StateFlags.HasFlag(LevelStateFlags.UpdateTime))
-		{
-			return;
-		}
-		VersusTimeLeft = left - 1;
-		if (VersusTimeLeft <= 0)
-		{
-			Trace.WriteLine("Versus: the time limit ran out");
-			EndVersusAct();
-		}
-	}
-
-	/// <summary>
-	/// The act of versus mode ends. The level fades out, and the versus match shows the results of the act. Act 2
-	/// then starts at its own start, as in the original, not where the players ended act 1.
-	/// </summary>
-	private void EndVersusAct()
-	{
-		VersusTimeLeft = null;
-		StateFlags &= ~LevelStateFlags.UpdateTime;
-		Trace.WriteLine("Versus: the act ends");
-		FadeOut(LevelState.StageCompleted);
-	}
-
-	/// <summary>
-	/// The ticks that the teleport of versus mode still stops the level, or 0. As Teleport_timer of the original, the
-	/// screen flashes white and the objects stop while the cameras go to the new places of the players.
-	/// </summary>
-	private int _versusTeleportTicks;
-
-	private const int VersusTeleportTicks = 64;
-
-	/// <summary>The last ticks of the teleport, in which the white flash goes away.</summary>
-	private const int VersusTeleportFadeTicks = 16;
-
-	/// <summary>
-	/// True when a teleport monitor can swap the players. As Obj2E_Init of the original, a monitor gives
-	/// invincibility in place of the teleport when a player has finished the act.
-	/// </summary>
-	public bool CanSwapVersusPlayers => Versus && Players.All(player => player.StoppedTime == null);
-
-	/// <summary>
-	/// The teleport monitor of versus mode, as swap_players of the original: the two players change places. Each
-	/// character takes the position, the layer, the path, the speed and the spin of the other character. Nothing
-	/// happens when a player is dead or comes back. The power-ups stay with each player.
-	/// </summary>
-	public void SwapVersusPlayers()
-	{
-		ICharacter first = _player.Protagonist;
-		ICharacter second = _player2?.Protagonist;
-		if (first == null || second == null || IsOutOfPlay(first) || IsOutOfPlay(second))
-		{
-			return;
-		}
-		first.LeaveGround();
-		second.LeaveGround();
-		// The spin moves the character up or down, so the position changes after the spin
-		(first.IsSpinball, second.IsSpinball) = (second.IsSpinball, first.IsSpinball);
-		(first.ForceSpinball, second.ForceSpinball) = (second.ForceSpinball, first.ForceSpinball);
-		(first.PositionPrecise, second.PositionPrecise) = (second.PositionPrecise, first.PositionPrecise);
-		(first.Layer, second.Layer) = (second.Layer, first.Layer);
-		(first.Path, second.Path) = (second.Path, first.Path);
-		(first.Velocity, second.Velocity) = (second.Velocity, first.Velocity);
-		(first.GroundVelocity, second.GroundVelocity) = (second.GroundVelocity, first.GroundVelocity);
-		(first.Facing, second.Facing) = (second.Facing, first.Facing);
-		foreach (Camera camera in Cameras)
-		{
-			camera.CentreObjectToTrack();
-		}
-		_versusTeleportTicks = VersusTeleportTicks;
-		_soundManager.PlaySound("SONICORCA/SOUND/SPECIALSTAGETRIGGER");
-		Trace.WriteLine("Versus: the players change places");
-	}
-
-	private static bool IsOutOfPlay(ICharacter character) => character.IsDead || character.IsDying || character.Respawning;
-
-	/// <summary>Counts down the teleport. Returns true while the teleport stops the level.</summary>
-	private bool UpdateVersusTeleport()
-	{
-		if (_versusTeleportTicks == 0)
-		{
-			return false;
-		}
-		_versusTeleportTicks--;
-		return true;
-	}
-
-	/// <summary>The start of each player in versus mode: the position, the path and the layer.</summary>
-	private readonly (Vector2i Position, int Path, int LayerIndex)[] _versusStarts = new (Vector2i, int, int)[2];
-
-	/// <summary>
-	/// Versus mode, as Obj01_ResetLevel_Part2 of the original: a dead player does not restart the level. The player
-	/// loses a life and their rings, and comes back at their own star post, or at their start. A player with no
-	/// lives left ends the match with the game over of the level.
-	/// </summary>
-	private void UpdateVersusDeaths()
-	{
-		for (int i = 0; i < Players.Count; i++)
-		{
-			Player player = Players[i];
-			ICharacter character = player.Protagonist;
-			if (character == null || !character.IsDead)
-			{
-				continue;
-			}
-			if (player.Lives > 0)
-			{
-				player.Lives--;
-			}
-			if (player.Lives == 0)
-			{
-				StateFlags &= ~(LevelStateFlags.Animating | LevelStateFlags.Updating | LevelStateFlags.UpdateTime);
-				StateFlags |= LevelStateFlags.Dead;
-				StartGameOverSequence();
-				return;
-			}
-			// As the original: the rings of the player go, but the total of the act stays for the results
-			player.LoseAllRings();
-			bool atStarpost = player.StarpostIndex != Player.UndefinedStarpostIndex;
-			Vector2i position = atStarpost ? player.StarpostPosition : _versusStarts[i].Position;
-			character.Path = atStarpost ? player.StarpostPath : _versusStarts[i].Path;
-			int layerIndex = atStarpost && player.StarpostLayerIndex >= 0 ? player.StarpostLayerIndex : _versusStarts[i].LayerIndex;
-			if (layerIndex >= 0 && layerIndex < Map.Layers.Count)
-			{
-				character.Layer = Map.Layers[layerIndex];
-			}
-			character.Respawn(position);
-			Trace.WriteLine($"Versus: player {i + 1} comes back at {position.X}, {position.Y}" + (atStarpost ? $" (star post {player.StarpostIndex})" : " (start)"));
-			// The camera of the player goes to the player at once. The original scrolls back, but the HD levels are
-			// large, and the scroll would take many seconds.
-			Cameras[i].CentreObjectToTrack();
-		}
+		StateFlags &= ~(LevelStateFlags.Animating | LevelStateFlags.Updating | LevelStateFlags.UpdateTime);
+		StateFlags |= LevelStateFlags.Dead;
+		StartGameOverSequence();
 	}
 
 	/// <summary>The character of player 2: the protagonist of player 2 in versus mode, else the sidekick, or null.</summary>
@@ -964,7 +765,8 @@ public class Level : IDisposable
 			playbackEntry = _playRecorder.GetNextEntry();
 		}
 		PlayRecorder.Entry player2Entry = _player2Recorder.Playing ? _player2Recorder.GetNextEntry() : null;
-		if (StateFlags.HasFlag(LevelStateFlags.Updating) && !UpdateVersusTeleport())
+		// The teleport of versus mode stops the level for a short time
+		if (StateFlags.HasFlag(LevelStateFlags.Updating) && VersusRules?.UpdateTeleport() != true)
 		{
 			if (playbackEntry != null)
 			{
@@ -997,18 +799,13 @@ public class Level : IDisposable
 			UpdateScrollBounds();
 			_camera.Update();
 			_camera2?.Update();
-			UpdateVersusZoom();
+			VersusRules?.UpdateZoom();
 			UpdateInverals();
 			Player.Update();
 			_player2?.Update();
-			if (_player2 != null)
+			if (VersusRules != null)
 			{
-				if (SonicOrca.Core.Debugging.TestHooks.KillPlayer2AtTick == Ticks && _player2.Protagonist != null)
-				{
-					_player2.Protagonist.Kill(PlayerDeathCause.Hurt);
-				}
-				UpdateVersusDeaths();
-				UpdateVersusTimeLimit();
+				VersusRules.Update();
 			}
 			else if (Player.Protagonist.IsDead)
 			{
@@ -1270,10 +1067,9 @@ public class Level : IDisposable
 			g.ModelMatrix = Matrix4.Identity;
 			g.BlendMode = BlendMode.Opaque;
 			g.RenderQuad(Colours.Black, new Rectangle(0.0, ScreenHeight / 2.0 - 2.0, ScreenWidth, 4.0));
-			if (_versusTeleportTicks > 0)
+			if (VersusRules?.TeleportFlash is double flash && flash > 0.0)
 			{
 				// The white flash of the teleport goes away in its last ticks
-				double flash = Math.Min(1.0, _versusTeleportTicks / (double)VersusTeleportFadeTicks);
 				g.BlendMode = BlendMode.Alpha;
 				g.RenderQuad(new Colour(0.75 * flash, 1.0, 1.0, 1.0), new Rectangle(0.0, 0.0, ScreenWidth, ScreenHeight));
 			}

@@ -163,8 +163,9 @@ internal class LevelHud : IDisposable
 		// The level time is in ticks. The hundredths come from the ticks that are left after the full seconds.
 		// In versus mode, the time of a player stops when the player finishes the act. A player who did not finish
 		// sees the time limit that counts down, in red.
-		bool countdown = _level.Versus && Player.StoppedTime == null && _level.VersusTimeLeft != null;
-		int time = countdown ? _level.VersusTimeLeft.Value : Player.StoppedTime ?? _level.Time;
+		int? timeLeft = _level.VersusRules?.TimeLeft;
+		bool countdown = Player.StoppedTime == null && timeLeft != null;
+		int time = countdown ? timeLeft.Value : Player.StoppedTime ?? _level.Time;
 		int minutes = time / TicksPerSecond / 60;
 		int seconds = time / TicksPerSecond % 60;
 		int hundredths = time % TicksPerSecond * 100 / TicksPerSecond;
