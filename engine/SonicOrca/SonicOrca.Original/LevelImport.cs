@@ -32,7 +32,13 @@ public sealed record LayoutChange(string Name, int Act, IReadOnlyList<(int Colum
 
 /// <summary>The background layer of an HD map: its name, its height in blocks and its parallax.</summary>
 /// <param name="RowHeight">The height of the parallax row, in HD pixels.</param>
-public sealed record BackgroundLayer(string Name, int Rows, double ParallaxX, double ParallaxY, int RowHeight);
+/// <param name="Bands">
+/// Bands from the top of the layer, each with its height in HD pixels and its horizontal parallax, as the scroll routine
+/// of the original moves them. The last band takes the rest of the layer. Null for one band of
+/// <paramref name="RowHeight"/> with <paramref name="ParallaxX"/>.
+/// </param>
+public sealed record BackgroundLayer(string Name, int Rows, double ParallaxX, double ParallaxY, int RowHeight,
+	IReadOnlyList<(int Height, double ParallaxX)> Bands = null);
 
 /// <summary>A zone of the original game, as the files of the Sonic 2 disassembly (github.com/sonicretro/s2disasm) give it.</summary>
 /// <param name="Key">The resource key of the zone, for example "SONICORCA/LEVELS/CNZ".</param>
@@ -72,6 +78,14 @@ public sealed record OriginalZone(string Name, string Key, string ChunksFile, st
 	private const int HdArenaWidth = 320 + 80;
 
 	/// <summary>The zones that the importer knows.</summary>
+
+	/// <summary>
+	/// The bands of the background of Casino Night (SwScrl_CNZ_RowHeights and SwScrl_CNZ_GenerateScrollValues): 7 bands
+	/// of 16 pixels from the speed of the camera down by 7/64 each, 2 bands at 1/16, and the rest at 1/8.
+	/// </summary>
+	private static readonly (int Height, double ParallaxX)[] CnzBackgroundBands =
+		Enumerable.Range(0, 7).Select(i => (16 * LevelImport.Scale, 1.0 - i * 7.0 / 64.0))
+		.Concat(new[] { (16 * LevelImport.Scale, 1.0 / 16.0), (16 * LevelImport.Scale, 1.0 / 16.0), (240 * LevelImport.Scale, 1.0 / 8.0) }).ToArray();
 	public static IReadOnlyDictionary<string, OriginalZone> All { get; } = new Dictionary<string, OriginalZone>(StringComparer.OrdinalIgnoreCase)
 	{
 		// The HD map of Casino Night has act 2 at chunk (85, 2), after act 1. LevelSize: act 1 $27A0 x $720, act 2
@@ -110,7 +124,10 @@ public sealed record OriginalZone(string Name, string Key, string ChunksFile, st
 				},
 				new OriginalSprite("SONICORCA/OBJECTS/CNZSLOTCAGE/BOMB", "art/nemesis/Spikey ball from CNZ slots.nem", "mappings/sprite/objD6_a.asm", 0),
 			},
-			"art/kosinski/CNZ.kos", "mappings/16x16/CNZ.kos", 1023)
+			"art/kosinski/CNZ.kos", "mappings/16x16/CNZ.kos", 1023,
+			// SwScrl_CNZ: the background moves up and down at 1/64 of the camera, so the city stays in view. The bands
+			// of 16 pixels move slower from the top down, and the city moves at 1/16 and 1/8.
+			new BackgroundLayer("back", 128, 0.125, 1.0 / 64.0, 16 * 128 * 4, CnzBackgroundBands))
 		{
 			// LevEvents_CNZ2 closes the boss arena with chunk $F9: the right wall at the trigger, the left wall at the lock
 			LayoutChanges = new[]
@@ -616,7 +633,22 @@ public static class LevelImport
 		var map = new LevelMap();
 		BackgroundLayer background = zone.Background ?? new BackgroundLayer("back", LayoutRows * BlocksPerChunk, 0.5, 0.5, LayoutRows * ChunkSize * Scale);
 		var back = new LevelLayer(map) { Name = background.Name, WrapX = true, ParallaxY = background.ParallaxY };
-		back.LayerRowDefinitions.Add(new LayerRowDefinition { Height = background.RowHeight, Parallax = background.ParallaxX });
+		if (background.Bands == null)
+		{
+			back.LayerRowDefinitions.Add(new LayerRowDefinition { Height = background.RowHeight, Parallax = background.ParallaxX });
+		}
+		else
+		{
+			int bandTop = 0;
+			for (int i = 0; i < background.Bands.Count; i++)
+			{
+				(int height, double parallax) = background.Bands[i];
+				// The last band takes the rest of the layer
+				int bandHeight = i == background.Bands.Count - 1 ? background.Rows * BlockSize * Scale - bandTop : height;
+				back.LayerRowDefinitions.Add(new LayerRowDefinition { Height = bandHeight, Parallax = parallax });
+				bandTop += bandHeight;
+			}
+		}
 		back.Resize(LayoutColumns * BlocksPerChunk, background.Rows);
 		for (int row = 0; row < back.Rows; row++)
 		{

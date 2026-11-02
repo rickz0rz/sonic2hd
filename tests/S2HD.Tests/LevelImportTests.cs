@@ -161,4 +161,15 @@ public sealed class LevelImportTests
 
 		Assert.Equal(Cnz.Value.Binding.ObjectPlacements.Select(p => p.Uid), again.Binding.ObjectPlacements.Select(p => p.Uid));
 	}
+
+	[Fact]
+	public void Cnz_BackgroundMovesAsTheOriginal_SoTheCityStaysInView()
+	{
+		// SwScrl_CNZ: the background moves up and down at 1/64 of the camera. The city is in its top 16 rows of
+		// blocks, so a faster parallax shows only the empty rows below it.
+		LevelLayer back = Cnz.Value.Map.Layers.First(layer => layer.Name == "back");
+		Assert.Equal(1.0 / 64.0, back.ParallaxY);
+		Assert.Equal(10, back.LayerRowDefinitions.Count);
+		Assert.Equal(1.0 / 8.0, back.LayerRowDefinitions[^1].Parallax);
+	}
 }
