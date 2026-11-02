@@ -92,6 +92,12 @@ public class Player
 	/// <summary>The Chaos Emeralds that the player has, from 0 to 7.</summary>
 	public int Emeralds { get; set; }
 
+	/// <summary>
+	/// The time of the level, in ticks, when the player finished the act in versus mode, or null while the player
+	/// plays. The HUD of the player then shows this time.
+	/// </summary>
+	public int? StoppedTime { get; set; }
+
 	public Player(Level level)
 	{
 		_level = level;

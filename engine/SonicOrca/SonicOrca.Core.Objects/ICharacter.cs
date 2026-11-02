@@ -37,6 +37,9 @@ public interface ICharacter : IActiveObject
 	/// <summary>Removes all the abilities: the character got hurt, it died, or the act ended.</summary>
 	void RemoveAllAbilities();
 
+	/// <summary>Brings a dead character back at a position, in the air (versus mode).</summary>
+	void Respawn(Vector2i position);
+
 	object ObjectTag { get; set; }
 
 	int Path { get; set; }
