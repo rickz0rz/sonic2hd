@@ -9,9 +9,9 @@ namespace SonicOrca.Core;
 /// </summary>
 public class Camera
 {
-	private const double DefaultWidth = 1920.0;
+	private const double DefaultWidth = ScreenSize.Width;
 
-	private const double DefaultHeight = 1080.0;
+	private const double DefaultHeight = ScreenSize.Height;
 
 	private const double SpyModeAcceleration = 0.5;
 

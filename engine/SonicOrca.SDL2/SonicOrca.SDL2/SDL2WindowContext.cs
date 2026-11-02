@@ -122,7 +122,7 @@ public class SDL2WindowContext : WindowContext, IGLWindow
 				SDL.SDL_SetWindowFullscreen(_windowHandle, flags);
 				if (value == VideoMode.Windowed)
 				{
-					UpdateWindowSize(new Vector2i(1920, 1080));
+					UpdateWindowSize(new Vector2i(ScreenSize.Width, ScreenSize.Height));
 				}
 			}
 		}
@@ -232,8 +232,8 @@ public class SDL2WindowContext : WindowContext, IGLWindow
 		SDL.SDL_GL_SetAttribute(SDL.SDL_GLattr.SDL_GL_MULTISAMPLESAMPLES, 1);
 		// The largest 16:9 size up to 1920x1080 that fits on the desktop, in steps of a quarter of 1080p
 		SDL.SDL_GetDesktopDisplayMode(0, out SDL.SDL_DisplayMode mode);
-		int width = 1920;
-		int height = 1080;
+		int width = ScreenSize.Width;
+		int height = ScreenSize.Height;
 		while (width > mode.w || height > mode.h)
 		{
 			width -= 480;

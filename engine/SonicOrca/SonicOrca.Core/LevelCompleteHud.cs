@@ -74,7 +74,7 @@ internal class LevelCompleteHud : IDisposable
 
 	private const int FlyOutTime = 75;
 
-	private const double ScreenWidth = 1920.0;
+	private const double ScreenWidth = ScreenSize.Width;
 
 	private const double CaptionY = 270.0;
 

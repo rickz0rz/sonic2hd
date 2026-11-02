@@ -71,7 +71,7 @@ internal class MenuViewFactory
 	public ISettingListMenuViewModel GetVideoOptions()
 	{
 		S2HDSettings settings = _gameContext.Settings;
-		return new SettingListMenuViewModel(new ISetting[5]
+		return new SettingListMenuViewModel(new ISetting[4]
 		{
 			new StandardOptionSetting("MODE", new string[3]
 			{
@@ -79,11 +79,6 @@ internal class MenuViewFactory
 				"FULLSCREEN",
 				"BORDERLESS WINDOWED"
 			}, () => (int)settings.Mode, value => settings.Mode = (VideoMode)value),
-			// The game has only one resolution, so this setting does not change anything.
-			new StandardOptionSetting("RESOLUTION", new string[1]
-			{
-				"1920 X 1080"
-			}, () => 0, value => { }),
 			new OnOffOptionSetting("SHADOWS", () => settings.EnableShadows, value => settings.EnableShadows = value),
 			new OnOffOptionSetting("WATER EFFECTS", () => settings.EnableWaterEffects, value => settings.EnableWaterEffects = value),
 			new OnOffOptionSetting("HEAT EFFECTS", () => settings.EnableHeatEffects, value => settings.EnableHeatEffects = value)

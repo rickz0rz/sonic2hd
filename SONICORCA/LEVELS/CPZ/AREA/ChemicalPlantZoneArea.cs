@@ -7,6 +7,7 @@ using SonicOrca.Core.Objects.Base;
 using SonicOrca.Extensions;
 using SonicOrca.Geometry;
 using SonicOrca.Resources;
+using SonicOrca.Graphics;
 
 namespace SONICORCA.LEVELS.CPZ.AREA;
 
@@ -66,7 +67,7 @@ public class ChemicalPlantZoneArea : Area
 	/// <summary>
 	/// Half of the screen width. The left edge of the camera is this distance to the left of the start position.
 	/// </summary>
-	private const int HalfScreenWidth = 960;
+	private const int HalfScreenWidth = ScreenSize.Width / 2;
 
 	/// <summary>
 	/// The speed at which the water moves to its target level.

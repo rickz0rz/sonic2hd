@@ -33,9 +33,9 @@ public sealed class LevelEditor : IDisposable
 {
 	private const string FontResourceKey = EditorUi.FontResourceKey;
 
-	internal const double ScreenWidth = 1920.0;
+	internal const double ScreenWidth = ScreenSize.Width;
 
-	internal const double ScreenHeight = 1080.0;
+	internal const double ScreenHeight = ScreenSize.Height;
 
 	internal const double TopBarHeight = EditorUi.TopBarHeight;
 

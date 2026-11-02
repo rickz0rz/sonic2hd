@@ -23,9 +23,9 @@ public class ParticleManager : IDisposable
 	/// </summary>
 	private const int WorkCanvasSize = 128;
 
-	private const int ScreenWidth = 1920;
+	private const int ScreenWidth = ScreenSize.Width;
 
-	private const int ScreenHeight = 1080;
+	private const int ScreenHeight = ScreenSize.Height;
 
 	/// <summary>
 	/// A heat particle fades out during its last frames.

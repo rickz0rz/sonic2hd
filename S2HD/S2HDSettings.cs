@@ -55,8 +55,6 @@ internal class S2HDSettings : IAudioSettings, IVideoSettings
 		}
 	}
 
-	public Resolution Resolution { get; set; }
-
 	public bool EnableShadows
 	{
 		get => _enableShadows;
@@ -115,7 +113,6 @@ internal class S2HDSettings : IAudioSettings, IVideoSettings
 		_mode = VideoMode.Windowed;
 		if (int.TryParse(config.GetProperty("video", "fullscreen", "0"), out int videoMode))
 			_mode = (VideoMode)videoMode;
-		Resolution = new Resolution(1920, 1080);
 		_enableShadows = config.GetPropertyBoolean("graphics", "shadows", true);
 		_enableWaterEffects = config.GetPropertyBoolean("graphics", "water_effects", true);
 		_enableHeatEffects = config.GetPropertyBoolean("graphics", "heat_effects");
