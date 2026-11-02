@@ -36,6 +36,12 @@ public class LevelPrepareSettings
 
 	public bool Seamless { get; set; }
 
+	/// <summary>
+	/// Versus mode: player 2 plays Tails as a second protagonist, with their own rings, score and lives, in place of a
+	/// sidekick. See docs/two-player-design.md.
+	/// </summary>
+	public bool Versus { get; set; }
+
 	public int Lives { get; set; }
 
 	public int Score { get; set; }

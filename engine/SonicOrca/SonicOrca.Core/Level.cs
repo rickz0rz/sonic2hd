@@ -132,6 +132,15 @@ public class Level : IDisposable
 
 	public Player Player => _player;
 
+	/// <summary>Player 2 in versus mode, else null.</summary>
+	private Player _player2;
+
+	/// <summary>The players: player 1, and player 2 in versus mode.</summary>
+	public IReadOnlyList<Player> Players => _player2 == null ? new[] { _player } : new[] { _player, _player2 };
+
+	/// <summary>True in versus mode (see <see cref="LevelPrepareSettings.Versus"/>).</summary>
+	public bool Versus => _player2 != null;
+
 	public Area Area { get; private set; }
 
 	public LevelPrepareSettings PrepareSettings { get; set; }
@@ -502,6 +511,12 @@ public class Level : IDisposable
 			protagonistType = CharacterType.Sonic;
 			sidekickType = CharacterType.Tails;
 		}
+		// In versus mode, Tails is the protagonist of player 2, not a sidekick
+		_player2 = null;
+		if (PrepareSettings.Versus)
+		{
+			sidekickType = CharacterType.Null;
+		}
 		string protagonistResourceKey = CharacterTypeResourceKeys[(int)protagonistType];
 		string sidekickResourceKey = CharacterTypeResourceKeys[(int)sidekickType];
 		// Create the sidekick first, so that the protagonist is added after it.
@@ -514,6 +529,10 @@ public class Level : IDisposable
 		SetupCharacters(protagonist, sidekick, startPath);
 		Player.ProtagonistCharacterType = protagonistType;
 		Player.SidekickCharacterType = sidekickType;
+		if (PrepareSettings.Versus)
+		{
+			SetupPlayer2(sidekickStartPosition, startLayerIndex, startPath);
+		}
 		if (!string.IsNullOrEmpty(PrepareSettings.RecordedPlayGhostReadPath))
 		{
 			_ghostCharacter = CreateGhostCharacter(protagonist, playerStartPosition);
@@ -539,6 +558,23 @@ public class Level : IDisposable
 		_camera.ObjectToTrack = (ActiveObject)protagonist;
 		_camera.CentreObjectToTrack();
 	}
+
+	/// <summary>Makes player 2 of versus mode: Tails, with their own rings, score and lives, and the second controller.</summary>
+	private void SetupPlayer2(Vector2i position, int layerIndex, int startPath)
+	{
+		_player2 = new Player(this) { Lives = _player.Lives };
+		ICharacter tails = CreateCharacter(CharacterTypeResourceKeys[(int)CharacterType.Tails], position, layerIndex);
+		tails.Player = _player2;
+		tails.Path = startPath;
+		_player2.Protagonist = tails;
+		_player2.ProtagonistCharacterType = CharacterType.Tails;
+		_player2.ProtagonistGamepadIndex = 1;
+		_player2.SidekickCharacterType = CharacterType.Null;
+		PlaceOnFloor(tails);
+	}
+
+	/// <summary>The character of player 2: the protagonist of player 2 in versus mode, else the sidekick, or null.</summary>
+	private ICharacter Player2Character => _player2 != null ? _player2.Protagonist : _player.Sidekick;
 
 	/// <summary>
 	/// Puts a character on the floor under its start position. The start positions and the star post positions are
@@ -704,11 +740,11 @@ public class Level : IDisposable
 			{
 				ReadPlayerInput();
 			}
-			if (player2Entry != null && _player.Sidekick != null)
+			if (player2Entry != null && Player2Character is ICharacter player2Character)
 			{
 				// The input of player 2 stays from tick to tick, so that a held button is not a new press
 				ApplyRecordedInput(_player2Input, player2Entry);
-				_player.Sidekick.Input = _player2Input;
+				player2Character.Input = _player2Input;
 			}
 			SonicOrca.Core.Debugging.StoryTest.Update(this);
 			SetObjectLifetimeArea();
@@ -719,6 +755,7 @@ public class Level : IDisposable
 			_camera.Update();
 			UpdateInverals();
 			Player.Update();
+			_player2?.Update();
 			if (Player.Protagonist.IsDead)
 			{
 				if (_player.Lives > 0)
@@ -907,6 +944,10 @@ public class Level : IDisposable
 			if (_player.Sidekick != null)
 			{
 				_player.Sidekick.Input = ReadCharacterInput(_player.SidekickGamepadIndex);
+			}
+			if (_player2?.Protagonist != null)
+			{
+				_player2.Protagonist.Input = ReadCharacterInput(_player2.ProtagonistGamepadIndex);
 			}
 		}
 	}

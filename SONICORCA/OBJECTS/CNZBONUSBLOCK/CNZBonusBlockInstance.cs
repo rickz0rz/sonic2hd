@@ -153,7 +153,8 @@ public class CNZBonusBlockInstance : ActiveObject
 				points = GroupPoints;
 			}
 		}
-		Level.Player.GainScore(points);
+		// The points go to the player of the character, also to player 2 in versus mode
+		(character.Player ?? Level.Player).GainScore(points);
 		Level.CreateScoreObject(points, Position);
 	}
 

@@ -347,6 +347,7 @@ internal class RootGameState : IGameState, IDisposable
 			LevelNumber = levelNumber,
 			Lives = 3,
 			TimeTrial = _cmdLineArgs.HasOption("timetrial"),
+			Versus = _cmdLineArgs.HasOption("versus"),
 			OpenEditor = _cmdLineArgs.HasOption("editor"),
 			EditorNewLevelForm = newLevel,
 			Physics = Enum.TryParse(_cmdLineArgs.GetOptionValues("physics").FirstOrDefault(), ignoreCase: true, out PhysicsMode physics)

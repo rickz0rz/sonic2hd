@@ -80,7 +80,8 @@ public class CNZBumperInstance : ActiveObject
 		if (_scoringBounces < MaxScoringBounces)
 		{
 			_scoringBounces++;
-			Level.Player.GainScore(Points);
+			// The points go to the player of the character, also to player 2 in versus mode
+			(character.Player ?? Level.Player).GainScore(Points);
 			Level.CreateScoreObject(Points, Position);
 		}
 	}

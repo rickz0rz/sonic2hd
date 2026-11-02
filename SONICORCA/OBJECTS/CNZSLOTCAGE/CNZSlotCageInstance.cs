@@ -224,7 +224,7 @@ public class CNZSlotCageInstance : ActiveObject
 			else if ((player.Timer & 0xF) == 0)
 			{
 				PlaySound(CNZSlotCageType.TickSoundResourceKey);
-				Level.Player.GainScore(Points);
+				(character.Player ?? Level.Player).GainScore(Points);
 				Level.CreateScoreObject(Points, Position);
 			}
 			return;
@@ -301,9 +301,11 @@ public class CNZSlotCageInstance : ActiveObject
 				continue;
 			}
 			_prizes.RemoveAt(i);
+			// The prizes go to the player of the character in the cage, also to player 2 in versus mode
+			Player owner = prize.Player?.Player ?? Level.Player;
 			if (!prize.Bomb)
 			{
-				Level.Player.GainRings();
+				owner.GainRings();
 				PlaySound(CNZSlotCageType.RingSoundResourceKey);
 				continue;
 			}
@@ -313,9 +315,9 @@ public class CNZSlotCageInstance : ActiveObject
 				_bombSoundCounter = 0;
 				PlaySound(CNZSlotCageType.BombSoundResourceKey);
 			}
-			if (Level.Player.CurrentRings > 0)
+			if (owner.CurrentRings > 0)
 			{
-				Level.Player.CurrentRings--;
+				owner.CurrentRings--;
 			}
 		}
 	}

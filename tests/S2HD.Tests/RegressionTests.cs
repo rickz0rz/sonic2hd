@@ -358,6 +358,22 @@ public sealed class RegressionTests
 	}
 
 	/// <summary>
+	/// Versus mode: player 2 plays Tails as a second protagonist, with their own rings. The input is the same as in
+	/// <see cref="CoopPlayer2_MatchesGoldenScreenshots"/>: Tails runs away and collects rings. The HUD shows player 1,
+	/// so it shows 0 rings, not the rings of Tails.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void VersusPlayer2_MatchesGoldenScreenshots()
+	{
+		RunTwoRuns("versus-player2", Path.Combine(TestPaths.GoldenDirectory, "versus-player2"), new[] { 270, 320 }, userData =>
+		{
+			File.WriteAllBytes(Path.Combine(userData, "player2.rec"), MakeRecording(600, tick => (tick >= 200 && tick < 400 ? 1.0 : 0.0, tick >= 260 && tick < 285)));
+			return "--level ehz --versus";
+		}, new Dictionary<string, string> { ["S2HD_TEST_PLAYER2_PLAYBACK"] = Path.Combine("{userData}", "player2.rec") });
+	}
+
+	/// <summary>
 	/// Makes an input recording: one record of 40 bytes for each level tick, with the horizontal direction and the
 	/// action button. The other fields are 0.
 	/// </summary>
