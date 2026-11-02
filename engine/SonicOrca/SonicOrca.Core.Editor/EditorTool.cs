@@ -19,6 +19,12 @@ internal sealed class EditorListRow
 	public bool Active;
 
 	public bool Dim;
+
+	/// <summary>
+	/// For a row with an eye at its left, true when the eye is open (the item shows) and false when it is closed.
+	/// Null for a row without an eye.
+	/// </summary>
+	public bool? Shown;
 }
 
 /// <summary>
@@ -69,6 +75,11 @@ internal abstract class EditorTool : IDisposable
 	public abstract IReadOnlyList<EditorListRow> GetListRows();
 
 	public virtual void OnListClick(int index, int direction)
+	{
+	}
+
+	/// <summary>The user clicked the eye of a row (see <see cref="EditorListRow.Shown"/>).</summary>
+	public virtual void OnListEyeClick(int index, int direction)
 	{
 	}
 

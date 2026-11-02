@@ -255,7 +255,8 @@ internal sealed class TilesTool : EditorTool
 			Detail = GetSolidMark(index) + (layer.Rows > 0 ? $"{layer.Columns} x {layer.Rows}" : "empty"),
 			DetailColour = IsSolidLayer(index) ? SolidColour : null,
 			Active = index == _layerIndex,
-			Dim = !layer.Visible
+			Dim = !layer.Visible,
+			Shown = !Editor.IsLayerHidden(layer)
 		}).ToList();
 		// The two rows after the layers add and remove a layer
 		rows.Add(new EditorListRow { Text = "Add a layer", Detail = $"in front of {_layerIndex}" });
@@ -295,6 +296,34 @@ internal sealed class TilesTool : EditorTool
 				ShowLayerAlone();
 			}
 		}
+	}
+
+	/// <summary>
+	/// The eye of a layer: a click hides or shows the layer in the editor. A right click shows only this layer, and a
+	/// second right click shows all the layers again, as Alt and a click do in Photoshop.
+	/// </summary>
+	public override void OnListEyeClick(int index, int direction)
+	{
+		if (index < 0 || index >= Layers.Count)
+		{
+			return;
+		}
+		LevelLayer layer = Layers[index];
+		if (direction < 0)
+		{
+			bool alone = !Editor.IsLayerHidden(layer) && Layers.Where(l => l != layer).All(Editor.IsLayerHidden);
+			foreach (LevelLayer other in Layers)
+			{
+				Editor.SetLayerHidden(other, !alone && other != layer);
+			}
+			Editor.ShowMessage(alone ? "All the layers show again." : $"Only layer {layer.Name} shows. Right click its eye again to show all the layers.");
+			return;
+		}
+		bool hide = !Editor.IsLayerHidden(layer);
+		Editor.SetLayerHidden(layer, hide);
+		Editor.ShowMessage(hide
+			? $"Layer {layer.Name} is hidden in the editor. The game and the saved level still have it."
+			: $"Layer {layer.Name} shows again.");
 	}
 
 	/// <summary>Puts an empty layer in front of the current layer, with its size and its scroll settings.</summary>
