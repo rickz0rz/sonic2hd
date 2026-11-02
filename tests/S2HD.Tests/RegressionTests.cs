@@ -466,6 +466,22 @@ public sealed class RegressionTests
 	}
 
 	/// <summary>
+	/// Versus mode: a character behind a waterfall of Emerald Hill 1. The waterfall effect copies the canvas of the
+	/// half, which is not as high as the screen. Tails runs on the lower path, and he must show behind the waterfall
+	/// at his own height, not lower.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void VersusWaterfall_MatchesGoldenScreenshots()
+	{
+		RunTwoRuns("versus-waterfall", Path.Combine(TestPaths.GoldenDirectory, "versus-waterfall"), new[] { 255 }, userData =>
+		{
+			File.WriteAllBytes(Path.Combine(userData, "player2.rec"), MakeRecording(400, tick => (tick >= 200 ? 1.0 : 0.0, false)));
+			return "--level ehz --versus --startpos 11500 2500";
+		}, new Dictionary<string, string> { ["S2HD_TEST_PLAYER2_PLAYBACK"] = Path.Combine("{userData}", "player2.rec") });
+	}
+
+	/// <summary>
 	/// Versus mode: the end of a zone. Both players start just before the versus signpost of Emerald Hill 2. Tails runs
 	/// past it, and the time of Sonic runs out. The act results, the zone results and the game results show Tails as
 	/// the winner. A new user folder has only Emerald Hill of the versus zones, so the match ends after one zone.
