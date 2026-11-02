@@ -238,7 +238,9 @@ public class MonitorInstance : ActiveObject
 	/// </summary>
 	private void ChooseVersusContents()
 	{
-		int index = SonicOrca.Core.Debugging.TestHooks.VersusMonitorItem is int testItem ? testItem - 1 : Level.Ticks & 7;
+		int index = SonicOrca.Core.Debugging.TestHooks.VersusMonitorItem is int testItem ? testItem - 1
+			: Level.PrepareSettings.VersusTeleportOnly ? VersusContents.Length - 1
+			: Level.Ticks & 7;
 		_contents = VersusContents[index];
 		_lifeCharacter = index + 1;
 		if (_contents == MonitorContents.SwapPlaces && !Level.CanSwapVersusPlayers)
@@ -264,6 +266,7 @@ public class MonitorInstance : ActiveObject
 	private void InvokeContents()
 	{
 		LockLifetime = false;
+		_breaker.Player.MonitorsBroken++;
 		switch (_contents)
 		{
 			case MonitorContents.Life:

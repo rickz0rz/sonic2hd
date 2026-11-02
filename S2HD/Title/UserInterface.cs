@@ -13,7 +13,7 @@ using SonicOrca.Resources;
 namespace S2HD.Title;
 
 /// <summary>
-/// The menus of the title screen: "PRESS START", the main menu (new game, options, quit), the character
+/// The menus of the title screen: "PRESS START", the main menu (new game, 2P VS, options, quit), the character
 /// selection, and the hidden level select. It also starts the demo when the player waits too long.
 /// </summary>
 internal class UserInterface
@@ -344,12 +344,17 @@ internal class UserInterface
 
 	private void InitialiseMenuItemWidgets()
 	{
-		_menuItems = new MenuItem[3]
+		_menuItems = new MenuItem[4]
 		{
 			new MenuItem()
 			{
 				Text = "NEW GAME",
 				Action = OnSelectNewGame
+			},
+			new MenuItem()
+			{
+				Text = "2P VS",
+				Action = OnSelectVersus
 			},
 			new MenuItem()
 			{
@@ -412,6 +417,14 @@ internal class UserInterface
 		};
 		ApplyCharacterSelection(lps);
 		_titleGameState.LevelPrepareSettings = lps;
+	}
+
+	/// <summary>Starts a versus match. The setup screen of the match chooses the zone.</summary>
+	private void OnSelectVersus()
+	{
+		_busy = true;
+		_effectEventManager.BeginEvent(EffectFadeOut());
+		_titleGameState.Result = TitleGameState.ResultType.Versus;
 	}
 
 	private void OnSelectOptions()

@@ -102,6 +102,22 @@ public static class TestHooks
 	/// <summary>The capture number of a special stage tick, so that S2HD_CAPTURE_LEVEL_TICKS can also capture the special stage.</summary>
 	public const int SpecialStageCaptureOffset = 20000;
 
+	/// <summary>
+	/// The capture number of a frame of a versus screen. It is larger than the level ticks of a long level (10 minutes
+	/// are 36000 ticks). It is the offset, plus 1000 for each versus screen before it, plus
+	/// the frame of the screen. The setup screen and the results screens count.
+	/// </summary>
+	public const int VersusScreenCaptureOffset = 100000;
+
+	/// <summary>The number of versus screens that started, for <see cref="VersusScreenCaptureOffset"/>.</summary>
+	public static int VersusScreensShown { get; set; }
+
+	/// <summary>
+	/// The frames after which a versus results screen goes on without input, for tests, or null to wait for Start.
+	/// </summary>
+	public static readonly int? VersusResultsFrames =
+		int.TryParse(Environment.GetEnvironmentVariable("S2HD_TEST_VERSUS_RESULTS_FRAMES"), out int resultsFrames) ? resultsFrames : null;
+
 	/// <summary>The level tick drawn in the current frame, or -1 when no level was drawn.</summary>
 	public static int DrawnLevelTick { get; set; } = -1;
 

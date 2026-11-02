@@ -440,28 +440,68 @@ public sealed class RegressionTests
 	/// <summary>
 	/// Versus mode: the end of an act. Both players start just before the signpost of Emerald Hill 1. Tails runs past
 	/// it and Sonic stands. Tails finishes: his time stops and the sign shows his face. Sonic gets 60 seconds, and his
-	/// half shows the countdown in red. When the time runs out, act 1 ends and act 2 starts. The level ticks start again
-	/// at 0 in act 2, so the capture at tick 3900 is in act 2.
+	/// half shows the countdown in red. When the time runs out, act 1 ends, and the act results show Tails as the
+	/// winner on time.
 	/// </summary>
 	[Fact]
 	[Trait("Category", "Regression")]
 	public void VersusSignpost_MatchesGoldenScreenshots()
 	{
-		RunTwoRuns("versus-signpost", Path.Combine(TestPaths.GoldenDirectory, "versus-signpost"), new[] { 320, 1000, 3900 }, userData =>
+		RunTwoRuns("versus-signpost", Path.Combine(TestPaths.GoldenDirectory, "versus-signpost"), new[] { 320, 1000, VersusScreenCapture(0, 60) }, userData =>
 		{
 			File.WriteAllBytes(Path.Combine(userData, "player2.rec"), MakeRecording(5000, tick => (tick >= 200 && tick < 300 ? 1.0 : 0.0, false)));
 			return "--level ehz --versus --startpos 42900 2800";
-		}, new Dictionary<string, string> { ["S2HD_TEST_PLAYER2_PLAYBACK"] = Path.Combine("{userData}", "player2.rec") },
+		}, new Dictionary<string, string>
+		{
+			["S2HD_TEST_PLAYER2_PLAYBACK"] = Path.Combine("{userData}", "player2.rec"),
+			["S2HD_TEST_VERSUS_RESULTS_FRAMES"] = "120"
+		},
 		userData =>
 		{
 			string log = File.ReadAllText(Path.Combine(userData, "sonicorca.log"));
 			Assert.Contains("Versus: player 2 finished at", log);
 			Assert.Contains("Versus: the time limit ran out", log);
-			Assert.Contains("Versus: the act ends", log);
-			// The signpost of act 1 does not end act 2
-			Assert.Single(System.Text.RegularExpressions.Regex.Matches(log, "Versus: player 2 finished"));
+			Assert.Contains("Versus: act 1 points 0 to 1", log);
 		});
 	}
+
+	/// <summary>
+	/// Versus mode: the end of a zone. Both players start just before the versus signpost of Emerald Hill 2. Tails runs
+	/// past it, and the time of Sonic runs out. The act results, the zone results and the game results show Tails as
+	/// the winner. A new user folder has only Emerald Hill of the versus zones, so the match ends after one zone.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void VersusZoneResults_MatchesGoldenScreenshots()
+	{
+		RunTwoRuns("versus-zone-results", Path.Combine(TestPaths.GoldenDirectory, "versus-zone-results"),
+			new[] { VersusScreenCapture(0, 30), VersusScreenCapture(1, 30), VersusScreenCapture(2, 30) }, userData =>
+		{
+			File.WriteAllBytes(Path.Combine(userData, "player2.rec"), MakeRecording(5000, tick => (tick >= 200 && tick < 300 ? 1.0 : 0.0, false)));
+			return "--level ehz --act 2 --versus --startpos 87100 4300";
+		}, new Dictionary<string, string>
+		{
+			["S2HD_TEST_PLAYER2_PLAYBACK"] = Path.Combine("{userData}", "player2.rec"),
+			["S2HD_TEST_VERSUS_RESULTS_FRAMES"] = "60"
+		},
+		userData =>
+		{
+			string log = File.ReadAllText(Path.Combine(userData, "sonicorca.log"));
+			// The game ends after the last capture, so the log has no line for the end of the game
+			Assert.Contains("Versus: zone EMERALD HILL ZONE winner 2", log);
+		});
+	}
+
+	/// <summary>The setup screen of a versus match, which "--versus" without "--level" opens.</summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void VersusSetup_MatchesGoldenScreenshots()
+	{
+		RunTwoRuns("versus-setup", Path.Combine(TestPaths.GoldenDirectory, "versus-setup"), new[] { VersusScreenCapture(0, 30) }, _ => "--versus");
+	}
+
+	/// <summary>The capture number of a frame of a versus screen: the screen counts from 0 (see TestHooks).</summary>
+	private static int VersusScreenCapture(int screen, int frame) => 100000 + 1000 * screen + frame;
 
 	/// <summary>
 	/// Versus mode: the teleport monitor. Both players start near the second monitor of Emerald Hill 1. Sonic stands on
