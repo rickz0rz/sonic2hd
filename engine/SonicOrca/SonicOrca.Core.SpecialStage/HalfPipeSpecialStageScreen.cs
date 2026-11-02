@@ -473,6 +473,12 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	private int _tailsRings;
 
+	/// <summary>Versus mode: Sonic and Tails are two players who compete for the rings of each segment.</summary>
+	private readonly bool _versus;
+
+	/// <summary>Versus mode: the rings of Sonic and of Tails in each segment that ended.</summary>
+	private readonly List<(int Sonic, int Tails)> _segments = new List<(int, int)>();
+
 	private const double PipeRadius = 4.0;
 
 	/// <summary>
@@ -507,12 +513,18 @@ public class HalfPipeSpecialStageScreen : Screen
 	/// <param name="withTails">True to play with Tails. The ring quotas are then those of Sonic and Tails.</param>
 	/// <param name="emeralds">The emeralds that the player has, for the results screen.</param>
 	/// <param name="score">The score of the player, for the results screen.</param>
-	public HalfPipeSpecialStageScreen(SonicOrcaGameContext gameContext, int stage = 0, bool withTails = false, int emeralds = 0, int score = 0)
+	/// <param name="versus">
+	/// True for the special stage of versus mode, as SS_2p_Flag of the original: player 2 plays Tails, there are no
+	/// ring goals and no emerald, and each checkpoint ends a segment. The stage ends without a results screen, and
+	/// <see cref="VersusSegments"/> has the rings of each player.
+	/// </param>
+	public HalfPipeSpecialStageScreen(SonicOrcaGameContext gameContext, int stage = 0, bool withTails = false, int emeralds = 0, int score = 0, bool versus = false)
 	{
 		_stage = stage;
 		_startEmeralds = emeralds;
 		_startScore = score;
-		if (withTails)
+		_versus = versus;
+		if (withTails || versus)
 		{
 			_tails = new HalfPipePlayer(outerLane: true);
 		}
@@ -529,6 +541,9 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	/// <summary>True when the player won the emerald.</summary>
 	public bool Cleared => _flow?.EmeraldWon ?? false;
+
+	/// <summary>Versus mode: the rings of Sonic and of Tails in each segment that ended.</summary>
+	public IReadOnlyList<(int Sonic, int Tails)> VersusSegments => _segments;
 
 	/// <summary>The results of the stage, after it ended. Null while the stage runs.</summary>
 	public HalfPipeResults Results => _results;
@@ -644,7 +659,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		_track = HalfPipeTrackBuilder.Build(_stageData ?? HalfPipeLayout.CreateGenerated(), HalfPipeLayout.GetRingQuotas(_stage, duo: _tails != null));
 		_objects = _track.Objects;
 		_checkpoints = _track.Checkpoints;
-		_flow = new HalfPipeStageFlow(_track);
+		_flow = new HalfPipeStageFlow(_track, _versus);
 		_emeraldTexture = CreateEmeraldTexture(_graphicsContext, _stage);
 		_pipeBuffer = _graphicsContext.CreateVertexBuffer(3, 2);
 		FillPipeBuffer();
@@ -689,7 +704,14 @@ public class HalfPipeSpecialStageScreen : Screen
 			// The stage stops while it fades to white, then the results screen starts
 			if (++_endFadeFrames >= WhiteFadeFrames)
 			{
-				StartResults(_flow.EmeraldWon, _ringsCollected);
+				if (_versus)
+				{
+					Finish();
+				}
+				else
+				{
+					StartResults(_flow.EmeraldWon, _ringsCollected);
+				}
 			}
 		}
 		else
@@ -810,8 +832,9 @@ public class HalfPipeSpecialStageScreen : Screen
 			return;
 		}
 		HalfPipeInput pad2 = ReadInput(1, masked, out bool pad2Held);
-		// The computer controls Tails only on the ground. In the air, Tails uses only the second pad.
-		HalfPipeInput tailsInput = _tails.OnGround && !_tails.IsHurt ? _tailsCpu.GetGroundInput(pad2, pad2Held) : pad2;
+		// The computer controls Tails only on the ground. In the air, Tails uses only the second pad. In versus mode,
+		// player 2 always controls Tails.
+		HalfPipeInput tailsInput = !_versus && _tails.OnGround && !_tails.IsHurt ? _tailsCpu.GetGroundInput(pad2, pad2Held) : pad2;
 		_tails.OuterLane = !_lanesSwapped;
 		if (_tails.Update(tailsInput.Left, tailsInput.Right, tailsInput.JumpPressed))
 		{
@@ -953,12 +976,29 @@ public class HalfPipeSpecialStageScreen : Screen
 				case HalfPipeFlowEvent.EmeraldMissed:
 					_gameContext.Audio.PlaySound(_errorSound);
 					break;
+				case HalfPipeFlowEvent.SegmentEnded:
+					EndVersusSegment();
+					break;
 			}
 		}
 		if (_flow.Finished && _endFadeFrames < 0)
 		{
 			_endFadeFrames = 0;
 		}
+	}
+
+	/// <summary>
+	/// Versus mode, as Obj5A_VSReset of the original: the rings of each player in the segment are kept, and both counts
+	/// start again at 0. The message shows the winner of the segment.
+	/// </summary>
+	private void EndVersusSegment()
+	{
+		_segments.Add((_rings, _tailsRings));
+		System.Diagnostics.Trace.WriteLine($"Versus: special stage segment {_segments.Count}: {_rings} to {_tailsRings} rings, frame {_frames}");
+		_flow.ShowScreenMessage(_rings > _tailsRings ? "SONIC WINS!" : _tailsRings > _rings ? "TAILS WINS!" : "DRAW!");
+		_gameContext.Audio.PlaySound(_checkpointSound);
+		_rings = 0;
+		_tailsRings = 0;
 	}
 
 	/// <summary>Starts the results screen, with its jingle (MusID_EndLevel).</summary>
@@ -1739,7 +1779,8 @@ public class HalfPipeSpecialStageScreen : Screen
 		{
 			fontRenderer.RenderString(_flow.Counter, new Rectangle(960.0, counterY, 0.0, 0.0), FontAlignment.MiddleX, _font, 0);
 		}
-		if (_flow.Message != null && !UsesOriginalText)
+		// The letters of the original have only the messages of the main game, so the other messages use the font
+		if (_flow.Message != null && (!UsesOriginalText || GetMessageGlyphs(_flow.Message) == null))
 		{
 			// Under the winged hand, when it shows
 			double messageY = ShowsHand ? 560.0 : 440.0;

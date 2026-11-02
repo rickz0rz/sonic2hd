@@ -86,8 +86,34 @@ public sealed class VersusActResult
 }
 
 /// <summary>
+/// The result of the special stage of versus mode, as Setup2PResults_SpecialAct of the original: each checkpoint ends a
+/// segment, and the player with more rings in a segment wins it. The player who won more segments wins the stage.
+/// </summary>
+public sealed class VersusSpecialStageResult
+{
+	/// <summary>The rings of each player in each segment.</summary>
+	public IReadOnlyList<(int Player1, int Player2)> Segments { get; }
+
+	public VersusSpecialStageResult(IReadOnlyList<(int Player1, int Player2)> segments)
+	{
+		Segments = segments;
+	}
+
+	/// <summary>The winner of each segment: 1 or 2, or 0 for a tie.</summary>
+	public IReadOnlyList<int> SegmentWinners => Segments.Select(s => VersusActResult.Compare(s.Player1, s.Player2)).ToArray();
+
+	public int Player1Points => SegmentWinners.Count(winner => winner == 1);
+
+	public int Player2Points => SegmentWinners.Count(winner => winner == 2);
+
+	/// <summary>The winner of the stage: 1 or 2, or 0 for a tie.</summary>
+	public int Winner => VersusActResult.Compare(Player1Points, Player2Points);
+}
+
+/// <summary>
 /// The result of one versus zone, as Setup2PResults_Zone of the original: the player who won more acts wins the zone.
-/// A game over ends the zone without a winner.
+/// When the acts end in a tie, a special stage breaks the tie, and it counts as one more act. A game over ends the
+/// zone without a winner.
 /// </summary>
 public sealed class VersusZoneResult
 {
@@ -100,9 +126,15 @@ public sealed class VersusZoneResult
 		Name = name;
 	}
 
-	public int Player1Wins => Acts.Count(act => act.Winner == 1);
+	/// <summary>The special stage that broke a tie of the acts, or null.</summary>
+	public VersusSpecialStageResult SpecialStage { get; set; }
 
-	public int Player2Wins => Acts.Count(act => act.Winner == 2);
+	public int Player1Wins => Acts.Count(act => act.Winner == 1) + (SpecialStage?.Winner == 1 ? 1 : 0);
+
+	public int Player2Wins => Acts.Count(act => act.Winner == 2) + (SpecialStage?.Winner == 2 ? 1 : 0);
+
+	/// <summary>True when the acts ended in a tie, and no special stage broke it yet.</summary>
+	public bool NeedsTieBreak => Winner == 0 && SpecialStage == null;
 
 	/// <summary>The winner of the zone: 1 or 2, or 0 for a tie.</summary>
 	public int Winner => VersusActResult.Compare(Player1Wins, Player2Wins);

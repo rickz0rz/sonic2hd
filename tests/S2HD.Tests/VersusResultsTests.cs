@@ -54,6 +54,21 @@ public sealed class VersusResultsTests
 	}
 
 	[Fact]
+	public void Zone_InATie_GoesToTheWinnerOfTheSpecialStage()
+	{
+		VersusZoneResult zone = new VersusZoneResult("EMERALD HILL ZONE");
+		zone.Acts.Add(new VersusActResult(Stats(score: 100), Stats()));
+		zone.Acts.Add(new VersusActResult(Stats(), Stats(score: 100)));
+		Assert.True(zone.NeedsTieBreak);
+
+		// Tails wins two of the three segments of the special stage
+		zone.SpecialStage = new VersusSpecialStageResult(new[] { (10, 4), (3, 8), (0, 2) });
+		Assert.False(zone.NeedsTieBreak);
+		Assert.Equal(2, zone.SpecialStage.Winner);
+		Assert.Equal(2, zone.Winner);
+	}
+
+	[Fact]
 	public void Time_ShowsMinutesSecondsAndHundredths()
 	{
 		Assert.Equal("1'02\"43", VersusActResult.FormatTime(3746));

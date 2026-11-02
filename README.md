@@ -656,7 +656,10 @@ places.
 
 After each act, the results compare the score, the time, the rings, the total rings and the monitors of the players.
 Each category gives a point to the better player, and the player with more points wins the act. The player who won
-more acts wins the zone. When the players played all the zones, the game results show the winner of the match. A
+more acts wins the zone. When the acts of a zone end in a tie, a special stage breaks the tie. Player 1 plays Sonic
+and player 2 plays Tails, with no ring goals. Each checkpoint ends a segment, and the player with more rings in a
+segment wins it. The player who wins more segments wins the special stage, which counts as one more act. When the
+players played all the zones, the game results show the winner of the match. A
 game over ends the match, and the results go. See `docs/two-player-design.md` for the plan.
 
 ## Command-line options
@@ -679,7 +682,7 @@ game over ends the match, and the results go. See `docs/two-player-design.md` fo
 | `--no-error-dialog` | Writes an error to the console and the log, not to a dialog box. Test runs with `S2HD_EXIT_AFTER_CAPTURES=1` do this too |
 | `--credits`, `--options` | Opens the credits or the options screen |
 | `--ending [super\|tails]` | Plays the ending cutscene of the original, then the credits. `super` plays the ending of Super Sonic, and `tails` plays the ending of Tails |
-| `--halfpipe [1-7]` | Opens a 3D special stage. Left and right move Sonic around the pipe, and an action button jumps, with the physics of Sonic 2. Collect enough rings for each of the three checkpoints, and avoid the bombs. Tails follows Sonic. Add `--sidekick none` to play Sonic alone. Escape closes it |
+| `--halfpipe [1-7]` | Opens a 3D special stage. Left and right move Sonic around the pipe, and an action button jumps, with the physics of Sonic 2. Collect enough rings for each of the three checkpoints, and avoid the bombs. Tails follows Sonic. Add `--sidekick none` to play Sonic alone. Add `--versus` to play the special stage of versus mode, with Tails on game pad 2. Escape closes it |
 
 On macOS, pass options to the executable in the app bundle, for example
 `publish/S2HD.app/Contents/MacOS/S2HD --level cpz`.

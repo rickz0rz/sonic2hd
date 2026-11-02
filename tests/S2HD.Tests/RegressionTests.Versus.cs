@@ -202,4 +202,22 @@ public sealed partial class RegressionTests
 		}, new Dictionary<string, string> { ["S2HD_TEST_VERSUS_MONITOR_ITEM"] = "8" },
 		userData => Assert.Contains("Versus: the players change places", File.ReadAllText(Path.Combine(userData, "sonicorca.log"))));
 	}
+
+	/// <summary>
+	/// The special stage of versus mode, which breaks a tie of the acts of a zone. Nobody presses a button: Sonic
+	/// collects the rings of his lane, and Tails, with no computer help, collects none. Each checkpoint ends a segment
+	/// and shows its winner. The captures show "SONIC WINS!" after segment 1 and "DRAW!" after segment 3.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void VersusSpecialStage_MatchesGoldenScreenshots()
+	{
+		RunTwoRuns("versus-special-stage", Path.Combine(TestPaths.GoldenDirectory, "versus-special-stage"), new[] { 22560, 26390 },
+			_ => "--halfpipe 2 --versus", checkUserData: userData =>
+			{
+				string log = File.ReadAllText(Path.Combine(userData, "sonicorca.log"));
+				Assert.Contains("Versus: special stage segment 1: 6 to 0 rings", log);
+				Assert.Contains("Versus: special stage segment 3: 0 to 0 rings", log);
+			});
+	}
 }
