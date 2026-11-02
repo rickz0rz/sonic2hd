@@ -61,6 +61,13 @@ public static class TestHooks
 	public static readonly int? KillPlayer2AtTick =
 		int.TryParse(Environment.GetEnvironmentVariable("S2HD_TEST_KILL_PLAYER2_AT_TICK"), out int killTick) ? killTick : null;
 
+	/// <summary>
+	/// The item of each versus monitor, from 1 (the extra life of Sonic) to 8 (the teleport), to test the items, or
+	/// null for an item from the level tick.
+	/// </summary>
+	public static readonly int? VersusMonitorItem =
+		int.TryParse(Environment.GetEnvironmentVariable("S2HD_TEST_VERSUS_MONITOR_ITEM"), out int item) && item >= 1 && item <= 8 ? item : null;
+
 	public static readonly int? StartRings =
 		int.TryParse(Environment.GetEnvironmentVariable("S2HD_TEST_START_RINGS"), out int rings) ? rings : null;
 

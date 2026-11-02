@@ -64,6 +64,19 @@ public class MonitorInstance : ActiveObject
 	private bool _raisingContents;
 	private ICharacter _breaker;
 
+	/// <summary>The player who gets the extra life of a versus monitor: 1 is Sonic and 2 is Tails.</summary>
+	private int _lifeCharacter;
+
+	/// <summary>
+	/// The items of a versus monitor, in the order of Obj2E_Types of the original (from 1): the extra life of Sonic,
+	/// the extra life of Tails, Robotnik, rings, speed shoes, a barrier, invincibility and the teleport.
+	/// </summary>
+	private static readonly MonitorContents[] VersusContents =
+	{
+		MonitorContents.Life, MonitorContents.Life, MonitorContents.Robotnik, MonitorContents.Ring,
+		MonitorContents.SpeedShoes, MonitorContents.Barrier, MonitorContents.Invincibility, MonitorContents.SwapPlaces,
+	};
+
 	// The character is the protagonist character type as an integer: 1 is Sonic and 2 is Tails.
 	private static int GetScreenContentsAnimationIndex(MonitorContents contents, int character)
 	{
@@ -125,7 +138,8 @@ public class MonitorInstance : ActiveObject
 		_screenOverlayAnimation = new AnimationInstance(animationGroup);
 		_shellAnimation.Index = _broken ? AnimationBrokenShell : AnimationShell;
 		_shellOverlayAnimation.Index = _broken ? AnimationBrokenShellOverlay : AnimationShellOverlay;
-		_screenAnimation.Index = GetScreenContentsAnimationIndex(_contents, (int)Level.Player.ProtagonistCharacterType);
+		// In versus mode, each monitor shows a question mark and gives a random item (Obj26_Init of the original)
+		_screenAnimation.Index = GetScreenContentsAnimationIndex(Level.Versus ? MonitorContents.Random : _contents, (int)Level.Player.ProtagonistCharacterType);
 		_screenOverlayAnimation.Index = AnimationScreenOverlay;
 		if (_broken)
 			return;
@@ -199,6 +213,10 @@ public class MonitorInstance : ActiveObject
 	private void Break(ICharacter character)
 	{
 		_breaker = character;
+		if (Level.Versus)
+		{
+			ChooseVersusContents();
+		}
 		character.Velocity = new Vector2(character.Velocity.X, character.Velocity.Y * -1.0);
 		if (character.Jumped)
 			character.IsJumping = true;
@@ -212,6 +230,23 @@ public class MonitorInstance : ActiveObject
 		CreateExplosionObject();
 		CreateRaisingContents();
 		LockLifetime = true;
+	}
+
+	/// <summary>
+	/// Chooses the item of a versus monitor from the level tick, as Obj2E_Init of the original. The teleport changes
+	/// to invincibility when a player has finished the act.
+	/// </summary>
+	private void ChooseVersusContents()
+	{
+		int index = SonicOrca.Core.Debugging.TestHooks.VersusMonitorItem is int testItem ? testItem - 1 : Level.Ticks & 7;
+		_contents = VersusContents[index];
+		_lifeCharacter = index + 1;
+		if (_contents == MonitorContents.SwapPlaces && !Level.CanSwapVersusPlayers)
+		{
+			_contents = MonitorContents.Invincibility;
+		}
+		int character = _contents == MonitorContents.Life ? _lifeCharacter : (int)_breaker.Player.ProtagonistCharacterType;
+		_contentsAnimation.Index = GetContentsAnimationIndex(_contents, character);
 	}
 
 	private void CreateExplosionObject()
@@ -232,7 +267,9 @@ public class MonitorInstance : ActiveObject
 		switch (_contents)
 		{
 			case MonitorContents.Life:
-				_breaker.Player.GainLives();
+				// A versus monitor gives the extra life to the player of its icon, whoever breaks it
+				Player lifePlayer = Level.Versus && _lifeCharacter - 1 < Level.Players.Count ? Level.Players[_lifeCharacter - 1] : _breaker.Player;
+				lifePlayer.GainLives();
 				break;
 			case MonitorContents.Ring:
 				_breaker.Player.GainRings(RingsInMonitor);
@@ -252,6 +289,9 @@ public class MonitorInstance : ActiveObject
 				// The Robotnik monitor hurts the character (robotnik_monitor and Touch_ChkHurt2 in the original).
 				if (_breaker.CanBeHurt)
 					_breaker.Hurt(Math.Sign(_breaker.Position.X - Position.X));
+				break;
+			case MonitorContents.SwapPlaces:
+				Level.SwapVersusPlayers();
 				break;
 		}
 	}
