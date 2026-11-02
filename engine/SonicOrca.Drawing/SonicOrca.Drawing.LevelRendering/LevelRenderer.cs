@@ -418,8 +418,9 @@ public class LevelRenderer : ILevelRenderer, IDisposable
 		waterfallRenderer.NonDistortionRadius = new Vector2i(4, 24);
 		foreach (Rectanglei waterfallRegion in _waterfallRegions)
 		{
-			// The canvas texture is upside down, so mirror the region vertically to get its source
-			Vector2i amount = new Vector2i(0, ScreenHeight - waterfallRegion.Bottom - waterfallRegion.Top);
+			// The canvas texture is upside down, so mirror the region vertically to get its source. The canvas has the
+			// height of the view, not of the screen: half the screen in versus mode, or more when the view is zoomed out.
+			Vector2i amount = new Vector2i(0, texture.Height - waterfallRegion.Bottom - waterfallRegion.Top);
 			Rectanglei source = waterfallRegion.OffsetBy(amount);
 			waterfallRenderer.Render(texture, source, waterfallRegion, flipX: false, flipY: true);
 		}

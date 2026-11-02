@@ -464,6 +464,22 @@ public sealed class RegressionTests
 	}
 
 	/// <summary>
+	/// Versus mode: a character behind a waterfall of Emerald Hill 1. The waterfall effect copies the canvas of the
+	/// half, which is not as high as the screen. Tails runs on the lower path, and he must show behind the waterfall
+	/// at his own height, not lower.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void VersusWaterfall_MatchesGoldenScreenshots()
+	{
+		RunTwoRuns("versus-waterfall", Path.Combine(TestPaths.GoldenDirectory, "versus-waterfall"), new[] { 255 }, userData =>
+		{
+			File.WriteAllBytes(Path.Combine(userData, "player2.rec"), MakeRecording(400, tick => (tick >= 200 ? 1.0 : 0.0, false)));
+			return "--level ehz --versus --startpos 11500 2500";
+		}, new Dictionary<string, string> { ["S2HD_TEST_PLAYER2_PLAYBACK"] = Path.Combine("{userData}", "player2.rec") });
+	}
+
+	/// <summary>
 	/// Versus mode: the teleport monitor. Both players start near the second monitor of Emerald Hill 1. Sonic stands on
 	/// a ledge, and Tails is on the path below. The monitor shows a question mark. Sonic jumps onto it, and the test
 	/// hook makes its item the teleport. The players change places, and the screen flashes white.
