@@ -466,6 +466,11 @@ internal sealed class MarkersTool : EditorTool
 				}
 				Editor.DrawLabel(renderer, g, GetLabel(marker), screen.X + 4.0, screen.Y + 4.0, colour);
 			}
+			else if (marker == Editor.StartMarker)
+			{
+				// The start marker is the start of the player, so it has the large cross of the start
+				Editor.DrawStart(renderer, g, new Vector2(bounds.X, bounds.Y), selected || marker == hover ? colour : Colours.White, $"START ({marker.Name})");
+			}
 			else
 			{
 				Vector2 point = new Vector2(screen.X, screen.Y);

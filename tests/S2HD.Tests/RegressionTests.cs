@@ -855,6 +855,19 @@ public sealed partial class RegressionTests
 	}
 
 	/// <summary>
+	/// The start of the player is its start marker. In Emerald Hill, the markers tool drags startpos_stk_1 to the right:
+	/// the large cross of the start moves with it during the drag, and the objects tool shows the start at its new place.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void EditorStartMarker_MatchesGoldenScreenshots()
+	{
+		const string script = "3:tap 31;5:mouse 384 532;6:down left;8:mouse 500 532;10:mouse 640 532;14:up left;16:tap 30;18:mouse 900 300";
+		RunAndCompare("--level ehz --editor", new[] { 10012, 10022 }, Path.Combine(TestPaths.GoldenDirectory, "editor-start-marker"), "editor-start-marker",
+			new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script });
+	}
+
+	/// <summary>
 	/// The collision tool shows a row for each flag of a line. In Emerald Hill, a click on the "Flags" row of a floor
 	/// line shows the flags, a click turns on "Force roll", and the mouse over "Prevent jump" shows what it does.
 	/// </summary>
