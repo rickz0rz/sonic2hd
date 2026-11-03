@@ -48,6 +48,9 @@ public class CPZSpinTubeInstance : ActiveObject
 		}
 		else
 		{
+			// The editor selects the object at its entrance, which is the first point of the path
+			Vector2i entrance = _path[0][0].Position;
+			DesignBounds = new Rectanglei(entrance.X - 64, entrance.Y - 64, 128, 128);
 			CollisionRectangles = new CollisionRectangle[1]
 			{
 				new CollisionRectangle(this, 0, _path[0][0].Position.X - 64, _path[0][0].Position.Y - 56, 128, 128)
@@ -196,7 +199,7 @@ public class CPZSpinTubeInstance : ActiveObject
 		}
 		I2dRenderer renderer2d = renderer.Get2dRenderer();
 		Vector2 scale = renderer.GetObjectRenderer().Scale;
-		Rectanglei entrance = DesignBounds.OffsetBy(_path[0][0].Position);
+		Rectanglei entrance = DesignBounds;
 		renderer2d.RenderQuad(Colours.White, new Rectangle(entrance.X * scale.X, entrance.Y * scale.Y, entrance.Width * scale.X, entrance.Height * scale.Y));
 		for (int index = 0; index < 2; ++index)
 		{

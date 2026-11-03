@@ -436,7 +436,9 @@ its button or with its key:
 
 - **Objects (1)** changes the objects and the rings. The list has all the object types of the game. A type that the
   level does not use shows "not loaded". It loads when you click it. To make a new object, click "+ New object"
-  (see "New objects").
+  (see "New objects"). When objects overlap, a click shows a menu of them. Click a row to select its object.
+  The box of the object of the row under the mouse shows in the level. A spin tube of CPZ has its box at its entrance, with the tube
+  cap. When you select it, the level shows its two paths. Drag a point to move it, and click a + to add a point.
 - **Markers (2)** changes the markers of the map. A point marker has a name, for example `startpos_stk_1` (the start
   position of act 1), `bounds_1_rb` (the bottom right camera bound of act 1) or `boss_left`. An area marker has a
   tag, for example `inside`. The level reads the markers when it starts. Click a marker in the list to go to it.
