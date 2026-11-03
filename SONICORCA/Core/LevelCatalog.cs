@@ -67,7 +67,7 @@ internal sealed class LevelCatalog : ILevelCatalog
 		return level.Name.EndsWith(zone, StringComparison.OrdinalIgnoreCase) ? level.Name.Substring(0, level.Name.Length - zone.Length) : level.Name;
 	}
 
-	public LevelCatalogEntry CreateLevel(string mnemonic, string name, string tilesFrom)
+	public LevelCatalogEntry CreateLevel(string mnemonic, string name, string tilesFrom, string tileImagePath = null)
 	{
 		ResourceTree tree = _gameContext.ResourceTree;
 		mnemonic = mnemonic?.ToLowerInvariant();
@@ -80,11 +80,21 @@ internal sealed class LevelCatalog : ILevelCatalog
 		string folder = Path.Combine(_gameContext.UserDataDirectory, "mods", mnemonic);
 		if (Directory.Exists(folder) || File.Exists(folder + ".dat"))
 			throw new InvalidOperationException($"The mod {mnemonic} exists in the mods folder.");
-		string tileSetKey = Levels.GetTileSetResourceKey(tilesFrom, tree);
+		string levelKey = $"SONICORCA/LEVELS/{mnemonic.ToUpperInvariant()}";
+		// The tiles come from an image, or from the tile set of another level
+		byte[] tileImage = null;
+		byte[] tileSet = null;
+		if (!string.IsNullOrWhiteSpace(tileImagePath))
+		{
+			if (!File.Exists(tileImagePath))
+				throw new InvalidOperationException($"The tile image {tileImagePath} does not exist.");
+			tileImage = File.ReadAllBytes(tileImagePath);
+			tileSet = NewLevel.MakeTileSet(tileImage).TileSet;
+		}
+		string tileSetKey = tileSet != null ? levelKey + "/TILESET" : Levels.GetTileSetResourceKey(tilesFrom, tree);
 		if (tileSetKey == null)
 			throw new InvalidOperationException($"The level {tilesFrom} has no tile set.");
 
-		string levelKey = $"SONICORCA/LEVELS/{mnemonic.ToUpperInvariant()}";
 		ResourceTree files = new ResourceTree();
 		void Add(string key, ResourceTypeIdentifier identifier, byte[] data) =>
 			files.SetOrAdd($"{levelKey}/{key}", new Resource($"{levelKey}/{key}", identifier, new MemoryResourceSource(data)));
@@ -92,6 +102,11 @@ internal sealed class LevelCatalog : ILevelCatalog
 		Add("INFO", ResourceTypeIdentifier.Xml, NewLevel.MakeInfo(name.Trim(), tileSetKey));
 		Add("MAP", ResourceTypeIdentifier.Map, NewLevel.MakeMap());
 		Add("BINDING", ResourceTypeIdentifier.Binding, NewLevel.MakeBinding());
+		if (tileSet != null)
+		{
+			Add("TILESET", ResourceTypeIdentifier.TileSet, tileSet);
+			Add("TILESET/TEXTURE", ResourceTypeIdentifier.TexturePNG, tileImage);
+		}
 		ResourceDirectory.Export(files, folder);
 
 		// The game loads the mod folders when it starts. The new folder loads now, so that the level can open.

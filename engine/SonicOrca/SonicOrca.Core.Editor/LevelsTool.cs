@@ -44,6 +44,9 @@ internal sealed class LevelsTool : EditorTool
 
 	private string _newMnemonic = "";
 
+	/// <summary>The path of a PNG file with the tiles of the new level, or null for the tiles of another level.</summary>
+	private string _newTileImage;
+
 	/// <summary>The short name of the level with the tile set for the new level.</summary>
 	private string _newTilesFrom;
 
@@ -350,8 +353,30 @@ internal sealed class LevelsTool : EditorTool
 			new EditorPropertyRow
 			{
 				Label = "Tiles from",
-				Value = tilesFrom?.Name ?? "no level",
-				Step = direction => _newTilesFrom = StepLevel(tilesFrom, direction)
+				Value = _newTileImage != null ? "the tile image" : tilesFrom?.Name ?? "no level",
+				Step = _newTileImage != null ? null : direction => _newTilesFrom = StepLevel(tilesFrom, direction)
+			},
+			new EditorPropertyRow
+			{
+				Label = "Tile image",
+				Value = _newTileImage != null ? System.IO.Path.GetFileName(_newTileImage) : "none (type the path of a PNG)",
+				Tooltip = "A PNG image with the tiles of the level, 64 x 64 pixels each. Each cell that is not fully transparent becomes a tile. Type nothing to use the tiles of a level.",
+				Commit = text =>
+				{
+					string path = text.Trim().Trim('"');
+					if (path.Length == 0 || path.StartsWith("none", System.StringComparison.OrdinalIgnoreCase))
+					{
+						_newTileImage = null;
+						return true;
+					}
+					if (!System.IO.File.Exists(path))
+					{
+						Editor.ShowMessage($"The file {path} does not exist.");
+						return false;
+					}
+					_newTileImage = path;
+					return true;
+				}
 			},
 			new EditorPropertyRow
 			{
@@ -400,7 +425,7 @@ internal sealed class LevelsTool : EditorTool
 		LevelCatalogEntry level;
 		try
 		{
-			level = Catalog.CreateLevel(_newMnemonic, _newName, tilesFrom.Mnemonic);
+			level = Catalog.CreateLevel(_newMnemonic, _newName, tilesFrom.Mnemonic, _newTileImage);
 		}
 		catch (System.Exception ex) when (ex is System.InvalidOperationException || ex is System.IO.IOException || ex is System.UnauthorizedAccessException)
 		{
@@ -411,6 +436,7 @@ internal sealed class LevelsTool : EditorTool
 		_selected = level.Mnemonic;
 		_newName = "";
 		_newMnemonic = "";
+		_newTileImage = null;
 		Editor.ShowMessage($"Made the level {level.Name}. Opening it.");
 		Editor.RequestOpenLevel(level);
 	}

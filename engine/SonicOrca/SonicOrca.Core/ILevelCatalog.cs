@@ -33,8 +33,11 @@ public interface ILevelCatalog
 	/// <param name="mnemonic">The short name of the new level: letters and digits.</param>
 	/// <param name="name">The name of the new level.</param>
 	/// <param name="tilesFrom">The short name of the level with the tile set.</param>
+	/// <param name="tileImagePath">
+	/// A PNG file with the tiles of the level, 64 x 64 pixels each, or null for the tile set of <paramref name="tilesFrom"/>.
+	/// </param>
 	/// <returns>The new level.</returns>
-	LevelCatalogEntry CreateLevel(string mnemonic, string name, string tilesFrom);
+	LevelCatalogEntry CreateLevel(string mnemonic, string name, string tilesFrom, string tileImagePath = null);
 }
 
 /// <summary>A level in the <see cref="ILevelCatalog"/>.</summary>

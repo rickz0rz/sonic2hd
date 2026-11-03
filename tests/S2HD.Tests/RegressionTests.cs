@@ -703,10 +703,39 @@ public sealed partial class RegressionTests
 	[Trait("Category", "Regression")]
 	public void EditorNewLevelFromCommandLine_MatchesGoldenScreenshots()
 	{
-		const string script = "5:mouse 1700 300;8:mouse 1700 635;9:down left;10:up left;12:mouse 600 400";
+		const string script = "5:mouse 1700 300;8:mouse 1700 665;9:down left;10:up left;12:mouse 600 400";
 		RunAndCompare("--level jungle --editor", new[] { 10006, 10060 }, Path.Combine(TestPaths.GoldenDirectory, "editor-new-level-command-line"),
 			"editor-new-level-command-line", new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script },
 			checkUserData: userData => Assert.True(File.Exists(Path.Combine(userData, "mods", "jungle", "SONICORCA", "LEVELS", "JUNGLE", "MAP.map.xml"))));
+	}
+
+	/// <summary>
+	/// The form of a new level takes a tile image. The image has 4 x 2 cells of 64 x 64 pixels, and one cell is fully
+	/// transparent, so the new level has a tile set of its own with 7 tiles. The tiles tool shows them in its palette.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void EditorNewLevelTileImage_MatchesGoldenScreenshots()
+	{
+		string image = Path.Combine(Path.GetTempPath(), "s2hd-new-level-tiles.png");
+		File.WriteAllBytes(image, NewLevelTests.MakePng(256, 128, (x, y) => x / 64 == 2 && y / 64 == 1 ? (byte)0 : (byte)255));
+		try
+		{
+			string script = $"5:mouse 1700 635;6:down left;7:up left;8:type {image};10:tap 40;11:mouse 600 400;" +
+				"14:mouse 1700 665;15:down left;16:up left;60:tap 32;65:mouse 600 400";
+			RunAndCompare("--level jungle --editor", new[] { 10012, 10080 }, Path.Combine(TestPaths.GoldenDirectory, "editor-new-level-tile-image"),
+				"editor-new-level-tile-image", new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script },
+				checkUserData: userData =>
+				{
+					string tileSet = Path.Combine(userData, "mods", "jungle", "SONICORCA", "LEVELS", "JUNGLE", "TILESET");
+					Assert.True(File.Exists(Path.Combine(tileSet, "TEXTURE.png")));
+					Assert.Equal(7, System.Text.RegularExpressions.Regex.Matches(File.ReadAllText(Path.Combine(tileSet, "_.tileset.xml")), "<tile ").Count);
+				});
+		}
+		finally
+		{
+			File.Delete(image);
+		}
 	}
 
 	/// <summary>
