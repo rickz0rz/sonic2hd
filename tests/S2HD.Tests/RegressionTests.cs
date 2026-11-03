@@ -626,7 +626,7 @@ public sealed partial class RegressionTests
 	[Trait("Category", "Regression")]
 	public void EditorTilesAndCollision_MatchesGoldenScreenshots()
 	{
-		const string script = "3:tap 32;6:mouse 1555 831;7:down left;8:up left;" +
+		const string script = "3:tap 32;6:mouse 1555 861;7:down left;8:up left;" +
 			"11:mouse 700 400;12:down left;14:mouse 800 400;16:mouse 900 400;18:up left;" +
 			"22:tap 33;24:mouse 1600 93;25:down left;26:up left;28:mouse 300 300;29:down left;30:up left;" +
 			"32:mouse 900 300;33:down left;34:up left;35:tap 41;45:mouse 600 150;46:tap 62";
@@ -648,6 +648,23 @@ public sealed partial class RegressionTests
 	}
 
 	/// <summary>
+	/// A background layer shows alone while the tiles tool paints on it. In Chemical Plant, the first 14 rows of the
+	/// list are background layers, so the list marks them with "parallax" and shows a scroll bar. A banner on the view
+	/// tells that the layer shows alone, and a click on it shows all the layers. The "View" row then shows the layer
+	/// alone again.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void EditorLayerAloneView_MatchesGoldenScreenshots()
+	{
+		const string script = "3:tap 32;6:mouse 1600 123;7:down left;8:up left;10:mouse 600 300;" +
+			"20:mouse 730 73;21:down left;22:up left;24:mouse 600 300;" +
+			"32:mouse 1700 755;33:down left;34:up left;36:mouse 600 300";
+		RunAndCompare("--level cpz --editor", new[] { 10012, 10030, 10045 }, Path.Combine(TestPaths.GoldenDirectory, "editor-layer-alone"), "editor-layer-alone",
+			new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script });
+	}
+
+	/// <summary>
 	/// The tiles tool shows the animation of a tile. In Aquatic Ruin, the palette shows only the animated tiles, and the
 	/// brush takes the waterfall tile 2078, which the import animates with the palette cycle of the original. The panel
 	/// shows its frames, the status line shows where they come from, and the palette marks each animated tile. A click
@@ -660,7 +677,7 @@ public sealed partial class RegressionTests
 	{
 		// The "Show" row shows only the animated tiles. The tile is then at index 30: row 3, column 6.
 		// A click on the "Animation" row then opens the animation of the tile in the animation editor
-		const string script = "3:tap 32;6:mouse 1700 668;7:down left;8:up left;10:mouse 1826 941;12:down left;13:up left;" +
+		const string script = "3:tap 32;6:mouse 1700 668;7:down left;8:up left;10:mouse 1826 971;12:down left;13:up left;" +
 			"20:mouse 1700 698;21:down left;22:up left";
 		RunAndCompare("--level arz --editor", new[] { 10016, 10030, 10060 }, Path.Combine(TestPaths.GoldenDirectory, "editor-tile-animation"), "editor-tile-animation",
 			new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script }, withImportedMods: true);
