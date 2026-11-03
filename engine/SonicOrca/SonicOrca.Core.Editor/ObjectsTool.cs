@@ -236,6 +236,18 @@ internal sealed class ObjectsTool : EditorTool
 			}
 			return;
 		}
+		if (_menu != null)
+		{
+			// A click in the menu selects its object. A click outside closes the menu.
+			int row = GetMenuRowAt(Editor.Mouse);
+			if (row >= 0)
+			{
+				Selection.Clear();
+				Selection.Add(_menu[row].Entry.Uid);
+			}
+			_menu = null;
+			return;
+		}
 		if (TryBeginPathDrag())
 		{
 			return;
@@ -252,6 +264,20 @@ internal sealed class ObjectsTool : EditorTool
 			return;
 		}
 		Guid uid = hit.Entry.Uid;
+		ActiveObject[] hits = HitTestAll(Editor.MouseWorld);
+		_menuPress = null;
+		if (hits.Length > 1 && !Editor.IsShiftDown)
+		{
+			// Objects overlap here. A selected one can still move, and a click without a move opens the menu (see OnDragEnd).
+			ActiveObject selected = hits.FirstOrDefault(o => Selection.Contains(o.Entry.Uid));
+			if (selected == null)
+			{
+				OpenMenu(hits);
+				return;
+			}
+			uid = selected.Entry.Uid;
+			_menuPress = Editor.MouseWorld;
+		}
 		if (Editor.IsShiftDown && Selection.Contains(uid))
 		{
 			Selection.Remove(uid);
@@ -309,8 +335,14 @@ internal sealed class ObjectsTool : EditorTool
 		_moving = false;
 		if (_moveDelta == new Vector2i(0, 0))
 		{
+			if (_menuPress is Vector2 press && !Editor.DragMoved)
+			{
+				OpenMenu(HitTestAll(press));
+			}
+			_menuPress = null;
 			return;
 		}
+		_menuPress = null;
 		Editor.RecordHistory();
 		ReplacePlacements(p => _moveStartPositions.TryGetValue(p.Uid, out Vector2i start) ? p.WithPosition(start + _moveDelta) : p);
 	}
@@ -325,6 +357,11 @@ internal sealed class ObjectsTool : EditorTool
 
 	public override bool Cancel()
 	{
+		if (_menu != null)
+		{
+			_menu = null;
+			return true;
+		}
 		if (_pathPoint != null)
 		{
 			_pathPoint = null;
@@ -779,6 +816,7 @@ internal sealed class ObjectsTool : EditorTool
 			}
 		}
 		DrawPaths(renderer, g);
+		DrawMenu(renderer, g);
 	}
 
 	public override string GetCursorLabel(I2dRenderer g)
@@ -793,8 +831,87 @@ internal sealed class ObjectsTool : EditorTool
 		{
 			return handle.Insert ? $"{handle.Property.Name}: click to add a point" : DescribePoint(handle.Property, handle.Points, handle.Index);
 		}
-		ActiveObject hover = HitTest(Editor.MouseWorld);
-		return hover == null ? null : ShortName(hover.Type.ResourceKey);
+		if (_menu != null)
+		{
+			return null;
+		}
+		ActiveObject[] hits = HitTestAll(Editor.MouseWorld);
+		return hits.Length switch
+		{
+			0 => null,
+			1 => ShortName(hits[0].Type.ResourceKey),
+			// Objects can overlap, for example a spin tube and its cap. A click shows a menu of them.
+			_ => $"{hits.Length} objects here: click to choose"
+		};
+	}
+
+	#endregion
+
+	#region Menu of overlapping objects
+
+	/// <summary>The objects of the open menu, or null. The menu shows when a click hits objects that overlap.</summary>
+	private ActiveObject[] _menu;
+
+	/// <summary>The top left of the menu on the screen.</summary>
+	private Vector2 _menuPosition;
+
+	/// <summary>The press position of a click on a selected object where objects overlap, or null. Without a move, the click opens the menu.</summary>
+	private Vector2? _menuPress;
+
+	private void OpenMenu(ActiveObject[] objects)
+	{
+		_menu = objects;
+		_menuPosition = Editor.Mouse + new Vector2(8.0, 8.0);
+	}
+
+	private string GetMenuText(ActiveObject activeObject)
+	{
+		string name = Placements.FirstOrDefault(p => p.Uid == activeObject.Entry.Uid)?.Name;
+		return ShortName(activeObject.Type.ResourceKey) + (string.IsNullOrEmpty(name) ? "" : ": " + name);
+	}
+
+	/// <summary>The area of the menu, kept inside the view of the level.</summary>
+	private Rectangle GetMenuArea()
+	{
+		double width = _menu.Max(o => Editor.MeasureText(GetMenuText(o))) + LevelEditor.Padding * 2.0;
+		double height = _menu.Length * LevelEditor.RowHeight;
+		double x = Math.Min(_menuPosition.X, LevelEditor.ScreenWidth - LevelEditor.PanelWidth - width);
+		double y = Math.Min(_menuPosition.Y, LevelEditor.ScreenHeight - LevelEditor.StatusBarHeight - height);
+		return new Rectangle(Math.Max(0.0, x), Math.Max(LevelEditor.TopBarHeight, y), width, height);
+	}
+
+	private int GetMenuRowAt(Vector2 screen)
+	{
+		Rectangle area = GetMenuArea();
+		return area.Contains(screen) ? Math.Min(_menu.Length - 1, (int)((screen.Y - area.Y) / LevelEditor.RowHeight)) : -1;
+	}
+
+	private void DrawMenu(Renderer renderer, I2dRenderer g)
+	{
+		if (_menu == null)
+		{
+			return;
+		}
+		Rectangle area = GetMenuArea();
+		int hovered = GetMenuRowAt(Editor.Mouse);
+		// The object of the hovered row shows its box in the level, under the menu
+		if (hovered >= 0)
+		{
+			g.RenderRectangle(LevelEditor.HoverColour, Editor.ToScreen(GetBounds(_menu[hovered])), 3.0);
+		}
+		g.RenderQuad(LevelEditor.ShadowColour, area.OffsetBy(new Vector2(4.0, 4.0)));
+		g.RenderQuad(LevelEditor.PanelColour, area);
+		for (int i = 0; i < _menu.Length; i++)
+		{
+			Rectangle row = new Rectangle(area.X, area.Y + i * LevelEditor.RowHeight, area.Width, LevelEditor.RowHeight);
+			bool selected = Selection.Contains(_menu[i].Entry.Uid);
+			if (i == hovered || selected)
+			{
+				g.RenderQuad(i == hovered ? LevelEditor.ButtonHoverColour : LevelEditor.AccentColour, row);
+			}
+			Editor.DrawText(renderer, GetMenuText(_menu[i]), row.X + LevelEditor.Padding, row.Y + 3.0, LevelEditor.TextColour);
+		}
+		g.RenderRectangle(LevelEditor.OutlineColour, area, 1.0);
 	}
 
 	#endregion
@@ -1071,12 +1188,15 @@ internal sealed class ObjectsTool : EditorTool
 	}
 
 	/// <summary>Finds the object under a position. When objects overlap, the smallest object is found.</summary>
-	private ActiveObject HitTest(Vector2 world)
+	private ActiveObject HitTest(Vector2 world) => HitTestAll(world).FirstOrDefault();
+
+	/// <summary>All the objects under a position, the smallest first.</summary>
+	private ActiveObject[] HitTestAll(Vector2 world)
 	{
 		return GetSelectableObjects()
 			.Where(o => GetBounds(o).Contains(world))
 			.OrderBy(o => GetBounds(o).Width * GetBounds(o).Height)
-			.FirstOrDefault();
+			.ToArray();
 	}
 
 	private ObjectType FindType(string key)

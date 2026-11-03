@@ -664,19 +664,21 @@ public sealed partial class RegressionTests
 	}
 
 	/// <summary>
-	/// The objects tool draws the paths of a selected spin tube in Chemical Plant and edits their points. The test drags
-	/// point 1 of Path0, adds a point with the + of the first segment, turns on its spin sound, and holds the mouse over
-	/// the Path0 row for its tooltip.
+	/// The objects tool draws the paths of a selected spin tube in Chemical Plant and edits their points. The box of the
+	/// tube is at its entrance, with the tube cap. A click there shows a menu of the two objects, and a click on its row
+	/// selects the tube.
+	/// The test then drags point 1 of Path0, adds a point with the + of the first segment, turns on its spin sound, and
+	/// holds the mouse over the Path0 row for its tooltip.
 	/// </summary>
 	[Fact]
 	[Trait("Category", "Regression")]
 	public void EditorSpinTubePath_MatchesGoldenScreenshots()
 	{
-		const string script = "5:mouse 522 492;6:down left;7:up left;9:mouse 700 300;" +
+		const string script = "4:mouse 1000 450;5:down left;6:up left;8:mouse 1050 503;10:down left;11:up left;13:mouse 700 300;" +
 			"14:mouse 1034 876;15:down left;17:mouse 1070 876;19:mouse 1100 876;20:up left;" +
 			"24:mouse 1067 684;25:down left;26:up left;" +
 			"30:mouse 1600 845;31:down left;32:up left;34:mouse 1600 725";
-		RunAndCompare("--level cpz --editor --startpos 8700 3700", new[] { 10022, 10036 }, Path.Combine(TestPaths.GoldenDirectory, "editor-spin-tube-path"),
+		RunAndCompare("--level cpz --editor --startpos 8700 3700", new[] { 10009, 10022, 10036 }, Path.Combine(TestPaths.GoldenDirectory, "editor-spin-tube-path"),
 			"editor-spin-tube-path", new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script });
 	}
 
