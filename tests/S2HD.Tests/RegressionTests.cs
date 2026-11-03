@@ -825,6 +825,20 @@ public sealed partial class RegressionTests
 	}
 
 	/// <summary>
+	/// The tiles tool moves a layer. In a new level, "Move forward" puts the background (layer 0) in front of the solid
+	/// front layer, and the message says that the background now covers the level.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void EditorMoveLayer_MatchesGoldenScreenshots()
+	{
+		const string script = "5:mouse 1700 665;6:down left;7:up left;50:tap 32;55:mouse 1600 93;56:down left;57:up left;" +
+			"60:mouse 1600 243;61:down left;62:up left;64:mouse 600 400";
+		RunAndCompare("--level jungle --editor", new[] { 10066 }, Path.Combine(TestPaths.GoldenDirectory, "editor-move-layer"), "editor-move-layer",
+			new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script });
+	}
+
+	/// <summary>
 	/// The collision tool shows a row for each flag of a line. In Emerald Hill, a click on the "Flags" row of a floor
 	/// line shows the flags, a click turns on "Force roll", and the mouse over "Prevent jump" shows what it does.
 	/// </summary>

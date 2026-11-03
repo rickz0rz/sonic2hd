@@ -5,7 +5,7 @@ using System.Linq;
 namespace SonicOrca.Core.Editor;
 
 /// <summary>
-/// Adds and removes the layers of a map. The collision paths and the shadows of the map refer to a layer by its
+/// Adds, removes and moves the layers of a map. The collision paths and the shadows of the map refer to a layer by its
 /// index, so a change of the layers also changes these indices. Each change gives the new index of each old index,
 /// so that the editor can change the indices of the placements and of the tile collision.
 /// </summary>
@@ -28,13 +28,33 @@ public static class EditorLayerList
 	public static int[] Insert(LevelMap map, int index, LevelLayer layer)
 	{
 		LevelLayer[] oldLayers = map.Layers.ToArray();
-		// The layer goes in the group of the layer next to it
-		LevelLayer neighbour = index > 0 ? oldLayers[index - 1] : oldLayers.FirstOrDefault();
+		InsertLayer(map, index, layer);
+		return FixIndices(map, oldLayers);
+	}
+
+	/// <summary>
+	/// Moves the layer at an index to another index. The game draws the layers in their order, so a layer with a
+	/// lower index is behind.
+	/// </summary>
+	/// <returns>The new index of each old index.</returns>
+	public static int[] Move(LevelMap map, int index, int newIndex)
+	{
+		LevelLayer[] oldLayers = map.Layers.ToArray();
+		LevelLayer layer = oldLayers[index];
+		(FindParent(map.LayerTree, layer)?.Children ?? map.LayerTree.Children).Remove(layer);
+		map.Layers.RemoveAt(index);
+		InsertLayer(map, Math.Clamp(newIndex, 0, map.Layers.Count), layer);
+		return FixIndices(map, oldLayers);
+	}
+
+	/// <summary>Puts a layer at an index of the list of the layers, and in the group of the layer next to it.</summary>
+	private static void InsertLayer(LevelMap map, int index, LevelLayer layer)
+	{
+		LevelLayer neighbour = index > 0 ? map.Layers[index - 1] : map.Layers.FirstOrDefault();
 		IList<ILevelLayerTreeNode> siblings = neighbour == null ? map.LayerTree.Children : FindParent(map.LayerTree, neighbour)?.Children ?? map.LayerTree.Children;
 		int position = neighbour == null ? siblings.Count : siblings.IndexOf(neighbour) + (index > 0 ? 1 : 0);
 		siblings.Insert(Math.Clamp(position, 0, siblings.Count), layer);
 		map.Layers.Insert(index, layer);
-		return FixIndices(map, oldLayers);
 	}
 
 	/// <summary>Removes the layer at an index of the map.</summary>

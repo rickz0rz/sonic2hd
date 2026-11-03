@@ -269,6 +269,19 @@ internal sealed class TilesTool : EditorTool
 			DetailColour = _confirmRemove == _layerIndex ? SolidColour : null,
 			Dim = GetRemoveProblem() != null
 		});
+		// The list goes from the back (top) to the front (bottom)
+		rows.Add(new EditorListRow
+		{
+			Text = "Move back",
+			Detail = _layerIndex > 0 ? $"behind layer {_layerIndex - 1}" : "at the back",
+			Dim = _layerIndex <= 0
+		});
+		rows.Add(new EditorListRow
+		{
+			Text = "Move forward",
+			Detail = _layerIndex < Layers.Count - 1 ? $"in front of layer {_layerIndex + 1}" : "at the front",
+			Dim = _layerIndex >= Layers.Count - 1
+		});
 		return rows;
 	}
 
@@ -284,6 +297,11 @@ internal sealed class TilesTool : EditorTool
 		if (index == Layers.Count + 1)
 		{
 			RemoveLayer(confirmRemove == _layerIndex);
+			return;
+		}
+		if (index == Layers.Count + 2 || index == Layers.Count + 3)
+		{
+			MoveLayer(index == Layers.Count + 2 ? -1 : 1);
 			return;
 		}
 		if (index >= 0 && index < Layers.Count && index != _layerIndex)
@@ -376,6 +394,29 @@ internal sealed class TilesTool : EditorTool
 		Editor.ChangeLayers(map => EditorLayerList.Remove(map, index));
 		SelectLayer(Math.Min(index, Layers.Count - 1));
 		Editor.ShowMessage($"Removed layer {index}: {name}. The undo history is clear.");
+	}
+
+	/// <summary>
+	/// Moves the current layer one place to the back (-1) or to the front (1). A layer with parallax in front of a solid
+	/// layer covers the level, so the message says so.
+	/// </summary>
+	private void MoveLayer(int direction)
+	{
+		int index = _layerIndex;
+		int newIndex = index + direction;
+		if (newIndex < 0 || newIndex >= Layers.Count)
+		{
+			Editor.ShowMessage(direction < 0 ? $"Layer {Layer.Name} is at the back." : $"Layer {Layer.Name} is at the front.");
+			return;
+		}
+		LevelLayer layer = Layer;
+		Editor.ChangeLayers(map => EditorLayerList.Move(map, index, newIndex));
+		SelectLayer(newIndex);
+		int firstSolid = Enumerable.Range(0, Layers.Count).Where(IsSolidLayer).DefaultIfEmpty(-1).Min();
+		string warning = EditorLayerView.IsShifted(layer) && firstSolid >= 0 && newIndex > firstSolid
+			? $" It has parallax and is now in front of the solid layer {firstSolid}, so it covers the level."
+			: "";
+		Editor.ShowMessage($"Layer {layer.Name} is now layer {newIndex}.{warning} The undo history is clear.");
 	}
 
 	/// <summary>Makes a layer the current layer, after a change of the layers.</summary>

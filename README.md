@@ -489,6 +489,12 @@ the map to move the view there, or drag the box. M or the "Map (M)" button shows
 
 #### Layers and tiles
 
+The layer list of the tiles tool goes from the back (the top row) to the front (the bottom row): the game draws a
+layer in front of the layers above it in the list. "Move back" and "Move forward" under the layers move the current
+layer one place. The collision paths, the objects and the shadows keep their layers. A background with parallax in
+front of a solid layer covers the level, so the message tells you when a move does that. A move clears the undo
+history, as "Add a layer" and "Remove layer" do.
+
 The layer list of the tiles tool has an eye at the left of each layer. Click the eye to hide or show the layer in the
 editor. The game and the saved level still have the layer. Right click an eye to show only that layer, and right
 click it again to show all the layers. The list shows a scroll bar when the layers do not fit. Scroll the list with
