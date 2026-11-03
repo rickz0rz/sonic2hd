@@ -42,6 +42,9 @@ internal sealed class EditorPropertyRow
 	public Action<int> Step;
 
 	public bool IsHeading;
+
+	/// <summary>A text that shows next to the panel while the mouse is over the row, or null.</summary>
+	public string Tooltip;
 }
 
 /// <summary>
