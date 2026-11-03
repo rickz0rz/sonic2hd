@@ -502,6 +502,10 @@ that the layer shows alone. Click the banner, or the "View" row of the panel, to
 where the game draws them for the current view. The label at the mouse names the cell of the layer there, for
 example `layer 5: tile 507 at 896, 1088`.
 
+A magenta outline shows the area of the current layer, with its name and its size at the top left. A layer with
+parallax has this outline while it shows alone, and the view then shows its top left corner. On a layer that wraps, a
+click on a copy (a dark tile) paints the cell of the layer, as the game shows the copies.
+
 The "Size" row of the panel changes the size of the current layer: click it, and type the columns and the rows, for
 example `64 x 24`. The tiles in the new size stay. A click outside the layer paints nothing, and the status line says
 so. Undo cannot change the size back, so a change of the size clears the undo history. The front layer of an imported

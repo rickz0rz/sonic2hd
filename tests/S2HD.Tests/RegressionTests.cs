@@ -788,6 +788,43 @@ public sealed partial class RegressionTests
 	}
 
 	/// <summary>
+	/// The tiles tool outlines the current layer in magenta, with its name and its size. In a new level, the view
+	/// zooms out, so that the outline shows the left and the bottom edges of the front layer (128 x 24 tiles).
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void EditorLayerBounds_MatchesGoldenScreenshots()
+	{
+		const string script = "5:mouse 1700 665;6:down left;7:up left;50:tap 32;55:mouse 600 400;58:tap 45;59:tap 45;62:mouse 600 400";
+		RunAndCompare("--level jungle --editor", new[] { 10066 }, Path.Combine(TestPaths.GoldenDirectory, "editor-layer-bounds"), "editor-layer-bounds",
+			new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script });
+	}
+
+	/// <summary>
+	/// A background of 1 x 1 tile that repeats to the left and the right. After the change of its size, the view shows
+	/// the top left of the layer. A click on a copy of the cell paints the cell, and the cell and its copies show the tile.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void EditorPaintWrappedLayer_MatchesGoldenScreenshots()
+	{
+		string image = Path.Combine(Path.GetTempPath(), "s2hd-wrapped-layer-tiles.png");
+		File.WriteAllBytes(image, NewLevelTests.MakePng(256, 128, (_, _) => 255));
+		try
+		{
+			const string script = "5:mouse 1700 665;6:down left;7:up left;50:tap 32;55:mouse 1600 93;56:down left;57:up left;" +
+				"60:mouse 1700 785;61:down left;62:up left;63:type 1 x 1;65:tap 40;68:mouse 1663 835;69:down left;70:up left;" +
+				"74:mouse 600 90;75:down left;76:up left;80:mouse 900 700";
+			RunAndCompare($"--level jungle --editor --tiles {image}", new[] { 10085 }, Path.Combine(TestPaths.GoldenDirectory, "editor-paint-wrapped-layer"),
+				"editor-paint-wrapped-layer", new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script });
+		}
+		finally
+		{
+			File.Delete(image);
+		}
+	}
+
+	/// <summary>
 	/// The collision tool shows a row for each flag of a line. In Emerald Hill, a click on the "Flags" row of a floor
 	/// line shows the flags, a click turns on "Force roll", and the mouse over "Prevent jump" shows what it does.
 	/// </summary>
