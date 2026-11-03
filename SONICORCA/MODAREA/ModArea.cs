@@ -99,7 +99,9 @@ public class ModArea : Area
 	public override void OnStart()
 	{
 		string script = this.GetAbsolutePath(ScriptResourceKey);
-		if (_level == null || _level.GameContext.ResourceTree.GetLoadedResource<ObjectType>(script) == null)
+		// GetLoadedResource throws for a key that does not exist, and a new level has no script
+		ResourceTree resourceTree = _level?.GameContext.ResourceTree;
+		if (resourceTree?[script]?.Resource == null || resourceTree.GetLoadedResource<ObjectType>(script) == null)
 			return;
 		int layer = _level.Player?.Protagonist != null ? _level.Map.Layers.IndexOf(_level.Player.Protagonist.Layer) : 0;
 		ActiveObject scriptObject = _level.ObjectManager.AddObject(new ObjectPlacement(script, System.Math.Max(layer, 0), _level.GetPlayerStartPosition()));

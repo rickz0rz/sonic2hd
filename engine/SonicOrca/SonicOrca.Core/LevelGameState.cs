@@ -281,7 +281,8 @@ public class LevelGameState : IGameState, IDisposable
 			if (PrepareSettings.EditorNewLevelForm)
 			{
 				PrepareSettings.EditorNewLevelForm = false;
-				_level.Editor.ShowNewLevelForm();
+				_level.Editor.ShowNewLevelForm(PrepareSettings.EditorNewLevelName);
+				PrepareSettings.EditorNewLevelName = null;
 			}
 		}
 	}
