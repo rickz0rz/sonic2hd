@@ -183,6 +183,12 @@ public class Level : IDisposable
 
 	public Vector2i StartPosition { get; set; }
 
+	/// <summary>
+	/// The name of the marker that gave <see cref="StartPosition"/>, or null. The level editor shows the start at this
+	/// marker, so that the start follows the marker when the user moves it.
+	/// </summary>
+	public string StartMarkerName { get; private set; }
+
 	public int StartLayerIndex { get; set; }
 
 	public Rectanglei Bounds { get; set; }
@@ -1398,6 +1404,7 @@ public class Level : IDisposable
 	{
 		StartPosition = marker.Position;
 		StartLayerIndex = Map.Layers.IndexOf(marker.Layer);
+		StartMarkerName = marker.Name;
 	}
 
 	public LevelMarker[] GetMarkersWithTag(string tag)

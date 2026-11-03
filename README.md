@@ -483,6 +483,11 @@ collision tool.
 
 The editor shows the map without the layout changes of the play, for example the walls that close a boss arena.
 
+The large cross "START (marker)" shows where the level starts the player. It is the start marker of the level, for
+example `startpos` in a new level or `startpos_stk_1` in act 1 of a Sonic 2 zone. When you move the marker with the
+markers tool, the cross moves with it. When the level has no such marker, the cross says so. Home moves the view to
+the start.
+
 The mini-map in the bottom right corner of the view shows the whole level. The tiles of the layers without parallax
 are white, rings are green, enemies are red, and the other objects are blue. A yellow box shows the view. Click in
 the map to move the view there, or drag the box. M or the "Map (M)" button shows or hides the map.

@@ -503,7 +503,7 @@ public sealed class LevelEditor : IDisposable
 		}
 		else if (IsKeyPressed(KeyboardState.KEY_HOME))
 		{
-			CentreOn(_level.StartPosition);
+			CentreOn(StartMarker != null ? (Vector2)StartMarker.Position : (Vector2)_level.StartPosition);
 		}
 		else if (IsKeyPressed(KeyboardState.KEY_N))
 		{
@@ -1632,12 +1632,39 @@ public sealed class LevelEditor : IDisposable
 		renderer.DeativateRenderer();
 	}
 
+	/// <summary>The marker where the level starts the player, or null when the map does not have it.</summary>
+	internal LevelMarker StartMarker => _level.StartMarkerName == null ? null
+		: _level.Map.Markers.FirstOrDefault(m => string.Equals(m.Name, _level.StartMarkerName, StringComparison.OrdinalIgnoreCase));
+
+	/// <summary>
+	/// Draws the start of the player at its marker, in every tool. The markers tool draws the start marker itself, so
+	/// that it moves while the user drags it.
+	/// </summary>
 	private void DrawStartPosition(Renderer renderer, I2dRenderer g)
 	{
-		Vector2 start = ToScreen((Vector2)_level.StartPosition);
+		if (_tool is MarkersTool)
+		{
+			return;
+		}
+		LevelMarker marker = StartMarker;
+		if (marker != null)
+		{
+			DrawStart(renderer, g, (Vector2)marker.Position, Colours.White, $"START ({marker.Name})");
+		}
+		else
+		{
+			string name = _level.StartMarkerName;
+			DrawStart(renderer, g, (Vector2)_level.StartPosition, SelectionColour, name == null ? "START" : $"START: no {name} marker");
+		}
+	}
+
+	/// <summary>Draws the cross of the start at a level position, with its label.</summary>
+	internal void DrawStart(Renderer renderer, I2dRenderer g, Vector2 world, Colour colour, string label)
+	{
+		Vector2 start = ToScreen(world);
 		DrawCross(g, start, 24.0, ShadowColour, 7.0);
-		DrawCross(g, start, 24.0, Colours.White, 3.0);
-		DrawLabel(renderer, g, "START", start.X + 10.0, start.Y - 40.0, TextColour);
+		DrawCross(g, start, 24.0, colour, 3.0);
+		DrawLabel(renderer, g, label, start.X + 10.0, start.Y - 40.0, colour == Colours.White ? TextColour : colour);
 	}
 
 	internal static void DrawCross(I2dRenderer g, Vector2 centre, double size, Colour colour, double thickness) => EditorUi.DrawCross(g, centre, size, colour, thickness);
