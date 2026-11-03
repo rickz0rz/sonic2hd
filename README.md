@@ -240,7 +240,8 @@ and Hill Top keep the frames of their animated tiles in the tile set. The mod mo
 group (`ANIGROUP`) next to each tile set, as the import does for the other zones. Each frame keeps its delay and its
 opacity, and each tile keeps its blend mode. In the level editor, the "Animation" row of the Tiles tool then opens
 the animation of the brush tile in the animation editor. To make only this mod, run
-`dotnet run --project tools/s2hd-data -- convert-tile-animations data/sonicorca.dat <folder>`, then pack the folder.
+`dotnet run --project tools/s2hd-data -- convert-tile-animations data/sonicorca.dat <folder>`, then pack the folder. The
+import of the web build makes this mod too.
 
 ### Ending cutscene
 
