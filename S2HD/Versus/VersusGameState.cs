@@ -48,7 +48,11 @@ internal sealed class VersusGameState : IGameState, IDisposable
 		List<LevelInfo> levels = Levels.GetStoryLevels(gameContext.ResourceTree).Concat(Levels.GetOtherLevels(gameContext.ResourceTree)).ToList();
 		LevelInfo[] zones = ZoneMnemonics.Select(mnemonic => levels.FirstOrDefault(level => level.Mnemonic == mnemonic)).Where(level => level != null).ToArray();
 		_zoneAreaKeys = zones.Select(level => Levels.GetAreaResourceKey(level.Mnemonic, gameContext.ResourceTree)).ToArray();
-		_match = new VersusMatch(zones.Select(level => level.Name.ToUpperInvariant()).ToArray());
+		_match = new VersusMatch(zones.Select(level => level.Name.ToUpperInvariant()).ToArray())
+		{
+			// Only the import of Casino Night has the two-player layouts
+			HasTwoPlayerLayouts = zones.Any(level => string.Equals(level.Mnemonic, "CNZ", StringComparison.OrdinalIgnoreCase))
+		};
 	}
 
 	/// <summary>Starts the match with the level of the command line, for example "--level ehz --versus --act 2".</summary>
@@ -119,6 +123,7 @@ internal sealed class VersusGameState : IGameState, IDisposable
 				Lives = _match.Player1Lives,
 				Player2Lives = _match.Player2Lives,
 				VersusTeleportOnly = _match.TeleportOnly,
+				VersusTwoPlayerLayouts = _match.TwoPlayerLayouts,
 				Physics = start?.Physics,
 				Debugging = start?.Debugging ?? false
 			};
