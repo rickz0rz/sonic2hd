@@ -26,7 +26,7 @@ public static class OriginalImport
 	/// The version of the import. Change it when a change of the importers changes the mods, so that the web build
 	/// makes its stored mods again.
 	/// </summary>
-	public const int Version = 23;
+	public const int Version = 24;
 
 	/// <summary>The zones that the import makes, in the order of tools/import-all.sh.</summary>
 	public static readonly IReadOnlyList<string> Zones = new[] { "arz", "cnz", "mcz", "ooz", "mtz", "scz", "wfz", "dez" };
@@ -106,6 +106,11 @@ public static class OriginalImport
 		string output = KeyFolder(folder, zone.Key);
 		Directory.CreateDirectory(output);
 		new LevelMapWriter(level.Map).Save(Path.Combine(output, "MAP.map.xml"));
+		if (level.ObjectPaletteCycles != null)
+		{
+			// The level reads it next to the map: the key colours of the sprites and the colours of the steps
+			File.WriteAllText(Path.Combine(output, ObjectPaletteCycles.ResourceName + ".xml"), level.ObjectPaletteCycles.ToXml());
+		}
 		new LevelBindingWriter(level.Binding).Save(Path.Combine(output, "BINDING.binding.xml"));
 		if (level.VersusBinding != null)
 		{

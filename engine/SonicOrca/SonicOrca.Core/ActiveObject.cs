@@ -225,10 +225,13 @@ public abstract class ActiveObject : IActiveObject
 			objectRenderer.Filter = viewOptions.Filter;
 			objectRenderer.FilterAmount = viewOptions.FilterAmount;
 			objectRenderer.Scale = viewport.Scale;
+			// The sprites of some imported objects have the key colours of the palette cycles of the original
+			objectRenderer.ColourSwaps = Level.GetObjectColourSwaps(Type?.ResourceKey);
 			if (viewOptions.ShowObjects)
 			{
 				OnDraw(renderer, viewOptions);
 			}
+			objectRenderer.ColourSwaps = null;
 		}
 	}
 

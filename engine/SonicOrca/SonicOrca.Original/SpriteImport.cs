@@ -64,7 +64,8 @@ public sealed record OriginalSprite(string ObjectKey, string ArtFile, string Map
 }
 
 /// <summary>The files of an imported sprite: a texture with all frames in one row, and an animation group with one animation for each frame.</summary>
-public sealed record ImportedSprite(string ObjectKey, byte[] Texture, string AnimationGroup);
+/// <param name="UsesKeyColours">The texture has the key colours of palette cycles (see <see cref="SpriteImport.Import(OriginalSprite, string, uint[], int, IReadOnlyList{PaletteCycle}, uint[])"/>).</param>
+public sealed record ImportedSprite(string ObjectKey, byte[] Texture, string AnimationGroup, bool UsesKeyColours = false);
 
 /// <summary>
 /// Converts the sprites of an object of the original game into a texture at four times the size, and an animation
@@ -194,14 +195,16 @@ public static class SpriteImport
 	}
 
 	public static ImportedSprite Import(OriginalSprite sprite, string disassembly, uint[] palette, int scale) =>
-		Import(sprite, disassembly, palette, scale, Array.Empty<PaletteCycle>());
+		Import(sprite, disassembly, palette, scale, Array.Empty<PaletteCycle>(), null);
 
 	/// <summary>
 	/// Converts the sprites of an object. A sprite with one frame that uses the colours of one palette cycle gets one
 	/// frame for each step of the cycle, in one animation, so that the object changes colour as in the original.
-	/// The object code plays the animation. Other sprites with cycled colours keep the colours of the first step.
+	/// The object code plays the animation. Other sprites with cycled colours are drawn with the key colours of
+	/// <paramref name="keyPalette"/>, which the object shader changes to the colours of the steps (see ObjectPaletteCycles).
 	/// </summary>
-	public static ImportedSprite Import(OriginalSprite sprite, string disassembly, uint[] palette, int scale, IReadOnlyList<PaletteCycle> cycles)
+	/// <param name="keyPalette">The palette with a key colour for each cycled entry, or null to keep the colours.</param>
+	public static ImportedSprite Import(OriginalSprite sprite, string disassembly, uint[] palette, int scale, IReadOnlyList<PaletteCycle> cycles, uint[] keyPalette)
 	{
 		byte[] art = Array.Empty<byte>();
 		foreach ((string file, int artTile) in sprite.MoreArt.Prepend((sprite.ArtFile, sprite.ArtTile)))
@@ -236,7 +239,49 @@ public static class SpriteImport
 		{
 			return ImportCycled(sprite.ObjectKey, art, frames[0], sprite.PaletteLines[0], palette, cycle, scale);
 		}
-		return Import(sprite.ObjectKey, art, frames, sprite.PaletteLines, sprite.SplitFrames, palette, scale);
+		ImportedSprite imported = Import(sprite.ObjectKey, art, frames, sprite.PaletteLines, sprite.SplitFrames, palette, scale);
+		if (keyPalette != null && sprite.PaletteOverrides.Count == 0)
+		{
+			// A sprite that uses a colour of a cycle looks different with the key colours
+			ImportedSprite keyed = Import(sprite.ObjectKey, art, frames, sprite.PaletteLines, sprite.SplitFrames, keyPalette, scale);
+			if (!keyed.Texture.AsSpan().SequenceEqual(imported.Texture))
+			{
+				return keyed with { UsesKeyColours = true };
+			}
+		}
+		return imported;
+	}
+
+	/// <summary>
+	/// Gives each entry of the palette cycles a key colour: the colour of the palette with 1 or 2 more or less in a
+	/// channel. The Mega Drive has 8 values in each channel, so a key colour is never a colour of the palette, and it
+	/// looks the same. Returns the palette with the key colours, and the key colour of each cycled entry.
+	/// </summary>
+	public static (uint[] Palette, IReadOnlyDictionary<int, uint> Keys) MakeKeyPalette(uint[] palette, IReadOnlyList<PaletteCycle> cycles)
+	{
+		uint[] keyPalette = (uint[])palette.Clone();
+		var keys = new Dictionary<int, uint>();
+		var used = new HashSet<uint>(palette);
+		foreach (int entry in cycles.SelectMany(c => c.Entries).Distinct().OrderBy(e => e))
+		{
+			uint colour = palette[entry];
+			for (int step = 1; ; step++)
+			{
+				// Change the blue channel, then the green one, away from 0 and 255
+				int shift = step <= 2 ? 8 : 16;
+				int delta = step <= 2 ? step : step - 2;
+				int channel = (int)((colour >> shift) & 0xFF);
+				int changed = channel < 0x80 ? channel + delta : channel - delta;
+				uint key = (colour & ~(0xFFu << shift)) | ((uint)changed << shift);
+				if (used.Add(key))
+				{
+					keys[entry] = key;
+					keyPalette[entry] = key;
+					break;
+				}
+			}
+		}
+		return (keyPalette, keys);
 	}
 
 	/// <summary>The palette cycles whose colours a frame uses: a change of the colours of the cycle changes the frame.</summary>

@@ -17,6 +17,7 @@ using SonicOrca.Geometry;
 using SonicOrca.Graphics;
 using SonicOrca.Input;
 using SonicOrca.Menu;
+using SonicOrca.Resources;
 
 namespace SonicOrca.Core;
 
@@ -360,7 +361,51 @@ public class Level : IDisposable
 			}
 		}
 		_levelRenderer.Initialise();
+		ObjectPaletteCycles = LoadObjectPaletteCycles(map);
 		Trace.WriteLine("Map loading complete");
+	}
+
+	/// <summary>The palette cycles of the sprites of the objects of the zone, from the import, or null.</summary>
+	public ObjectPaletteCycles ObjectPaletteCycles { get; private set; }
+
+	private ColourSwap[] _objectColourSwaps;
+
+	private int _objectColourSwapsTick = -1;
+
+	/// <summary>The colour swaps of the sprites of an object type at the current tick, or null when the type has none.</summary>
+	public IReadOnlyList<ColourSwap> GetObjectColourSwaps(string objectKey)
+	{
+		if (ObjectPaletteCycles == null || !ObjectPaletteCycles.Uses(objectKey))
+		{
+			return null;
+		}
+		if (_objectColourSwapsTick != Ticks)
+		{
+			_objectColourSwaps = ObjectPaletteCycles.GetSwaps(Ticks);
+			_objectColourSwapsTick = Ticks;
+		}
+		return _objectColourSwaps;
+	}
+
+	/// <summary>Reads the resource PALETTECYCLES next to the map. Only the import of a zone writes it.</summary>
+	private ObjectPaletteCycles LoadObjectPaletteCycles(LevelMap map)
+	{
+		_objectColourSwapsTick = -1;
+		Resource resource = map.Resource == null ? null : _gameContext.ResourceTree[map.Resource.GetAbsolutePath("//" + ObjectPaletteCycles.ResourceName)]?.Resource;
+		if (resource == null)
+		{
+			return null;
+		}
+		try
+		{
+			using Stream stream = resource.Source.ReadUncompressed();
+			return ObjectPaletteCycles.FromXml(stream);
+		}
+		catch (Exception ex) when (ex is IOException || ex is FormatException || ex is System.Xml.XmlException)
+		{
+			Trace.WriteLine("The palette cycles of the objects did not load: " + ex.Message);
+			return null;
+		}
 	}
 
 	public void LoadBinding(LevelBinding binding)

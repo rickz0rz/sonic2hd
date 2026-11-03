@@ -53,8 +53,11 @@ public class ObjectRenderer : IObjectRenderer, IRenderer, IDisposable
 
 		private readonly double _filterAmount;
 
-		public BatchOperation(ObjectRenderer objectRenderer, int vertexBufferIndex, int vertexCount, BlendMode blendMode, Rectangle clipRectangle, Matrix4 modelMatrix, ITexture texture, Colour multiplyColour, Colour additiveColour, bool shadow, int filter, double filterAmount)
+		private readonly IReadOnlyList<ColourSwap> _colourSwaps;
+
+		public BatchOperation(ObjectRenderer objectRenderer, int vertexBufferIndex, int vertexCount, BlendMode blendMode, Rectangle clipRectangle, Matrix4 modelMatrix, ITexture texture, Colour multiplyColour, Colour additiveColour, bool shadow, int filter, double filterAmount, IReadOnlyList<ColourSwap> colourSwaps)
 		{
+			_colourSwaps = colourSwaps;
 			_objectRenderer = objectRenderer;
 			_vertexBufferIndex = vertexBufferIndex;
 			_vertexCount = vertexCount;
@@ -86,6 +89,16 @@ public class ObjectRenderer : IObjectRenderer, IRenderer, IDisposable
 			shaderProgram.SetUniform("InputEnableMask", (_blendMode != BlendMode.Additive) ? 1 : 0);
 			shaderProgram.SetUniform("InputFilter", _filter);
 			shaderProgram.SetUniform("InputFilterAmount", _filterAmount);
+			if (!_shadow)
+			{
+				int swaps = Math.Min(_colourSwaps?.Count ?? 0, MaxColourSwaps);
+				shaderProgram.SetUniform("InputColourSwapCount", swaps);
+				for (int i = 0; i < swaps; i++)
+				{
+					shaderProgram.SetUniform($"InputColourSwapFrom[{i}]", _colourSwaps[i].From);
+					shaderProgram.SetUniform($"InputColourSwapTo[{i}]", _colourSwaps[i].To);
+				}
+			}
 			IVertexArray vao = _shadow ? _objectRenderer._vaoShadow : _objectRenderer._vao;
 			vao.Render(PrimitiveType.Quads, _vertexBufferIndex, _vertexCount);
 		}
@@ -171,6 +184,11 @@ public class ObjectRenderer : IObjectRenderer, IRenderer, IDisposable
 
 	public double FilterAmount { get; set; }
 
+	public IReadOnlyList<ColourSwap> ColourSwaps { get; set; }
+
+	/// <summary>The size of the arrays of colour swaps in object.shader.</summary>
+	private const int MaxColourSwaps = 16;
+
 	public static ObjectRenderer FromRenderer(Renderer renderer)
 	{
 		if (!RendererDictionary.ContainsKey(renderer))
@@ -235,7 +253,7 @@ public class ObjectRenderer : IObjectRenderer, IRenderer, IDisposable
 	{
 		if (_batchedVertexIndex != _batchedVertexCount)
 		{
-			_batchOperations.Add(new BatchOperation(this, _batchedVertexIndex, _batchedVertexCount - _batchedVertexIndex, BlendMode, ClipRectangle, ModelMatrix, Texture, MultiplyColour, AdditiveColour, Shadow, (!EmitsLight) ? Filter : 0, FilterAmount));
+			_batchOperations.Add(new BatchOperation(this, _batchedVertexIndex, _batchedVertexCount - _batchedVertexIndex, BlendMode, ClipRectangle, ModelMatrix, Texture, MultiplyColour, AdditiveColour, Shadow, (!EmitsLight) ? Filter : 0, FilterAmount, ColourSwaps));
 			_batchedVertexIndex = _batchedVertexCount;
 		}
 	}
@@ -276,6 +294,7 @@ public class ObjectRenderer : IObjectRenderer, IRenderer, IDisposable
 		AdditiveColour = Colours.Black;
 		Shadow = false;
 		EmitsLight = false;
+		ColourSwaps = null;
 	}
 
 	public void Render(AnimationInstance animationInstance, bool flipX = false, bool flipY = false)

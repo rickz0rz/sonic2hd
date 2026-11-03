@@ -825,6 +825,19 @@ public sealed partial class RegressionTests
 	}
 
 	/// <summary>
+	/// The object shader changes the key colours of imported sprites to the colours of the palette cycles of the
+	/// original. The bumpers at the start of CNZ 1 show another step of PalCycle_CNZ 8 ticks later.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void ImportedObjectColourSwaps_MatchesGoldenScreenshots()
+	{
+		ImportedMods.Get();
+		RunAndCompare("--level cnz --startpos 416 1500", new[] { 200, 208 }, Path.Combine(TestPaths.GoldenDirectory, "imported-object-colour-swaps"),
+			"imported-object-colour-swaps", withImportedMods: true);
+	}
+
+	/// <summary>
 	/// Starts each act of the zones that the import makes from the disassembly, with no input. Skipped when the
 	/// disassembly is not found. The goldens are in tests/golden/levels-imported.
 	/// </summary>

@@ -21,6 +21,10 @@
 	uniform int InputEnableMask;
 	uniform int InputFilter;
 	uniform float InputFilterAmount;
+	// The palette cycles of the original: a texel of a key colour takes the colour of the current step
+	uniform int InputColourSwapCount;
+	uniform vec4 InputColourSwapFrom[16];
+	uniform vec4 InputColourSwapTo[16];
 
 @vertex_input:
 	layout (location = 0) in vec2 VertexPosition;
@@ -63,6 +67,16 @@
 
 		// 
 		vec4 result = texture(InputTexture, FragmentTextureMapping);
+		for (int i = 0; i < InputColourSwapCount; i++)
+		{
+			// A key colour differs from the colours of the palette by 1 or 2 in a channel
+			vec3 difference = abs(result.rgb - InputColourSwapFrom[i].rgb);
+			if (max(difference.r, max(difference.g, difference.b)) < 0.5 / 255.0)
+			{
+				result.rgb = InputColourSwapTo[i].rgb;
+				break;
+			}
+		}
 		result *= InputColourMultiply;
 		result += vec4(InputColourAdd.rgb, 0);
 		result = applyFilter(result, InputFilter, InputFilterAmount);
