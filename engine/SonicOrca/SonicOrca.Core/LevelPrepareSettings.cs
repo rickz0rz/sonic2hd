@@ -75,6 +75,9 @@ public class LevelPrepareSettings
 	/// <summary>The level editor opens with the form of a new level, for "--editor" without "--level".</summary>
 	public bool EditorNewLevelForm { get; set; }
 
+	/// <summary>The name that the form of a new level starts with, for "--level" with a level that does not exist, or null.</summary>
+	public string EditorNewLevelName { get; set; }
+
 	public double NightMode { get; set; }
 
 	public LevelPrepareSettings()

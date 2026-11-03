@@ -233,10 +233,16 @@ internal sealed class LevelsTool : EditorTool
 	}
 
 	/// <summary>Shows the form of a new level. The tiles start as the tiles of the open level.</summary>
-	public void StartNewLevel()
+	/// <param name="name">The name that the form starts with, for example from "--level" with a new level, or null.</param>
+	public void StartNewLevel(string name = null)
 	{
 		_creating = true;
 		_newTilesFrom ??= OpenMnemonic;
+		if (!string.IsNullOrWhiteSpace(name))
+		{
+			_newName = name.Trim();
+			_newMnemonic = MakeMnemonic(_newName);
+		}
 		Editor.ShowMessage(Hint);
 	}
 

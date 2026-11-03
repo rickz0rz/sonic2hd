@@ -55,7 +55,10 @@ internal class RootGameState : IGameState, IDisposable
 			LevelPrepareSettings settingsFromCommandLine = GetLevelPrepareSettingsFromCommandLine();
 			if (settingsFromCommandLine == null)
 			{
-				Program.ShowErrorMessageBox("Level does not exist.");
+				string level = _cmdLineArgs.GetOptionValues("level").FirstOrDefault();
+				Program.ShowErrorMessageBox(level == null
+					? "Level does not exist."
+					: $"The level {level} does not exist. To make it, start the game with --level {level} --editor.");
 			}
 			else if (settingsFromCommandLine.Versus)
 			{
@@ -353,6 +356,14 @@ internal class RootGameState : IGameState, IDisposable
 	{
 		string[] levelValues = _cmdLineArgs.GetOptionValues("level");
 		bool newLevel = levelValues.Length == 0;
+		string newLevelName = null;
+		// With "--editor", a level that does not exist opens the form of a new level with its name
+		if (!newLevel && _cmdLineArgs.HasOption("editor") && Levels.GetAreaResourceKey(levelValues[0], _gameContext.ResourceTree) == null &&
+			levelValues[0].Any(char.IsAsciiLetterOrDigit))
+		{
+			newLevel = true;
+			newLevelName = levelValues[0];
+		}
 		string mnemonic = newLevel ? Levels.GetStoryLevels(_gameContext.ResourceTree).FirstOrDefault()?.Mnemonic : levelValues[0];
 		if (mnemonic == null)
 			return null;
@@ -374,6 +385,7 @@ internal class RootGameState : IGameState, IDisposable
 			Versus = _cmdLineArgs.HasOption("versus"),
 			OpenEditor = _cmdLineArgs.HasOption("editor"),
 			EditorNewLevelForm = newLevel,
+			EditorNewLevelName = newLevelName,
 			Physics = Enum.TryParse(_cmdLineArgs.GetOptionValues("physics").FirstOrDefault(), ignoreCase: true, out PhysicsMode physics)
 				? physics
 				: null

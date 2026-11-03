@@ -696,6 +696,20 @@ public sealed partial class RegressionTests
 	}
 
 	/// <summary>
+	/// "--level jungle --editor" with a level that does not exist opens the form of a new level with the name "jungle".
+	/// A click on "Create" makes the level and opens it in the editor. A new level has no level script.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void EditorNewLevelFromCommandLine_MatchesGoldenScreenshots()
+	{
+		const string script = "5:mouse 1700 300;8:mouse 1700 635;9:down left;10:up left;12:mouse 600 400";
+		RunAndCompare("--level jungle --editor", new[] { 10006, 10060 }, Path.Combine(TestPaths.GoldenDirectory, "editor-new-level-command-line"),
+			"editor-new-level-command-line", new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script },
+			checkUserData: userData => Assert.True(File.Exists(Path.Combine(userData, "mods", "jungle", "SONICORCA", "LEVELS", "JUNGLE", "MAP.map.xml"))));
+	}
+
+	/// <summary>
 	/// The collision tool shows a row for each flag of a line. In Emerald Hill, a click on the "Flags" row of a floor
 	/// line shows the flags, a click turns on "Force roll", and the mouse over "Prevent jump" shows what it does.
 	/// </summary>

@@ -780,10 +780,11 @@ public sealed class LevelEditor : IDisposable
 	}
 
 	/// <summary>Selects the levels tool and opens its form of a new level.</summary>
-	public void ShowNewLevelForm()
+	/// <param name="name">The name that the form starts with, or null.</param>
+	public void ShowNewLevelForm(string name = null)
 	{
 		SelectTool(Array.IndexOf(_tools, _levelsTool));
-		_levelsTool.StartNewLevel();
+		_levelsTool.StartNewLevel(name);
 	}
 
 	/// <summary>Asks the level game state to open another level in the editor. The changes that are not saved are lost.</summary>
