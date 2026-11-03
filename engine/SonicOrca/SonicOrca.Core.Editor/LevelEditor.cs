@@ -116,6 +116,9 @@ public sealed class LevelEditor : IDisposable
 	/// <summary>The centre of the view before it went to a layer that shows alone, or null.</summary>
 	private Vector2? _viewBeforeLayerAlone;
 
+	/// <summary>True when a background layer showed alone at the last update.</summary>
+	private bool _layerAlone;
+
 	private double _listScroll;
 
 	private double _propertyScroll;
@@ -339,10 +342,17 @@ public sealed class LevelEditor : IDisposable
 	{
 		_frames++;
 		// The tiles tool paints at level positions. Thus a background layer shows at these positions while the tool paints on it.
-		if (!EditorLayerView.Apply(_level.Map.Layers, _tool is TilesTool tiles ? tiles.AloneLayerIndex : -1, _hiddenLayers))
+		bool alone = EditorLayerView.Apply(_level.Map.Layers, _tool is TilesTool tiles ? tiles.AloneLayerIndex : -1, _hiddenLayers);
+		if (!alone)
 		{
 			RestoreViewBeforeLayerAlone();
+			if (_layerAlone)
+			{
+				// The message that the layer shows alone is not true now
+				ShowMessage("All layers show again.");
+			}
 		}
+		_layerAlone = alone;
 		if (_messageFrames > 0)
 		{
 			_messageFrames--;
@@ -578,7 +588,11 @@ public sealed class LevelEditor : IDisposable
 			}
 			else if (IsOverLevel(Mouse))
 			{
-				if (_input.LeftPressed && !IsKeyDown(KeyboardState.KEY_SPACE))
+				if (_input.LeftPressed && _layerAlone && _tool is TilesTool aloneTool && GetLayerAloneBanner().Contains(Mouse))
+				{
+					aloneTool.ShowAllLayers();
+				}
+				else if (_input.LeftPressed && !IsKeyDown(KeyboardState.KEY_SPACE))
 				{
 					_tool.OnLevelPress();
 				}
@@ -1539,6 +1553,7 @@ public sealed class LevelEditor : IDisposable
 		if (HasFont)
 		{
 			DrawCursorLabel(renderer, g);
+			DrawLayerAloneBanner(renderer, g);
 			DrawTopBar(renderer, g);
 			DrawPanel(renderer, g);
 			DrawStatusBar(renderer, g);
@@ -1574,6 +1589,26 @@ public sealed class LevelEditor : IDisposable
 	/// <summary>Draws a text on a dark box, for labels in the level.</summary>
 	internal void DrawLabel(Renderer renderer, I2dRenderer g, string text, double x, double y, Colour colour) => _ui.DrawLabel(renderer, g, text, x, y, colour);
 
+	private string LayerAloneBannerText => $"Layer {_level.Map.Layers.FirstOrDefault(layer => layer.Editing)?.Name} shows alone, without parallax. Click here to show all layers.";
+
+	/// <summary>The banner at the top of the view while a layer shows alone. A click on it shows all the layers.</summary>
+	private Rectangle GetLayerAloneBanner()
+	{
+		double width = MeasureText(LayerAloneBannerText) + Padding * 2.0;
+		return new Rectangle((ScreenWidth - PanelWidth - width) / 2.0, TopBarHeight + Padding, width, RowHeight);
+	}
+
+	private void DrawLayerAloneBanner(Renderer renderer, I2dRenderer g)
+	{
+		if (!_layerAlone)
+		{
+			return;
+		}
+		Rectangle banner = GetLayerAloneBanner();
+		g.RenderQuad(banner.Contains(Mouse) ? ButtonHoverColour : AccentColour, banner);
+		DrawText(renderer, LayerAloneBannerText, banner.X + Padding, banner.Y + (RowHeight - TextHeight) / 2.0, TextColour);
+	}
+
 	/// <summary>Shows what is under the mouse, or what a click adds.</summary>
 	private void DrawCursorLabel(Renderer renderer, I2dRenderer g)
 	{
@@ -1600,6 +1635,20 @@ public sealed class LevelEditor : IDisposable
 		DrawText(renderer, title, ScreenWidth - Padding - MeasureText(title), (TopBarHeight - TextHeight) / 2.0, Dirty ? SelectionColour : DimTextColour);
 	}
 
+	/// <summary>Draws a scroll bar at the right of the list when the rows do not fit, so that the user knows that the list scrolls.</summary>
+	private void DrawListScrollBar(I2dRenderer g, double left, double listTop, double contentHeight)
+	{
+		double height = ListBottom - listTop;
+		if (contentHeight <= height)
+		{
+			return;
+		}
+		const double Width = 4.0;
+		double barHeight = Math.Max(RowHeight, height * height / contentHeight);
+		double barTop = listTop + (height - barHeight) * _listScroll / (contentHeight - height);
+		g.RenderQuad(DimTextColour, new Rectangle(left + PanelWidth - Width, barTop, Width, barHeight));
+	}
+
 	private void DrawPanel(Renderer renderer, I2dRenderer g)
 	{
 		double left = ScreenWidth - PanelWidth;
@@ -1620,6 +1669,7 @@ public sealed class LevelEditor : IDisposable
 			}
 			_ui.DrawListRow(renderer, g, listRows[i], new Rectangle(left, y, PanelWidth, RowHeight), Mouse);
 		}
+		DrawListScrollBar(g, left, listTop, listRows.Count * RowHeight);
 		renderer.DeativateRenderer();
 		g.ClipRectangle = new Rectangle(0.0, 0.0, ScreenWidth, ScreenHeight);
 

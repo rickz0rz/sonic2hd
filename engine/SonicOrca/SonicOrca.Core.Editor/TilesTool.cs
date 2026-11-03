@@ -26,7 +26,7 @@ internal sealed class TilesTool : EditorTool
 	private const int PaletteColumns = 8;
 
 	/// <summary>The rows of settings above the palette.</summary>
-	private const int SettingRows = 7;
+	private const int SettingRows = 8;
 
 	/// <summary>The size of the mark of an animated tile in the palette, in screen pixels.</summary>
 	private const double AnimatedMarkSize = 10.0;
@@ -50,6 +50,8 @@ internal sealed class TilesTool : EditorTool
 
 	/// <summary>The colour of the mark of a solid layer in the list.</summary>
 	private static readonly Colour SolidColour = new Colour(1.0, 1.0, 0.6, 0.25);
+
+	private static readonly Colour ParallaxColour = new Colour(1.0, 0.45, 0.75, 1.0);
 
 	private readonly List<TileEdit> _strokeEdits = new List<TileEdit>();
 
@@ -254,8 +256,9 @@ internal sealed class TilesTool : EditorTool
 		List<EditorListRow> rows = Layers.Select((layer, index) => new EditorListRow
 		{
 			Text = $"{index}: {layer.Name}",
-			Detail = GetSolidMark(index) + (layer.Rows > 0 ? $"{layer.Columns} x {layer.Rows}" : "empty"),
-			DetailColour = IsSolidLayer(index) ? SolidColour : null,
+			// A layer with parallax shows alone while the tool paints on it, so the list marks it
+			Detail = GetSolidMark(index) + (EditorLayerView.IsShifted(layer) ? "parallax  " : "") + (layer.Rows > 0 ? $"{layer.Columns} x {layer.Rows}" : "empty"),
+			DetailColour = IsSolidLayer(index) ? SolidColour : EditorLayerView.IsShifted(layer) ? ParallaxColour : null,
 			Active = index == _layerIndex,
 			Dim = !layer.Visible,
 			Shown = !Editor.IsLayerHidden(layer)
@@ -553,15 +556,15 @@ internal sealed class TilesTool : EditorTool
 	private void SetPreview(bool preview)
 	{
 		_preview = preview;
-		if (_preview)
-		{
-			Editor.ShowMessage("Preview on. Move the view to see the parallax. Turn the preview off to paint.");
-		}
-		else if (EditorLayerView.IsShifted(Layer))
+		// The level editor shows a message when all the layers show again
+		if (!_preview && EditorLayerView.IsShifted(Layer))
 		{
 			ShowLayerAlone();
 		}
 	}
+
+	/// <summary>Shows all the layers, as in the game, while the current layer has parallax.</summary>
+	internal void ShowAllLayers() => SetPreview(true);
 
 	private void ShowLayerAlone()
 	{
@@ -606,6 +609,14 @@ internal sealed class TilesTool : EditorTool
 				Label = "Scroll",
 				Value = IsSolidLayer(_layerIndex) ? "a solid layer does not scroll" : "click for the parallax",
 				Step = IsSolidLayer(_layerIndex) ? null : _ => _scrollPage = true
+			},
+			// A background layer shows alone while the tool paints on it. This row shows all the layers again.
+			new EditorPropertyRow
+			{
+				Label = "View",
+				Value = !EditorLayerView.IsShifted(Layer) ? "all layers"
+					: _preview ? "all layers (click to paint this layer)" : "this layer alone (click for all layers)",
+				Step = EditorLayerView.IsShifted(Layer) ? _ => SetPreview(!_preview) : null
 			}
 		};
 	}
