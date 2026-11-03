@@ -236,6 +236,11 @@ internal sealed class ObjectsTool : EditorTool
 			}
 			return;
 		}
+		if (TryBeginPathDrag())
+		{
+			return;
+		}
+		_pathPoint = null;
 		ActiveObject hit = HitTest(Editor.MouseWorld);
 		if (hit == null)
 		{
@@ -273,6 +278,11 @@ internal sealed class ObjectsTool : EditorTool
 
 	public override void OnDrag()
 	{
+		if (_pathDrag != null)
+		{
+			DragPathPoint();
+			return;
+		}
 		if (!_moving || !_moveStartPositions.TryGetValue(_moveAnchor, out Vector2i anchorStart))
 		{
 			return;
@@ -291,6 +301,11 @@ internal sealed class ObjectsTool : EditorTool
 
 	public override void OnDragEnd()
 	{
+		if (_pathDrag != null)
+		{
+			EndPathDrag();
+			return;
+		}
 		_moving = false;
 		if (_moveDelta == new Vector2i(0, 0))
 		{
@@ -310,6 +325,11 @@ internal sealed class ObjectsTool : EditorTool
 
 	public override bool Cancel()
 	{
+		if (_pathPoint != null)
+		{
+			_pathPoint = null;
+			return true;
+		}
 		if (_creating)
 		{
 			_creating = false;
@@ -566,6 +586,13 @@ internal sealed class ObjectsTool : EditorTool
 		{
 			object value = property.GetValue(placement);
 			EditorPropertyRow row = new EditorPropertyRow { Label = property.Name, Value = EditorProperty.Format(value) };
+			if (property.Path != null)
+			{
+				// The level shows the points of a path. The row keeps the text, so that the user can also type it.
+				int count = EditorPath.Parse(value as string).Count;
+				row.Tooltip = $"{count} points. Drag a point in the level to move it. Click a + to add a point." +
+					(property.Path.Description != null ? " " + property.Path.Description : "");
+			}
 			if (property.IsEditable)
 			{
 				if (property.Type == typeof(bool) || property.Type.IsEnum)
@@ -579,6 +606,7 @@ internal sealed class ObjectsTool : EditorTool
 			}
 			rows.Add(row);
 		}
+		AddPathPointRows(rows, placement);
 		return rows;
 	}
 
@@ -750,6 +778,7 @@ internal sealed class ObjectsTool : EditorTool
 				g.RenderRectangle(LevelEditor.OutlineColour, bounds, 1.0);
 			}
 		}
+		DrawPaths(renderer, g);
 	}
 
 	public override string GetCursorLabel(I2dRenderer g)
@@ -760,8 +789,265 @@ internal sealed class ObjectsTool : EditorTool
 			LevelEditor.DrawCross(g, position, 16.0, LevelEditor.SelectionColour, 2.0);
 			return "+ " + ShortName(_placeKey);
 		}
+		if (GetPathHandleAt(Editor.MouseWorld) is PathHandle handle)
+		{
+			return handle.Insert ? $"{handle.Property.Name}: click to add a point" : DescribePoint(handle.Property, handle.Points, handle.Index);
+		}
 		ActiveObject hover = HitTest(Editor.MouseWorld);
 		return hover == null ? null : ShortName(hover.Type.ResourceKey);
+	}
+
+	#endregion
+
+	#region Paths
+
+	/// <summary>The colours of the paths of an object, in the order of its properties.</summary>
+	private static readonly Colour[] PathColours =
+	{
+		new Colour(1.0, 1.0, 0.6, 0.1),
+		new Colour(1.0, 0.3, 0.85, 1.0),
+		new Colour(1.0, 0.9, 0.4, 1.0),
+		new Colour(1.0, 0.4, 1.0, 0.5),
+	};
+
+	/// <summary>The distance in screen pixels within which the mouse takes a point.</summary>
+	private const double HandleRadius = 9.0;
+
+	/// <summary>A point of a path, or the + in the middle of a segment, which adds a point after <see cref="Index"/>.</summary>
+	private sealed record PathHandle(EditorProperty Property, List<EditorPathPoint> Points, int Index, bool Insert);
+
+	/// <summary>The selected point: the path property and the index of the point. The rows of the point show in the properties.</summary>
+	private (string Property, int Index)? _pathPoint;
+
+	/// <summary>The points of the path while the user drags one of them, or null.</summary>
+	private List<EditorPathPoint> _pathDrag;
+
+	private EditorProperty _pathDragProperty;
+
+	private int _pathDragIndex;
+
+	private bool _pathDragInserted;
+
+	/// <summary>The one selected placement, or null.</summary>
+	private ObjectPlacement GetSelectedPlacement()
+	{
+		ObjectPlacement[] selected = Placements.Where(p => Selection.Contains(p.Uid)).Take(2).ToArray();
+		return selected.Length == 1 ? selected[0] : null;
+	}
+
+	/// <summary>The path properties of the one selected object, with their points. The points of a dragged path are the dragged points.</summary>
+	private IEnumerable<(EditorProperty Property, List<EditorPathPoint> Points)> GetSelectedPaths(out ObjectPlacement placement)
+	{
+		placement = GetSelectedPlacement();
+		ObjectType type = placement == null ? null : FindType(placement.Key);
+		if (type == null)
+		{
+			return Array.Empty<(EditorProperty, List<EditorPathPoint>)>();
+		}
+		ObjectPlacement selected = placement;
+		return EditorProperty.For(type).Where(p => p.Path != null)
+			.Select(p => (p, p == _pathDragProperty && _pathDrag != null ? _pathDrag : EditorPath.Parse(p.GetValue(selected) as string)))
+			.ToArray();
+	}
+
+	/// <summary>The point or the + of the selected object's paths under a level position, or null.</summary>
+	private PathHandle GetPathHandleAt(Vector2 world)
+	{
+		if (_placeKey != null)
+		{
+			return null;
+		}
+		double radius = HandleRadius / Editor.Zoom;
+		PathHandle best = null;
+		double bestDistance = radius;
+		// Paths can share points, for example the start. The path of the selected point comes first, then the order of the properties.
+		string selectedPath = _pathPoint?.Property;
+		foreach ((EditorProperty property, List<EditorPathPoint> points) in GetSelectedPaths(out ObjectPlacement placement).OrderBy(p => p.Property.Name == selectedPath ? 0 : 1))
+		{
+			Vector2 origin = (Vector2)placement.Position;
+			for (int i = 0; i < points.Count; i++)
+			{
+				double distance = (origin + (Vector2)points[i].Position - world).Length;
+				if (distance < bestDistance || (best == null && distance <= bestDistance))
+				{
+					best = new PathHandle(property, points, i, false);
+					bestDistance = distance;
+				}
+				if (i + 1 < points.Count && IsLongSegment(points[i], points[i + 1]))
+				{
+					double middle = (origin + GetMiddle(points[i], points[i + 1]) - world).Length;
+					if (middle < bestDistance)
+					{
+						best = new PathHandle(property, points, i, true);
+						bestDistance = middle;
+					}
+				}
+			}
+		}
+		return best;
+	}
+
+	private static Vector2 GetMiddle(EditorPathPoint a, EditorPathPoint b) => ((Vector2)a.Position + (Vector2)b.Position) / 2.0;
+
+	/// <summary>A segment shows its + when it is long enough on the screen to keep the + away from the points.</summary>
+	private bool IsLongSegment(EditorPathPoint a, EditorPathPoint b) => ((Vector2)(b.Position - a.Position)).Length * Editor.Zoom >= HandleRadius * 5.0;
+
+	/// <summary>Starts to drag a point of a path, or adds a point at a + and drags it. Returns false when no handle is under the mouse.</summary>
+	private bool TryBeginPathDrag()
+	{
+		if (GetPathHandleAt(Editor.MouseWorld) is not PathHandle handle)
+		{
+			return false;
+		}
+		_pathDrag = new List<EditorPathPoint>(handle.Points);
+		_pathDragProperty = handle.Property;
+		_pathDragIndex = handle.Index;
+		_pathDragInserted = handle.Insert;
+		if (handle.Insert)
+		{
+			_pathDragIndex = handle.Index + 1;
+			Vector2 middle = GetMiddle(handle.Points[handle.Index], handle.Points[handle.Index + 1]);
+			_pathDrag.Insert(_pathDragIndex, new EditorPathPoint(new Vector2i((int)Math.Round(middle.X), (int)Math.Round(middle.Y)), false));
+		}
+		_pathPoint = (handle.Property.Name, _pathDragIndex);
+		Editor.BeginToolDrag();
+		return true;
+	}
+
+	private void DragPathPoint()
+	{
+		ObjectPlacement placement = GetSelectedPlacement();
+		if (placement == null || !Editor.DragMoved)
+		{
+			return;
+		}
+		Vector2i position = Editor.Snap(Editor.MouseWorld) - placement.Position;
+		_pathDrag[_pathDragIndex] = _pathDrag[_pathDragIndex] with { Position = position };
+	}
+
+	private void EndPathDrag()
+	{
+		List<EditorPathPoint> points = _pathDrag;
+		EditorProperty property = _pathDragProperty;
+		_pathDrag = null;
+		_pathDragProperty = null;
+		ObjectPlacement placement = GetSelectedPlacement();
+		if (placement != null && (Editor.DragMoved || _pathDragInserted))
+		{
+			ReplaceWith(placement, property.SetValue(placement, EditorPath.Format(points)));
+		}
+	}
+
+	/// <summary>Changes the points of a path of the selected object.</summary>
+	private bool ChangePath(ObjectPlacement placement, EditorProperty property, Action<List<EditorPathPoint>> change)
+	{
+		List<EditorPathPoint> points = EditorPath.Parse(property.GetValue(placement) as string);
+		change(points);
+		return ReplaceWith(placement, property.SetValue(placement, EditorPath.Format(points)));
+	}
+
+	private static string DescribePoint(EditorProperty property, List<EditorPathPoint> points, int index)
+	{
+		string place = index == 0 ? " (start)" : index == points.Count - 1 ? " (end)" : "";
+		string mark = points[index].Marked ? $", {property.Path.MarkName ?? "marked"}" : "";
+		return $"{property.Name} point {index}{place}{mark}";
+	}
+
+	/// <summary>The rows of the selected point of a path: its position, its mark, and a row that removes it.</summary>
+	private void AddPathPointRows(List<EditorPropertyRow> rows, ObjectPlacement placement)
+	{
+		if (_pathPoint is not (string name, int index))
+		{
+			return;
+		}
+		EditorProperty property = EditorProperty.For(FindType(placement.Key)).FirstOrDefault(p => p.Name == name && p.Path != null);
+		List<EditorPathPoint> points = property == null ? null : EditorPath.Parse(property.GetValue(placement) as string);
+		if (points == null || index >= points.Count)
+		{
+			_pathPoint = null;
+			return;
+		}
+		EditorPathPoint point = points[index];
+		rows.Add(new EditorPropertyRow { Label = "Point", Value = DescribePoint(property, points, index), IsHeading = true });
+		rows.Add(new EditorPropertyRow
+		{
+			Label = "Point X, Y",
+			Value = $"{point.Position.X}, {point.Position.Y}",
+			Tooltip = "The position of the point from the object.",
+			Commit = text =>
+			{
+				string[] xy = text.Split(',');
+				return xy.Length == 2 && int.TryParse(xy[0].Trim(), out int x) && int.TryParse(xy[1].Trim(), out int y) &&
+					ChangePath(placement, property, p => p[index] = p[index] with { Position = new Vector2i(x, y) });
+			}
+		});
+		if (property.Path.MarkName != null)
+		{
+			rows.Add(new EditorPropertyRow
+			{
+				Label = char.ToUpperInvariant(property.Path.MarkName[0]) + property.Path.MarkName.Substring(1),
+				Value = point.Marked ? "on" : "off",
+				Tooltip = $"The object plays the {property.Path.MarkName} when a character reaches the point.",
+				Step = _ => ChangePath(placement, property, p => p[index] = p[index] with { Marked = !p[index].Marked })
+			});
+		}
+		rows.Add(new EditorPropertyRow
+		{
+			Label = "Remove point",
+			Value = points.Count > 2 ? "click to remove it" : "a path needs 2 points",
+			Step = points.Count > 2 ? _ =>
+			{
+				if (ChangePath(placement, property, p => p.RemoveAt(index)))
+				{
+					_pathPoint = null;
+				}
+			} : null
+		});
+	}
+
+	/// <summary>Draws the paths of the selected object on top of the level, with their points and the + of each segment.</summary>
+	private void DrawPaths(Renderer renderer, I2dRenderer g)
+	{
+		int pathIndex = 0;
+		foreach ((EditorProperty property, List<EditorPathPoint> points) in GetSelectedPaths(out ObjectPlacement placement))
+		{
+			Colour colour = PathColours[pathIndex++ % PathColours.Length];
+			if (points.Count == 0)
+			{
+				continue;
+			}
+			Vector2 origin = (Vector2)placement.Position;
+			Vector2 ToScreen(int i) => Editor.ToScreen(origin + (Vector2)points[i].Position);
+			for (int i = 0; i + 1 < points.Count; i++)
+			{
+				g.RenderLine(LevelEditor.ShadowColour, ToScreen(i), ToScreen(i + 1), 5.0);
+				g.RenderLine(colour, ToScreen(i), ToScreen(i + 1), 2.0);
+				if (IsLongSegment(points[i], points[i + 1]))
+				{
+					Vector2 middle = Editor.ToScreen(origin + GetMiddle(points[i], points[i + 1]));
+					LevelEditor.DrawCross(g, middle, 5.0, colour, 2.0);
+				}
+			}
+			for (int i = 0; i < points.Count; i++)
+			{
+				Vector2 p = ToScreen(i);
+				bool selected = _pathPoint is (string name, int index) && name == property.Name && index == i;
+				double size = selected ? 12.0 : 8.0;
+				Rectangle box = new Rectangle(p.X - size / 2.0, p.Y - size / 2.0, size, size);
+				g.RenderQuad(LevelEditor.ShadowColour, box.Inflate(new Vector2(2.0, 2.0)));
+				g.RenderQuad(points[i].Marked ? Colours.White : colour, box);
+				if (selected)
+				{
+					g.RenderRectangle(Colours.White, box.Inflate(new Vector2(3.0, 3.0)), 2.0);
+				}
+			}
+			Vector2 start = ToScreen(0);
+			Vector2 end = ToScreen(points.Count - 1);
+			// The labels of the paths stack, because paths often share their start
+			double offset = (pathIndex - 1) * LevelEditor.RowHeight;
+			Editor.DrawLabel(renderer, g, $"{property.Name} start", start.X + 10.0, start.Y - 34.0 - offset, colour);
+			Editor.DrawLabel(renderer, g, $"{property.Name} end", end.X + 10.0, end.Y + 6.0 + offset, colour);
+		}
 	}
 
 	#endregion

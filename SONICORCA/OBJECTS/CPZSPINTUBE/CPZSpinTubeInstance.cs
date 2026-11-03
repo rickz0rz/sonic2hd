@@ -31,9 +31,11 @@ public class CPZSpinTubeInstance : ActiveObject
 	}
 
 	[StateVariable]
+	[EditorPath("A character that touches the start enters the tube and moves to the end. The tube picks Path0 or Path1 at random.", "spin sound")]
 	private string Path0 { get; set; }
 
 	[StateVariable]
+	[EditorPath("The second route. Without points, the tube always uses Path0.", "spin sound")]
 	private string Path1 { get; set; }
 
 	protected override void OnStart()
