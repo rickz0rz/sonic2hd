@@ -508,6 +508,9 @@ that the layer shows alone. Click the banner, or the "View" row of the panel, to
 where the game draws them for the current view. The label at the mouse names the cell of the layer there, for
 example `layer 5: tile 507 at 896, 1088`.
 
+The "Name" row renames the current layer. The layers must have different names. The game finds some layers by their
+name (`front_high`, `pipes bottom` in CPZ, `lavawallcave` and `lavawall middle` in HTZ), so these layers keep it.
+
 A magenta outline shows the area of the current layer, with its name and its size at the top left. A layer with
 parallax has this outline while it shows alone, and the view then shows its top left corner. On a layer that wraps, a
 click on a copy (a dark tile) paints the cell of the layer, as the game shows the copies.
