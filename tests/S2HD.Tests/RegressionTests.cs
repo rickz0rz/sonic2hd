@@ -648,6 +648,22 @@ public sealed partial class RegressionTests
 	}
 
 	/// <summary>
+	/// With all the layers in view, the tiles tool outlines the tiles of a layer with parallax where the game draws them,
+	/// and the label at the mouse names the cell of the layer there. In Chemical Plant, layer 5 (BG - Front) shows with
+	/// all the layers, then alone with its parallax (a right click on its eye), so that the outlines frame its tiles.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void EditorParallaxOutline_MatchesGoldenScreenshots()
+	{
+		const string script = "3:tap 32;6:mouse 1600 243;7:down left;8:up left;10:mouse 400 400;" +
+			"20:mouse 730 73;21:down left;22:up left;24:mouse 900 600;" +
+			"36:mouse 1478 243;37:down right;38:up right;40:mouse 900 600";
+		RunAndCompare("--level cpz --editor", new[] { 10030, 10050 }, Path.Combine(TestPaths.GoldenDirectory, "editor-parallax-outline"), "editor-parallax-outline",
+			new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script });
+	}
+
+	/// <summary>
 	/// A trackpad scrolls the view of the editor left and right. In Emerald Hill, the view moves right and then up.
 	/// </summary>
 	[Fact]
