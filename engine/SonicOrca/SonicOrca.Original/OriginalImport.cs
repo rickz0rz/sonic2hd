@@ -26,7 +26,7 @@ public static class OriginalImport
 	/// The version of the import. Change it when a change of the importers changes the mods, so that the web build
 	/// makes its stored mods again.
 	/// </summary>
-	public const int Version = 21;
+	public const int Version = 22;
 
 	/// <summary>The zones that the import makes, in the order of tools/import-all.sh.</summary>
 	public static readonly IReadOnlyList<string> Zones = new[] { "arz", "cnz", "mcz", "ooz", "mtz", "scz", "wfz", "dez" };
@@ -40,7 +40,11 @@ public static class OriginalImport
 	/// </summary>
 	/// <param name="ffmpeg">The ffmpeg program for the music, or null for songs that play live (see <see cref="MusicImport.ImportSong"/>).</param>
 	/// <param name="log">Gets the notes of the steps.</param>
-	public static IReadOnlyList<OriginalImportStep> GetSteps(string ffmpeg, Action<string> log)
+	/// <param name="gameData">
+	/// The resources of the game data, for the step that moves the frames of the animated HD tiles into an ANIGROUP
+	/// (the mod tile-animations). Without them, that step writes nothing.
+	/// </param>
+	public static IReadOnlyList<OriginalImportStep> GetSteps(string ffmpeg, Action<string> log, ResourceTree gameData = null)
 	{
 		List<OriginalImportStep> steps = new List<OriginalImportStep>();
 		foreach (string zone in Zones)
@@ -67,6 +71,16 @@ public static class OriginalImport
 			steps.Add(new OriginalImportStep("music", "Sound " + Path.GetFileNameWithoutExtension(sound.File),
 				(disassembly, folder) => log(MusicImport.ImportSound(sound, disassembly, folder, ffmpeg))));
 		}
+		// This step reads the game data, not the disassembly, as "s2hd-data convert-tile-animations" does
+		steps.Add(new OriginalImportStep("tile-animations", "Tile animations", (_, folder) =>
+		{
+			// The web build packs the folder after the step, so the folder must exist also when the step writes nothing
+			Directory.CreateDirectory(folder);
+			if (gameData != null)
+			{
+				TileAnimationConversion.ConvertAll(gameData, folder, log);
+			}
+		}));
 		return steps;
 	}
 

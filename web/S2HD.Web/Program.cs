@@ -181,7 +181,7 @@ public static partial class Program
 		_baseTree = new ResourceFile(Path.Combine(ContentPath, "data", "sonicorca.dat")).Scan();
 		HashSet<string> missing = new HashSet<string>(GetMissingMods().Split(' ', StringSplitOptions.RemoveEmptyEntries));
 		// Without ffmpeg, the music is song files that the game plays live on the emulated chips
-		_importSteps = OriginalImport.GetSteps(null, line => Trace.WriteLine(line)).Where(step => missing.Contains(step.Mod)).ToArray();
+		_importSteps = OriginalImport.GetSteps(null, line => Trace.WriteLine(line), _baseTree).Where(step => missing.Contains(step.Mod)).ToArray();
 		return _importSteps.Count;
 	}
 
