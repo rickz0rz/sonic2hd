@@ -699,7 +699,8 @@ count. In the special stage, each player has their own rings (see "Entering a sp
 Choose 2P VS on the title screen to start a versus match. Player 1 plays Sonic and player 2 plays Tails. Each player
 has their own rings, score and lives. The setup screen shows the zones: Emerald Hill, Mystic Cave and Casino Night.
 Mystic Cave and Casino Night show only after the import of these levels. Player 1 chooses a zone and the items of the
-monitors: all kinds, or teleport only. The screen splits: player 1 in the top half and player 2 in the bottom half, each with their
+monitors: all kinds, or teleport only. With the import of Casino Night, player 1 also chooses its objects: the
+two-player layouts of the original (the default), or the layouts of the main game. The screen splits: player 1 in the top half and player 2 in the bottom half, each with their
 own camera and their own HUD. Each camera starts zoomed out, so that the half shows more of the level. Each player changes the zoom
 of their half with their zoom key. A player who loses a life comes back at their own star post. When a player passes
 the signpost, their time stops. The other player then has 60 seconds to finish, and their time counts down in red.

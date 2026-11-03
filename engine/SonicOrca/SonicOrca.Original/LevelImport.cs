@@ -17,8 +17,10 @@ namespace SonicOrca.Original;
 /// <param name="Top">The top camera limit of LevelSize, in original pixels from the top of the act.</param>
 /// <param name="BumpersFile">The bumpers in the landscape (CNZ only), or null.</param>
 /// <param name="WaterHeight">The top of the water (WaterHeight), in original pixels from the top of the act, or -1 without water.</param>
+/// <param name="VersusObjectsFile">The object layout of two-player mode, or null when the act uses its normal layout.</param>
 public sealed record OriginalAct(int Number, string LayoutFile, string ObjectsFile, string RingsFile, string StartFile,
-	Vector2i Offset, int FirstColumn, Vector2i Size, string BumpersFile = null, int Top = 0, int WaterHeight = -1);
+	Vector2i Offset, int FirstColumn, Vector2i Size, string BumpersFile = null, int Top = 0, int WaterHeight = -1,
+	string VersusObjectsFile = null);
 
 /// <summary>
 /// A change to the level layout that the code of the original makes during play, for example a wall that closes a
@@ -101,9 +103,11 @@ public sealed record OriginalZone(string Name, string Key, string ChunksFile, st
 			new[]
 			{
 				new OriginalAct(1, "level/layout/CNZ_1.kos", "level/objects/CNZ_1.bin", "level/rings/CNZ_1.bin", "startpos/CNZ_1.bin",
-					new Vector2i(0, 0), 0, new Vector2i(0x27A0 + 320, 0x720 + 224), "level/objects/CNZ 1 bumpers.bin"),
+					new Vector2i(0, 0), 0, new Vector2i(0x27A0 + 320, 0x720 + 224), "level/objects/CNZ 1 bumpers.bin",
+					VersusObjectsFile: "level/objects/CNZ_1_2P.bin"),
 				new OriginalAct(2, "level/layout/CNZ_2.kos", "level/objects/CNZ_2.bin", "level/rings/CNZ_2.bin", "startpos/CNZ_2.bin",
-					new Vector2i(85 * 128, 2 * 128), 85 * 8, new Vector2i(0x2A80 + 320, 0x720 + 224), "level/objects/CNZ 2 bumpers.bin"),
+					new Vector2i(85 * 128, 2 * 128), 85 * 8, new Vector2i(0x2A80 + 320, 0x720 + 224), "level/objects/CNZ 2 bumpers.bin",
+					VersusObjectsFile: "level/objects/CNZ_2_2P.bin"),
 			},
 			new Vector2i(1400, 144), "art/palettes/CNZ.bin",
 			new[]
@@ -451,10 +455,11 @@ public sealed record OriginalZone(string Name, string Key, string ChunksFile, st
 /// <param name="Textures">Other textures, by resource key, for example the slot machine reels.</param>
 /// <param name="TileCollision">The collision data of the front layer, for the level editor.</param>
 /// <param name="TileAnimations">The animation group (ANIGROUP) of the animated tiles of the tile set, or null.</param>
+/// <param name="VersusBinding">The binding of versus mode with the two-player object layouts of the original (CNZ), or null.</param>
 public sealed record ImportedLevel(LevelMap Map, LevelBinding Binding, IReadOnlyList<string> Notes,
 	IReadOnlyList<ImportedSprite> Sprites, IReadOnlyDictionary<string, string> NewObjects,
 	string TileSet = null, byte[] PriorityTexture = null, IReadOnlyDictionary<string, byte[]> Textures = null,
-	TileCollision TileCollision = null, string TileAnimations = null);
+	TileCollision TileCollision = null, string TileAnimations = null, LevelBinding VersusBinding = null);
 
 /// <summary>
 /// Makes the map and the binding of a SonicOrca level from a zone of the original game. The tiles are the blocks of
@@ -803,6 +808,10 @@ public static class LevelImport
 		}
 
 		var binding = new LevelBinding();
+		// Casino Night has object layouts of its own for two players (ObjectsManager_Init). The versus binding has the
+		// same rings, bumpers and reels, and these objects.
+		LevelBinding versusBinding = zone.Acts.Any(a => a.VersusObjectsFile != null) ? new LevelBinding() : null;
+		LevelBinding[] bindings = versusBinding == null ? new[] { binding } : new[] { binding, versusBinding };
 		var notes = new List<string>();
 		var unsupported = new SortedDictionary<int, int>();
 		foreach (OriginalAct act in zone.Acts)
@@ -820,19 +829,34 @@ public static class LevelImport
 			}
 			AddMarker(map, front, $"bounds_{n}_rb", (act.Offset + act.Size) * Scale);
 
-			int ring = 0;
-			foreach (Vector2i position in RingPositions.FromFile(Path(act.RingsFile)))
+			foreach (LevelBinding target in bindings)
 			{
-				binding.ObjectPlacements.Add(new ObjectPlacement(RingResourceKey, MakeUid(zone, "ring", act, ring), $"Ring {n}-{ring}",
-					FrontLayerIndex, (act.Offset + position) * Scale, new { }));
-				ring++;
+				int ring = 0;
+				foreach (Vector2i position in RingPositions.FromFile(Path(act.RingsFile)))
+				{
+					target.ObjectPlacements.Add(new ObjectPlacement(RingResourceKey, MakeUid(zone, "ring", act, ring), $"Ring {n}-{ring}",
+						FrontLayerIndex, (act.Offset + position) * Scale, new { }));
+					ring++;
+				}
+				if (act.BumpersFile != null)
+				{
+					AddMapBumpers(zone, act, Path(act.BumpersFile), target);
+				}
 			}
-			if (act.BumpersFile != null)
+			AddObjects(binding, act, act.ObjectsFile, "", unsupported);
+			if (versusBinding != null)
 			{
-				AddMapBumpers(zone, act, Path(act.BumpersFile), binding);
+				AddObjects(versusBinding, act, act.VersusObjectsFile ?? act.ObjectsFile, "2p", null);
 			}
+		}
+
+		// Converts the objects of a layout file of an act into a binding. The suffix keeps the IDs of the two layouts
+		// apart. Unsupported counts the types that SonicOrca does not have, or is null.
+		void AddObjects(LevelBinding binding, OriginalAct act, string file, string suffix, SortedDictionary<int, int> unsupported)
+		{
+			string n = act.Number.ToString();
 			int index = 0;
-			foreach (ObjectPlacements.OriginalObjectPlacement original in ObjectPlacements.FromFile(Path(act.ObjectsFile)))
+			foreach (ObjectPlacements.OriginalObjectPlacement original in ObjectPlacements.FromFile(Path(file)))
 			{
 				// The signpost of act 2 deletes itself (Obj0D_Init) outside two player mode. The import keeps it as a
 				// signpost for versus mode only. Metropolis act 2 is not the last act, so its signpost is a normal one.
@@ -844,7 +868,10 @@ public static class LevelImport
 				ObjectPlacement converted = ObjectPlacements.ConvertOriginalObjectPlacement(original, zone.ArtFile != null, zone.Name);
 				if (converted == null)
 				{
-					unsupported[original.Type] = unsupported.GetValueOrDefault(original.Type) + 1;
+					if (unsupported != null)
+					{
+						unsupported[original.Type] = unsupported.GetValueOrDefault(original.Type) + 1;
+					}
 					continue;
 				}
 				IDictionary<string, object> state = new ExpandoObject();
@@ -857,7 +884,7 @@ public static class LevelImport
 					state["VersusOnly"] = true;
 				}
 				string name = converted.Key.Substring(converted.Key.LastIndexOf('/') + 1).ToLowerInvariant();
-				binding.ObjectPlacements.Add(new ObjectPlacement(converted.Key, MakeUid(zone, "object", act, index), $"{name} {n}-{index}",
+				binding.ObjectPlacements.Add(new ObjectPlacement(converted.Key, MakeUid(zone, "object" + suffix, act, index), $"{name} {n}-{index}",
 					FrontLayerIndex, converted.Position + act.Offset * Scale, state));
 				// The three rotating platforms of the original are one object: add the other two arms
 				if (original.Type == 0x83)
@@ -870,7 +897,7 @@ public static class LevelImport
 							armState[value.Key] = value.Value;
 						}
 						armState["Arm"] = arm;
-						binding.ObjectPlacements.Add(new ObjectPlacement(converted.Key, MakeUid(zone, "arm" + arm, act, index), $"{name} {n}-{index}-{arm}",
+						binding.ObjectPlacements.Add(new ObjectPlacement(converted.Key, MakeUid(zone, "arm" + arm + suffix, act, index), $"{name} {n}-{index}-{arm}",
 							FrontLayerIndex, converted.Position + act.Offset * Scale, armState));
 					}
 				}
@@ -889,8 +916,11 @@ public static class LevelImport
 					if ((blocks[column, row] & 0x3FF) == SlotReels.WindowBlock)
 					{
 						var position = new Vector2i(column * BlockSize, row * BlockSize) * Scale;
-						binding.ObjectPlacements.Add(new ObjectPlacement("SONICORCA/OBJECTS/CNZSLOTREELS", MakeUid(zone, "reels", zone.Acts[0], windows),
-							$"cnzslotreels {windows}", FrontLayerIndex, position, new { }));
+						foreach (LevelBinding target in bindings)
+						{
+							target.ObjectPlacements.Add(new ObjectPlacement("SONICORCA/OBJECTS/CNZSLOTREELS", MakeUid(zone, "reels", zone.Acts[0], windows),
+								$"cnzslotreels {windows}", FrontLayerIndex, position, new { }));
+						}
 						windows++;
 					}
 				}
@@ -906,7 +936,7 @@ public static class LevelImport
 		var newObjects = binding.ObjectPlacements.Select(p => p.Key).Concat(zone.Sprites.Select(s => s.ObjectKey)).Concat(zone.AreaObjects).Distinct()
 			.Where(RepositoryObjects.ContainsKey).ToDictionary(key => key, key => RepositoryObjects[key]);
 		return new ImportedLevel(map, binding, notes, sprites, newObjects, tileSet, priorityTexture, textures,
-			TileCollision.FromBlocks(FrontLayerIndex, blocks, heights, primary, secondary), tileAnimations);
+			TileCollision.FromBlocks(FrontLayerIndex, blocks, heights, primary, secondary), tileAnimations, versusBinding);
 	}
 
 	/// <summary>

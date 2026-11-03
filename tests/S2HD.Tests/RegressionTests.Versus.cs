@@ -237,4 +237,29 @@ public sealed partial class RegressionTests
 			withImportedMods: true, checkUserData: userData => Assert.Contains($"Music: SONICORCA/MUSIC/LEVELS/{zone.ToUpperInvariant()}/COMPETITIVE",
 				File.ReadAllText(Path.Combine(userData, "sonicorca.log"))));
 	}
+
+	/// <summary>
+	/// Casino Night in versus mode uses the two-player object layouts of the original (CNZ_1_2P), the default of a match.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void VersusCasinoNight_UsesTheTwoPlayerLayouts()
+	{
+		ImportedMods.Get();
+		RunAndCompare("--level cnz --versus", new[] { 120 }, Path.Combine(TestPaths.GoldenDirectory, "versus-cnz-layouts"), "versus-cnz-layouts",
+			withImportedMods: true, checkUserData: userData => Assert.Contains("Casino Night: the two-player object layouts",
+				File.ReadAllText(Path.Combine(userData, "sonicorca.log"))));
+	}
+
+	/// <summary>
+	/// With the imported zones, the setup screen shows the three zones and the option of the objects of Casino Night.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void VersusSetupImported_MatchesGoldenScreenshots()
+	{
+		ImportedMods.Get();
+		RunAndCompare("--versus", new[] { VersusScreenCapture(0, 30) }, Path.Combine(TestPaths.GoldenDirectory, "versus-setup-imported"), "versus-setup-imported",
+			withImportedMods: true);
+	}
 }

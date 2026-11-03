@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using SonicOrca;
 using SonicOrca.Core;
@@ -22,6 +23,8 @@ public class CasinoNightZoneArea : Area
 	/// <summary>The game data has no music for this zone. A mod can add it.</summary>
 	/// <summary>The song of versus mode (MusID_CNZ_2P). It comes from the import of the music.</summary>
 	private const string VersusMusicResourceKey = "SONICORCA/MUSIC/LEVELS/CNZ/COMPETITIVE";
+	/// <summary>The binding with the two-player object layouts of the original. Only the import of the level makes it.</summary>
+	private const string VersusBindingResourceKey = "//BINDING2P";
 	private const string LevelMusicResourceKey = "SONICORCA/MUSIC/LEVELS/CNZ";
 	private const string BossMusicResourceKey = "SONICORCA/MUSIC/BOSS/S2";
 	/// <summary>Only a mod from "s2hd-data import-level cnz" has the boss.</summary>
@@ -53,6 +56,13 @@ public class CasinoNightZoneArea : Area
 	private static readonly BossArenaSettings BossArenaSettings = new BossArenaSettings(0x27C0, 0x62E, 0x2890, 0x2860, 0x28E0, 0x4E0,
 		new Vector2i(0x2A46, 0x654), 0x2B20);
 
+	/// <summary>Loads the versus binding with the area, when the import made it.</summary>
+	public override IEnumerable<string> GetMoreDependencies(ResourceTree resourceTree)
+	{
+		string key = this.GetAbsolutePath(VersusBindingResourceKey);
+		return resourceTree[key]?.Resource != null ? new[] { key } : Enumerable.Empty<string>();
+	}
+
 	private SonicOrcaGameContext _gameContext;
 	private ResourceTree _resourceTree;
 	private Level _level;
@@ -81,7 +91,13 @@ public class CasinoNightZoneArea : Area
 			// The map is shared: put back the layout changes of the last play
 			LayoutChanges.Reset(map);
 			_level.LoadMap(map);
-			_level.LoadBinding(_resourceTree.GetLoadedResource<LevelBinding>(this, BindingResourceKey));
+			// Versus mode uses the two-player object layouts of the original (ObjectsManager_Init), when the players chose them
+			bool versusLayouts = settings.Versus && settings.VersusTwoPlayerLayouts && _resourceTree[this.GetAbsolutePath(VersusBindingResourceKey)]?.Resource != null;
+			_level.LoadBinding(_resourceTree.GetLoadedResource<LevelBinding>(this, versusLayouts ? VersusBindingResourceKey : BindingResourceKey));
+			if (versusLayouts)
+			{
+				Trace.WriteLine("Casino Night: the two-player object layouts");
+			}
 		}
 		_level.LevelMusic = settings.Versus && _resourceTree[VersusMusicResourceKey]?.Resource != null ? VersusMusicResourceKey : LevelMusicResourceKey;
 		int act = settings.Act == 2 ? 2 : 1;

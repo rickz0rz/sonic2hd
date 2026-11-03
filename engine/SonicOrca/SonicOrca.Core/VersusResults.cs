@@ -154,6 +154,12 @@ public sealed class VersusMatch
 	/// <summary>The monitors give only the teleport (the "teleport only" items of the original).</summary>
 	public bool TeleportOnly { get; set; }
 
+	/// <summary>Casino Night uses the two-player object layouts of the original, or the layouts of the main game.</summary>
+	public bool TwoPlayerLayouts { get; set; } = true;
+
+	/// <summary>A zone of the match has two-player layouts, so the setup screen shows the option.</summary>
+	public bool HasTwoPlayerLayouts { get; set; }
+
 	public int Player1Lives { get; set; } = StartLives;
 
 	public int Player2Lives { get; set; } = StartLives;

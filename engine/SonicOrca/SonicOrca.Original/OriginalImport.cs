@@ -26,7 +26,7 @@ public static class OriginalImport
 	/// The version of the import. Change it when a change of the importers changes the mods, so that the web build
 	/// makes its stored mods again.
 	/// </summary>
-	public const int Version = 20;
+	public const int Version = 21;
 
 	/// <summary>The zones that the import makes, in the order of tools/import-all.sh.</summary>
 	public static readonly IReadOnlyList<string> Zones = new[] { "arz", "cnz", "mcz", "ooz", "mtz", "scz", "wfz", "dez" };
@@ -93,6 +93,11 @@ public static class OriginalImport
 		Directory.CreateDirectory(output);
 		new LevelMapWriter(level.Map).Save(Path.Combine(output, "MAP.map.xml"));
 		new LevelBindingWriter(level.Binding).Save(Path.Combine(output, "BINDING.binding.xml"));
+		if (level.VersusBinding != null)
+		{
+			// The area of the zone uses it in versus mode, when the players chose the two-player layouts
+			new LevelBindingWriter(level.VersusBinding).Save(Path.Combine(output, "BINDING2P.binding.xml"));
+		}
 		// The collision data of the original, so that the level editor can trace the collision again
 		if (level.TileCollision != null)
 		{

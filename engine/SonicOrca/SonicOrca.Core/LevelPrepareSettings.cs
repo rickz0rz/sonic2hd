@@ -48,6 +48,9 @@ public class LevelPrepareSettings
 	/// <summary>In versus mode, each monitor gives the teleport (the "teleport only" items of the original).</summary>
 	public bool VersusTeleportOnly { get; set; }
 
+	/// <summary>In versus mode, a zone with two-player object layouts (Casino Night) uses them, as the original does.</summary>
+	public bool VersusTwoPlayerLayouts { get; set; }
+
 	public int Lives { get; set; }
 
 	public int Score { get; set; }
