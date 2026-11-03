@@ -360,7 +360,12 @@ an update of this repository. The import does these steps:
   belts of WFZ. The HD tiles have one palette, so the blocks with these colours get one frame for each change.
   Objects with these colours do not change yet. An object of WFZ switches its first cycle between the fire and the
   conveyor belts in the original. The tiles cannot switch, so WFZ shows the belts and SCZ shows the fire.
-- In CNZ, it also adds the bumpers that are part of the landscape, and the reels of the slot machines.
+- It writes the frames of the animated tiles into an animation group (`ANIGROUP`) of the tile set, so that the
+  animation editor can change them.
+- It keeps the black of the blocks of the original: only colour 0 is transparent. In CNZ, the windows of the
+  buildings and the boxes of the "SONIC" and "MILES" signs next to the slot reels are solid black.
+- In CNZ, it also adds the bumpers that are part of the landscape, and the reels of the slot machines. The background
+  has the city of the original, in bands that scroll at their own speeds.
 - It writes the collision data of the original for the front layer (`TILECOLLISION`), so that the level editor can
   trace the collision again after a change of tiles.
 
@@ -435,10 +440,10 @@ The level stops, and the editor shows all the objects of the level. The editor h
 its button or with its key:
 
 - **Objects (1)** changes the objects and the rings. The list has all the object types of the game. A type that the
-  level does not use shows "not loaded". It loads when you click it. To make a new object, click "+ New object"
-  (see "New objects"). When objects overlap, a click shows a menu of them. Click a row to select its object.
-  The box of the object of the row under the mouse shows in the level. A spin tube of CPZ has its box at its entrance, with the tube
-  cap. When you select it, the level shows its two paths. Drag a point to move it, and click a + to add a point.
+  level does not use shows "not loaded". It loads when you click it. To make a new object, click "+ New object" (see
+  "New objects"). When objects overlap, a click shows a menu of them. Click a row to select its object. The box of
+  the object of the row under the mouse shows in the level. An object with paths, for example a spin tube of CPZ,
+  shows its paths when you select it (see "Paths of objects").
 - **Markers (2)** changes the markers of the map. A point marker has a name, for example `startpos_stk_1` (the start
   position of act 1), `bounds_1_rb` (the bottom right camera bound of act 1) or `boss_left`. An area marker has a
   tag, for example `inside`. The level reads the markers when it starts. Click a marker in the list to go to it.
@@ -446,12 +451,12 @@ its button or with its key:
   Ctrl and drag in the level to take a rectangle of tiles. Click or drag in the level to paint. X and Y flip the
   brush. The first tile of the palette is empty, to erase. On the front layer, a brush also paints the priority
   tiles (`front_high`) and the solidity of the cells. Set the solidity of a palette tile for each path: none, top
-  only, or all sides.
-- **Collision (4)** changes the collision lines. A line is solid on its right side, from its start to its arrow,
-  with Y down. So a floor goes from left to right, and a ceiling from right to left. Green lines are on path 1,
-  blue lines on path 2, and white lines on both. The layer switches select the path. Grey lines are the lines of
-  layout changes. Click "Draw lines", then click the points of the lines. Drag the end of a selected line to move
-  the point. The other lines that end at that point move with it. Click the "Flags" row of a selected line to see all the flags, for
+  only, or all sides. See "Layers and tiles" for the layer list, the backgrounds and the animated tiles.
+- **Collision (4)** changes the collision lines. A line is solid on its right side, from its start to its arrow, with
+  Y down. So a floor goes from left to right, and a ceiling from right to left. Green lines are on path 1, blue lines
+  on path 2, and white lines on both. The layer switches select the path. Grey lines are the lines of layout changes.
+  Click "Draw lines", then click the points of the lines. Drag the end of a selected line to move the point. The
+  other lines that end at that point move with it. Click the "Flags" row of a selected line to see all the flags, for
   example "Force roll" or "Prevent jump". Click a flag to turn it on or off. Hold the mouse over a flag to see what
   it does.
 - **Levels (5)** opens a level and changes the order of the story. The list shows the levels of the story in their
@@ -472,6 +477,40 @@ the game data (EHZ, CPZ, HTZ) have no tile collision data. In these zones, draw 
 collision tool.
 
 The editor shows the map without the layout changes of the play, for example the walls that close a boss arena.
+
+The mini-map in the bottom right corner of the view shows the whole level. The tiles of the layers without parallax
+are white, rings are green, enemies are red, and the other objects are blue. A yellow box shows the view. Click in
+the map to move the view there, or drag the box. M or the "Map (M)" button shows or hides the map.
+
+#### Layers and tiles
+
+The layer list of the tiles tool has an eye at the left of each layer. Click the eye to hide or show the layer in the
+editor. The game and the saved level still have the layer. Right click an eye to show only that layer, and right
+click it again to show all the layers. The list shows a scroll bar when the layers do not fit. Scroll the list with
+the wheel.
+
+A layer with parallax is a background: the game moves it with the camera, so its tiles are not at their level
+positions. The list marks these layers with "parallax" in blue. When you click such a layer, it shows alone, from
+the top left of the level, without parallax, so that you can paint on it. A banner at the top of the view tells
+that the layer shows alone. Click the banner, or the "View" row of the panel, to show all the layers again. Click the
+"View" row again to paint on the layer. With all the layers in view, the editor outlines the tiles of the layer
+where the game draws them for the current view. The label at the mouse names the cell of the layer there, for
+example `layer 5: tile 507 at 896, 1088`.
+
+The "Show" row of the panel switches the palette between all the tiles and the animated tiles. The palette marks each
+animated tile. The "Animation" row shows the frames of the brush tile, for example `#29: 4 frames of 6 ticks`. Click
+it to open the animation of the tile in the animation editor. Each animated tile takes its frames from the animation
+group (`ANIGROUP`) of the tile set. The status line shows where the frames come from, for example a palette cycle of
+the original. The label at the mouse shows the tile under it.
+
+#### Paths of objects
+
+Some objects move a character along a path of points, for example the spin tubes of CPZ. A spin tube is invisible in
+the game. Its box is at its entrance, with the tube cap, so the menu of the objects there shows both. When you select
+an object with paths, the level shows each path on top of the layers, in its own colour, with labels at its start and
+its end. Drag a point to move it. Click the + in the middle of a segment to add a point there. The rows of the
+selected point change its position, turn its mark on or off (for a spin tube, the spin sound), or remove it. A white
+point has its mark. A spin tube picks Path0 or Path1 at random when a character enters it.
 
 Use the mouse and the keyboard:
 
@@ -580,7 +619,8 @@ a group.
 The centre plays the selected animation at the speed of the game, with a cross at the position of the object.
 The strip under it shows the frames, with the time of each frame in ticks (1/60 s). The right panel lists the
 animations of the group and the properties of the animation and of the selected frame. Click a property to type a
-new value, then press Enter.
+new value, then press Enter. The opacity of a frame goes from 0 to 1. A tile fades to the opacity of its next frame,
+for example the lights of CPZ. Sprites do not use it.
 
 The centre has two views. The preview shows the frame at the position of the object, as in the game. Drag the frame
 to change its offset; with Ctrl, the offsets of all the frames of the animation move together. When the animation
