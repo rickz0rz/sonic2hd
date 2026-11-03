@@ -25,7 +25,7 @@ internal sealed class VersusSetupScreen : VersusScreen
 	public int? Result { get; private set; }
 
 	public VersusSetupScreen(SonicOrcaGameContext gameContext, VersusMatch match)
-		: base(gameContext, playMusic: true)
+		: base(gameContext, MenuMusicResourceKey)
 	{
 		_match = match;
 		_row = Math.Max(0, Array.FindIndex(match.Zones, zone => zone == null));

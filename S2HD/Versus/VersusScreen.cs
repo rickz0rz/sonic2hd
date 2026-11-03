@@ -20,7 +20,11 @@ internal abstract class VersusScreen : Screen
 	private const string CursorSoundResourceKey = "SONICORCA/SOUND/NAVIGATE/CURSOR";
 	private const string YesSoundResourceKey = "SONICORCA/SOUND/NAVIGATE/YES";
 	private const string BackSoundResourceKey = "SONICORCA/SOUND/NAVIGATE/BACK";
-	private const string MusicResourceKey = "SONICORCA/MUSIC/OPTIONS";
+	/// <summary>The song of the setup screen. The original plays MusID_Options on its menus.</summary>
+	protected const string MenuMusicResourceKey = "SONICORCA/MUSIC/OPTIONS";
+
+	/// <summary>The song of the results screens, as MusID_2PResult of the original.</summary>
+	protected const string ResultsMusicResourceKey = "SONICORCA/MENU/COMPETITIVE/MUSIC";
 
 	private const int EscapeScancode = 41;
 
@@ -42,7 +46,8 @@ internal abstract class VersusScreen : Screen
 
 	private readonly ResourceSession _resourceSession;
 
-	private readonly bool _playMusic;
+	/// <summary>The key of the song of the screen, or null for no song.</summary>
+	private readonly string _musicResourceKey;
 
 	private SampleInstance _music;
 
@@ -60,10 +65,10 @@ internal abstract class VersusScreen : Screen
 	/// <summary>The frames since the screen started.</summary>
 	protected int Frames { get; private set; }
 
-	protected VersusScreen(SonicOrcaGameContext gameContext, bool playMusic)
+	protected VersusScreen(SonicOrcaGameContext gameContext, string musicResourceKey)
 	{
 		GameContext = gameContext;
-		_playMusic = playMusic;
+		_musicResourceKey = musicResourceKey;
 		_resourceSession = new ResourceSession(gameContext.ResourceTree);
 	}
 
@@ -73,9 +78,9 @@ internal abstract class VersusScreen : Screen
 		{
 			_resourceSession.PushDependency(key);
 		}
-		if (_playMusic && GameContext.ResourceTree[MusicResourceKey]?.Resource != null)
+		if (_musicResourceKey != null && GameContext.ResourceTree[_musicResourceKey]?.Resource != null)
 		{
-			_resourceSession.PushDependency(MusicResourceKey);
+			_resourceSession.PushDependency(_musicResourceKey);
 		}
 		await _resourceSession.LoadAsync(ct);
 		ResourceTree tree = GameContext.ResourceTree;
@@ -88,7 +93,8 @@ internal abstract class VersusScreen : Screen
 	public override void Initialise()
 	{
 		_captureNumber = TestHooks.VersusScreenCaptureOffset + 1000 * TestHooks.VersusScreensShown++;
-		SampleInfo music = _playMusic ? GameContext.ResourceTree.GetLoadedResource<SampleInfo>(MusicResourceKey) : null;
+		SampleInfo music = _musicResourceKey != null && GameContext.ResourceTree[_musicResourceKey]?.Resource != null
+			? GameContext.ResourceTree.GetLoadedResource<SampleInfo>(_musicResourceKey) : null;
 		if (music != null)
 		{
 			_music = new SampleInstance(GameContext.Audio, music) { Classification = SampleInstanceClassification.Music };

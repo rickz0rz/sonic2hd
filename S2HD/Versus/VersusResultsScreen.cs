@@ -30,7 +30,7 @@ internal sealed class VersusResultsScreen : VersusScreen
 	private readonly int _winner;
 
 	private VersusResultsScreen(SonicOrcaGameContext gameContext, string title, string[] rowNames, string[][] rowValues, int[] rowWinners, int winner)
-		: base(gameContext, playMusic: true)
+		: base(gameContext, ResultsMusicResourceKey)
 	{
 		_title = title;
 		_rowNames = rowNames;
