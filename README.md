@@ -435,7 +435,7 @@ The level editor changes the objects, the rings, the markers, the tiles and the 
 with `--editor` and `--level`: the editor opens when the level starts. F2 in a level also opens it. With `--editor`
 alone, the editor opens on the first level of the story with the form of a new level (see "New levels"). With
 `--level` and a level that does not exist, for example `--level jungle --editor`, the form starts with that name, so
-one click on "Create" makes the level:
+one click on "Create" makes the level. Add `--tiles <png>` to start the form with a tile image too (see "New levels"):
 
 ```sh
 publish/S2HD.app/Contents/MacOS/S2HD --level cnz --editor
@@ -739,6 +739,7 @@ game over ends the match, and the results go. See `docs/two-player-design.md` fo
 | `--debug` | Starts the level with debug mode on |
 | `--animations [KEY]` | Opens the animation editor, for example `--animations SONICORCA/OBJECTS/SONIC/ANIGROUP` |
 | `--editor` | Turns on the level editor: F2 in a level opens it. With `--level`, the editor opens when the level starts. Alone, or with a `--level` that does not exist, it opens the editor with the form of a new level |
+| `--tiles <png>` | With the form of a new level (see `--editor`), sets its tile image, for example `--level jungle --editor --tiles jungle.png` |
 | `--physics original`, `--physics hd` | Plays the `--level` level with this physics, whatever the PHYSICS setting is |
 | `--demo` | Plays the attract demo (the demos of all zones that have one play in turn) |
 | `--record <file>` | Records the input of the level to a file, for example for a demo. The file also keeps the rings, the emeralds and the lives at the start |

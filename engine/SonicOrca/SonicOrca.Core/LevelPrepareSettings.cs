@@ -78,6 +78,9 @@ public class LevelPrepareSettings
 	/// <summary>The name that the form of a new level starts with, for "--level" with a level that does not exist, or null.</summary>
 	public string EditorNewLevelName { get; set; }
 
+	/// <summary>The tile image that the form of a new level starts with, for "--tiles", or null.</summary>
+	public string EditorNewLevelTileImage { get; set; }
+
 	public double NightMode { get; set; }
 
 	public LevelPrepareSettings()

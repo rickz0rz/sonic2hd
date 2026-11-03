@@ -237,7 +237,8 @@ internal sealed class LevelsTool : EditorTool
 
 	/// <summary>Shows the form of a new level. The tiles start as the tiles of the open level.</summary>
 	/// <param name="name">The name that the form starts with, for example from "--level" with a new level, or null.</param>
-	public void StartNewLevel(string name = null)
+	/// <param name="tileImage">The path of the tile image that the form starts with, for example from "--tiles", or null.</param>
+	public void StartNewLevel(string name = null, string tileImage = null)
 	{
 		_creating = true;
 		_newTilesFrom ??= OpenMnemonic;
@@ -245,6 +246,11 @@ internal sealed class LevelsTool : EditorTool
 		{
 			_newName = name.Trim();
 			_newMnemonic = MakeMnemonic(_newName);
+		}
+		if (!string.IsNullOrWhiteSpace(tileImage) && !SetTileImage(tileImage))
+		{
+			// The message of the missing file stays, in place of the hint
+			return;
 		}
 		Editor.ShowMessage(Hint);
 	}
@@ -361,22 +367,7 @@ internal sealed class LevelsTool : EditorTool
 				Label = "Tile image",
 				Value = _newTileImage != null ? System.IO.Path.GetFileName(_newTileImage) : "none (type the path of a PNG)",
 				Tooltip = "A PNG image with the tiles of the level, 64 x 64 pixels each. Each cell that is not fully transparent becomes a tile. Type nothing to use the tiles of a level.",
-				Commit = text =>
-				{
-					string path = text.Trim().Trim('"');
-					if (path.Length == 0 || path.StartsWith("none", System.StringComparison.OrdinalIgnoreCase))
-					{
-						_newTileImage = null;
-						return true;
-					}
-					if (!System.IO.File.Exists(path))
-					{
-						Editor.ShowMessage($"The file {path} does not exist.");
-						return false;
-					}
-					_newTileImage = path;
-					return true;
-				}
+				Commit = SetTileImage
 			},
 			new EditorPropertyRow
 			{
@@ -385,6 +376,27 @@ internal sealed class LevelsTool : EditorTool
 				Step = _ => Create(tilesFrom)
 			}
 		};
+	}
+
+	/// <summary>
+	/// Sets the tile image of the new level from a path, or clears it for an empty text or "none". Returns false, with a
+	/// message, when the file does not exist.
+	/// </summary>
+	private bool SetTileImage(string text)
+	{
+		string path = text.Trim().Trim('"');
+		if (path.Length == 0 || path.StartsWith("none", System.StringComparison.OrdinalIgnoreCase))
+		{
+			_newTileImage = null;
+			return true;
+		}
+		if (!System.IO.File.Exists(path))
+		{
+			Editor.ShowMessage($"The tile image {path} does not exist.");
+			return false;
+		}
+		_newTileImage = System.IO.Path.GetFullPath(path);
+		return true;
 	}
 
 	/// <summary>Gives the short name of the next level (1) or the level before (-1) in the list.</summary>

@@ -739,6 +739,30 @@ public sealed partial class RegressionTests
 	}
 
 	/// <summary>
+	/// "--tiles" gives the tile image of the form of a new level: "--level jungle --editor --tiles image.png" needs only a
+	/// click on "Create". The level has the 7 tiles of the image.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void EditorNewLevelTilesOption_MatchesGoldenScreenshots()
+	{
+		string image = Path.Combine(Path.GetTempPath(), "s2hd-new-level-tiles-option.png");
+		File.WriteAllBytes(image, NewLevelTests.MakePng(256, 128, (x, y) => x / 64 == 2 && y / 64 == 1 ? (byte)0 : (byte)255));
+		try
+		{
+			const string script = "5:mouse 1700 300;8:mouse 1700 665;9:down left;10:up left;50:tap 32;55:mouse 600 400";
+			RunAndCompare($"--level jungle --editor --tiles {image}", new[] { 10006, 10070 }, Path.Combine(TestPaths.GoldenDirectory, "editor-new-level-tiles-option"),
+				"editor-new-level-tiles-option", new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script },
+				checkUserData: userData => Assert.Equal(7, System.Text.RegularExpressions.Regex.Matches(
+					File.ReadAllText(Path.Combine(userData, "mods", "jungle", "SONICORCA", "LEVELS", "JUNGLE", "TILESET", "_.tileset.xml")), "<tile ").Count));
+		}
+		finally
+		{
+			File.Delete(image);
+		}
+	}
+
+	/// <summary>
 	/// The collision tool shows a row for each flag of a line. In Emerald Hill, a click on the "Flags" row of a floor
 	/// line shows the flags, a click turns on "Force roll", and the mouse over "Prevent jump" shows what it does.
 	/// </summary>
