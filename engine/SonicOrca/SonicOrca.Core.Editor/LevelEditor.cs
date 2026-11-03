@@ -819,12 +819,15 @@ public sealed class LevelEditor : IDisposable
 	internal void ShowLayerAlone(Rectangle area)
 	{
 		Rectangle view = Camera.Bounds;
-		if (view.Right > area.Left && view.Left < area.Right && view.Bottom > area.Top && view.Top < area.Bottom)
+		// The top left of the layer must be in view, under the top bar, so that a small layer does not hide
+		double top = view.Top + TopBarHeight / Zoom;
+		if (area.Left >= view.Left && area.Left < view.Right && area.Top >= top && area.Top < view.Bottom)
 		{
 			return;
 		}
 		_viewBeforeLayerAlone ??= view.Centre;
-		CentreOn(new Vector2(view.Width / 2.0, view.Height / 2.0));
+		// The top left of the layer shows just under the top bar, so that a small layer is in view
+		CentreOn(new Vector2(view.Width / 2.0 - Padding / Zoom, view.Height / 2.0 - (TopBarHeight + Padding) / Zoom));
 	}
 
 	/// <returns>True when the view went back.</returns>

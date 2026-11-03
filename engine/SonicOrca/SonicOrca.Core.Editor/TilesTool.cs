@@ -591,6 +591,11 @@ internal sealed class TilesTool : EditorTool
 			return Enumerable.Range(0, map.Layers.Count).ToArray();
 		});
 		Editor.ShowMessage($"Layer {layer.Name} is now {columns} x {rows} tiles. Undo cannot change the size back, so the undo history is clear.");
+		// A layer that shows alone can now be out of view, for example after it became smaller
+		if (Layer.Editing)
+		{
+			ShowLayerAlone();
+		}
 		return true;
 	}
 
@@ -829,6 +834,23 @@ internal sealed class TilesTool : EditorTool
 
 	private (int Column, int Row) GetCell(Vector2 world) => ((int)Math.Floor(world.X / TileSize), (int)Math.Floor(world.Y / TileSize));
 
+	/// <summary>
+	/// The cell of the current layer at a cell of the view. A layer that wraps shows copies of itself, and a copy is the
+	/// same cell of the layer, as in the game.
+	/// </summary>
+	private (int Column, int Row) WrapCell(int column, int row)
+	{
+		if (Layer.WrapX && Layer.Columns > 0)
+		{
+			column = (column % Layer.Columns + Layer.Columns) % Layer.Columns;
+		}
+		if (Layer.WrapY && Layer.Rows > 0)
+		{
+			row = (row % Layer.Rows + Layer.Rows) % Layer.Rows;
+		}
+		return (column, row);
+	}
+
 	public override void OnLevelPress()
 	{
 		if (_preview && EditorLayerView.IsShifted(Layer))
@@ -848,6 +870,7 @@ internal sealed class TilesTool : EditorTool
 			return;
 		}
 		(int column, int row) = GetCell(Editor.MouseWorld);
+		(column, row) = WrapCell(column, row);
 		if (column < 0 || row < 0 || column >= Layer.Columns || row >= Layer.Rows)
 		{
 			// A click outside the layer paints nothing, so say why
@@ -925,8 +948,7 @@ internal sealed class TilesTool : EditorTool
 		{
 			for (int x = 0; x < _brush.Columns; x++)
 			{
-				int column = origin.Column + x;
-				int row = origin.Row + y;
+				(int column, int row) = WrapCell(origin.Column + x, origin.Row + y);
 				if (column < 0 || row < 0 || column >= Layer.Columns || row >= Layer.Rows)
 				{
 					continue;
@@ -1083,7 +1105,32 @@ internal sealed class TilesTool : EditorTool
 		}
 		(column, row) = GetCell(Editor.MouseWorld);
 		area = new Rectangle(column * TileSize, row * TileSize, TileSize, TileSize);
+		(column, row) = WrapCell(column, row);
 		return column >= 0 && row >= 0 && column < Layer.Columns && row < Layer.Rows;
+	}
+
+	private static readonly Colour LayerBoundsColour = new Colour(1.0, 1.0, 0.2, 1.0);
+
+	/// <summary>
+	/// Outlines the area of the current layer at its level positions, with its name and its size, so that the user sees
+	/// where the layer ends. A layer with parallax is at these positions only while it shows alone.
+	/// </summary>
+	private void DrawLayerBounds(Renderer renderer, I2dRenderer g)
+	{
+		if (Layer.Columns == 0 || Layer.Rows == 0)
+		{
+			return;
+		}
+		Rectangle bounds = Editor.ToScreen(new Rectangle(0.0, 0.0, Layer.Columns * TileSize, Layer.Rows * TileSize));
+		g.RenderRectangle(LevelEditor.ShadowColour, bounds.Inflate(new Vector2(1.0, 1.0)), 4.0);
+		g.RenderRectangle(LayerBoundsColour, bounds, 2.0);
+		// The label stays in the view, at the top left of the part of the layer that the view shows
+		double x = Math.Max(bounds.X, 0.0) + 6.0;
+		double y = Math.Max(bounds.Y, LevelEditor.TopBarHeight) + 6.0;
+		if (x < bounds.Right && y < bounds.Bottom)
+		{
+			Editor.DrawLabel(renderer, g, $"{Layer.Name}: {Layer.Columns} x {Layer.Rows} tiles", x, y, LayerBoundsColour);
+		}
 	}
 
 	/// <summary>
@@ -1128,6 +1175,10 @@ internal sealed class TilesTool : EditorTool
 		if (ShowsWithParallax)
 		{
 			DrawParallaxOutlines(g, view);
+		}
+		else
+		{
+			DrawLayerBounds(renderer, g);
 		}
 		// The grid of the tiles, when the tiles are large enough to see it
 		if (Editor.Zoom >= 0.5)
@@ -1216,6 +1267,7 @@ internal sealed class TilesTool : EditorTool
 			}
 		}
 		g.RenderRectangle(LevelEditor.SelectionColour, cell, 2.0);
+		(column, row) = WrapCell(column, row);
 		if (column < 0 || row < 0 || column >= Layer.Columns || row >= Layer.Rows)
 		{
 			return null;

@@ -67,6 +67,14 @@ internal class RenderingTiler
 		int destinationY = viewport.Destination.Y + offsetY;
 		// The level position of the strip, for the editor view
 		int levelY = startSourceY;
+		// A view above a layer that does not wrap starts at the top of the layer. Otherwise the first strip goes from
+		// above the layer to the end of its first row, and the first row does not show.
+		if (!wrapY && startSourceY < 0)
+		{
+			destinationY -= startSourceY;
+			sourceY = 0;
+			levelY = 0;
+		}
 		while (destinationY < viewport.Destination.Bottom / viewport.Scale.Y)
 		{
 			int height = layerHeight - sourceY;
@@ -151,6 +159,13 @@ internal class RenderingTiler
 		}
 		int sourceX = startSourceX;
 		int destinationX = (int)(viewport.Destination.X / viewport.Scale.X);
+		// A view to the left of a layer that does not wrap starts at the left of the layer, so that its first column shows
+		if (!wrapX && startSourceX < 0)
+		{
+			destinationX -= startSourceX;
+			sourceX = 0;
+			levelX -= startSourceX;
+		}
 		TileSet tileSet = _tileSet;
 		int[,] tiles = layer.Tiles;
 		while (destinationX < viewport.Destination.Right / viewport.Scale.X)
