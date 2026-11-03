@@ -136,8 +136,9 @@ public sealed partial class RegressionTests
 
 	/// <summary>
 	/// Versus mode: the end of a zone. Both players start just before the versus signpost of Emerald Hill 2. Tails runs
-	/// past it, and the time of Sonic runs out. The act results, the zone results and the game results show Tails as
-	/// the winner. A new user folder has only Emerald Hill of the versus zones, so the match ends after one zone.
+	/// past it, and the time of Sonic runs out. The act results and the zone results show Tails as the winner. A new
+	/// user folder has Emerald Hill and the special stage zone, so the setup screen then shows Tails as the winner of
+	/// Emerald Hill, with the special stage zone still to play.
 	/// </summary>
 	[Fact]
 	[Trait("Category", "Regression")]
@@ -261,5 +262,29 @@ public sealed partial class RegressionTests
 		ImportedMods.Get();
 		RunAndCompare("--versus", new[] { VersusScreenCapture(0, 30) }, Path.Combine(TestPaths.GoldenDirectory, "versus-setup-imported"), "versus-setup-imported",
 			withImportedMods: true);
+	}
+
+	/// <summary>
+	/// The special stage zone, the fourth zone of the original. The stages end at once with the rings of the test
+	/// (S2HD_TEST_VERSUS_SPECIAL_STAGE_SEGMENTS): Sonic wins stage 5, Tails wins stage 6, so stage 7 decides, and Sonic
+	/// wins it. The capture shows the results of the zone. Without the imports, the special stage zone is zone 1.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void VersusSpecialStageZone_MatchesGoldenScreenshots()
+	{
+		RunAndCompare("--versus", new[] { VersusScreenCapture(3, 20) }, Path.Combine(TestPaths.GoldenDirectory, "versus-special-stage-zone"),
+			"versus-special-stage-zone", new Dictionary<string, string>
+			{
+				["S2HD_TEST_VERSUS_ZONE"] = "1",
+				["S2HD_TEST_VERSUS_SPECIAL_STAGE_SEGMENTS"] = "10:4,8:3,0:2|1:5,2:4,1:0|6:0,6:0,6:0",
+				["S2HD_TEST_VERSUS_RESULTS_FRAMES"] = "30"
+			}, checkUserData: userData =>
+			{
+				string log = File.ReadAllText(Path.Combine(userData, "sonicorca.log"));
+				Assert.Contains("Versus: special stage zone, stage 5", log);
+				Assert.Contains("Versus: special stage zone, stage 7", log);
+				Assert.Contains("Versus: zone SPECIAL STAGE winner 1", log);
+			});
 	}
 }

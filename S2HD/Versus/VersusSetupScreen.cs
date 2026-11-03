@@ -15,7 +15,7 @@ namespace S2HD.Versus;
 internal sealed class VersusSetupScreen : VersusScreen
 {
 	private const double ListTop = 280.0;
-	private const double RowHeight = 100.0;
+	private const double RowHeight = 90.0;
 
 	private readonly VersusMatch _match;
 

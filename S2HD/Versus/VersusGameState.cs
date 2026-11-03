@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using S2HD.Menu;
 using SonicOrca;
 using SonicOrca.Core;
+using SonicOrca.Core.Debugging;
 using SonicOrca.Core.SpecialStage;
 using SonicOrca.Menu;
 
@@ -22,6 +23,11 @@ internal sealed class VersusGameState : IGameState, IDisposable
 	private static readonly string[] ZoneMnemonics = { "ehz", "mcz", "cnz" };
 
 	private const int ActsPerZone = 2;
+
+	private const string SpecialStageZoneName = "SPECIAL STAGE";
+
+	/// <summary>The first stage of the special stage zone, from 0: stage 5, as the level select of two-player mode (loc_8E3A).</summary>
+	private const int FirstZoneSpecialStage = 4;
 
 	private readonly S2HDSonicOrcaGameContext _gameContext;
 
@@ -47,8 +53,9 @@ internal sealed class VersusGameState : IGameState, IDisposable
 		_gameContext = gameContext;
 		List<LevelInfo> levels = Levels.GetStoryLevels(gameContext.ResourceTree).Concat(Levels.GetOtherLevels(gameContext.ResourceTree)).ToList();
 		LevelInfo[] zones = ZoneMnemonics.Select(mnemonic => levels.FirstOrDefault(level => level.Mnemonic == mnemonic)).Where(level => level != null).ToArray();
-		_zoneAreaKeys = zones.Select(level => Levels.GetAreaResourceKey(level.Mnemonic, gameContext.ResourceTree)).ToArray();
-		_match = new VersusMatch(zones.Select(level => level.Name.ToUpperInvariant()).ToArray())
+		// The fourth zone of the original is the special stage zone. It has no area.
+		_zoneAreaKeys = zones.Select(level => Levels.GetAreaResourceKey(level.Mnemonic, gameContext.ResourceTree)).Append(null).ToArray();
+		_match = new VersusMatch(zones.Select(level => level.Name.ToUpperInvariant()).Append(SpecialStageZoneName).ToArray())
 		{
 			// Only the import of Casino Night has the two-player layouts
 			HasTwoPlayerLayouts = zones.Any(level => string.Equals(level.Mnemonic, "CNZ", StringComparison.OrdinalIgnoreCase))
@@ -82,6 +89,11 @@ internal sealed class VersusGameState : IGameState, IDisposable
 			foreach (UpdateResult result in PlayZone(zoneIndex, _start))
 				yield return result;
 		}
+		else if (TestHooks.VersusZone is int testZone && testZone >= 0 && testZone < _match.Zones.Length)
+		{
+			foreach (UpdateResult result in PlayZone(testZone, null))
+				yield return result;
+		}
 		while (!_quit)
 		{
 			if (_match.Finished)
@@ -107,6 +119,12 @@ internal sealed class VersusGameState : IGameState, IDisposable
 	/// </summary>
 	private IEnumerable<UpdateResult> PlayZone(int zoneIndex, LevelPrepareSettings start)
 	{
+		if (zoneIndex >= 0 && _zoneAreaKeys[zoneIndex] == null)
+		{
+			foreach (UpdateResult result in PlaySpecialStageZone(zoneIndex))
+				yield return result;
+			yield break;
+		}
 		string name = zoneIndex >= 0 ? _match.ZoneNames[zoneIndex] : "VERSUS";
 		string areaKey = zoneIndex >= 0 ? _zoneAreaKeys[zoneIndex] : start.AreaResourceKey;
 		int firstAct = start?.Act ?? 1;
@@ -187,18 +205,53 @@ internal sealed class VersusGameState : IGameState, IDisposable
 	}
 
 	/// <summary>
-	/// Plays the special stage that breaks a tie of the acts. Each player plays their own character, and the player
-	/// who collects more rings in more segments wins the stage, which counts as one more act of the zone.
+	/// Plays the special stage zone, the fourth zone of the original: special stage 5, then stage 6, and stage 7 only when
+	/// the first two stages did not give a winner. The player who wins more stages wins the zone.
+	/// </summary>
+	private IEnumerable<UpdateResult> PlaySpecialStageZone(int zoneIndex)
+	{
+		VersusZoneResult zone = new VersusZoneResult(_match.ZoneNames[zoneIndex]) { IsSpecialStageZone = true };
+		for (int stage = FirstZoneSpecialStage; zone.NeedsAnotherSpecialStage; stage++)
+		{
+			Trace.WriteLine($"Versus: special stage zone, stage {stage + 1}");
+			foreach (UpdateResult result in PlaySpecialStage(zone, stage))
+				yield return result;
+		}
+		_match.Zones[zoneIndex] = zone;
+		Trace.WriteLine($"Versus: zone {zone.Name} winner {zone.Winner}");
+		foreach (UpdateResult result in ShowScreen(VersusResultsScreen.ForZone(_gameContext, zone, 1)))
+			yield return result;
+	}
+
+	/// <summary>
+	/// Plays a special stage of versus mode: the one that breaks a tie of the acts, or one of the special stage zone.
+	/// Each player plays their own character, and the player who collects more rings in more segments wins the stage,
+	/// which counts as one more round of the zone.
 	/// </summary>
 	private IEnumerable<UpdateResult> PlaySpecialStage(VersusZoneResult zone, int stage)
 	{
-		Trace.WriteLine($"Versus: the acts of {zone.Name} end in a tie, special stage {stage + 1}");
-		HalfPipeSpecialStageScreen specialStage = new HalfPipeSpecialStageScreen(_gameContext, Math.Min(stage, HalfPipeLayout.StageCount - 1), versus: true);
-		foreach (UpdateResult result in ShowScreen(specialStage))
-			yield return result;
-		zone.SpecialStage = new VersusSpecialStageResult(specialStage.VersusSegments.Select(s => (s.Sonic, s.Tails)).ToArray());
-		Trace.WriteLine($"Versus: special stage points {zone.SpecialStage.Player1Points} to {zone.SpecialStage.Player2Points}");
-		foreach (UpdateResult result in ShowScreen(VersusResultsScreen.ForSpecialStage(_gameContext, zone.Name, zone.SpecialStage)))
+		if (!zone.IsSpecialStageZone)
+		{
+			Trace.WriteLine($"Versus: the acts of {zone.Name} end in a tie, special stage {stage + 1}");
+		}
+		(int Player1, int Player2)[] segments;
+		IReadOnlyList<(int Player1, int Player2)[]> testSegments = TestHooks.VersusSpecialStageSegments;
+		if (testSegments != null)
+		{
+			// The test gives the rings of the segments, so the stage does not play
+			segments = testSegments[TestHooks.VersusSpecialStagesPlayed++ % testSegments.Count];
+		}
+		else
+		{
+			HalfPipeSpecialStageScreen specialStage = new HalfPipeSpecialStageScreen(_gameContext, Math.Min(stage, HalfPipeLayout.StageCount - 1), versus: true);
+			foreach (UpdateResult result in ShowScreen(specialStage))
+				yield return result;
+			segments = specialStage.VersusSegments.Select(s => (s.Sonic, s.Tails)).ToArray();
+		}
+		VersusSpecialStageResult stageResult = new VersusSpecialStageResult(segments) { Stage = Math.Min(stage, HalfPipeLayout.StageCount - 1) + 1 };
+		zone.SpecialStages.Add(stageResult);
+		Trace.WriteLine($"Versus: special stage points {stageResult.Player1Points} to {stageResult.Player2Points}");
+		foreach (UpdateResult result in ShowScreen(VersusResultsScreen.ForSpecialStage(_gameContext, zone, stageResult)))
 			yield return result;
 	}
 
