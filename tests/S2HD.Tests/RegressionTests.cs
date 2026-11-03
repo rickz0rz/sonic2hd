@@ -664,6 +664,20 @@ public sealed partial class RegressionTests
 	}
 
 	/// <summary>
+	/// The collision tool shows a row for each flag of a line. In Emerald Hill, a click on the "Flags" row of a floor
+	/// line shows the flags, a click turns on "Force roll", and the mouse over "Prevent jump" shows what it does.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void EditorCollisionFlags_MatchesGoldenScreenshots()
+	{
+		const string script = "3:tap 33;6:mouse 700 620;7:down left;8:up left;10:mouse 700 300;" +
+			"14:mouse 1600 695;15:down left;16:up left;18:mouse 1600 815;19:down left;20:up left;22:mouse 1600 845";
+		RunAndCompare("--level ehz --editor", new[] { 10030 }, Path.Combine(TestPaths.GoldenDirectory, "editor-collision-flags"), "editor-collision-flags",
+			new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script });
+	}
+
+	/// <summary>
 	/// A trackpad scrolls the view of the editor left and right. In Emerald Hill, the view moves right and then up.
 	/// </summary>
 	[Fact]

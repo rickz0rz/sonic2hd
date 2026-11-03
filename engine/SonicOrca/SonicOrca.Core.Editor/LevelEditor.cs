@@ -1702,6 +1702,13 @@ public sealed class LevelEditor : IDisposable
 		}
 		renderer.DeativateRenderer();
 		g.ClipRectangle = new Rectangle(0.0, 0.0, ScreenWidth, ScreenHeight);
+		// The tooltip of the row under the mouse shows at the left of the panel
+		int hovered = IsOverPanel(Mouse) && Mouse.Y >= rowsTop ? GetPropertyRowIndexAt(Mouse.Y) : -1;
+		if (hovered >= 0 && hovered < rows.Count && rows[hovered].Tooltip is string tooltip)
+		{
+			double y = rowsTop + hovered * RowHeight - _propertyScroll;
+			DrawLabel(renderer, g, tooltip, left - MeasureText(tooltip) - Padding * 2.0, y + 2.0, TextColour);
+		}
 	}
 
 	private void DrawHeading(Renderer renderer, I2dRenderer g, string text, double left, double top) => _ui.DrawHeading(renderer, g, text, left, top);

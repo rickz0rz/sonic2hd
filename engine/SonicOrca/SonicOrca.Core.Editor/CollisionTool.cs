@@ -426,15 +426,54 @@ internal sealed class CollisionTool : EditorTool
 				Change(line, a, b, (line.Paths & ~PathMask) | paths, line.Flags);
 			}
 		});
+		string flagNames = line.Flags == 0 ? "none" : string.Join(", ", FlagInfo.Where(f => line.Flags.HasFlag(f.Flag)).Select(f => f.Name));
 		rows.Add(new EditorPropertyRow
 		{
 			Label = "Flags",
-			Value = ((int)line.Flags).ToString(),
-			Commit = text => int.TryParse(text, out int flags) && flags >= 0 && Change(line, a, b, line.Paths, (CollisionFlags)flags)
+			Value = flagNames + (_showFlags ? " (click to close)" : " (click to choose)"),
+			Step = _ => _showFlags = !_showFlags,
+			Tooltip = _showFlags ? null : flagNames.Length > 30 ? flagNames : null
 		});
-		rows.Add(new EditorPropertyRow { Label = "Flag names", Value = line.Flags == 0 ? "none" : line.Flags.ToString() });
+		if (_showFlags)
+		{
+			// One row for each flag. A click turns the flag on or off, and the tooltip tells what it does.
+			foreach ((CollisionFlags flag, string name, string description) in FlagInfo)
+			{
+				bool on = line.Flags.HasFlag(flag);
+				rows.Add(new EditorPropertyRow
+				{
+					Label = "   " + name,
+					Value = on ? "on" : "off",
+					Step = _ => Change(line, a, b, line.Paths, on ? line.Flags & ~flag : line.Flags | flag),
+					Tooltip = description
+				});
+			}
+		}
 		return rows;
 	}
+
+	/// <summary>True when the properties show a row for each flag of the line.</summary>
+	private bool _showFlags;
+
+	/// <summary>The flags of a collision line, their names in the editor, and what they do to a character.</summary>
+	private static readonly (CollisionFlags Flag, string Name, string Description)[] FlagInfo =
+	{
+		(CollisionFlags.Solid, "Solid", "Solid from both sides. Without it, a character passes through the line from its back side."),
+		(CollisionFlags.Ignore, "Ignore", "Characters do not collide with the line."),
+		(CollisionFlags.NoLanding, "No landing", "A character that falls on the line stops and does not land."),
+		(CollisionFlags.ForceRoll, "Force roll", "A character on the line rolls, as in a tube."),
+		(CollisionFlags.PreventJump, "Prevent jump", "A character on the line cannot jump."),
+		(CollisionFlags.DontFall, "Do not fall", "A slow character does not slide or fall off the line, also on a wall or a ceiling."),
+		(CollisionFlags.NoAngle, "No angle", "The line counts as flat: no slope speed, and a landing keeps the horizontal speed."),
+		(CollisionFlags.Rotate, "Rotate", "A character on the line turns to its exact angle, not to the nearest quarter turn."),
+		(CollisionFlags.Snap, "Snap", "A character that leaves the line moves in the nearest quarter-turn direction."),
+		(CollisionFlags.NoBalance, "No balance", "A character at the end of the line does not balance on the edge."),
+		(CollisionFlags.NoPathFollowing, "No path following", "A character at the end of the line before does not move onto this line."),
+		(CollisionFlags.Mobile, "Mobile", "A wall that moves: a character that pushes it can still move up and down."),
+		(CollisionFlags.Conveyor, "Conveyor", "The line of a moving object: a character on it moves with the object."),
+		(CollisionFlags.NoAutoAlignment, "No auto alignment", "On a moving object, a character does not snap to the line each frame."),
+		(CollisionFlags.Reacts, "Reacts", "Not used by the engine. The flag stays in the level file."),
+	};
 
 	private static EditorPropertyRow PointRow(string label, Vector2i point, Func<Vector2i, bool> change)
 	{

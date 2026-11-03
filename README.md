@@ -449,7 +449,9 @@ its button or with its key:
   with Y down. So a floor goes from left to right, and a ceiling from right to left. Green lines are on path 1,
   blue lines on path 2, and white lines on both. The layer switches select the path. Grey lines are the lines of
   layout changes. Click "Draw lines", then click the points of the lines. Drag the end of a selected line to move
-  the point. The other lines that end at that point move with it.
+  the point. The other lines that end at that point move with it. Click the "Flags" row of a selected line to see all the flags, for
+  example "Force roll" or "Prevent jump". Click a flag to turn it on or off. Hold the mouse over a flag to see what
+  it does.
 - **Levels (5)** opens a level and changes the order of the story. The list shows the levels of the story in their
   order, then the other levels. Click a level, then click "Open" to edit that level. With changes that are not saved,
   the first click only warns, and a second click opens the level without the changes. Click "Move up" or "Move down"
