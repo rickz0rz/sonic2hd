@@ -80,6 +80,18 @@ public sealed class LevelImportTests
 	}
 
 	[Fact]
+	public void Cnz_TheBigBlock_HasAFrameForEachStepOfItsPaletteCycle()
+	{
+		// The big block has one frame, with the colours of PalCycle_CNZ: 3 steps of 8 ticks
+		ImportedSprite block = Assert.Single(Cnz.Value.Sprites, s => s.ObjectKey == "SONICORCA/OBJECTS/CNZBIGBLOCK");
+		Assert.Equal(3, System.Text.RegularExpressions.Regex.Matches(block.AnimationGroup, "<frame ").Count);
+		Assert.Contains("delay=\"7\"", block.AnimationGroup);
+		// The bumper has more than one frame, so it keeps one frame for each mapping frame
+		ImportedSprite bumper = Assert.Single(Cnz.Value.Sprites, s => s.ObjectKey == "SONICORCA/OBJECTS/CNZBUMPER");
+		Assert.DoesNotContain("palette cycle", bumper.AnimationGroup);
+	}
+
+	[Fact]
 	public void Cnz_BonusBlocks_HaveTheFramesForEachOfTheirThreeColours()
 	{
 		ImportedLevel level = Cnz.Value;

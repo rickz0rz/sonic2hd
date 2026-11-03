@@ -58,6 +58,9 @@ public class WFZThrustInstance : ActiveObject
 		PositionPrecise = new Vector2(_startX + offset * Scale, PositionPrecise.Y);
 	}
 
+	/// <summary>The frames of the sprite are the steps of a palette cycle of the original (see SpriteImport).</summary>
+	protected override void OnAnimate() => _animation.Animate();
+
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 	{
 		if (!_visible)
