@@ -488,6 +488,7 @@ Use the mouse and the keyboard:
 | Wheel, Shift and wheel | Moves the view up and down, or left and right |
 | Trackpad scroll left and right | Moves the view left and right |
 | Ctrl and wheel, `-` and `=` | Zooms out and in |
+| M | Shows or hides the mini-map. Click or drag in it to move the view |
 | Arrow keys | Move the selected items by the grid size (Shift: 4 times). Without a selection, they move the view |
 | Del or Backspace | Deletes the selected items |
 | Ctrl+Z, Ctrl+Shift+Z or Ctrl+Y | Undo and redo |

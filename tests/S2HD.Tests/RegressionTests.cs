@@ -683,6 +683,19 @@ public sealed partial class RegressionTests
 	}
 
 	/// <summary>
+	/// The mini-map in the bottom right corner shows the whole level: the tiles in white, the objects as dots, and the
+	/// view as a yellow box. In Emerald Hill, a click in the middle of the map moves the view there, and a drag moves it on.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void EditorMiniMap_MatchesGoldenScreenshots()
+	{
+		const string script = "4:mouse 600 400;8:mouse 1100 1005;9:down left;11:mouse 1150 1005;13:up left;15:mouse 600 400";
+		RunAndCompare("--level ehz --editor", new[] { 10006, 10016 }, Path.Combine(TestPaths.GoldenDirectory, "editor-mini-map"), "editor-mini-map",
+			new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script });
+	}
+
+	/// <summary>
 	/// The collision tool shows a row for each flag of a line. In Emerald Hill, a click on the "Flags" row of a floor
 	/// line shows the flags, a click turns on "Force roll", and the mouse over "Prevent jump" shows what it does.
 	/// </summary>
