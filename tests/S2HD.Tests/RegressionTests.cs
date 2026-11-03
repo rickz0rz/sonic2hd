@@ -812,6 +812,19 @@ public sealed partial class RegressionTests
 	}
 
 	/// <summary>
+	/// An imported object with one frame and the colours of a palette cycle changes colour. The big block of CNZ 1 at
+	/// 7552, 6656 shows the next step of PalCycle_CNZ 8 ticks later.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void ImportedObjectPaletteCycle_MatchesGoldenScreenshots()
+	{
+		ImportedMods.Get();
+		RunAndCompare("--level cnz --startpos 7552 6500", new[] { 200, 208 }, Path.Combine(TestPaths.GoldenDirectory, "imported-object-palette-cycle"),
+			"imported-object-palette-cycle", withImportedMods: true);
+	}
+
+	/// <summary>
 	/// Starts each act of the zones that the import makes from the disassembly, with no input. Skipped when the
 	/// disassembly is not found. The goldens are in tests/golden/levels-imported.
 	/// </summary>

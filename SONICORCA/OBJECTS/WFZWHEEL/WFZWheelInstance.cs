@@ -22,6 +22,9 @@ public class WFZWheelInstance : ActiveObject
 		_animation = new AnimationInstance(ResourceTree, Type.GetAbsolutePath(WFZWheelType.AnimationGroupResourceKey));
 	}
 
+	/// <summary>The frames of the sprite are the steps of a palette cycle of the original (see SpriteImport).</summary>
+	protected override void OnAnimate() => _animation.Animate();
+
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 	{
 		_animation.Index = 0;

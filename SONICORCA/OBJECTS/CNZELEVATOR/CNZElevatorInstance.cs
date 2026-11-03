@@ -148,6 +148,9 @@ public class CNZElevatorInstance : Platform
 
 	private Vector2 GetPosition() => _middle + new Vector2(0.0, _offset * Scale);
 
+	/// <summary>The frames of the sprite are the steps of a palette cycle of the original (see SpriteImport).</summary>
+	protected override void OnAnimate() => _animation.Animate();
+
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 	{
 		renderer.GetObjectRenderer().Render(_animation);

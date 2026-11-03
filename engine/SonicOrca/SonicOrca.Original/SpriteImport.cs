@@ -193,7 +193,15 @@ public static class SpriteImport
 		return file.EndsWith(".bin", StringComparison.OrdinalIgnoreCase) ? data : Nemesis.Decompress(data);
 	}
 
-	public static ImportedSprite Import(OriginalSprite sprite, string disassembly, uint[] palette, int scale)
+	public static ImportedSprite Import(OriginalSprite sprite, string disassembly, uint[] palette, int scale) =>
+		Import(sprite, disassembly, palette, scale, Array.Empty<PaletteCycle>());
+
+	/// <summary>
+	/// Converts the sprites of an object. A sprite with one frame that uses the colours of one palette cycle gets one
+	/// frame for each step of the cycle, in one animation, so that the object changes colour as in the original.
+	/// The object code plays the animation. Other sprites with cycled colours keep the colours of the first step.
+	/// </summary>
+	public static ImportedSprite Import(OriginalSprite sprite, string disassembly, uint[] palette, int scale, IReadOnlyList<PaletteCycle> cycles)
 	{
 		byte[] art = Array.Empty<byte>();
 		foreach ((string file, int artTile) in sprite.MoreArt.Prepend((sprite.ArtFile, sprite.ArtTile)))
@@ -223,7 +231,77 @@ public static class SpriteImport
 		}
 		string[] mappings = sprite.MappingsFile.Split('#');
 		List<List<SpritePiece>> frames = ParseMappings(File.ReadAllText(Path.Combine(disassembly, mappings[0])), mappings.Length > 1 ? mappings[1] : null);
+		if (frames.Count == 1 && sprite.PaletteLines.Count == 1 && sprite.SplitFrames.Count == 0 &&
+			GetUsedCycles(frames[0], art, palette, sprite.PaletteLines[0], cycles) is [PaletteCycle cycle])
+		{
+			return ImportCycled(sprite.ObjectKey, art, frames[0], sprite.PaletteLines[0], palette, cycle, scale);
+		}
 		return Import(sprite.ObjectKey, art, frames, sprite.PaletteLines, sprite.SplitFrames, palette, scale);
+	}
+
+	/// <summary>The palette cycles whose colours a frame uses: a change of the colours of the cycle changes the frame.</summary>
+	private static List<PaletteCycle> GetUsedCycles(List<SpritePiece> frame, byte[] art, uint[] palette, int line, IReadOnlyList<PaletteCycle> cycles)
+	{
+		uint[] pixels = Render(frame, art, palette, line).Pixels;
+		return cycles.Where(cycle =>
+		{
+			uint[] marked = (uint[])palette.Clone();
+			foreach (int entry in cycle.Entries)
+			{
+				marked[entry] = ~palette[entry] | 0xFF;
+			}
+			return !Render(frame, art, marked, line).Pixels.AsSpan().SequenceEqual(pixels);
+		}).ToList();
+	}
+
+	/// <summary>
+	/// Draws one frame once for each step of a palette cycle, side by side, and writes one animation that shows the
+	/// steps for the period of the cycle each.
+	/// </summary>
+	private static ImportedSprite ImportCycled(string objectKey, byte[] art, List<SpritePiece> frame, int line, uint[] palette, PaletteCycle cycle, int scale)
+	{
+		var images = Enumerable.Range(0, cycle.Steps.Count).Select(step =>
+		{
+			uint[] stepPalette = (uint[])palette.Clone();
+			cycle.Apply(stepPalette, step * cycle.Period);
+			return Render(frame, art, stepPalette, line);
+		}).ToList();
+		(uint[] _, int w, int h, int originX, int originY) = images[0];
+		int width = Math.Max(1, w * images.Count) * scale;
+		int height = Math.Max(1, h) * scale;
+		var pixels = new byte[width * height * 4];
+		var anigroup = new StringBuilder();
+		anigroup.AppendLine("<?xml version=\"1.0\"?>");
+		anigroup.AppendLine("<anigroup>");
+		anigroup.AppendLine("  <textures>");
+		anigroup.AppendLine("    <texture>//TEXTURE</texture>");
+		anigroup.AppendLine("  </textures>");
+		anigroup.AppendLine("  <animations>");
+		anigroup.AppendLine($"    <!-- frame 0, palette cycle {cycle.Name} -->");
+		int offsetX = (originX * 2 + w) * scale / 2;
+		int offsetY = (originY * 2 + h) * scale / 2;
+		// A frame shows for its delay plus 1 tick
+		anigroup.AppendLine($"    <animation w=\"{Math.Max(1, w * scale)}\" h=\"{Math.Max(1, h * scale)}\" offset_x=\"{offsetX}\" offset_y=\"{offsetY}\" delay=\"{cycle.Period - 1}\">");
+		for (int i = 0; i < images.Count; i++)
+		{
+			for (int y = 0; y < h * scale; y++)
+			{
+				for (int x = 0; x < w * scale; x++)
+				{
+					uint colour = images[i].Pixels[(y / scale) * w + x / scale];
+					int offset = (y * width + i * w * scale + x) * 4;
+					pixels[offset] = (byte)(colour >> 24);
+					pixels[offset + 1] = (byte)(colour >> 16);
+					pixels[offset + 2] = (byte)(colour >> 8);
+					pixels[offset + 3] = (byte)colour;
+				}
+			}
+			anigroup.AppendLine($"      <frame x=\"{i * w * scale}\" y=\"0\" />");
+		}
+		anigroup.AppendLine("    </animation>");
+		anigroup.AppendLine("  </animations>");
+		anigroup.AppendLine("</anigroup>");
+		return new ImportedSprite(objectKey, EncodePng(pixels, width, height), anigroup.ToString());
 	}
 
 	/// <summary>

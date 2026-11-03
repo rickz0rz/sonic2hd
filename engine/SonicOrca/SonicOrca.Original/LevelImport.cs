@@ -931,7 +931,8 @@ public static class LevelImport
 		{
 			notes.Add($"Object type ${pair.Key:X2}: {pair.Value} not imported, because SonicOrca has no object for it.");
 		}
-		var sprites = zone.Sprites.Select(sprite => SpriteImport.Import(sprite, disassembly, palette, Scale)).ToList();
+		// A still sprite with the colours of a palette cycle gets a frame for each step (see SpriteImport.Import)
+		var sprites = zone.Sprites.Select(sprite => SpriteImport.Import(sprite, disassembly, palette, Scale, paletteCycles ?? Array.Empty<PaletteCycle>())).ToList();
 		// The objects of the binding, and the objects that only other objects or the area make (for example the bosses)
 		var newObjects = binding.ObjectPlacements.Select(p => p.Key).Concat(zone.Sprites.Select(s => s.ObjectKey)).Concat(zone.AreaObjects).Distinct()
 			.Where(RepositoryObjects.ContainsKey).ToDictionary(key => key, key => RepositoryObjects[key]);
