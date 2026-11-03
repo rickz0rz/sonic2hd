@@ -569,6 +569,11 @@ public sealed class LevelEditor : IDisposable
 		{
 			UpdateWheel(_input.Wheel);
 		}
+		// A trackpad also scrolls left and right
+		if (_input.WheelX != 0.0 && IsOverLevel(Mouse))
+		{
+			MoveView(_input.WheelX * 96.0 / Zoom, 0.0);
+		}
 		if (_input.LeftPressed || _input.RightPressed)
 		{
 			if (_entry.IsActive && !IsOverPropertyRow(_entry.Row))

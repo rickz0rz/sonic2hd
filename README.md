@@ -482,6 +482,7 @@ Use the mouse and the keyboard:
 | Click a value in the properties | Changes the value. A yes or no value and a list value change on a click (right click goes back). For a number or a text, type the value and press Enter |
 | Right drag, middle drag or Space and drag | Moves the view |
 | Wheel, Shift and wheel | Moves the view up and down, or left and right |
+| Trackpad scroll left and right | Moves the view left and right |
 | Ctrl and wheel, `-` and `=` | Zooms out and in |
 | Arrow keys | Move the selected items by the grid size (Shift: 4 times). Without a selection, they move the view |
 | Del or Backspace | Deletes the selected items |

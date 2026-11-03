@@ -23,7 +23,7 @@ namespace SonicOrca.Core.Debugging;
 /// <item>S2HD_TEST_EDITOR_INPUT="5:mouse 900 500;6:down left;7:up left": replaces the mouse and keyboard of the level
 /// editor with these commands. Each command has the editor frame where it starts (counted over all the times that
 /// the editor opens) and one of: "mouse X Y" (1920 x 1080 screen), "down left|right|middle", "up left|right|middle",
-/// "wheel N", "keydown SCANCODE", "keyup SCANCODE", "tap SCANCODE" (down for one frame) or "type TEXT". While the
+/// "wheel N", "hwheel N" (left and right), "keydown SCANCODE", "keyup SCANCODE", "tap SCANCODE" (down for one frame) or "type TEXT". While the
 /// editor is open, S2HD_CAPTURE_LEVEL_TICKS uses 10000 plus this frame number. In the special stage, it uses 20000
 /// plus the tick of the stage.</item>
 /// <item>S2HD_TEST_STORY=1 and S2HD_TEST_LOG=file: plays the story without a player and writes a log (see

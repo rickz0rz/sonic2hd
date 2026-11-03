@@ -648,6 +648,18 @@ public sealed partial class RegressionTests
 	}
 
 	/// <summary>
+	/// A trackpad scrolls the view of the editor left and right. In Emerald Hill, the view moves right and then up.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void EditorTrackpadScroll_MatchesGoldenScreenshots()
+	{
+		const string script = "5:mouse 600 300;6:hwheel 10;8:hwheel 5;10:wheel 3";
+		RunAndCompare("--level ehz --editor", new[] { 10012 }, Path.Combine(TestPaths.GoldenDirectory, "editor-trackpad-scroll"), "editor-trackpad-scroll",
+			new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script });
+	}
+
+	/// <summary>
 	/// A background layer shows alone while the tiles tool paints on it. In Chemical Plant, the first 14 rows of the
 	/// list are background layers, so the list marks them with "parallax" and shows a scroll bar. A banner on the view
 	/// tells that the layer shows alone, and a click on it shows all the layers. The "View" row then shows the layer
