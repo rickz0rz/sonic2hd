@@ -13,6 +13,9 @@ public struct MouseState
 
 	public double Wheel { get; set; }
 
+	/// <summary>The left and right movement of the wheel or the trackpad: positive to the right.</summary>
+	public double WheelX { get; set; }
+
 	public bool Left { get; set; }
 
 	public bool Middle { get; set; }

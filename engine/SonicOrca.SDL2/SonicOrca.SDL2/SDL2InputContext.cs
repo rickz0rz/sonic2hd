@@ -94,6 +94,7 @@ public class SDL2InputContext : InputContext, IDisposable
 	public unsafe override void UpdateCurrentState()
 	{
 		int wheel = 0;
+		int wheelX = 0;
 		TextInput = null;
 		SDL.SDL_StartTextInput();
 		// SDL2WindowContext.Update pumped and peeked the events of this frame. Read them, then remove them all.
@@ -105,6 +106,7 @@ public class SDL2InputContext : InputContext, IDisposable
 			{
 				case SDL.SDL_EventType.SDL_MOUSEWHEEL:
 					wheel = e.wheel.y;
+					wheelX = e.wheel.x;
 					break;
 				case SDL.SDL_EventType.SDL_TEXTINPUT:
 					// A null-terminated UTF-8 string in a 32-byte buffer
@@ -130,7 +132,8 @@ public class SDL2InputContext : InputContext, IDisposable
 			Left = (buttons & SDL.SDL_BUTTON_LMASK) != 0,
 			Middle = (buttons & SDL.SDL_BUTTON_MMASK) != 0,
 			Right = (buttons & SDL.SDL_BUTTON_RMASK) != 0,
-			Wheel = wheel
+			Wheel = wheel,
+			WheelX = wheelX
 		};
 
 		GamePadInputState[] gamePads = new GamePadInputState[MaxGamePads];

@@ -45,6 +45,9 @@ public sealed class EditorInput
 
 	public double Wheel { get; private set; }
 
+	/// <summary>The left and right scroll of a trackpad or a tilt wheel: positive to the right.</summary>
+	public double WheelX { get; private set; }
+
 	public string TextInput { get; private set; }
 
 	public bool IsKeyDown(int scancode) => _keysDown.Contains(scancode);
@@ -84,6 +87,7 @@ public sealed class EditorInput
 		_lastKeysDown.Clear();
 		_lastKeysDown.UnionWith(_keysDown);
 		Wheel = 0.0;
+		WheelX = 0.0;
 		TextInput = null;
 		int frame = ++TestHooks.EditorFrame;
 		if (TestHooks.EditorInput != null)
@@ -101,6 +105,7 @@ public sealed class EditorInput
 		Right = state.Mouse.Right;
 		Middle = state.Mouse.Middle;
 		Wheel = state.Mouse.Wheel;
+		WheelX = state.Mouse.WheelX;
 		TextInput = gameContext.Input.TextInput;
 		_keysDown.Clear();
 		for (int scancode = 0; scancode < state.Keyboard.Count; scancode++)
@@ -136,6 +141,9 @@ public sealed class EditorInput
 					break;
 				case "wheel":
 					Wheel = double.Parse(argument, CultureInfo.InvariantCulture);
+					break;
+				case "hwheel":
+					WheelX = double.Parse(argument, CultureInfo.InvariantCulture);
 					break;
 				case "keydown":
 					_keysDown.Add(int.Parse(argument, CultureInfo.InvariantCulture));
