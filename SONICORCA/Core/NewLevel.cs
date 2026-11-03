@@ -21,6 +21,9 @@ internal static class NewLevel
 
 	public const int TileSize = 64;
 
+	/// <summary>The columns of the background layer: 2048 pixels, which repeat.</summary>
+	public const int BackgroundColumns = 32;
+
 	/// <summary>The Y of the floor line.</summary>
 	public const int FloorY = 1152;
 
@@ -61,8 +64,10 @@ internal static class NewLevel
 	public static byte[] MakeMap()
 	{
 		string emptyRow = string.Join(",", Enumerable.Repeat("0", Columns));
+		// The background repeats to the left and the right. It is large enough to paint a background on it.
+		string backRow = string.Join(",", Enumerable.Repeat("0", BackgroundColumns));
 		XElement back = new XElement("layer", new XAttribute("name", "back"),
-			new XElement("tiles", new XAttribute("wrap_x", "true"), new XElement("row", "0")));
+			new XElement("tiles", new XAttribute("wrap_x", "true"), Enumerable.Range(0, Rows).Select(_ => new XElement("row", backRow))));
 		XElement front = new XElement("layer", new XAttribute("name", "front"),
 			new XElement("tiles", Enumerable.Range(0, Rows).Select(_ => new XElement("row", emptyRow))));
 		XElement vectors = new XElement("vectors");

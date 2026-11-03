@@ -626,7 +626,7 @@ public sealed partial class RegressionTests
 	[Trait("Category", "Regression")]
 	public void EditorTilesAndCollision_MatchesGoldenScreenshots()
 	{
-		const string script = "3:tap 32;6:mouse 1555 861;7:down left;8:up left;" +
+		const string script = "3:tap 32;6:mouse 1555 891;7:down left;8:up left;" +
 			"11:mouse 700 400;12:down left;14:mouse 800 400;16:mouse 900 400;18:up left;" +
 			"22:tap 33;24:mouse 1600 93;25:down left;26:up left;28:mouse 300 300;29:down left;30:up left;" +
 			"32:mouse 900 300;33:down left;34:up left;35:tap 41;45:mouse 600 150;46:tap 62";
@@ -763,6 +763,31 @@ public sealed partial class RegressionTests
 	}
 
 	/// <summary>
+	/// The Size row of the tiles tool changes the size of a layer. A new level from a tile image has a background of
+	/// 32 x 24 tiles. The test makes it 40 x 24, paints a row of tiles on it, and saves. The saved map has the new size.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void EditorLayerSize_MatchesGoldenScreenshots()
+	{
+		string image = Path.Combine(Path.GetTempPath(), "s2hd-layer-size-tiles.png");
+		File.WriteAllBytes(image, NewLevelTests.MakePng(256, 128, (_, _) => 255));
+		try
+		{
+			const string script = "5:mouse 1700 665;6:down left;7:up left;50:tap 32;55:mouse 1600 93;56:down left;57:up left;" +
+				"60:mouse 1700 785;61:down left;62:up left;63:type 40 x 24;65:tap 40;68:mouse 1555 835;69:down left;70:up left;" +
+				"74:mouse 600 400;75:down left;77:mouse 800 400;79:mouse 1000 400;80:up left;82:mouse 600 600;90:keydown 224;91:tap 22;92:keyup 224";
+			RunAndCompare($"--level jungle --editor --tiles {image}", new[] { 10085, 10100 }, Path.Combine(TestPaths.GoldenDirectory, "editor-layer-size"),
+				"editor-layer-size", new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script },
+				checkUserData: userData => Assert.True(File.Exists(Path.Combine(userData, "mods", "editor", "JUNGLE.dat"))));
+		}
+		finally
+		{
+			File.Delete(image);
+		}
+	}
+
+	/// <summary>
 	/// The collision tool shows a row for each flag of a line. In Emerald Hill, a click on the "Flags" row of a floor
 	/// line shows the flags, a click turns on "Force roll", and the mouse over "Prevent jump" shows what it does.
 	/// </summary>
@@ -818,7 +843,7 @@ public sealed partial class RegressionTests
 	{
 		// The "Show" row shows only the animated tiles. The tile is then at index 30: row 3, column 6.
 		// A click on the "Animation" row then opens the animation of the tile in the animation editor
-		const string script = "3:tap 32;6:mouse 1700 668;7:down left;8:up left;10:mouse 1826 971;12:down left;13:up left;" +
+		const string script = "3:tap 32;6:mouse 1700 668;7:down left;8:up left;10:mouse 1826 1001;12:down left;13:up left;" +
 			"20:mouse 1700 698;21:down left;22:up left";
 		RunAndCompare("--level arz --editor", new[] { 10016, 10030, 10060 }, Path.Combine(TestPaths.GoldenDirectory, "editor-tile-animation"), "editor-tile-animation",
 			new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script }, withImportedMods: true);

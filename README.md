@@ -502,6 +502,11 @@ that the layer shows alone. Click the banner, or the "View" row of the panel, to
 where the game draws them for the current view. The label at the mouse names the cell of the layer there, for
 example `layer 5: tile 507 at 896, 1088`.
 
+The "Size" row of the panel changes the size of the current layer: click it, and type the columns and the rows, for
+example `64 x 24`. The tiles in the new size stay. A click outside the layer paints nothing, and the status line says
+so. Undo cannot change the size back, so a change of the size clears the undo history. The front layer of an imported
+zone keeps its size, because the tile collision of the import has that size.
+
 The "Show" row of the panel switches the palette between all the tiles and the animated tiles. The palette marks each
 animated tile. The "Animation" row shows the frames of the brush tile, for example `#29: 4 frames of 6 ticks`. Click
 it to open the animation of the tile in the animation editor. Each animated tile takes its frames from the animation
@@ -563,7 +568,8 @@ move the file to `mods/editor`.
 The editor saves the map in a way that keeps all the other data of the map file.
 
 A new level is a mod folder, `mods/<short name>/`, in the user data folder. It uses the tile set of the level that
-you chose, so the folder has no tiles. To give the level tiles of its own, type the path of a PNG image in "Tile
+you chose, so the folder has no tiles. Its background layer has 32 x 24 tiles, which repeat to the left and the right.
+To give the level tiles of its own, type the path of a PNG image in "Tile
 image". Each tile is 64 x 64 pixels, so the width and the height of the image must be multiples of 64, and 8192
 pixels at most. Each cell of the image that is not fully transparent becomes a tile, from the top left, row by row.
 The folder then has the tile set (`TILESET`) with the image as its texture. The map has an empty background layer, an empty front layer, a floor line, and
