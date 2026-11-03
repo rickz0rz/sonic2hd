@@ -386,6 +386,8 @@ internal class RootGameState : IGameState, IDisposable
 			OpenEditor = _cmdLineArgs.HasOption("editor"),
 			EditorNewLevelForm = newLevel,
 			EditorNewLevelName = newLevelName,
+			// "--tiles image.png" gives the tile image of the form of a new level
+			EditorNewLevelTileImage = newLevel ? _cmdLineArgs.GetOptionValues("tiles").FirstOrDefault() : null,
 			Physics = Enum.TryParse(_cmdLineArgs.GetOptionValues("physics").FirstOrDefault(), ignoreCase: true, out PhysicsMode physics)
 				? physics
 				: null
