@@ -28,6 +28,12 @@ public interface IObjectRenderer : IRenderer, IDisposable
 
 	Vector2 Scale { get; set; }
 
+	/// <summary>
+	/// The colours of the texture that the shader draws as other colours, or null. The palette cycles of the original
+	/// use them on the sprites of the objects (see ObjectPaletteCycles).
+	/// </summary>
+	System.Collections.Generic.IReadOnlyList<ColourSwap> ColourSwaps { get; set; }
+
 	IDisposable BeginMatixState();
 
 	void SetDefault();

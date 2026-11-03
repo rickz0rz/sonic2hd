@@ -7,6 +7,7 @@ using System.Text;
 using SonicOrca.Core;
 using SonicOrca.Core.Collision;
 using SonicOrca.Geometry;
+using SonicOrca.Graphics;
 
 namespace SonicOrca.Original;
 
@@ -459,7 +460,8 @@ public sealed record OriginalZone(string Name, string Key, string ChunksFile, st
 public sealed record ImportedLevel(LevelMap Map, LevelBinding Binding, IReadOnlyList<string> Notes,
 	IReadOnlyList<ImportedSprite> Sprites, IReadOnlyDictionary<string, string> NewObjects,
 	string TileSet = null, byte[] PriorityTexture = null, IReadOnlyDictionary<string, byte[]> Textures = null,
-	TileCollision TileCollision = null, string TileAnimations = null, LevelBinding VersusBinding = null);
+	TileCollision TileCollision = null, string TileAnimations = null, LevelBinding VersusBinding = null,
+	ObjectPaletteCycles ObjectPaletteCycles = null);
 
 /// <summary>
 /// Makes the map and the binding of a SonicOrca level from a zone of the original game. The tiles are the blocks of
@@ -931,14 +933,46 @@ public static class LevelImport
 		{
 			notes.Add($"Object type ${pair.Key:X2}: {pair.Value} not imported, because SonicOrca has no object for it.");
 		}
-		// A still sprite with the colours of a palette cycle gets a frame for each step (see SpriteImport.Import)
-		var sprites = zone.Sprites.Select(sprite => SpriteImport.Import(sprite, disassembly, palette, Scale, paletteCycles ?? Array.Empty<PaletteCycle>())).ToList();
+		// A still sprite with the colours of a palette cycle gets a frame for each step. The other sprites with these
+		// colours get key colours, which the object shader changes (see SpriteImport.Import and ObjectPaletteCycles).
+		IReadOnlyList<PaletteCycle> cycles = paletteCycles ?? Array.Empty<PaletteCycle>();
+		(uint[] keyPalette, IReadOnlyDictionary<int, uint> keys) = SpriteImport.MakeKeyPalette(palette, cycles);
+		var sprites = zone.Sprites.Select(sprite => SpriteImport.Import(sprite, disassembly, palette, Scale, cycles, cycles.Count > 0 ? keyPalette : null)).ToList();
+		ObjectPaletteCycles objectPaletteCycles = sprites.Any(s => s.UsesKeyColours)
+			? new ObjectPaletteCycles(MakeObjectPaletteCycleEntries(palette, cycles, keys), sprites.Where(s => s.UsesKeyColours).Select(s => s.ObjectKey))
+			: null;
 		// The objects of the binding, and the objects that only other objects or the area make (for example the bosses)
 		var newObjects = binding.ObjectPlacements.Select(p => p.Key).Concat(zone.Sprites.Select(s => s.ObjectKey)).Concat(zone.AreaObjects).Distinct()
 			.Where(RepositoryObjects.ContainsKey).ToDictionary(key => key, key => RepositoryObjects[key]);
 		return new ImportedLevel(map, binding, notes, sprites, newObjects, tileSet, priorityTexture, textures,
-			TileCollision.FromBlocks(FrontLayerIndex, blocks, heights, primary, secondary), tileAnimations, versusBinding);
+			TileCollision.FromBlocks(FrontLayerIndex, blocks, heights, primary, secondary), tileAnimations, versusBinding, objectPaletteCycles);
 	}
+
+	/// <summary>The key colour of each cycled entry, and its colour at each step of its cycle.</summary>
+	private static IEnumerable<ObjectPaletteCycles.Entry> MakeObjectPaletteCycleEntries(uint[] palette, IReadOnlyList<PaletteCycle> cycles,
+		IReadOnlyDictionary<int, uint> keys)
+	{
+		foreach ((int entry, uint key) in keys.OrderBy(k => k.Key))
+		{
+			PaletteCycle cycle = cycles.First(c => c.Entries.Contains(entry));
+			// The steps write the entries one after the other, so an entry that a step does not write keeps its colour
+			uint[] stepPalette = (uint[])palette.Clone();
+			for (int step = 0; step < cycle.Steps.Count; step++)
+			{
+				cycle.Apply(stepPalette, step * cycle.Period);
+			}
+			var colours = new List<Colour>();
+			for (int step = 0; step < cycle.Steps.Count; step++)
+			{
+				cycle.Apply(stepPalette, step * cycle.Period);
+				colours.Add(ToColour(stepPalette[entry]));
+			}
+			yield return new ObjectPaletteCycles.Entry(ToColour(key), colours, cycle.Period);
+		}
+	}
+
+	/// <summary>A colour of the import (RGBA) as a colour of the engine.</summary>
+	private static Colour ToColour(uint rgba) => new Colour((byte)rgba, (byte)(rgba >> 24), (byte)(rgba >> 16), (byte)(rgba >> 8));
 
 	/// <summary>
 	/// Adds the bumpers in the landscape: 6-byte entries of kind (0 to $A), x and y. The file of act 1 has no start

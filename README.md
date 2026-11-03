@@ -360,7 +360,8 @@ an update of this repository. The import does these steps:
   every few frames, for example the waterfalls of ARZ, the lights of CNZ and MTZ, the oil of OOZ and the conveyor
   belts of WFZ. The HD tiles have one palette, so the blocks with these colours get one frame for each change.
   An object with one frame and these colours gets a frame for each change, for example the big blocks of CNZ.
-  Other objects with these colours do not change yet. An object of WFZ switches its first cycle between the fire and the
+  The other objects with these colours, for example the bumpers of CNZ, get key colours. The object shader draws
+  each key colour as the colour of the current step (`PALETTECYCLES.xml` next to the map). An object of WFZ switches its first cycle between the fire and the
   conveyor belts in the original. The tiles cannot switch, so WFZ shows the belts and SCZ shows the fire.
 - It writes the frames of the animated tiles into an animation group (`ANIGROUP`) of the tile set, so that the
   animation editor can change them.
