@@ -53,6 +53,8 @@ internal sealed class TilesTool : EditorTool
 
 	private static readonly Colour ParallaxColour = new Colour(1.0, 0.45, 0.75, 1.0);
 
+	private static readonly Colour ParallaxOutlineColour = new Colour(0.6, 0.45, 0.75, 1.0);
+
 	private readonly List<TileEdit> _strokeEdits = new List<TileEdit>();
 
 	private readonly HashSet<(int Column, int Row)> _strokeStamps = new HashSet<(int, int)>();
@@ -134,12 +136,7 @@ internal sealed class TilesTool : EditorTool
 	/// <summary>The tile of the layer under the mouse, or null.</summary>
 	private Tile GetHoveredTile()
 	{
-		if (!Editor.IsMouseOverLevel)
-		{
-			return null;
-		}
-		(int column, int row) = GetCell(Editor.MouseWorld);
-		if (column < 0 || row < 0 || column >= Layer.Columns || row >= Layer.Rows)
+		if (!Editor.IsMouseOverLevel || !TryGetHoveredCell(out int column, out int row, out _))
 		{
 			return null;
 		}
@@ -998,9 +995,80 @@ internal sealed class TilesTool : EditorTool
 
 	#region Drawing
 
+	/// <summary>
+	/// True when all the layers show, as in the game, and the current layer has parallax. The tiles of the layer are
+	/// then not at their level positions.
+	/// </summary>
+	private bool ShowsWithParallax => _preview && EditorLayerView.IsShifted(Layer);
+
+	/// <summary>
+	/// The cell of the current layer under the mouse, and the level area where it shows. With parallax, the cell is the
+	/// one that the game draws under the mouse.
+	/// </summary>
+	private bool TryGetHoveredCell(out int column, out int row, out Rectangle area)
+	{
+		if (ShowsWithParallax)
+		{
+			column = row = 0;
+			area = default;
+			if (!EditorLayerView.TryGetLayerPoint(Layer, Editor.Camera.Bounds, Editor.MouseWorld, out int x, out int y))
+			{
+				return false;
+			}
+			column = x / TileSize;
+			row = y / TileSize;
+			Vector2 world = Editor.MouseWorld;
+			area = new Rectangle(Math.Floor(world.X) - x % TileSize, Math.Floor(world.Y) - y % TileSize, TileSize, TileSize);
+			return column < Layer.Columns && row < Layer.Rows;
+		}
+		(column, row) = GetCell(Editor.MouseWorld);
+		area = new Rectangle(column * TileSize, row * TileSize, TileSize, TileSize);
+		return column >= 0 && row >= 0 && column < Layer.Columns && row < Layer.Rows;
+	}
+
+	/// <summary>
+	/// Outlines the tiles of the current layer where the game draws them with parallax, so that the user sees how the
+	/// layer stacks with the other layers in this view.
+	/// </summary>
+	private void DrawParallaxOutlines(I2dRenderer g, Rectangle view)
+	{
+		double worldY = view.Top;
+		while (worldY < view.Bottom)
+		{
+			// Each step goes to the next tile row of the layer, or one pixel when the layer does not show there
+			double stepY = 1.0;
+			if (EditorLayerView.TryGetLayerPoint(Layer, view, new Vector2(view.Left, worldY), out _, out int layerY))
+			{
+				stepY = TileSize - layerY % TileSize;
+				double cellTop = worldY - layerY % TileSize;
+				double worldX = view.Left;
+				while (worldX < view.Right)
+				{
+					double stepX = TileSize;
+					if (EditorLayerView.TryGetLayerPoint(Layer, view, new Vector2(worldX, worldY), out int layerX, out _))
+					{
+						stepX = TileSize - layerX % TileSize;
+						int column = layerX / TileSize;
+						int row = layerY / TileSize;
+						if (column < Layer.Columns && row < Layer.Rows && Layer.Tiles[column, row] != 0)
+						{
+							g.RenderRectangle(ParallaxOutlineColour, Editor.ToScreen(new Rectangle(worldX - layerX % TileSize, cellTop, TileSize, TileSize)), 1.0);
+						}
+					}
+					worldX += stepX;
+				}
+			}
+			worldY += stepY;
+		}
+	}
+
 	public override void DrawOverlay(Renderer renderer, I2dRenderer g)
 	{
 		Rectangle view = Editor.Camera.Bounds;
+		if (ShowsWithParallax)
+		{
+			DrawParallaxOutlines(g, view);
+		}
 		// The grid of the tiles, when the tiles are large enough to see it
 		if (Editor.Zoom >= 0.5)
 		{
@@ -1054,6 +1122,17 @@ internal sealed class TilesTool : EditorTool
 		if (_capturing || !Editor.IsMouseOverLevel)
 		{
 			return null;
+		}
+		if (ShowsWithParallax)
+		{
+			// The game draws the layer with parallax here, so the label tells which cell of the layer is under the mouse
+			if (!TryGetHoveredCell(out int layerColumn, out int layerRow, out Rectangle area))
+			{
+				return $"layer {_layerIndex}: no tile here";
+			}
+			g.RenderRectangle(LevelEditor.SelectionColour, Editor.ToScreen(area), 2.0);
+			int tileValue = Layer.Tiles[layerColumn, layerRow];
+			return $"layer {_layerIndex}: tile {tileValue & ~(FlipXFlag | FlipYFlag)} at {layerColumn * TileSize}, {layerRow * TileSize}";
 		}
 		(int column, int row) = GetCell(Editor.MouseWorld);
 		int columns = _brush?.Columns ?? 1;
