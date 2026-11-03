@@ -563,7 +563,10 @@ move the file to `mods/editor`.
 The editor saves the map in a way that keeps all the other data of the map file.
 
 A new level is a mod folder, `mods/<short name>/`, in the user data folder. It uses the tile set of the level that
-you chose, so the folder has no tiles. The map has an empty background layer, an empty front layer, a floor line, and
+you chose, so the folder has no tiles. To give the level tiles of its own, type the path of a PNG image in "Tile
+image". Each tile is 64 x 64 pixels, so the width and the height of the image must be multiples of 64, and 8192
+pixels at most. Each cell of the image that is not fully transparent becomes a tile, from the top left, row by row.
+The folder then has the tile set (`TILESET`) with the image as its texture. The map has an empty background layer, an empty front layer, a floor line, and
 a start position. A signpost near the right end ends the level. To end it with a boss, delete the signpost and add a
 Lua boss, for example `LUAWISP` of the example mod `lua-item-block`. The level is not in the story until you add it. The
 editor saves the changes of the level to `mods/editor/<SHORT NAME>.dat`, as for the other levels.
