@@ -398,6 +398,25 @@ public sealed class LevelEditorTests
 	}
 
 	[Fact]
+	public void MapPatch_WritesTheNewNamesAndTheNewOrderOfTheLayers()
+	{
+		(System.Xml.XmlDocument document, LevelMap map) = LoadTestMap();
+		LevelLayer[] documentLayers = map.Layers.ToArray();
+		// The front layer moves to the back, and the back layer gets a new name
+		LevelLayer fg = map.Layers[1];
+		map.Layers.RemoveAt(1);
+		map.Layers.Insert(0, fg);
+		map.Layers[1].Name = "sky";
+
+		new LevelMapWriter(map).Patch(document, tiles: true, collision: false, markers: false, documentLayers: documentLayers);
+
+		string[] names = document.SelectNodes("map/tiles//layer").OfType<System.Xml.XmlNode>().Select(n => n.Attributes["name"].Value).ToArray();
+		Assert.Equal(new[] { "fg", "sky" }, names);
+		// The moved layer keeps the content that the patch does not write
+		Assert.Equal("inside", document.SelectSingleNode("map/tiles//layer[@name='fg']/lighting/@type").Value);
+	}
+
+	[Fact]
 	public void MapPatch_RemovesAnEmptySection()
 	{
 		(System.Xml.XmlDocument document, LevelMap map) = LoadTestMap();

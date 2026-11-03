@@ -26,7 +26,7 @@ internal sealed class TilesTool : EditorTool
 	private const int PaletteColumns = 8;
 
 	/// <summary>The rows of settings above the palette.</summary>
-	private const int SettingRows = 9;
+	private const int SettingRows = 10;
 
 	/// <summary>The size of the mark of an animated tile in the palette, in screen pixels.</summary>
 	private const double AnimatedMarkSize = 10.0;
@@ -605,6 +605,48 @@ internal sealed class TilesTool : EditorTool
 	public override EditorPropertyRow GetTextEntryRow(string label) =>
 		(_scrollPage ? GetScrollRows() : GetSettingRows()).FirstOrDefault(r => r.Label == label);
 
+	/// <summary>The layers that the code of the game finds by their name, so that they keep it.</summary>
+	private static readonly HashSet<string> NamesThatTheGameUses = new HashSet<string>(StringComparer.Ordinal)
+	{
+		"front_high", "pipes bottom", "lavawallcave", "lavawall middle"
+	};
+
+	/// <summary>Gives the current layer a new name. A name must not be empty, and the layers must have different names.</summary>
+	private bool RenameLayer(string text)
+	{
+		string name = text.Trim();
+		if (name.EndsWith("(click to rename)", StringComparison.Ordinal))
+		{
+			// The text entry starts with the value of the row
+			name = name.Substring(0, name.Length - "(click to rename)".Length).Trim();
+		}
+		LevelLayer layer = Layer;
+		if (name.Length == 0)
+		{
+			Editor.ShowMessage("The name of a layer cannot be empty.");
+			return false;
+		}
+		if (name == layer.Name)
+		{
+			return true;
+		}
+		if (NamesThatTheGameUses.Contains(layer.Name))
+		{
+			Editor.ShowMessage($"The game finds the layer {layer.Name} by its name, so it keeps its name.");
+			return false;
+		}
+		if (Editor.Level.Map.FindLayer(name) is LevelLayer other && other != layer)
+		{
+			Editor.ShowMessage($"The map has a layer {name}. Type another name.");
+			return false;
+		}
+		string old = layer.Name;
+		layer.Name = name;
+		Editor.MarkLayersChanged();
+		Editor.ShowMessage($"Layer {old} is now {name}.");
+		return true;
+	}
+
 	/// <summary>The largest size of a layer, in tiles.</summary>
 	private const int MaxLayerColumns = 4096;
 	private const int MaxLayerRows = 1024;
@@ -701,6 +743,13 @@ internal sealed class TilesTool : EditorTool
 				Value = $"{Layer.Columns} x {Layer.Rows} tiles (click to change)",
 				Tooltip = "Type the columns and the rows of the layer, for example 64 x 24. The tiles in the new size stay.",
 				Commit = ResizeLayer
+			},
+			new EditorPropertyRow
+			{
+				Label = "Name",
+				Value = $"{Layer.Name} (click to rename)",
+				Tooltip = "Type a new name for the layer. The names must differ.",
+				Commit = RenameLayer
 			}
 		};
 	}

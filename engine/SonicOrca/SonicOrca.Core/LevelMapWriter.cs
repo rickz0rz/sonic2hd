@@ -143,6 +143,11 @@ public class LevelMapWriter
 				nodes[documentLayers[i]] = layerNodes[i];
 				// A shadow refers to its caster by an index offset, so the offsets can change
 				LevelLayer layer = documentLayers[i];
+				// The editor can rename a layer
+				if (!string.IsNullOrEmpty(layer.Name) && layerNodes[i] is XmlElement layerElement)
+				{
+					layerElement.SetAttribute("name", layer.Name);
+				}
 				ReplaceElement(document, layerNodes[i], "shadows", layer.Shadows.Count > 0 ? xmlWriter => WriteShadows(xmlWriter, layer) : null);
 			}
 			else
@@ -167,8 +172,35 @@ public class LevelMapWriter
 					tilesNode.InsertBefore(node, tilesNode.FirstChild);
 				}
 			}
+			else if (previous != null && IsBefore(node, previous))
+			{
+				// The editor moved the layer: its element goes after the element of the layer before it
+				previous.ParentNode.InsertAfter(node, previous);
+			}
+			else if (previous == null)
+			{
+				// The first layer goes before the elements of the other layers
+				XmlNode first = document.SelectNodes("map/tiles//layer").OfType<XmlNode>().FirstOrDefault();
+				if (first != null && first != node)
+				{
+					first.ParentNode.InsertBefore(node, first);
+				}
+			}
 			previous = node;
 		}
+	}
+
+	/// <summary>True when a node comes before another node in the document.</summary>
+	private static bool IsBefore(XmlNode node, XmlNode other)
+	{
+		foreach (XmlNode layerNode in node.OwnerDocument.SelectNodes("map/tiles//layer"))
+		{
+			if (layerNode == node)
+				return true;
+			if (layerNode == other)
+				return false;
+		}
+		return false;
 	}
 
 	private static void PatchScroll(XmlDocument document, XmlNode layerNode, LevelLayer layer)

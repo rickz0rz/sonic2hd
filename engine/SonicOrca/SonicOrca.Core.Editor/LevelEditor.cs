@@ -1149,6 +1149,9 @@ public sealed class LevelEditor : IDisposable
 
 	internal void MarkTilesChanged() => TilesDirty = true;
 
+	/// <summary>A layer changed, for example its name, so the save writes the layers again.</summary>
+	internal void MarkLayersChanged() => LayersDirty = true;
+
 	internal void MarkScrollChanged() => ScrollDirty = true;
 
 	/// <summary>
