@@ -855,6 +855,23 @@ public sealed partial class RegressionTests
 	}
 
 	/// <summary>
+	/// In Emerald Hill, the tiles tool clicks between layers. background_far shows alone and the view scrolls to the right.
+	/// background_near shows at the same place, because a part of it is in view. fg_main shows the view before the
+	/// backgrounds, and background_far then shows again where it was.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void EditorLayerFlip_MatchesGoldenScreenshots()
+	{
+		const string script = "3:tap 32;6:mouse 1600 183;7:down left;8:up left;10:mouse 700 500;14:hwheel 10;" +
+			"20:mouse 1600 213;21:down left;22:up left;24:mouse 700 500;" +
+			"30:mouse 1600 333;31:down left;32:up left;34:mouse 700 500;" +
+			"40:mouse 1600 183;41:down left;42:up left;44:mouse 700 500";
+		RunAndCompare("--level ehz --editor", new[] { 10016, 10028, 10038, 10048 }, Path.Combine(TestPaths.GoldenDirectory, "editor-layer-flip"), "editor-layer-flip",
+			new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script });
+	}
+
+	/// <summary>
 	/// The start of the player is its start marker. In Emerald Hill, the markers tool drags startpos_stk_1 to the right:
 	/// the large cross of the start moves with it during the drag, and the objects tool shows the start at its new place.
 	/// </summary>
