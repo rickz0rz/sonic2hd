@@ -347,6 +347,32 @@ public sealed class LevelEditorTests
 	}
 
 	[Fact]
+	public void LayerList_Move_ChangesTheOrder_AndMovesThePaths()
+	{
+		(_, LevelMap map) = LoadTestMap();
+		LevelLayer middle = new LevelLayer(map) { Name = "middle" };
+		map.Layers.Insert(1, middle);
+		map.LayerTree.Children.Add(map.Layers[0]);
+		map.LayerTree.Children.Add(middle);
+		map.LayerTree.Children.Add(map.Layers[2]);
+		map.CollisionPathLayers.Add(2);
+
+		// The back layer moves one place to the front, behind the solid layer
+		int[] newIndices = EditorLayerList.Move(map, 0, 1);
+
+		Assert.Equal(new[] { 1, 0, 2 }, newIndices);
+		Assert.Equal(new[] { "middle", "back", "fg" }, map.Layers.Select(l => l.Name));
+		Assert.Equal(new[] { 2 }, map.CollisionPathLayers);
+		Assert.Equal(new object[] { middle, map.Layers[1], map.Layers[2] }, map.LayerTree.Children);
+
+		// The solid layer moves to the back, so its path follows it
+		newIndices = EditorLayerList.Move(map, 2, 0);
+		Assert.Equal(new[] { 1, 2, 0 }, newIndices);
+		Assert.Equal(new[] { "fg", "middle", "back" }, map.Layers.Select(l => l.Name));
+		Assert.Equal(new[] { 0 }, map.CollisionPathLayers);
+	}
+
+	[Fact]
 	public void MapPatch_WritesTheNewLayers_AndRemovesTheOldLayers()
 	{
 		(System.Xml.XmlDocument document, LevelMap map) = LoadTestMap();
