@@ -28,6 +28,8 @@ public class EmeraldHillZoneArea : Area
 	};
 	private const string Act1MusicResourceKey = "SONICORCA/MUSIC/LEVELS/EHZ/COOPERATIVE/ACT1";
 	private const string Act2MusicResourceKey = "SONICORCA/MUSIC/LEVELS/EHZ/COOPERATIVE/ACT2";
+	/// <summary>The song of both acts in versus mode, as MusID_EHZ_2P of the original.</summary>
+	private const string VersusMusicResourceKey = "SONICORCA/MUSIC/LEVELS/EHZ/COMPETITIVE";
 	private const string BossMusicResourceKey = "SONICORCA/MUSIC/BOSS/S2";
 	private const string Act1FastMusicResourceKey = "SONICORCA/MUSIC/LEVELS/EHZ/COOPERATIVE/ACT1/FAST";
 	private const string Act2FastMusicResourceKey = "SONICORCA/MUSIC/LEVELS/EHZ/COOPERATIVE/ACT2/FAST";
@@ -42,6 +44,7 @@ public class EmeraldHillZoneArea : Area
 		BossObjectResourceKey,
 		Act1MusicResourceKey,
 		Act2MusicResourceKey,
+		VersusMusicResourceKey,
 		BossMusicResourceKey,
 		Act1FastMusicResourceKey,
 		Act2FastMusicResourceKey,
@@ -165,18 +168,27 @@ public class EmeraldHillZoneArea : Area
 
 	private void PrepareAct1()
 	{
-		_level.LevelMusic = Act1MusicResourceKey;
+		_level.LevelMusic = GetVersusMusic() ?? Act1MusicResourceKey;
 		_level.CurrentAct = 1;
 		_level.SetStartPosition("startpos_stk_1");
 		_level.Bounds = GetAct1Bounds();
 		_level.RingsPerfectTarget = _level.ObjectManager.ObjectEntryTable.GetRingCountInRegion(_level.Bounds);
-		_level.SoundManager.SetJingle(JingleType.SpeedShoes, Act1FastMusicResourceKey);
+		// The fast songs are copies of the songs of the acts, so versus mode keeps the jingle of the speed shoes
+		if (GetVersusMusic() == null)
+			_level.SoundManager.SetJingle(JingleType.SpeedShoes, Act1FastMusicResourceKey);
+	}
+
+	/// <summary>The song of versus mode, or null outside versus mode or when the resources do not have it.</summary>
+	private string GetVersusMusic()
+	{
+		return _level.PrepareSettings.Versus && _gameContext.ResourceTree[VersusMusicResourceKey]?.Resource != null ? VersusMusicResourceKey : null;
 	}
 
 	private void PrepareAct2(bool seamless)
 	{
-		_level.SoundManager.SetJingle(JingleType.SpeedShoes, Act2FastMusicResourceKey);
-		_level.LevelMusic = Act2MusicResourceKey;
+		if (GetVersusMusic() == null)
+			_level.SoundManager.SetJingle(JingleType.SpeedShoes, Act2FastMusicResourceKey);
+		_level.LevelMusic = GetVersusMusic() ?? Act2MusicResourceKey;
 		_level.CurrentAct = 2;
 		_level.SetStartPosition("startpos_stk_2");
 		Rectanglei act2Bounds = GetAct2Bounds() with

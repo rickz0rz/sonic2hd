@@ -705,7 +705,8 @@ of their half with their zoom key. A player who loses a life comes back at their
 the signpost, their time stops. The other player then has 60 seconds to finish, and their time counts down in red.
 The act ends when both players finished or the time ran out. Act 2 has no boss: it ends at a signpost, as in the
 original. Each monitor shows a question mark and gives a random item. The teleport item makes the players change
-places.
+places. Each zone plays its two-player song of the original. The songs of Mystic Cave and Casino Night come from the
+import of the music.
 
 After each act, the results compare the score, the time, the rings, the total rings and the monitors of the players.
 Each category gives a point to the better player, and the player with more points wins the act. The player who won

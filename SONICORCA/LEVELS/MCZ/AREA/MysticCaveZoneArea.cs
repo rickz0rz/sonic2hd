@@ -20,6 +20,8 @@ public class MysticCaveZoneArea : Area
 	private const string TileSetResourceKey = "//TILESET";
 	private const string MapResourceKey = "//MAP";
 	private const string BindingResourceKey = "//BINDING";
+	/// <summary>The song of versus mode (MusID_MCZ_2P). It comes from the import of the music.</summary>
+	private const string VersusMusicResourceKey = "SONICORCA/MUSIC/LEVELS/MCZ/COMPETITIVE";
 	private const string LevelMusicResourceKey = "SONICORCA/MUSIC/LEVELS/MCZ/COOPERATIVE";
 	private const string BossMusicResourceKey = "SONICORCA/MUSIC/BOSS/S2";
 	/// <summary>Only a mod from "s2hd-data import-level mcz" has the boss.</summary>
@@ -42,6 +44,7 @@ public class MysticCaveZoneArea : Area
 		MapResourceKey,
 		BindingResourceKey,
 		LevelMusicResourceKey,
+		VersusMusicResourceKey,
 		BossMusicResourceKey,
 		BossObjectResourceKey
 	}.Concat(AnimalResourceKeys).ToArray();
@@ -70,7 +73,7 @@ public class MysticCaveZoneArea : Area
 		_level.ShowAsAct = true;
 		_level.Scheme = LevelScheme.S2;
 		_level.AnimalResourceKeys = AnimalResourceKeys.Select(x => this.GetAbsolutePath(x)).ToArray();
-		_level.LevelMusic = LevelMusicResourceKey;
+		_level.LevelMusic = settings.Versus && _resourceTree[VersusMusicResourceKey]?.Resource != null ? VersusMusicResourceKey : LevelMusicResourceKey;
 		if (!settings.Seamless)
 		{
 			_level.TileSet = _resourceTree.GetLoadedResource<TileSet>(this, TileSetResourceKey);

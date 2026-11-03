@@ -20,6 +20,8 @@ public class CasinoNightZoneArea : Area
 	private const string MapResourceKey = "//MAP";
 	private const string BindingResourceKey = "//BINDING";
 	/// <summary>The game data has no music for this zone. A mod can add it.</summary>
+	/// <summary>The song of versus mode (MusID_CNZ_2P). It comes from the import of the music.</summary>
+	private const string VersusMusicResourceKey = "SONICORCA/MUSIC/LEVELS/CNZ/COMPETITIVE";
 	private const string LevelMusicResourceKey = "SONICORCA/MUSIC/LEVELS/CNZ";
 	private const string BossMusicResourceKey = "SONICORCA/MUSIC/BOSS/S2";
 	/// <summary>Only a mod from "s2hd-data import-level cnz" has the boss.</summary>
@@ -42,6 +44,7 @@ public class CasinoNightZoneArea : Area
 		MapResourceKey,
 		BindingResourceKey,
 		LevelMusicResourceKey,
+		VersusMusicResourceKey,
 		BossMusicResourceKey,
 		BossObjectResourceKey
 	}.Concat(AnimalResourceKeys).ToArray();
@@ -80,7 +83,7 @@ public class CasinoNightZoneArea : Area
 			_level.LoadMap(map);
 			_level.LoadBinding(_resourceTree.GetLoadedResource<LevelBinding>(this, BindingResourceKey));
 		}
-		_level.LevelMusic = LevelMusicResourceKey;
+		_level.LevelMusic = settings.Versus && _resourceTree[VersusMusicResourceKey]?.Resource != null ? VersusMusicResourceKey : LevelMusicResourceKey;
 		int act = settings.Act == 2 ? 2 : 1;
 		_level.CurrentAct = act;
 		_bossArena = null;

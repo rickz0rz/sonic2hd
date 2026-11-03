@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using SonicOrca.Audio;
 using SonicOrca.Geometry;
@@ -93,6 +94,7 @@ public class SoundManager
 	{
 		if (!string.IsNullOrEmpty(fullKeyPath))
 		{
+			Trace.WriteLine("Music: " + fullKeyPath);
 			PlayMusic(_resourceTree.GetLoadedResource<SampleInfo>(fullKeyPath));
 		}
 	}

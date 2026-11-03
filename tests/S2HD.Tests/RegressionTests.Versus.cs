@@ -220,4 +220,21 @@ public sealed partial class RegressionTests
 				Assert.Contains("Versus: special stage segment 3: 0 to 0 rings", log);
 			});
 	}
+
+	/// <summary>
+	/// Versus mode plays the two-player songs of the original: Emerald Hill from the game data, Mystic Cave and Casino
+	/// Night from the import of the music (MusID_MCZ_2P, MusID_CNZ_2P).
+	/// </summary>
+	[Theory]
+	[Trait("Category", "Regression")]
+	[InlineData("ehz")]
+	[InlineData("mcz")]
+	[InlineData("cnz")]
+	public void VersusMusic_IsTheTwoPlayerSong(string zone)
+	{
+		ImportedMods.Get();
+		RunAndCompare($"--level {zone} --versus", new[] { 120 }, Path.Combine(TestPaths.GoldenDirectory, "versus-music", zone), "versus-music-" + zone,
+			withImportedMods: true, checkUserData: userData => Assert.Contains($"Music: SONICORCA/MUSIC/LEVELS/{zone.ToUpperInvariant()}/COMPETITIVE",
+				File.ReadAllText(Path.Combine(userData, "sonicorca.log"))));
+	}
 }

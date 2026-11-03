@@ -31,6 +31,9 @@ public static class MusicImport
 		("87 - ARZ.asm", "SONICORCA/MUSIC/LEVELS/ARZ"),
 		("89 - CNZ.asm", "SONICORCA/MUSIC/LEVELS/CNZ"),
 		("8B - MCZ.asm", "SONICORCA/MUSIC/LEVELS/MCZ/COOPERATIVE"),
+		// The two-player songs of the versus mode (MusID_MCZ_2P, MusID_CNZ_2P). The game data has the song of Emerald Hill.
+		("83 - MCZ 2P.asm", "SONICORCA/MUSIC/LEVELS/MCZ/COMPETITIVE"),
+		("88 - CNZ 2P.asm", "SONICORCA/MUSIC/LEVELS/CNZ/COMPETITIVE"),
 		("84 - OOZ.asm", "SONICORCA/MUSIC/LEVELS/OOZ"),
 		("8D - SCZ.asm", "SONICORCA/MUSIC/LEVELS/SCZ"),
 		("8F - WFZ.asm", "SONICORCA/MUSIC/LEVELS/WFZ"),
