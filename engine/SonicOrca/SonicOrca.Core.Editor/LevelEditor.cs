@@ -102,6 +102,11 @@ public sealed class LevelEditor : IDisposable
 	/// <summary>The look of the editor, with its font.</summary>
 	private readonly EditorUi _ui = new EditorUi();
 
+	private readonly EditorMiniMap _miniMap;
+
+	/// <summary>Changes when a tile of the map changes, so that the mini-map draws the tiles again.</summary>
+	internal int TilesVersion { get; private set; }
+
 	/// <summary>The value that the user types into a property row.</summary>
 	private readonly EditorTextEntry _entry = new EditorTextEntry();
 
@@ -152,7 +157,8 @@ public sealed class LevelEditor : IDisposable
 		None,
 		Pan,
 		Tool,
-		Box
+		Box,
+		MiniMap
 	}
 
 	/// <summary>The objects and rings that are selected, by placement ID.</summary>
@@ -262,6 +268,7 @@ public sealed class LevelEditor : IDisposable
 
 	public LevelEditor(Level level)
 	{
+		_miniMap = new EditorMiniMap(this);
 		_level = level;
 		_gameContext = level.GameContext;
 		_levelsTool = new LevelsTool(this);
@@ -308,6 +315,8 @@ public sealed class LevelEditor : IDisposable
 		TileCollision ??= LoadTileCollision();
 		_documentLayers ??= _level.Map.Layers.ToArray();
 		_viewBeforeLayerAlone = null;
+		// The play can change the map, and the mini-map draws it again
+		TilesVersion++;
 		foreach (EditorTool tool in _tools)
 		{
 			tool.Begin();
@@ -504,6 +513,10 @@ public sealed class LevelEditor : IDisposable
 		{
 			ToggleHitboxes();
 		}
+		else if (IsKeyPressed(KeyboardState.KEY_M))
+		{
+			ToggleMiniMap();
+		}
 		UpdateArrowKeys(shift);
 	}
 
@@ -565,7 +578,7 @@ public sealed class LevelEditor : IDisposable
 			UpdateDrag();
 			return;
 		}
-		if (_input.Wheel != 0.0)
+		if (_input.Wheel != 0.0 && !_miniMap.Contains(Mouse))
 		{
 			UpdateWheel(_input.Wheel);
 		}
@@ -590,6 +603,11 @@ public sealed class LevelEditor : IDisposable
 			else if (IsOverPanel(Mouse))
 			{
 				OnPanelClick(_input.LeftPressed ? 1 : -1);
+			}
+			else if (_input.LeftPressed && _miniMap.Contains(Mouse))
+			{
+				BeginDrag(DragMode.MiniMap);
+				_miniMap.BeginDrag(Mouse);
 			}
 			else if (IsOverLevel(Mouse))
 			{
@@ -682,6 +700,10 @@ public sealed class LevelEditor : IDisposable
 		{
 			_tool.OnDrag();
 		}
+		else if (_drag == DragMode.MiniMap)
+		{
+			_miniMap.Drag(Mouse);
+		}
 		bool buttonDown = _input.Left || _input.Right || _input.Middle;
 		if (buttonDown && !_input.AnyReleased)
 		{
@@ -747,6 +769,7 @@ public sealed class LevelEditor : IDisposable
 		TileCollision = null;
 		_documentLayers = null;
 		_viewBeforeLayerAlone = null;
+		TilesVersion++;
 		ObjectSelection.Clear();
 		MarkerSelection.Clear();
 		VectorSelection.Clear();
@@ -914,6 +937,13 @@ public sealed class LevelEditor : IDisposable
 	}
 
 	/// <summary>Shows or hides the hit boxes of the objects, in the editor and in the play.</summary>
+	/// <summary>Shows or hides the mini-map of the level in the bottom right corner of the view.</summary>
+	private void ToggleMiniMap()
+	{
+		_miniMap.Visible = !_miniMap.Visible;
+		ShowMessage(_miniMap.Visible ? "Mini-map on. Click or drag in it to move the view." : "Mini-map off");
+	}
+
 	private void ToggleHitboxes()
 	{
 		LayerViewOptions options = _level.LayerViewOptions;
@@ -1144,6 +1174,7 @@ public sealed class LevelEditor : IDisposable
 		LayersDirty = true;
 		CollisionDirty = true;
 		MarkersDirty = true;
+		TilesVersion++;
 		_history.Clear();
 		_level.LevelRenderer.Initialise();
 		MarkBindingChanged();
@@ -1160,6 +1191,7 @@ public sealed class LevelEditor : IDisposable
 			return;
 		}
 		layer.Tiles[column, row] = tile;
+		TilesVersion++;
 		if (TileCollision != null && layerIndex == TileCollision.Layer)
 		{
 			_tileGeneration++;
@@ -1455,6 +1487,7 @@ public sealed class LevelEditor : IDisposable
 		Add("Play from start (F2)", () => RequestPlay(EditorPlayRequest.FromStart));
 		Add("Animations (N)", OpenAnimationEditor);
 		Add("Hit boxes (H)", ToggleHitboxes, active: _level.LayerViewOptions.ShowObjectCollision);
+		Add("Map (M)", ToggleMiniMap, active: _miniMap.Visible);
 		Add("Save", Save, active: Dirty);
 		Add("Undo", Undo, _history.CanUndo);
 		Add("Redo", Redo, _history.CanRedo);
@@ -1555,6 +1588,7 @@ public sealed class LevelEditor : IDisposable
 			g.RenderQuad(SelectionFillColour, box);
 			g.RenderRectangle(SelectionColour, box, 2.0);
 		}
+		_miniMap.Draw(renderer, g);
 		if (HasFont)
 		{
 			DrawCursorLabel(renderer, g);
@@ -1617,7 +1651,7 @@ public sealed class LevelEditor : IDisposable
 	/// <summary>Shows what is under the mouse, or what a click adds.</summary>
 	private void DrawCursorLabel(Renderer renderer, I2dRenderer g)
 	{
-		if (!IsOverLevel(Mouse) || _drag != DragMode.None)
+		if (!IsOverLevel(Mouse) || _drag != DragMode.None || _miniMap.Contains(Mouse))
 		{
 			return;
 		}
