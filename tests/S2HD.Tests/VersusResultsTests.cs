@@ -69,6 +69,42 @@ public sealed class VersusResultsTests
 	}
 
 	[Fact]
+	public void SpecialStageZone_PlaysAThirdStage_OnlyAfterOneStageEach()
+	{
+		VersusZoneResult zone = new VersusZoneResult("SPECIAL STAGE") { IsSpecialStageZone = true };
+		Assert.True(zone.NeedsAnotherSpecialStage);
+		zone.SpecialStages.Add(new VersusSpecialStageResult(new[] { (10, 4), (8, 3), (0, 2) }) { Stage = 5 });
+		Assert.True(zone.NeedsAnotherSpecialStage);
+		zone.SpecialStages.Add(new VersusSpecialStageResult(new[] { (1, 5), (2, 4), (1, 0) }) { Stage = 6 });
+		// One stage each: the third stage decides
+		Assert.True(zone.NeedsAnotherSpecialStage);
+		zone.SpecialStages.Add(new VersusSpecialStageResult(new[] { (6, 0), (6, 0), (6, 0) }) { Stage = 7 });
+		Assert.False(zone.NeedsAnotherSpecialStage);
+		Assert.Equal((2, 1, 1), (zone.Player1Wins, zone.Player2Wins, zone.Winner));
+	}
+
+	[Fact]
+	public void SpecialStageZone_EndsAfterTwoStages_WhenOnePlayerWonBoth()
+	{
+		VersusZoneResult zone = new VersusZoneResult("SPECIAL STAGE") { IsSpecialStageZone = true };
+		zone.SpecialStages.Add(new VersusSpecialStageResult(new[] { (1, 5), (2, 4), (1, 0) }));
+		zone.SpecialStages.Add(new VersusSpecialStageResult(new[] { (0, 5), (0, 4), (0, 3) }));
+		Assert.False(zone.NeedsAnotherSpecialStage);
+		Assert.Equal(2, zone.Winner);
+	}
+
+	[Fact]
+	public void SpecialStageZone_EndsAfterTwoStages_WhenADrawStageLeavesOneWinner()
+	{
+		// A stage in a draw gives no win, so one win to none after two stages decides the zone
+		VersusZoneResult zone = new VersusZoneResult("SPECIAL STAGE") { IsSpecialStageZone = true };
+		zone.SpecialStages.Add(new VersusSpecialStageResult(new[] { (5, 1), (5, 1), (5, 1) }));
+		zone.SpecialStages.Add(new VersusSpecialStageResult(new[] { (3, 3), (3, 3), (3, 3) }));
+		Assert.False(zone.NeedsAnotherSpecialStage);
+		Assert.Equal(1, zone.Winner);
+	}
+
+	[Fact]
 	public void Time_ShowsMinutesSecondsAndHundredths()
 	{
 		Assert.Equal("1'02\"43", VersusActResult.FormatTime(3746));

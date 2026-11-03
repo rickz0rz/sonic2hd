@@ -697,8 +697,8 @@ count. In the special stage, each player has their own rings (see "Entering a sp
 ### Two players: versus
 
 Choose 2P VS on the title screen to start a versus match. Player 1 plays Sonic and player 2 plays Tails. Each player
-has their own rings, score and lives. The setup screen shows the zones: Emerald Hill, Mystic Cave and Casino Night.
-Mystic Cave and Casino Night show only after the import of these levels. Player 1 chooses a zone and the items of the
+has their own rings, score and lives. The setup screen shows the zones: Emerald Hill, Mystic Cave, Casino Night and
+the special stage. Mystic Cave and Casino Night show only after the import of these levels. Player 1 chooses a zone and the items of the
 monitors: all kinds, or teleport only. With the import of Casino Night, player 1 also chooses its objects: the
 two-player layouts of the original (the default), or the layouts of the main game. The screen splits: player 1 in the top half and player 2 in the bottom half, each with their
 own camera and their own HUD. Each camera starts zoomed out, so that the half shows more of the level. Each player changes the zoom
@@ -713,7 +713,9 @@ After each act, the results compare the score, the time, the rings, the total ri
 Each category gives a point to the better player, and the player with more points wins the act. The player who won
 more acts wins the zone. When the acts of a zone end in a tie, a special stage breaks the tie. Player 1 plays Sonic
 and player 2 plays Tails, with no ring goals. Each checkpoint ends a segment, and the player with more rings in a
-segment wins it. The player who wins more segments wins the special stage, which counts as one more act. When the
+segment wins it. The player who wins more segments wins the special stage, which counts as one more act. The special
+stage zone has no acts: it plays special stage 5, then stage 6, and stage 7 only when each player won one stage. The
+player who wins more stages wins the zone. When the
 players played all the zones, the game results show the winner of the match. A
 game over ends the match, and the results go. See `docs/two-player-design.md` for the plan.
 

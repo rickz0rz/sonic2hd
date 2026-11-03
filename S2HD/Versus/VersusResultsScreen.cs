@@ -58,8 +58,8 @@ internal sealed class VersusResultsScreen : VersusScreen
 		return new VersusResultsScreen(gameContext, $"{zoneName}  ACT {act}", names, values, winners, result.Winner);
 	}
 
-	/// <summary>The results of the special stage that broke a tie: the rings of each player in each segment.</summary>
-	public static VersusResultsScreen ForSpecialStage(SonicOrcaGameContext gameContext, string zoneName, VersusSpecialStageResult result)
+	/// <summary>The results of a special stage of versus mode: the rings of each player in each segment.</summary>
+	public static VersusResultsScreen ForSpecialStage(SonicOrcaGameContext gameContext, VersusZoneResult zone, VersusSpecialStageResult result)
 	{
 		int count = result.Segments.Count;
 		string[] names = new string[count + 1];
@@ -74,14 +74,15 @@ internal sealed class VersusResultsScreen : VersusScreen
 		names[count] = "POINTS";
 		values[count] = new[] { result.Player1Points.ToString(), result.Player2Points.ToString() };
 		winners[count] = result.Winner;
-		return new VersusResultsScreen(gameContext, $"{zoneName}  SPECIAL STAGE", names, values, winners, result.Winner);
+		string title = zone.IsSpecialStageZone ? $"SPECIAL STAGE {result.Stage}" : $"{zone.Name}  SPECIAL STAGE";
+		return new VersusResultsScreen(gameContext, title, names, values, winners, result.Winner);
 	}
 
-	/// <summary>The results of a zone: the winner of each act, and of the special stage that broke a tie.</summary>
+	/// <summary>The results of a zone: the winner of each act, and of each special stage.</summary>
 	public static VersusResultsScreen ForZone(SonicOrcaGameContext gameContext, VersusZoneResult zone, int firstAct)
 	{
 		int acts = zone.Acts.Count;
-		int count = acts + (zone.SpecialStage != null ? 1 : 0);
+		int count = acts + zone.SpecialStages.Count;
 		string[] names = new string[count + 1];
 		string[][] values = new string[count + 1][];
 		int[] winners = new int[count + 1];
@@ -92,11 +93,12 @@ internal sealed class VersusResultsScreen : VersusScreen
 			values[i] = new[] { act.Player1Points.ToString(), act.Player2Points.ToString() };
 			winners[i] = act.Winner;
 		}
-		if (zone.SpecialStage is VersusSpecialStageResult special)
+		for (int i = 0; i < zone.SpecialStages.Count; i++)
 		{
-			names[acts] = "SPECIAL STAGE";
-			values[acts] = new[] { special.Player1Points.ToString(), special.Player2Points.ToString() };
-			winners[acts] = special.Winner;
+			VersusSpecialStageResult special = zone.SpecialStages[i];
+			names[acts + i] = zone.IsSpecialStageZone ? $"STAGE {special.Stage}" : "SPECIAL STAGE";
+			values[acts + i] = new[] { special.Player1Points.ToString(), special.Player2Points.ToString() };
+			winners[acts + i] = special.Winner;
 		}
 		names[count] = "ROUNDS WON";
 		values[count] = new[] { zone.Player1Wins.ToString(), zone.Player2Wins.ToString() };

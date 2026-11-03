@@ -16,6 +16,9 @@ namespace SonicOrca.Core.Debugging;
 /// <item>S2HD_TEST_PLAYER2_PLAYBACK=file: plays an input recording as the input of player 2: the sidekick, or Tails in versus mode.</item>
 /// <item>S2HD_TEST_VERSUS_ZOOM=in,out: the zoom of player 1 and player 2 when a versus match starts.</item>
 /// <item>S2HD_TEST_KILL_PLAYER2_AT_TICK=300: kills the character of player 2 in versus mode at this level tick.</item>
+/// <item>S2HD_TEST_VERSUS_ZONE=3: a versus match starts this zone at once, without the setup screen.</item>
+/// <item>S2HD_TEST_VERSUS_SPECIAL_STAGE_SEGMENTS="10:4,3:8,0:2|5:1,2:2,1:0": each versus special stage ends at once with
+/// the rings of the next group, one pair of rings for each segment.</item>
 /// <item>S2HD_TEST_EMERALDS=7: gives the player this number of emeralds when a level starts.</item>
 /// <item>S2HD_TEST_SPECIAL_STAGE_AT_TICK=300: at this level tick, goes to the special stage as from a star circle.</item>
 /// <item>S2HD_TEST_SPECIAL_STAGE_RESULTS=30,1,1: the special stage goes to its results screen at once, with these rings,
@@ -117,6 +120,33 @@ public static class TestHooks
 	/// </summary>
 	public static readonly int? VersusResultsFrames =
 		int.TryParse(Environment.GetEnvironmentVariable("S2HD_TEST_VERSUS_RESULTS_FRAMES"), out int resultsFrames) ? resultsFrames : null;
+
+	/// <summary>The zone that a versus match starts at once, without the setup screen, or null.</summary>
+	public static readonly int? VersusZone =
+		int.TryParse(Environment.GetEnvironmentVariable("S2HD_TEST_VERSUS_ZONE"), out int versusZone) ? versusZone : null;
+
+	/// <summary>
+	/// The rings of each segment of the versus special stages, one list for each stage in the order that they start, or
+	/// null to play the stages.
+	/// </summary>
+	public static readonly IReadOnlyList<(int Player1, int Player2)[]> VersusSpecialStageSegments =
+		ParseVersusSegments(Environment.GetEnvironmentVariable("S2HD_TEST_VERSUS_SPECIAL_STAGE_SEGMENTS"));
+
+	/// <summary>The number of versus special stages that used <see cref="VersusSpecialStageSegments"/>.</summary>
+	public static int VersusSpecialStagesPlayed { get; set; }
+
+	private static IReadOnlyList<(int, int)[]> ParseVersusSegments(string value)
+	{
+		if (string.IsNullOrWhiteSpace(value))
+		{
+			return null;
+		}
+		return value.Split('|').Select(stage => stage.Split(',').Select(segment =>
+		{
+			string[] rings = segment.Split(':');
+			return (int.Parse(rings[0]), int.Parse(rings[1]));
+		}).ToArray()).ToArray();
+	}
 
 	/// <summary>The level tick drawn in the current frame, or -1 when no level was drawn.</summary>
 	public static int DrawnLevelTick { get; set; } = -1;

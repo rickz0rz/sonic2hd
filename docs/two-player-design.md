@@ -67,6 +67,8 @@ The disassembly (s2disasm, `master`) has these parts:
 
 - Step 6b is done: the import of Casino Night also writes `BINDING2P`, the binding of versus mode with the two-player object layouts of the original (`CNZ_1_2P.bin`, `CNZ_2_2P.bin`). It has the same rings, map bumpers and slot reels, and fewer bumpers and bonus blocks. The setup screen has the option "CASINO NIGHT: 2P OBJECTS / 1P OBJECTS" (`VersusMatch.TwoPlayerLayouts`, `LevelPrepareSettings.VersusTwoPlayerLayouts`). The default is the two-player layouts, as in the original. The option shows only when the match has Casino Night. The level editor changes the binding of the main game only. The import version is 21.
 
+- Step 6c is done: the setup screen has a fourth zone, "SPECIAL STAGE", as the level select of two-player mode of the original (`loc_8E3A`). The zone has no area. It plays special stage 5, then stage 6, and stage 7 only when the first two stages gave each player one win (`SS_Total_Won` after the second stage). `VersusZoneResult.SpecialStages` keeps the result of each stage, and the zone results show a row for each stage. The tie-break of the other zones uses the same list. `S2HD_TEST_VERSUS_ZONE` starts a zone at once, and `S2HD_TEST_VERSUS_SPECIAL_STAGE_SEGMENTS` ends each versus special stage at once with the rings of the test. With this step, the plan of versus mode is done.
+
 - The rules of versus mode in a level are in `VersusRules` (`engine/SonicOrca/SonicOrca.Core/VersusRules.cs`): the zoom, the end of an act, the time limit, the deaths and the teleport. `Level` makes the rules after it made the players and the cameras, and `Level.VersusRules` is null outside versus mode.
 
 ## Decisions for versus mode

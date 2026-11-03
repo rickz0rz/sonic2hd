@@ -99,6 +99,9 @@ public sealed class VersusSpecialStageResult
 		Segments = segments;
 	}
 
+	/// <summary>The number of the special stage, from 1, or 0 when it is not known.</summary>
+	public int Stage { get; init; }
+
 	/// <summary>The winner of each segment: 1 or 2, or 0 for a tie.</summary>
 	public IReadOnlyList<int> SegmentWinners => Segments.Select(s => VersusActResult.Compare(s.Player1, s.Player2)).ToArray();
 
@@ -126,15 +129,41 @@ public sealed class VersusZoneResult
 		Name = name;
 	}
 
+	/// <summary>
+	/// The zone of special stages, the fourth zone of the original: it has no acts, only special stages, as the
+	/// "SPECIAL STAGE" of the level select of two-player mode.
+	/// </summary>
+	public bool IsSpecialStageZone { get; init; }
+
+	/// <summary>The special stages of the zone: the one that broke a tie of the acts, or the stages of the special stage zone.</summary>
+	public List<VersusSpecialStageResult> SpecialStages { get; } = new List<VersusSpecialStageResult>();
+
 	/// <summary>The special stage that broke a tie of the acts, or null.</summary>
-	public VersusSpecialStageResult SpecialStage { get; set; }
+	public VersusSpecialStageResult SpecialStage
+	{
+		get => SpecialStages.FirstOrDefault();
+		set
+		{
+			SpecialStages.Clear();
+			if (value != null)
+			{
+				SpecialStages.Add(value);
+			}
+		}
+	}
 
-	public int Player1Wins => Acts.Count(act => act.Winner == 1) + (SpecialStage?.Winner == 1 ? 1 : 0);
+	public int Player1Wins => Acts.Count(act => act.Winner == 1) + SpecialStages.Count(stage => stage.Winner == 1);
 
-	public int Player2Wins => Acts.Count(act => act.Winner == 2) + (SpecialStage?.Winner == 2 ? 1 : 0);
+	public int Player2Wins => Acts.Count(act => act.Winner == 2) + SpecialStages.Count(stage => stage.Winner == 2);
 
 	/// <summary>True when the acts ended in a tie, and no special stage broke it yet.</summary>
-	public bool NeedsTieBreak => Winner == 0 && SpecialStage == null;
+	public bool NeedsTieBreak => Winner == 0 && SpecialStages.Count == 0;
+
+	/// <summary>
+	/// The special stage zone plays two stages, and a third one only when the first two did not give a winner, as the
+	/// original does after its second stage (SS_Total_Won).
+	/// </summary>
+	public bool NeedsAnotherSpecialStage => IsSpecialStageZone && (SpecialStages.Count < 2 || (SpecialStages.Count == 2 && Winner == 0));
 
 	/// <summary>The winner of the zone: 1 or 2, or 0 for a tie.</summary>
 	public int Winner => VersusActResult.Compare(Player1Wins, Player2Wins);
