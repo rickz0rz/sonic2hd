@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
 
@@ -87,6 +88,12 @@ internal abstract class EditorTool : IDisposable
 	}
 
 	public abstract List<EditorPropertyRow> GetPropertyRows();
+
+	/// <summary>
+	/// The row that takes the text that the user types, by its label. A tool with its own properties panel gives the
+	/// rows of that panel.
+	/// </summary>
+	public virtual EditorPropertyRow GetTextEntryRow(string label) => GetPropertyRows().FirstOrDefault(r => r.Label == label);
 
 	/// <summary>The tool draws the properties panel itself, with <see cref="DrawProperties"/>, in place of the rows.</summary>
 	public virtual bool HasCustomProperties => false;

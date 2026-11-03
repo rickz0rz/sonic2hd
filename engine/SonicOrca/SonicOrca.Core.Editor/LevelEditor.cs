@@ -562,7 +562,7 @@ public sealed class LevelEditor : IDisposable
 
 	private void CommitTextEntry()
 	{
-		EditorPropertyRow row = _tool.GetPropertyRows().FirstOrDefault(r => r.Label == _entry.Row);
+		EditorPropertyRow row = _tool.GetTextEntryRow(_entry.Row);
 		string text = _entry.Text;
 		_entry.Cancel();
 		if (row?.Commit != null && !row.Commit(text))
@@ -1553,6 +1553,15 @@ public sealed class LevelEditor : IDisposable
 		}
 		return (int)Math.Floor((y - top + _propertyScroll) / RowHeight);
 	}
+
+	/// <summary>Starts the text entry of a row of a tool with its own properties panel.</summary>
+	internal void BeginTextEntry(EditorPropertyRow row) => _entry.Begin(row.Label, row.Value);
+
+	/// <summary>The text entry, so that a tool with its own properties panel can draw it.</summary>
+	internal EditorTextEntry TextEntry => _entry;
+
+	/// <summary>The frames of the editor, for the caret of a text entry.</summary>
+	internal int Frames => _frames;
 
 	private bool IsOverPropertyRow(string label)
 	{

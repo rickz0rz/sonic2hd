@@ -26,7 +26,7 @@ internal sealed class TilesTool : EditorTool
 	private const int PaletteColumns = 8;
 
 	/// <summary>The rows of settings above the palette.</summary>
-	private const int SettingRows = 8;
+	private const int SettingRows = 9;
 
 	/// <summary>The size of the mark of an animated tile in the palette, in screen pixels.</summary>
 	private const double AnimatedMarkSize = 10.0;
@@ -560,6 +560,40 @@ internal sealed class TilesTool : EditorTool
 		}
 	}
 
+	/// <summary>The rows of the panel take the typed values, or the rows of the scroll page when it shows.</summary>
+	public override EditorPropertyRow GetTextEntryRow(string label) =>
+		(_scrollPage ? GetScrollRows() : GetSettingRows()).FirstOrDefault(r => r.Label == label);
+
+	/// <summary>The largest size of a layer, in tiles.</summary>
+	private const int MaxLayerColumns = 4096;
+	private const int MaxLayerRows = 1024;
+
+	/// <summary>Changes the size of the current layer from a text such as "64 x 24". The tiles in the new size stay.</summary>
+	private bool ResizeLayer(string text)
+	{
+		string[] parts = text.ToLowerInvariant().Split(new[] { 'x', ',', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+		if (parts.Length != 2 || !int.TryParse(parts[0], out int columns) || !int.TryParse(parts[1], out int rows) ||
+			columns < 1 || rows < 1 || columns > MaxLayerColumns || rows > MaxLayerRows)
+		{
+			Editor.ShowMessage($"Type the columns and the rows, for example 64 x 24: 1 to {MaxLayerColumns} columns and 1 to {MaxLayerRows} rows.");
+			return false;
+		}
+		// The tile collision of an imported zone has the size of the front layer
+		if (Editor.TileCollision != null && _layerIndex == Editor.TileCollision.Layer)
+		{
+			Editor.ShowMessage("This layer has the tile collision of the import, so its size cannot change.");
+			return false;
+		}
+		LevelLayer layer = Layer;
+		Editor.ChangeLayers(map =>
+		{
+			layer.Resize(columns, rows);
+			return Enumerable.Range(0, map.Layers.Count).ToArray();
+		});
+		Editor.ShowMessage($"Layer {layer.Name} is now {columns} x {rows} tiles. Undo cannot change the size back, so the undo history is clear.");
+		return true;
+	}
+
 	/// <summary>Shows all the layers, as in the game, while the current layer has parallax.</summary>
 	internal void ShowAllLayers() => SetPreview(true);
 
@@ -614,6 +648,13 @@ internal sealed class TilesTool : EditorTool
 				Value = !EditorLayerView.IsShifted(Layer) ? "all layers"
 					: _preview ? "all layers (click to paint this layer)" : "this layer alone (click for all layers)",
 				Step = EditorLayerView.IsShifted(Layer) ? _ => SetPreview(!_preview) : null
+			},
+			new EditorPropertyRow
+			{
+				Label = "Size",
+				Value = $"{Layer.Columns} x {Layer.Rows} tiles (click to change)",
+				Tooltip = "Type the columns and the rows of the layer, for example 64 x 24. The tiles in the new size stay.",
+				Commit = ResizeLayer
 			}
 		};
 	}
@@ -673,13 +714,19 @@ internal sealed class TilesTool : EditorTool
 		for (int i = 0; i < rows.Count; i++)
 		{
 			Rectangle bounds = new Rectangle(area.X, area.Y + i * LevelEditor.RowHeight, area.Width, LevelEditor.RowHeight);
-			if (rows[i].Step != null && bounds.Contains(Editor.Mouse))
+			bool editing = Editor.TextEntry.IsEditing(rows[i].Label);
+			if (editing)
+			{
+				g.RenderQuad(LevelEditor.AccentColour, bounds);
+			}
+			else if ((rows[i].Step != null || rows[i].Commit != null) && bounds.Contains(Editor.Mouse))
 			{
 				g.RenderQuad(LevelEditor.ButtonHoverColour, bounds);
 			}
 			double textY = bounds.Y + 4.0;
 			Editor.DrawText(renderer, rows[i].Label, bounds.X + LevelEditor.Padding, textY, rows[i].IsHeading ? LevelEditor.SelectionColour : LevelEditor.DimTextColour);
-			Editor.DrawText(renderer, rows[i].Value, bounds.X + area.Width * 0.38, textY, LevelEditor.TextColour);
+			string value = editing ? Editor.TextEntry.Text + ((Editor.Frames / 30) % 2 == 0 ? "|" : "") : rows[i].Value;
+			Editor.DrawText(renderer, value, bounds.X + area.Width * 0.38, textY, LevelEditor.TextColour);
 		}
 		Rectangle palette = GetPaletteArea(area);
 		int paletteRows = (_paletteTiles.Length + PaletteColumns - 1) / PaletteColumns;
@@ -727,6 +774,12 @@ internal sealed class TilesTool : EditorTool
 		List<EditorPropertyRow> rows = GetSettingRows();
 		if (row >= 0 && row < rows.Count)
 		{
+			if (rows[row].Commit != null)
+			{
+				// A row with a typed value, for example the size of the layer
+				Editor.BeginTextEntry(rows[row]);
+				return;
+			}
 			rows[row].Step?.Invoke(direction);
 			return;
 		}
@@ -792,6 +845,13 @@ internal sealed class TilesTool : EditorTool
 		if (_brush == null)
 		{
 			Editor.ShowMessage("Select a brush first: click a tile in the palette, or Ctrl+drag in the level.");
+			return;
+		}
+		(int column, int row) = GetCell(Editor.MouseWorld);
+		if (column < 0 || row < 0 || column >= Layer.Columns || row >= Layer.Rows)
+		{
+			// A click outside the layer paints nothing, so say why
+			Editor.ShowMessage($"This cell is outside layer {Layer.Name} ({Layer.Columns} x {Layer.Rows} tiles). Change the size of the layer in the Size row.");
 			return;
 		}
 		_painting = true;
