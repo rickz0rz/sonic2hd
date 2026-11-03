@@ -24,15 +24,19 @@ public sealed class EditorProperty
 
 	public object DefaultValue { get; }
 
+	/// <summary>The path attribute of a string property that holds points, or null.</summary>
+	public EditorPathAttribute Path { get; }
+
 	/// <summary>The editor can change values of this type. Other values, for example references to objects, are shown only.</summary>
 	public bool IsEditable => Type == typeof(int) || Type == typeof(uint) || Type == typeof(double) || Type == typeof(bool) ||
 		Type == typeof(string) || Type.IsEnum || Type == typeof(Vector2i) || Type == typeof(Vector2);
 
-	private EditorProperty(string name, Type type, object defaultValue)
+	private EditorProperty(string name, Type type, object defaultValue, EditorPathAttribute path = null)
 	{
 		Name = name;
 		Type = type;
 		DefaultValue = defaultValue;
+		Path = type == typeof(string) ? path : null;
 	}
 
 	/// <summary>Gives the state variables of the instances of an object type, in the order of the instance class.</summary>
@@ -49,7 +53,7 @@ public sealed class EditorProperty
 		}
 		return Cache.GetOrAdd(instanceAttribute.ObjectInstanceType, instanceType =>
 			StateVariableAttribute.GetStateVariables(instanceType)
-				.Select(x => new EditorProperty(x.Item2.Name, x.Item2.Type, x.Item2.DefaultValue))
+				.Select(x => new EditorProperty(x.Item2.Name, x.Item2.Type, x.Item2.DefaultValue, x.Item1.GetCustomAttribute<EditorPathAttribute>()))
 				.ToArray());
 	}
 

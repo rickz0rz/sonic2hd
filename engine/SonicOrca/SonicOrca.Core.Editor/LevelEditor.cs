@@ -1707,7 +1707,7 @@ public sealed class LevelEditor : IDisposable
 		if (hovered >= 0 && hovered < rows.Count && rows[hovered].Tooltip is string tooltip)
 		{
 			double y = rowsTop + hovered * RowHeight - _propertyScroll;
-			DrawLabel(renderer, g, tooltip, left - MeasureText(tooltip) - Padding * 2.0, y + 2.0, TextColour);
+			DrawLabel(renderer, g, tooltip, Math.Max(Padding, left - MeasureText(tooltip) - Padding * 2.0), y + 2.0, TextColour);
 		}
 	}
 
