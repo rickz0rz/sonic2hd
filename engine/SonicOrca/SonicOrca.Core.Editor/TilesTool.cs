@@ -695,18 +695,49 @@ internal sealed class TilesTool : EditorTool
 			return false;
 		}
 		LevelLayer layer = Layer;
+		int oldWidth = layer.Columns * TileSize;
+		int oldHeight = layer.Rows * TileSize;
+		bool solid = IsSolidLayer(_layerIndex);
 		Editor.ChangeLayers(map =>
 		{
 			layer.Resize(columns, rows);
 			return Enumerable.Range(0, map.Layers.Count).ToArray();
 		});
-		Editor.ShowMessage($"Layer {layer.Name} is now {columns} x {rows} tiles. Undo cannot change the size back, so the undo history is clear.");
+		string bounds = solid ? MoveBoundsMarkers(oldWidth, oldHeight, columns * TileSize, rows * TileSize) : "";
+		Editor.ShowMessage($"Layer {layer.Name} is now {columns} x {rows} tiles.{bounds} Undo cannot change the size back, so the undo history is clear.");
 		// A layer that shows alone can now be out of view, for example after it became smaller
 		if (Layer.Editing)
 		{
 			ShowLayerAlone();
 		}
 		return true;
+	}
+
+	/// <summary>
+	/// The camera of the level stops at the bounds markers, for example bounds_rb or bounds_1_rb. A marker at the old
+	/// right or bottom edge of a solid layer goes to the new edge, so that the level can use the new size.
+	/// </summary>
+	/// <returns>A sentence for the message about the markers that moved, or an empty text.</returns>
+	private string MoveBoundsMarkers(int oldWidth, int oldHeight, int width, int height)
+	{
+		List<string> moved = new List<string>();
+		foreach (LevelMarker marker in Editor.Markers.Where(m => System.Text.RegularExpressions.Regex.IsMatch(m.Name ?? "", @"^bounds(_\d+)?_(rb|r|b)$")))
+		{
+			Vector2i position = marker.Position;
+			int x = position.X == oldWidth ? width : position.X;
+			int y = position.Y == oldHeight ? height : position.Y;
+			if (x != position.X || y != position.Y)
+			{
+				marker.Position = new Vector2i(x, y);
+				moved.Add(marker.Name);
+			}
+		}
+		if (moved.Count == 0)
+		{
+			return "";
+		}
+		Editor.MarkMarkersChanged();
+		return $" The marker {string.Join(" and ", moved)} moved to the new edge.";
 	}
 
 	/// <summary>Shows all the layers, as in the game, while the current layer has parallax.</summary>

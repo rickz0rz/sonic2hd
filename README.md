@@ -531,6 +531,10 @@ example `64 x 24`. The tiles in the new size stay. A click outside the layer pai
 so. Undo cannot change the size back, so a change of the size clears the undo history. The front layer of an imported
 zone keeps its size, because the tile collision of the import has that size.
 
+The camera of a level stops at its bounds markers, for example `bounds_lt` and `bounds_rb`, not at the edge of a
+layer. When you change the size of a solid layer, a bounds marker at the old right or bottom edge moves to the new
+edge, and the message says so. A bounds marker at another place stays. Move it in the markers tool.
+
 The "Show" row of the panel switches the palette between all the tiles and the animated tiles. The palette marks each
 animated tile. The "Animation" row shows the frames of the brush tile, for example `#29: 4 frames of 6 ticks`. Click
 it to open the animation of the tile in the animation editor. Each animated tile takes its frames from the animation

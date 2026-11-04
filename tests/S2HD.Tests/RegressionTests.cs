@@ -879,6 +879,38 @@ public sealed partial class RegressionTests
 	}
 
 	/// <summary>
+	/// The camera of a new level stops at the marker bounds_rb. The test makes the solid front layer of a new level
+	/// 160 x 24 tiles and saves. The marker moves from the old right edge to the new one, so the level can use the new
+	/// size.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void EditorResizeMovesBounds_MatchesGoldenScreenshots()
+	{
+		string image = Path.Combine(Path.GetTempPath(), "s2hd-resize-bounds-tiles.png");
+		File.WriteAllBytes(image, NewLevelTests.MakePng(256, 128, (_, _) => 255));
+		try
+		{
+			const string script = "5:mouse 1700 665;6:down left;7:up left;50:tap 32;55:mouse 1600 123;56:down left;57:up left;" +
+				"60:mouse 1700 785;61:down left;62:up left;63:type 160 x 24;65:tap 40;68:mouse 600 600;70:keydown 224;71:tap 22;72:keyup 224";
+			RunAndCompare($"--level jungle --editor --tiles {image}", new[] { 10068, 10320 }, Path.Combine(TestPaths.GoldenDirectory, "editor-resize-bounds"),
+				"editor-resize-bounds", new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script },
+				checkUserData: userData =>
+				{
+					Resource resource = new ResourceFile(Path.Combine(userData, "mods", "editor", "JUNGLE.dat")).Scan()
+						.GetResourceListing()["SONICORCA/LEVELS/JUNGLE/MAP"];
+					using Stream stream = resource.Source.ReadUncompressed();
+					XElement marker = XDocument.Load(stream).Root.Element("markers").Elements("marker").Single(m => (string)m.Attribute("name") == "bounds_rb");
+					Assert.Equal(("10240", "1536"), ((string)marker.Attribute("x"), (string)marker.Attribute("y")));
+				});
+		}
+		finally
+		{
+			File.Delete(image);
+		}
+	}
+
+	/// <summary>
 	/// The tiles tool moves a layer. In a new level, "Move forward" puts the background (layer 0) in front of the solid
 	/// front layer, and the message says that the background now covers the level.
 	/// </summary>
