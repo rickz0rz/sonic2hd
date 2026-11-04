@@ -765,6 +765,21 @@ public sealed partial class RegressionTests
 	}
 
 	/// <summary>
+	/// The tiles tool moves a block of cells in Emerald Hill. Shift+drag selects 4 x 4 cells of fg_main, a drag moves them
+	/// two cells to the right (with a preview during the drag), the right arrow key moves them one more cell, and undo
+	/// puts back the last move.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void EditorMoveTiles_MatchesGoldenScreenshots()
+	{
+		const string script = "3:tap 32;5:mouse 300 640;6:keydown 225;7:down left;9:mouse 450 760;11:mouse 500 800;12:up left;13:keyup 225;" +
+			"16:mouse 400 700;17:down left;19:mouse 470 700;21:mouse 530 700;24:up left;26:mouse 900 300;30:tap 79;36:keydown 224;37:tap 29;38:keyup 224";
+		RunAndCompare("--level ehz --editor", new[] { 10014, 10022, 10028, 10034, 10042 }, Path.Combine(TestPaths.GoldenDirectory, "editor-move-tiles"), "editor-move-tiles",
+			new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script });
+	}
+
+	/// <summary>
 	/// The tile set tool of a new level from a tile image of 4 x 2 cells, with an empty cell at 2, 1. The test selects
 	/// tile 1, drags it to the empty cell, adds a tile at the cell that tile 1 left, and saves. The saved tile set has
 	/// tile 1 at its new cell and the new tile 8.
