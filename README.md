@@ -517,8 +517,13 @@ The "Name" row renames the current layer. The layers must have different names. 
 name (`front_high`, `pipes bottom` in CPZ, `lavawallcave` and `lavawall middle` in HTZ), so these layers keep it.
 
 A magenta outline shows the area of the current layer, with its name and its size at the top left. A layer with
-parallax has this outline while it shows alone, and the view then shows its top left corner. On a layer that wraps, a
-click on a copy (a dark tile) paints the cell of the layer, as the game shows the copies.
+parallax has this outline while it shows alone. On a layer that wraps, a click on a copy (a dark tile) paints the
+cell of the layer, as the game shows the copies.
+
+When you click a layer with parallax, the view stays where it is if a part of the layer is in view. Thus you can click
+between two backgrounds and compare them at the same place. When the layer is not in view, the view goes back to where
+you left that layer, or to its top left corner the first time. When you click a layer without parallax, the view goes
+back to where it was before the first background.
 
 The "Size" row of the panel changes the size of the current layer: click it, and type the columns and the rows, for
 example `64 x 24`. The tiles in the new size stay. A click outside the layer paints nothing, and the status line says

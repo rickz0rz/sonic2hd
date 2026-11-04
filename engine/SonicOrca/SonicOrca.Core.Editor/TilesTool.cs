@@ -687,7 +687,7 @@ internal sealed class TilesTool : EditorTool
 
 	private void ShowLayerAlone()
 	{
-		Editor.ShowLayerAlone(new Rectangle(0.0, 0.0, Layer.Columns * TileSize, Layer.Rows * TileSize));
+		Editor.ShowLayerAlone(Layer, new Rectangle(0.0, 0.0, Layer.Columns * TileSize, Layer.Rows * TileSize));
 		string repeat = Layer.WrapX || Layer.WrapY ? " The dark tiles are the copies that the wrap makes." : "";
 		Editor.ShowMessage($"Layer {Layer.Name} shows alone, from the top left of the level, without parallax.{repeat}");
 	}

@@ -121,6 +121,12 @@ public sealed class LevelEditor : IDisposable
 	/// <summary>The centre of the view before it went to a layer that shows alone, or null.</summary>
 	private Vector2? _viewBeforeLayerAlone;
 
+	/// <summary>The layer that shows alone, or null.</summary>
+	private LevelLayer _aloneLayer;
+
+	/// <summary>The last centre of the view on each layer that showed alone. A click back on the layer goes to it.</summary>
+	private readonly Dictionary<LevelLayer, Vector2> _layerAloneViews = new();
+
 	/// <summary>True when a background layer showed alone at the last update.</summary>
 	private bool _layerAlone;
 
@@ -315,6 +321,8 @@ public sealed class LevelEditor : IDisposable
 		TileCollision ??= LoadTileCollision();
 		_documentLayers ??= _level.Map.Layers.ToArray();
 		_viewBeforeLayerAlone = null;
+		_aloneLayer = null;
+		_layerAloneViews.Clear();
 		// The play can change the map, and the mini-map draws it again
 		TilesVersion++;
 		foreach (EditorTool tool in _tools)
@@ -769,6 +777,8 @@ public sealed class LevelEditor : IDisposable
 		TileCollision = null;
 		_documentLayers = null;
 		_viewBeforeLayerAlone = null;
+		_aloneLayer = null;
+		_layerAloneViews.Clear();
 		TilesVersion++;
 		ObjectSelection.Clear();
 		MarkerSelection.Clear();
@@ -813,19 +823,29 @@ public sealed class LevelEditor : IDisposable
 	}
 
 	/// <summary>
-	/// Goes to the area of a layer that shows alone, when the area is not in view. The view before is kept, so that
-	/// the view goes back when all layers show again.
+	/// Goes to the area of a layer that shows alone, when the area is not in view. The view does not move while a part
+	/// of the layer is in view, so that you can click between layers and compare them. The view before is kept, so
+	/// that the view goes back when all layers show again.
 	/// </summary>
-	internal void ShowLayerAlone(Rectangle area)
+	internal void ShowLayerAlone(LevelLayer layer, Rectangle area)
 	{
 		Rectangle view = Camera.Bounds;
-		// The top left of the layer must be in view, under the top bar, so that a small layer does not hide
-		double top = view.Top + TopBarHeight / Zoom;
-		if (area.Left >= view.Left && area.Left < view.Right && area.Top >= top && area.Top < view.Bottom)
+		_viewBeforeLayerAlone ??= view.Centre;
+		if (_aloneLayer != null && _aloneLayer != layer)
+		{
+			_layerAloneViews[_aloneLayer] = view.Centre;
+		}
+		_aloneLayer = layer;
+		Rectangle visible = new Rectangle(view.Left, view.Top + TopBarHeight / Zoom, view.Width, view.Height - TopBarHeight / Zoom);
+		if (area.IntersectsWith(visible))
 		{
 			return;
 		}
-		_viewBeforeLayerAlone ??= view.Centre;
+		if (_layerAloneViews.TryGetValue(layer, out Vector2 last))
+		{
+			CentreOn(last);
+			return;
+		}
 		// The top left of the layer shows just under the top bar, so that a small layer is in view
 		CentreOn(new Vector2(view.Width / 2.0 - Padding / Zoom, view.Height / 2.0 - (TopBarHeight + Padding) / Zoom));
 	}
@@ -833,6 +853,11 @@ public sealed class LevelEditor : IDisposable
 	/// <returns>True when the view went back.</returns>
 	private bool RestoreViewBeforeLayerAlone()
 	{
+		if (_aloneLayer != null)
+		{
+			_layerAloneViews[_aloneLayer] = Camera.Bounds.Centre;
+			_aloneLayer = null;
+		}
 		if (_viewBeforeLayerAlone is not Vector2 centre)
 		{
 			return false;
