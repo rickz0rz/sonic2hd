@@ -115,6 +115,19 @@ internal abstract class EditorTool : IDisposable
 	{
 	}
 
+	/// <summary>The tool becomes the current tool, or the editor opens again with this tool.</summary>
+	public virtual void Activate()
+	{
+	}
+
+	/// <summary>Another tool becomes the current tool, or the level starts to play.</summary>
+	public virtual void Deactivate()
+	{
+	}
+
+	/// <summary>True when the tool shows its own content in place of the level, so that the editor does not draw the start and the mini-map.</summary>
+	public virtual bool CoversLevel => false;
+
 	/// <summary>Another level loads into the editor. The tool forgets its state of the old level.</summary>
 	public virtual void OnNewLevel()
 	{

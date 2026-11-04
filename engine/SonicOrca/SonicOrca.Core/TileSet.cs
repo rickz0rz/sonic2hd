@@ -119,6 +119,27 @@ public class TileSet : IReadOnlyDictionary<int, ITile>, IReadOnlyCollection<KeyV
 		return Textures.Count - 1;
 	}
 
+	/// <summary>The resource keys of the textures, in the order of <see cref="Textures"/>.</summary>
+	internal IReadOnlyList<string> TextureKeys => _textureKeys ?? Array.Empty<string>();
+
+	/// <summary>Removes a tile. The level editor uses it to change the tile set.</summary>
+	internal void Remove(int id)
+	{
+		if (id >= 0 && id < _tiles.Length)
+		{
+			_tiles[id] = null;
+			_tileIds.Remove(id);
+		}
+	}
+
+	/// <summary>Puts a new texture in place of a texture, for example after the artist changed its file.</summary>
+	internal void SetTexture(int index, ITexture texture)
+	{
+		ITexture[] textures = Textures.ToArray();
+		textures[index] = texture;
+		Textures = textures;
+	}
+
 	public void Dispose()
 	{
 	}
