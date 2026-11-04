@@ -88,6 +88,18 @@ internal sealed class TilesTool : EditorTool
 
 	private bool _capturing;
 
+	/// <summary>The selected cells of the current layer, or null. Shift+drag selects them.</summary>
+	private Rectanglei? _selection;
+
+	/// <summary>True while Shift+drag selects cells.</summary>
+	private bool _selecting;
+
+	/// <summary>True while a drag moves the selected cells.</summary>
+	private bool _movingSelection;
+
+	/// <summary>The cell where the drag of the selection started.</summary>
+	private (int Column, int Row) _moveStart;
+
 	private EditorSnapshot _strokeStart;
 
 	private (int Column, int Row) _strokeOrigin;
@@ -120,9 +132,13 @@ internal sealed class TilesTool : EditorTool
 
 	public override string Name => "Tiles";
 
-	public override string Hint => _brush == null
-		? "Click a tile in the palette, or Ctrl+drag in the level to take tiles. Then click or drag to paint."
-		: "Click or drag: paint.  Ctrl+drag: take tiles.  X, Y: flip the brush.  Esc: no brush.";
+	public override string Hint => _selection != null
+		? "Drag the selection or press the arrow keys to move it (Shift: 4 cells).  Delete: clear.  Ctrl+C: take as the brush.  Esc: no selection."
+		: _brush == null
+			? "Click a tile in the palette, or Ctrl+drag in the level to take tiles. Then click or drag to paint. Shift+drag: select cells to move."
+			: "Click or drag: paint.  Ctrl+drag: take tiles.  Shift+drag: select cells.  X, Y: flip the brush.  Esc: no brush.";
+
+	public override bool HasSelection => _selection != null;
 
 	public override string Status => _layerIndex >= 0
 		? $"Layer {Layer.Name}{(IsSolidLayer(_layerIndex) ? " (solid: Sonic and objects collide with it)" : " (not solid)")}{(Layer.Editing ? " (alone, without parallax)" : "")}   Brush {(_brush == null ? "none" : $"{_brush.Columns} x {_brush.Rows}")}" +
@@ -153,6 +169,7 @@ internal sealed class TilesTool : EditorTool
 	/// <summary>The brush has tiles of the old tile set, and the layers are different.</summary>
 	public override void OnNewLevel()
 	{
+		_selection = null;
 		_brush = null;
 		_layerIndex = -1;
 		_preview = false;
@@ -317,6 +334,7 @@ internal sealed class TilesTool : EditorTool
 		{
 			_layerIndex = index;
 			_brush = null;
+			_selection = null;
 			_preview = false;
 			_rowIndex = 0;
 			_scrollPage &= !IsSolidLayer(index);
@@ -957,6 +975,26 @@ internal sealed class TilesTool : EditorTool
 			Editor.ShowMessage("The preview is on. Turn it off to paint on this layer.");
 			return;
 		}
+		if (Editor.IsShiftDown)
+		{
+			_selecting = true;
+			Editor.BeginToolDrag();
+			return;
+		}
+		if (_selection is Rectanglei selection)
+		{
+			(int pressColumn, int pressRow) = GetCell(Editor.MouseWorld);
+			if (selection.Contains(new Vector2i(pressColumn, pressRow)))
+			{
+				_movingSelection = true;
+				_moveStart = (pressColumn, pressRow);
+				Editor.BeginToolDrag();
+				return;
+			}
+			// A click outside the selection only ends the selection, so that it does not paint by mistake
+			_selection = null;
+			return;
+		}
 		if (Editor.IsControlDown)
 		{
 			_capturing = true;
@@ -1009,6 +1047,21 @@ internal sealed class TilesTool : EditorTool
 
 	public override void OnDragEnd()
 	{
+		if (_selecting)
+		{
+			_selecting = false;
+			_selection = GetDragCells();
+			Rectanglei cells = _selection.Value;
+			Editor.ShowMessage($"Selected {cells.Width} x {cells.Height} cells. Drag them or press the arrow keys to move them. Delete clears them.");
+			return;
+		}
+		if (_movingSelection)
+		{
+			_movingSelection = false;
+			(int dx, int dy) = GetMoveOffset();
+			MoveSelection(dx, dy);
+			return;
+		}
 		if (_capturing)
 		{
 			_capturing = false;
@@ -1079,8 +1132,8 @@ internal sealed class TilesTool : EditorTool
 		Editor.SetTile(layerIndex, column, row, tile, newSolidity);
 	}
 
-	/// <summary>Takes the cells in the box of the drag as the brush.</summary>
-	private void CaptureBrush()
+	/// <summary>The cells of the layer in the box of the drag.</summary>
+	private Rectanglei GetDragCells()
 	{
 		(int left, int top) = GetCell(new Vector2(Math.Min(Editor.DragStartWorld.X, Editor.MouseWorld.X), Math.Min(Editor.DragStartWorld.Y, Editor.MouseWorld.Y)));
 		(int right, int bottom) = GetCell(new Vector2(Math.Max(Editor.DragStartWorld.X, Editor.MouseWorld.X), Math.Max(Editor.DragStartWorld.Y, Editor.MouseWorld.Y)));
@@ -1088,8 +1141,151 @@ internal sealed class TilesTool : EditorTool
 		top = Math.Clamp(top, 0, Layer.Rows - 1);
 		right = Math.Clamp(right, left, Layer.Columns - 1);
 		bottom = Math.Clamp(bottom, top, Layer.Rows - 1);
-		int columns = right - left + 1;
-		int rows = bottom - top + 1;
+		return new Rectanglei(left, top, right - left + 1, bottom - top + 1);
+	}
+
+	/// <summary>The cells that the drag moves the selection, so far. The selection stays in the layer.</summary>
+	private (int X, int Y) GetMoveOffset()
+	{
+		(int column, int row) = GetCell(Editor.MouseWorld);
+		return ClampMove(column - _moveStart.Column, row - _moveStart.Row);
+	}
+
+	private (int X, int Y) ClampMove(int dx, int dy)
+	{
+		if (_selection is not Rectanglei cells)
+		{
+			return (0, 0);
+		}
+		return (Math.Clamp(dx, -cells.X, Layer.Columns - cells.X - cells.Width), Math.Clamp(dy, -cells.Y, Layer.Rows - cells.Y - cells.Height));
+	}
+
+	/// <summary>The arrow keys move the selected cells by one cell, or by four cells with Shift.</summary>
+	public override void Nudge(Vector2i delta)
+	{
+		int step = Editor.IsShiftDown ? 4 : 1;
+		(int dx, int dy) = ClampMove(Math.Sign(delta.X) * step, Math.Sign(delta.Y) * step);
+		MoveSelection(dx, dy);
+	}
+
+	public override void DeleteSelection()
+	{
+		if (_selection is Rectanglei cells)
+		{
+			ChangeCells(cells, (column, row, layer) => 0);
+			Editor.ShowMessage($"Cleared {cells.Width} x {cells.Height} cells.");
+		}
+	}
+
+	public override void ClearSelection() => _selection = null;
+
+	/// <summary>
+	/// Moves the selected cells: the tiles of the layer, the tiles of its priority layer and the solidity. The cells
+	/// that the selection leaves become empty. The move is one step of the undo history.
+	/// </summary>
+	private void MoveSelection(int dx, int dy)
+	{
+		if (_selection is not Rectanglei cells || (dx == 0 && dy == 0))
+		{
+			return;
+		}
+		Rectanglei target = new Rectanglei(cells.X + dx, cells.Y + dy, cells.Width, cells.Height);
+		int left = Math.Min(cells.X, target.X);
+		int top = Math.Min(cells.Y, target.Y);
+		Rectanglei area = new Rectanglei(left, top, Math.Max(cells.Right, target.Right) - left, Math.Max(cells.Bottom, target.Bottom) - top);
+		// The values come from the layers before the move, so read them first
+		Dictionary<(int, int, int), int> values = new Dictionary<(int, int, int), int>();
+		foreach (int layer in GetMovedLayers())
+		{
+			for (int y = 0; y < cells.Height; y++)
+			{
+				for (int x = 0; x < cells.Width; x++)
+				{
+					values[(layer, target.X + x, target.Y + y)] = ReadCell(layer, cells.X + x, cells.Y + y);
+				}
+			}
+		}
+		ChangeCells(area, (column, row, layer) =>
+			values.TryGetValue((layer, column, row), out int value) ? value : cells.Contains(new Vector2i(column, row)) ? 0 : ReadCell(layer, column, row));
+		_selection = target;
+		Editor.ShowMessage($"Moved {cells.Width} x {cells.Height} cells by {dx}, {dy}.");
+	}
+
+	/// <summary>The layer, its priority layer, and -1 for the solidity of the front layer.</summary>
+	private IEnumerable<int> GetMovedLayers()
+	{
+		yield return _layerIndex;
+		int highIndex = GetHighLayerIndex();
+		if (highIndex >= 0)
+		{
+			yield return highIndex;
+		}
+		if (IsCollisionLayer)
+		{
+			yield return -1;
+		}
+	}
+
+	/// <summary>A tile of a layer, or the solidity of the cell for layer -1. A cell outside the layer is 0.</summary>
+	private int ReadCell(int layer, int column, int row)
+	{
+		if (layer < 0)
+		{
+			return Editor.TileCollision.GetSolidity(column, row);
+		}
+		LevelLayer level = Layers[layer];
+		return column >= 0 && row >= 0 && column < level.Columns && row < level.Rows ? level.Tiles[column, row] : 0;
+	}
+
+	/// <summary>Gives the cells of an area new values in one step of the undo history.</summary>
+	private void ChangeCells(Rectanglei area, Func<int, int, int, int> value)
+	{
+		_strokeStart = Editor.CaptureSnapshot();
+		_strokeEdits.Clear();
+		bool solidity = IsCollisionLayer;
+		foreach (int layer in GetMovedLayers().Where(l => l >= 0))
+		{
+			for (int row = area.Top; row < area.Bottom; row++)
+			{
+				for (int column = area.Left; column < area.Right; column++)
+				{
+					bool front = layer == _layerIndex && solidity;
+					byte oldSolidity = front ? (byte)ReadCell(-1, column, row) : (byte)0;
+					byte newSolidity = front ? (byte)value(column, row, -1) : (byte)0;
+					Paint(layer, column, row, value(column, row, layer), oldSolidity, newSolidity);
+				}
+			}
+		}
+		if (_strokeEdits.Count == 0)
+		{
+			return;
+		}
+		Editor.RecordHistory(_strokeStart with { TileEdits = _strokeEdits.ToArray() });
+		Editor.MarkTilesChanged();
+		if (solidity)
+		{
+			Editor.RequestTrace(area);
+		}
+	}
+
+	/// <summary>Ctrl+C takes the selected cells as the brush. Ctrl+X also clears them.</summary>
+	public override void Copy()
+	{
+		if (_selection is Rectanglei cells)
+		{
+			CaptureBrush(cells);
+		}
+	}
+
+	/// <summary>Takes the cells in the box of the drag as the brush.</summary>
+	private void CaptureBrush() => CaptureBrush(GetDragCells());
+
+	private void CaptureBrush(Rectanglei cells)
+	{
+		int left = cells.X;
+		int top = cells.Y;
+		int columns = cells.Width;
+		int rows = cells.Height;
 		int highIndex = GetHighLayerIndex();
 		TileCollision tileCollision = IsCollisionLayer ? Editor.TileCollision : null;
 		Brush brush = new Brush
@@ -1164,6 +1360,17 @@ internal sealed class TilesTool : EditorTool
 
 	public override bool Cancel()
 	{
+		if (_movingSelection || _selecting)
+		{
+			_movingSelection = false;
+			_selecting = false;
+			return true;
+		}
+		if (_selection != null)
+		{
+			_selection = null;
+			return true;
+		}
 		if (_brush == null)
 		{
 			return false;
@@ -1317,6 +1524,42 @@ internal sealed class TilesTool : EditorTool
 			g.RenderQuad(LevelEditor.SelectionFillColour, band);
 			g.RenderRectangle(LevelEditor.SelectionColour, band, 2.0);
 		}
+		if (_selecting && Editor.DragMoved)
+		{
+			Rectanglei cells = GetDragCells();
+			Rectangle box = Editor.ToScreen(new Rectangle(cells.X * TileSize, cells.Y * TileSize, cells.Width * TileSize, cells.Height * TileSize));
+			g.RenderQuad(LevelEditor.SelectionFillColour, box);
+			g.RenderRectangle(LevelEditor.SelectionColour, box, 2.0);
+		}
+		if (_selection is Rectanglei selection && !_selecting)
+		{
+			(int dx, int dy) = _movingSelection ? GetMoveOffset() : (0, 0);
+			Rectangle box = Editor.ToScreen(new Rectangle((selection.X + dx) * TileSize, (selection.Y + dy) * TileSize, selection.Width * TileSize, selection.Height * TileSize));
+			if (_movingSelection)
+			{
+				// A preview of the cells at their new place
+				TileSet tileSet = Editor.Level.TileSet;
+				int size = (int)Math.Round(TileSize * Editor.Zoom);
+				g.RenderQuad(LevelEditor.ShadowColour, box);
+				for (int y = 0; y < selection.Height; y++)
+				{
+					for (int x = 0; x < selection.Width; x++)
+					{
+						int tile = Layer.Tiles[selection.X + x, selection.Y + y];
+						if (tile != 0)
+						{
+							tileSet.DrawTile(Editor.Renderer, tile, new Rectanglei(0, 0, TileSize, TileSize), new Rectanglei((int)box.X + x * size, (int)box.Y + y * size, size, size));
+						}
+					}
+				}
+			}
+			else
+			{
+				g.RenderQuad(LevelEditor.SelectionFillColour, box);
+			}
+			g.RenderRectangle(LevelEditor.ShadowColour, box.Inflate(new Vector2(1.0, 1.0)), 4.0);
+			g.RenderRectangle(LevelEditor.SelectionColour, box, 2.0);
+		}
 		if (_capturing && Editor.DragMoved)
 		{
 			(int left, int top) = GetCell(new Vector2(Math.Min(Editor.DragStartWorld.X, Editor.MouseWorld.X), Math.Min(Editor.DragStartWorld.Y, Editor.MouseWorld.Y)));
@@ -1329,9 +1572,22 @@ internal sealed class TilesTool : EditorTool
 
 	public override string GetCursorLabel(I2dRenderer g)
 	{
-		if (_capturing || !Editor.IsMouseOverLevel)
+		if (_capturing || _selecting || !Editor.IsMouseOverLevel)
 		{
 			return null;
+		}
+		if (_movingSelection)
+		{
+			(int dx, int dy) = GetMoveOffset();
+			return $"move by {dx}, {dy} cells";
+		}
+		if (_selection is Rectanglei selected && !ShowsWithParallax)
+		{
+			(int selectedColumn, int selectedRow) = GetCell(Editor.MouseWorld);
+			if (selected.Contains(new Vector2i(selectedColumn, selectedRow)))
+			{
+				return "drag to move the selected cells";
+			}
 		}
 		if (ShowsWithParallax)
 		{

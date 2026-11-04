@@ -537,6 +537,20 @@ it to open the animation of the tile in the animation editor. Each animated tile
 group (`ANIGROUP`) of the tile set. The status line shows where the frames come from, for example a palette cycle of
 the original. The label at the mouse shows the tile under it.
 
+#### Move tiles
+
+In the tiles tool, hold Shift and drag in the level to select a rectangle of cells of the current layer. Then:
+
+- Drag the selection to move the cells. A preview shows the cells at their new place during the drag.
+- Press an arrow key to move the cells one cell. With Shift, the cells move four cells.
+- Press Delete to clear the cells.
+- Press Ctrl+C to take the cells as the brush. Ctrl+X also clears them.
+- Press Escape, or click outside the selection, to end the selection.
+
+The priority tiles (`front_high`) and the solidity of the front layer move with the cells, and the collision follows
+the tiles. The cells that the selection leaves become empty. Each move is one step of the undo history. The selection
+stays in the layer.
+
 #### Tile set
 
 The tile set tool shows a texture of the tile set with a grid of 64 x 64 pixel cells. A cell with a tile has a
