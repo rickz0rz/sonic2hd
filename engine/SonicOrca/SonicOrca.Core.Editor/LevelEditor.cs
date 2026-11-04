@@ -209,11 +209,17 @@ public sealed class LevelEditor : IDisposable
 	/// <summary>The solidity of the cells (<see cref="TileCollision"/>) has changes that are not saved.</summary>
 	public bool SolidityDirty { get; private set; }
 
+	/// <summary>The tile set tool added, moved or removed tiles.</summary>
+	public bool TileSetDirty { get; private set; }
+
+	/// <summary>Changes when the tiles of the tile set change, so that the palette of the tiles tool shows them.</summary>
+	internal int TileSetVersion { get; private set; }
+
 	/// <summary>There are changes that are not saved.</summary>
 	public bool Dirty => LevelDirty || _levelsTool.Dirty;
 
 	/// <summary>True when the level has changes that are not saved.</summary>
-	private bool LevelDirty => BindingDirty || MarkersDirty || TilesDirty || ScrollDirty || LayersDirty || CollisionDirty || SolidityDirty;
+	private bool LevelDirty => BindingDirty || MarkersDirty || TilesDirty || ScrollDirty || LayersDirty || CollisionDirty || SolidityDirty || TileSetDirty;
 
 	public EditorPlayRequest PlayRequest { get; private set; }
 
@@ -270,7 +276,7 @@ public sealed class LevelEditor : IDisposable
 
 	internal bool IsMouseOverLevel => IsOverLevel(Mouse);
 
-	private bool HasFont => _ui.HasFont;
+	internal bool HasFont => _ui.HasFont;
 
 	public LevelEditor(Level level)
 	{
@@ -278,7 +284,7 @@ public sealed class LevelEditor : IDisposable
 		_level = level;
 		_gameContext = level.GameContext;
 		_levelsTool = new LevelsTool(this);
-		_tools = new EditorTool[] { new ObjectsTool(this), new MarkersTool(this), new TilesTool(this), new CollisionTool(this), _levelsTool };
+		_tools = new EditorTool[] { new ObjectsTool(this), new MarkersTool(this), new TilesTool(this), new CollisionTool(this), _levelsTool, new TileSetTool(this) };
 		_tool = _tools[0];
 	}
 
@@ -330,6 +336,10 @@ public sealed class LevelEditor : IDisposable
 			tool.Begin();
 		}
 		SetZoom(_zoomIndex, Camera.Bounds.Centre);
+		if (_tool.CoversLevel)
+		{
+			_tool.Activate();
+		}
 		Rebind();
 		ShowMessage("Editor. F5: play here. F2: play from the start.");
 	}
@@ -444,6 +454,10 @@ public sealed class LevelEditor : IDisposable
 		else if (!control && IsKeyPressed(KeyboardState.KEY_5))
 		{
 			SelectTool(4);
+		}
+		else if (!control && IsKeyPressed(KeyboardState.KEY_6))
+		{
+			SelectTool(5);
 		}
 		else if (control && IsKeyPressed(KeyboardState.KEY_S))
 		{
@@ -586,7 +600,7 @@ public sealed class LevelEditor : IDisposable
 			UpdateDrag();
 			return;
 		}
-		if (_input.Wheel != 0.0 && !_miniMap.Contains(Mouse))
+		if (_input.Wheel != 0.0 && (_tool.CoversLevel || !_miniMap.Contains(Mouse)))
 		{
 			UpdateWheel(_input.Wheel);
 		}
@@ -612,7 +626,7 @@ public sealed class LevelEditor : IDisposable
 			{
 				OnPanelClick(_input.LeftPressed ? 1 : -1);
 			}
-			else if (_input.LeftPressed && _miniMap.Contains(Mouse))
+			else if (_input.LeftPressed && !_tool.CoversLevel && _miniMap.Contains(Mouse))
 			{
 				BeginDrag(DragMode.MiniMap);
 				_miniMap.BeginDrag(Mouse);
@@ -751,7 +765,9 @@ public sealed class LevelEditor : IDisposable
 			CommitTextEntry();
 		}
 		_tool.Cancel();
+		_tool.Deactivate();
 		_tool = _tools[index];
+		_tool.Activate();
 		_listScroll = 0.0;
 		_propertyScroll = 0.0;
 		ShowMessage(_tool.Name + ": " + _tool.Hint);
@@ -774,6 +790,7 @@ public sealed class LevelEditor : IDisposable
 		LayersDirty = false;
 		CollisionDirty = false;
 		SolidityDirty = false;
+		TileSetDirty = false;
 		TileCollision = null;
 		_documentLayers = null;
 		_viewBeforeLayerAlone = null;
@@ -818,6 +835,12 @@ public sealed class LevelEditor : IDisposable
 		EditorLayerView.Apply(_level.Map.Layers, -1);
 		// The mouse is not at a level position while a background layer shows alone
 		bool restored = RestoreViewBeforeLayerAlone();
+		// A tool that covers the level shows the view of the level again
+		if (_tool.CoversLevel)
+		{
+			_tool.Deactivate();
+			restored = true;
+		}
 		PlayPosition = IsOverLevel(Mouse) && !restored ? Snap(MouseWorld) : (Vector2i)Camera.Bounds.Centre;
 		PlayRequest = request;
 	}
@@ -1005,6 +1028,7 @@ public sealed class LevelEditor : IDisposable
 			_documentLayers = _level.Map.Layers.ToArray();
 			CollisionDirty = false;
 			SolidityDirty = false;
+			TileSetDirty = false;
 			ShowMessage(paths.Count == 0 ? "No changes to save" : "Saved to " + string.Join(" and ", paths.Distinct()));
 		}
 		catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is ResourceException || ex is InvalidOperationException)
@@ -1052,6 +1076,13 @@ public sealed class LevelEditor : IDisposable
 		if (SolidityDirty && TileCollision != null && GetTileCollisionResource() is Resource resource)
 		{
 			changes.Add(new EditorModFile.Change(resource, TileCollision.ToXml()));
+		}
+		if (TileSetDirty && _level.TileSet.Resource is Resource tileSetResource)
+		{
+			using Stream source = tileSetResource.Source.ReadUncompressed();
+			using MemoryStream xml = new MemoryStream();
+			source.CopyTo(xml);
+			changes.Add(new EditorModFile.Change(tileSetResource, TileSetWriter.Patch(xml.ToArray(), _level.TileSet)));
 		}
 		return changes;
 	}
@@ -1176,6 +1207,18 @@ public sealed class LevelEditor : IDisposable
 
 	/// <summary>A layer changed, for example its name, so the save writes the layers again.</summary>
 	internal void MarkLayersChanged() => LayersDirty = true;
+
+	/// <param name="removed">True when a tile was removed. An undo could then put the tile back into the map, so the undo history is cleared.</param>
+	internal void MarkTileSetChanged(bool removed = false)
+	{
+		TileSetDirty = true;
+		TileSetVersion++;
+		TilesVersion++;
+		if (removed)
+		{
+			_history.Clear();
+		}
+	}
 
 	internal void MarkScrollChanged() => ScrollDirty = true;
 
@@ -1623,14 +1666,20 @@ public sealed class LevelEditor : IDisposable
 		g.ModelMatrix = Matrix4.Identity;
 		renderer.GetObjectRenderer().Scale = new Vector2(1.0, 1.0);
 		_tool.DrawOverlay(renderer, g);
-		DrawStartPosition(renderer, g);
+		if (!_tool.CoversLevel)
+		{
+			DrawStartPosition(renderer, g);
+		}
 		if (_drag == DragMode.Box && DragMoved)
 		{
 			Rectangle box = ToScreen(GetDragBox());
 			g.RenderQuad(SelectionFillColour, box);
 			g.RenderRectangle(SelectionColour, box, 2.0);
 		}
-		_miniMap.Draw(renderer, g);
+		if (!_tool.CoversLevel)
+		{
+			_miniMap.Draw(renderer, g);
+		}
 		if (HasFont)
 		{
 			DrawCursorLabel(renderer, g);
@@ -1720,7 +1769,7 @@ public sealed class LevelEditor : IDisposable
 	/// <summary>Shows what is under the mouse, or what a click adds.</summary>
 	private void DrawCursorLabel(Renderer renderer, I2dRenderer g)
 	{
-		if (!IsOverLevel(Mouse) || _drag != DragMode.None || _miniMap.Contains(Mouse))
+		if (!IsOverLevel(Mouse) || _drag != DragMode.None || (!_tool.CoversLevel && _miniMap.Contains(Mouse)))
 		{
 			return;
 		}

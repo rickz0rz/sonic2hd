@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Xml.Linq;
 using Hjg.Pngcs;
+using SonicOrca.Resources;
 using Xunit;
 
 namespace S2HD.Tests;
@@ -755,6 +757,43 @@ public sealed partial class RegressionTests
 				"editor-new-level-tiles-option", new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script },
 				checkUserData: userData => Assert.Equal(7, System.Text.RegularExpressions.Regex.Matches(
 					File.ReadAllText(Path.Combine(userData, "mods", "jungle", "SONICORCA", "LEVELS", "JUNGLE", "TILESET", "_.tileset.xml")), "<tile ").Count));
+		}
+		finally
+		{
+			File.Delete(image);
+		}
+	}
+
+	/// <summary>
+	/// The tile set tool of a new level from a tile image of 4 x 2 cells, with an empty cell at 2, 1. The test selects
+	/// tile 1, drags it to the empty cell, adds a tile at the cell that tile 1 left, and saves. The saved tile set has
+	/// tile 1 at its new cell and the new tile 8.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void EditorTileSet_MatchesGoldenScreenshots()
+	{
+		string image = Path.Combine(Path.GetTempPath(), "s2hd-tile-set-tool.png");
+		File.WriteAllBytes(image, NewLevelTests.MakePng(256, 128, (x, y) => x / 64 == 2 && y / 64 == 1 ? (byte)0 : (byte)(x + y)));
+		try
+		{
+			const string script = "5:mouse 1700 300;8:mouse 1700 665;9:down left;10:up left;50:tap 35;55:mouse 42 90;56:down left;57:up left;60:mouse 700 600;" +
+				"65:mouse 42 90;66:down left;68:mouse 100 120;70:mouse 170 154;72:up left;75:mouse 42 90;76:down left;77:up left;80:mouse 700 600;" +
+				"85:keydown 224;86:tap 22;87:keyup 224";
+			RunAndCompare($"--level jungle --editor --tiles {image}", new[] { 10062, 10082, 10335 }, Path.Combine(TestPaths.GoldenDirectory, "editor-tile-set"),
+				"editor-tile-set", new Dictionary<string, string> { ["S2HD_TEST_EDITOR_INPUT"] = script },
+				checkUserData: userData =>
+				{
+					Resource resource = new ResourceFile(Path.Combine(userData, "mods", "editor", "JUNGLE.dat")).Scan()
+						.GetResourceListing()["SONICORCA/LEVELS/JUNGLE/TILESET"];
+					using Stream stream = resource.Source.ReadUncompressed();
+					XElement[] tiles = XDocument.Load(stream).Root.Element("tiles").Elements("tile").ToArray();
+					Assert.Equal(8, tiles.Length);
+					XElement moved = tiles.Single(t => (string)t.Attribute("id") == "1");
+					Assert.Equal(("128", "64"), ((string)moved.Attribute("x"), (string)moved.Attribute("y")));
+					XElement added = tiles.Single(t => (string)t.Attribute("id") == "8");
+					Assert.Equal(("0", "0"), ((string)added.Attribute("x"), (string)added.Attribute("y")));
+				});
 		}
 		finally
 		{

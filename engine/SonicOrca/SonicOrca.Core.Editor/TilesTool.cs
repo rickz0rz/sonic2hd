@@ -210,16 +210,25 @@ internal sealed class TilesTool : EditorTool
 	/// <summary>The palette shows only the tiles with more than one frame.</summary>
 	private bool _animatedOnly;
 
+	/// <summary>The <see cref="LevelEditor.TileSetVersion"/> of the palette.</summary>
+	private int _paletteVersion;
+
 	/// <summary>The tiles of the palette: all the tiles of the tile set, or only the animated tiles.</summary>
 	private void UpdatePaletteTiles()
 	{
 		TileSet tileSet = Editor.Level.TileSet;
+		_paletteVersion = Editor.TileSetVersion;
 		_paletteTiles = new[] { 0 }.Concat(tileSet.Keys.Where(k => k != 0 && (!_animatedOnly || tileSet[k].Animated)).OrderBy(k => k)).ToArray();
 		_paletteScroll = 0.0;
 	}
 
 	public override void Update()
 	{
+		// The tile set tool can add and remove tiles
+		if (_paletteVersion != Editor.TileSetVersion)
+		{
+			UpdatePaletteTiles();
+		}
 		if (_brush == null)
 		{
 			return;

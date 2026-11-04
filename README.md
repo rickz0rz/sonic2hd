@@ -441,7 +441,7 @@ one click on "Create" makes the level. Add `--tiles <png>` to start the form wit
 publish/S2HD.app/Contents/MacOS/S2HD --level cnz --editor
 ```
 
-The level stops, and the editor shows all the objects of the level. The editor has five tools. Select a tool with
+The level stops, and the editor shows all the objects of the level. The editor has six tools. Select a tool with
 its button or with its key:
 
 - **Objects (1)** changes the objects and the rings. The list has all the object types of the game. A type that the
@@ -473,6 +473,7 @@ its button or with its key:
   the new name at the next play. New music plays when the level opens again. Undo does not change these values. To make a level, click "+ New level".
   Type a name, and change the short name if necessary. Click "Tiles from" to choose the level with the tiles. Then
   click "Create" (see "New levels").
+- **Tile set (6)** shows the textures of the tile set and changes the tiles of the palette (see "Tile set").
 
 In the imported zones, the collision follows the tiles: after you paint on the front layer, the editor traces the
 collision of the changed area again, as the import does. Lines that you drew by hand in other areas stay. "Trace
@@ -535,6 +536,23 @@ animated tile. The "Animation" row shows the frames of the brush tile, for examp
 it to open the animation of the tile in the animation editor. Each animated tile takes its frames from the animation
 group (`ANIGROUP`) of the tile set. The status line shows where the frames come from, for example a palette cycle of
 the original. The label at the mouse shows the tile under it.
+
+#### Tile set
+
+The tile set tool shows a texture of the tile set with a grid of 64 x 64 pixel cells. A cell with a tile has a
+magenta outline and the ID of the tile. A cell with pixels but no tile has a yellow outline. The frames of the
+animated tiles have a blue outline. The tool does not change the animated tiles. Change them in the animation editor.
+
+- Click an empty cell to add a tile for this cell. The new tile is in the palette of the tiles tool at once.
+- Click "Add the new cells" to add a tile for each cell with a yellow outline.
+- Click a tile to select it. The panel shows its cell and the number of cells of the map that use it.
+- Drag a tile to an empty cell to move it. The tile keeps its ID, so the map shows the new cell at each use.
+- Press Delete, or click the "Remove" row, to remove the selected tile. The map must not use the tile.
+
+When the texture is a PNG file of a mod folder, for example the `TEXTURE.png` of a new level, edit it in your image
+editor. The tool shows the change when you save the file, and the new cells get a yellow outline. A texture of a .dat
+file cannot change: unpack the file first. Ctrl+S saves the tile set with the map into `mods/editor/ZONE.dat`. Undo
+does not change the tile set, and a removal clears the undo history.
 
 #### Paths of objects
 
