@@ -1,4 +1,5 @@
 using SonicOrca.Core.Collision;
+using SonicOrca.Core.Debugging;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
 
@@ -61,6 +62,13 @@ public class BossObject : Enemy
 		if (InvincibilityTimer > 0)
 		{
 			InvincibilityTimer--;
+		}
+		if (TestHooks.DefeatBossAtTick is int tick && Level.Ticks >= tick && Health > 0 && !Defeated && Level.Player.Protagonist != null)
+		{
+			// The last hit, as from the protagonist, so that each boss takes its own path to the defeat
+			Health = 1;
+			InvincibilityTimer = 0;
+			Hit(Level.Player.Protagonist);
 		}
 	}
 

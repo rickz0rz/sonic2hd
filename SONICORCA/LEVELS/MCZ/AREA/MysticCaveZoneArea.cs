@@ -50,8 +50,7 @@ public class MysticCaveZoneArea : Area
 	}.Concat(AnimalResourceKeys).ToArray();
 
 	/// <summary>The boss events of act 2 (LevEvents_MCZ2) and the start position of the boss (Obj57).</summary>
-	private static readonly BossArenaSettings BossArenaSettings = new BossArenaSettings(0x2080, 0x5D0, 0x20F0, 0x20F0, 0x20F0, 0x5C8,
-		new Vector2i(0x21A0, 0x560), 0x2240);
+	private static readonly BossArenaSettings BossArenaSettings = Bosses.MysticCave.Arena;
 
 	private SonicOrcaGameContext _gameContext;
 	private ResourceTree _resourceTree;

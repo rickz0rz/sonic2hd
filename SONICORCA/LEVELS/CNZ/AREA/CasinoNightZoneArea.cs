@@ -53,8 +53,7 @@ public class CasinoNightZoneArea : Area
 	}.Concat(AnimalResourceKeys).ToArray();
 
 	/// <summary>The boss events of act 2 (LevEvents_CNZ2) and the start position of the boss (Obj51).</summary>
-	private static readonly BossArenaSettings BossArenaSettings = new BossArenaSettings(0x27C0, 0x62E, 0x2890, 0x2860, 0x28E0, 0x4E0,
-		new Vector2i(0x2A46, 0x654), 0x2B20);
+	private static readonly BossArenaSettings BossArenaSettings = Bosses.CasinoNight.Arena;
 
 	/// <summary>Loads the versus binding with the area, when the import made it.</summary>
 	public override IEnumerable<string> GetMoreDependencies(ResourceTree resourceTree)

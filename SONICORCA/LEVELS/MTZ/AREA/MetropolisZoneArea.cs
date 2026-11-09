@@ -48,8 +48,7 @@ public class MetropolisZoneArea : Area
 	}.Concat(AnimalResourceKeys).ToArray();
 
 	/// <summary>The boss events of act 2 of act 3 (LevEvents_MTZ3) and the start position of the boss (Obj54).</summary>
-	private static readonly BossArenaSettings BossArenaSettings = new BossArenaSettings(0x2980, 0x400, 0x2A80, 0x2AB0, 0x2AB0, 0x400,
-		new Vector2i(0x2B50, 0x380), 0x2BF0);
+	private static readonly BossArenaSettings BossArenaSettings = Bosses.Metropolis.Arena;
 
 	private SonicOrcaGameContext _gameContext;
 	private ResourceTree _resourceTree;
