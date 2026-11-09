@@ -170,11 +170,13 @@ const forget = document.getElementById('forget');
 async function showStored() {
   try {
     const disasm = await storage.get('s2disasm.zip');
+    const kis2 = await storage.get('kis2.zip');
     const mods = await storage.get('mods');
     const chosen = await storage.get('chosen-mods');
     const count = mods ? Object.keys(mods.files).length : 0;
     const parts = [];
     if (disasm) parts.push(`the disassembly zip (${(disasm.size / 1048576).toFixed(0)} MB)`);
+    if (kis2) parts.push(`the KiS2 zip (${(kis2.size / 1048576).toFixed(0)} MB)`);
     if (count) parts.push(`${count} imported mods`);
     if (chosen && chosen.length) parts.push(`${chosen.length} chosen mods`);
     storedText.textContent = parts.length ? `Stored in this browser: ${parts.join(' and ')}.` : 'No disassembly is stored.';
@@ -199,8 +201,23 @@ document.getElementById('disasm').addEventListener('change', async (e) => {
     setStatus(`The browser cannot store the disassembly (${error}). It is used for this visit only. ${nextStep()}`);
   }
 });
+// The chosen zip of the knuckles-in-sonic-2 branch of the disassembly, for Knuckles mode
+let kis2Zip = null;
+document.getElementById('kis2').addEventListener('change', async (e) => {
+  kis2Zip = e.target.files[0];
+  if (!kis2Zip) return;
+  try {
+    await storage.put('kis2.zip', kis2Zip);
+    await showStored();
+    setStatus(`The KiS2 zip is stored. ${nextStep()}`);
+  } catch (error) {
+    setStatus(`The browser cannot store the KiS2 zip (${error}). It is used for this visit only. ${nextStep()}`);
+  }
+});
 forget.addEventListener('click', async () => {
   await storage.clear();
+  disasmZip = null;
+  kis2Zip = null;
   modFiles = [];
   showChosenMods();
   await showStored();
@@ -208,27 +225,38 @@ forget.addEventListener('click', async () => {
 });
 
 // Writes the stored mods that the game data does not have. When mods are still missing, makes them from the stored
-// disassembly, which takes a minute or two, and stores them. The game starts without the parts that are missing
+// disassembly, which takes a minute or two, and stores them. The game starts without the parts that are missing.
+// With the KiS2 zip, the import also makes Knuckles mode. The zones made before the KiS2 zip do not have the Knuckles
+// bindings, so the import makes them again
 async function prepareMods() {
   const version = game.GetImportVersion();
-  const missing = () => game.GetMissingMods().split(' ').filter(Boolean);
+  const kis2 = kis2Zip ?? await storage.get('kis2.zip').catch(() => null);
+  const missing = () => game.GetMissingMods(!!kis2).split(' ').filter(Boolean);
   if (missing().length === 0) return;
   const stored = await storage.get('mods').catch(() => null);
+  const disasm = disasmZip ?? await storage.get('s2disasm.zip').catch(() => null);
   if (stored?.version === version) {
+    // Without the disassembly, the old zones are better than no zones
+    const remake = kis2 && disasm && !stored.kis2 ? game.GetKnucklesMods().split(' ') : [];
     for (const name of missing()) {
-      if (stored.files[name]) writeFile(`/content/mods/${name}.dat`, stored.files[name]);
+      if (stored.files[name] && !remake.includes(name)) writeFile(`/content/mods/${name}.dat`, stored.files[name]);
     }
   }
   if (missing().length === 0) return;
-  const disasm = disasmZip ?? await storage.get('s2disasm.zip').catch(() => null);
   if (!disasm) {
     console.log(`Starting without the parts from the disassembly: ${missing().join(', ')}`);
     return;
   }
   setStatus('Reading the disassembly…');
   writeFile('/tmp/s2disasm.zip', new Uint8Array(await disasm.arrayBuffer()));
+  if (kis2) writeFile('/tmp/kis2.zip', new Uint8Array(await kis2.arrayBuffer()));
   await new Promise(requestAnimationFrame);
-  const steps = game.PrepareImport('/tmp/s2disasm.zip');
+  const steps = game.PrepareImport('/tmp/s2disasm.zip', kis2 ? '/tmp/kis2.zip' : '');
+  if (steps === -2) {
+    setStatus('The KiS2 zip does not contain the art of Knuckles. Starting without the missing parts…');
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    return;
+  }
   if (steps < 0) {
     setStatus('The stored zip does not contain the Sonic 2 disassembly (s2.asm). Starting without it…');
     await new Promise((resolve) => setTimeout(resolve, 3000));
@@ -249,11 +277,11 @@ async function prepareMods() {
   console.log(`Import took ${((performance.now() - t0) / 1000).toFixed(1)} s`);
   // Keep the stored mods of this version, and add the new ones
   const files = stored?.version === version ? stored.files : {};
-  for (const name of game.GetImportMods().split(' ')) {
+  for (const name of game.GetImportMods(!!kis2).split(' ')) {
     const path = `/content/mods/${name}.dat`;
     if (FS.analyzePath(path).exists) files[name] = FS.readFile(path);
   }
-  await storage.put('mods', { version, files }).catch((e) => console.warn(`Cannot store the mods: ${e}`));
+  await storage.put('mods', { version, files, kis2: !!kis2 || (stored?.version === version && !!stored.kis2) }).catch((e) => console.warn(`Cannot store the mods: ${e}`));
   await showStored();
 }
 
@@ -390,6 +418,7 @@ document.getElementById('folder').addEventListener('change', (e) => {
   if (files.length) choose(`the folder ${files[0].webkitRelativePath.split('/')[0]}`, () => loadFolder(files));
 });
 // ?disasm=<url> stores a zip of the disassembly from the site first, as the button does, for tests.
+// ?kis2=<url> stores a zip of KiS2 from the site first, as the button does, for tests.
 // ?mods=<url>,<url> adds mods from the site, as the Choose mods button does, for tests.
 // ?data=<url> loads a zip from the site and starts at once, for tests. Otherwise game.zip is chosen when the site
 // was published with -p:BundleGameData=true, and the player is asked for the files when it is not there
@@ -403,6 +432,7 @@ Promise.all((params.get('mods') || '').split(',').filter(Boolean).map(async (url
     await storeChosenMods();
   }
 }).then(() => params.has('disasm') ? downloadZip(params.get('disasm')).then((blob) => (disasmZip = blob) && storage.put('s2disasm.zip', blob)) : Promise.resolve())
+  .then(() => params.has('kis2') ? downloadZip(params.get('kis2')).then((blob) => (kis2Zip = blob) && storage.put('kis2.zip', blob)) : Promise.resolve())
   .then(() => downloadZip(params.get('data') || 'game.zip'))
   .then((blob) => {
     if (blob && params.has('data')) loadZip(blob);

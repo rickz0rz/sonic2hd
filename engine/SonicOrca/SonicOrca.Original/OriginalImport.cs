@@ -31,6 +31,9 @@ public static class OriginalImport
 	/// <summary>The zones that the import makes, in the order of tools/import-all.sh.</summary>
 	public static readonly IReadOnlyList<string> Zones = new[] { "arz", "cnz", "mcz", "ooz", "mtz", "scz", "wfz", "dez" };
 
+	/// <summary>The mod that <see cref="ImportKnuckles"/> makes.</summary>
+	public const string KnucklesMod = "knuckles";
+
 	/// <summary>The file in the disassembly that shows that a folder is the disassembly.</summary>
 	public const string MarkerFile = "s2.asm";
 
@@ -44,13 +47,21 @@ public static class OriginalImport
 	/// The resources of the game data, for the step that moves the frames of the animated HD tiles into an ANIGROUP
 	/// (the mod tile-animations). Without them, that step writes nothing.
 	/// </param>
-	public static IReadOnlyList<OriginalImportStep> GetSteps(string ffmpeg, Action<string> log, ResourceTree gameData = null)
+	/// <param name="kis2">
+	/// The folder of the knuckles-in-sonic-2 branch of s2disasm, or null. With it, the zones also get their Knuckles
+	/// bindings, and the step of the mod knuckles makes Knuckles mode (see <see cref="ImportKnuckles"/>).
+	/// </param>
+	public static IReadOnlyList<OriginalImportStep> GetSteps(string ffmpeg, Action<string> log, ResourceTree gameData = null, string kis2 = null)
 	{
 		List<OriginalImportStep> steps = new List<OriginalImportStep>();
 		foreach (string zone in Zones)
 		{
 			OriginalZone originalZone = OriginalZone.All[zone];
-			steps.Add(new OriginalImportStep(zone, originalZone.Name, (disassembly, folder) => ImportLevel(originalZone, disassembly, folder, log)));
+			steps.Add(new OriginalImportStep(zone, originalZone.Name, (disassembly, folder) => ImportLevel(originalZone, disassembly, folder, log, kis2)));
+		}
+		if (kis2 != null)
+		{
+			steps.Add(new OriginalImportStep(KnucklesMod, "Knuckles", (disassembly, folder) => ImportKnuckles(kis2, folder, log, disassembly, gameData)));
 		}
 		steps.Add(new OriginalImportStep("special-stages", "Special stages", (disassembly, folder) => ImportSpecialStages(disassembly, folder, log)));
 		steps.Add(new OriginalImportStep("super-sonic", "Super Sonic", (disassembly, folder) => ImportSuperSonic(disassembly, folder, log)));
@@ -82,6 +93,19 @@ public static class OriginalImport
 			}
 		}));
 		return steps;
+	}
+
+	/// <summary>
+	/// Returns the folder of the knuckles-in-sonic-2 branch of s2disasm in a zip or a folder tree, or null. The folder
+	/// is the root or a folder in the root, as in <see cref="FindDisassembly"/>.
+	/// </summary>
+	public static string FindKis2(string root)
+	{
+		if (KnucklesArt.IsKis2Folder(root))
+		{
+			return root;
+		}
+		return Directory.GetDirectories(root).FirstOrDefault(KnucklesArt.IsKis2Folder);
 	}
 
 	/// <summary>Returns the folder in a zip or a folder tree that has <see cref="MarkerFile"/>, or null.</summary>

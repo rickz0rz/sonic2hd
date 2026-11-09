@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
@@ -70,5 +71,35 @@ public sealed class OriginalImportTests
 			}
 		}
 		Assert.Equal(MusicImport.Songs.Count + MusicImport.SpedUpSongs.Count + MusicImport.Sounds.Count, steps.Count(step => step.Mod == "music"));
+	}
+
+	[Fact]
+	public void GetSteps_WithKis2_AddsTheKnucklesModAfterTheZones()
+	{
+		string[] mods = OriginalImport.GetSteps(null, _ => { }, null, "kis2").Select(step => step.Mod).Distinct().ToArray();
+
+		Assert.Equal(OriginalImport.Zones.Concat(new[] { OriginalImport.KnucklesMod, "special-stages", "super-sonic", "demos", "ending", "music", "tile-animations" }), mods);
+	}
+
+	[Fact]
+	public void FindKis2_FindsTheFolderInTheRootOfAZip()
+	{
+		string root = Path.Combine(Path.GetTempPath(), "s2hd-findkis2-" + Guid.NewGuid().ToString("N"));
+		try
+		{
+			string kis2 = Path.Combine(root, "s2disasm-knuckles-in-sonic-2");
+			Directory.CreateDirectory(kis2);
+			Assert.Null(OriginalImport.FindKis2(root));
+			foreach (string file in KnucklesArt.RequiredFiles)
+			{
+				Directory.CreateDirectory(Path.GetDirectoryName(Path.Combine(kis2, file)));
+				File.WriteAllBytes(Path.Combine(kis2, file), new byte[0]);
+			}
+			Assert.Equal(kis2, OriginalImport.FindKis2(root));
+		}
+		finally
+		{
+			Directory.Delete(root, recursive: true);
+		}
 	}
 }
