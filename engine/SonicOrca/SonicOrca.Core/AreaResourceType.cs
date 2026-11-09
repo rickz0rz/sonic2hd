@@ -34,6 +34,12 @@ internal class AreaResourceType : ResourceType
 		Area area = (Area)Activator.CreateInstance(type);
 		area.Resource = e.Resource;
 		e.PushDependencies(area.Dependencies.Concat(area.GetMoreDependencies(e.ResourceTree)).Select(x => e.GetAbsolutePath(x)).Where(key => !IsMissingMusic(e.ResourceTree, key) && !IsMissingModObject(e.ResourceTree, key)));
+		// The binding of Knuckles mode loads with the area when an import made it
+		string knucklesBinding = e.GetAbsolutePath(Area.KnucklesBindingResourceKey);
+		if (e.ResourceTree[knucklesBinding]?.Resource != null)
+		{
+			e.PushDependencies(new[] { knucklesBinding });
+		}
 		return area;
 	}
 

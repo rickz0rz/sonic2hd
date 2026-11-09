@@ -7,8 +7,9 @@
 #   ./tools/import-all.sh [s2disasm-dir] [mods-dir]
 #
 # s2disasm-dir: S2DISASM_DIR, or ../../sonicretro/s2disasm or ../s2disasm from the repository.
-# KiS2: with S2HD_KIS2_DIR set to a folder of the knuckles-in-sonic-2 branch of s2disasm, the script also makes the
-#   sprites of Knuckles (the mod knuckles). Without it, the script does not make them.
+# KiS2: with S2HD_KIS2_DIR set to a folder of the knuckles-in-sonic-2 branch of s2disasm, the script also makes
+#   Knuckles mode: the sprites of Knuckles and the Knuckles bindings of the HD zones (the mod knuckles), and the
+#   Knuckles bindings of the imported zones (in the mod of each zone). Without it, the script does not make them.
 # mods-dir: S2HD_MODS_DIR, or the mods folder in the user data folder
 #   (~/Library/Application Support/SonicOrca/mods on macOS, ~/Documents/SonicOrca/mods on other systems).
 #
@@ -71,13 +72,20 @@ import() {
 	s2hd_data pack "$WORK/$name" "$MODS/$name.dat" --base "$BASE"
 }
 
+KIS2_ARGS=()
+if [[ -n "${S2HD_KIS2_DIR:-}" ]]; then
+	KIS2="$(cd "$S2HD_KIS2_DIR" && pwd)"
+	KIS2_ARGS=(--kis2 "$KIS2")
+fi
+
 for zone in "${ZONES[@]}"; do
-	import "$zone" import-level "$zone" "$DISASM"
+	# The options come before the output folder, which import() adds. An empty array needs this form in bash 3.
+	import "$zone" import-level "$zone" "$DISASM" ${KIS2_ARGS[@]+"${KIS2_ARGS[@]}"}
 done
 import special-stages import-special-stages "$DISASM"
 import super-sonic import-super-sonic "$DISASM"
 if [[ -n "${S2HD_KIS2_DIR:-}" ]]; then
-	import knuckles import-knuckles "$(cd "$S2HD_KIS2_DIR" && pwd)"
+	import knuckles import-knuckles "$KIS2" --s2disasm "$DISASM" --base "$BASE"
 fi
 # The ARZ and CNZ demos need the imports of these zones, which the loop above makes
 import demos import-demos "$DISASM"

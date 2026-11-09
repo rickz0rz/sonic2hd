@@ -114,7 +114,7 @@ public class ChemicalPlantZoneArea : Area
 		{
 			_level.TileSet = _resourceTree.GetLoadedResource<TileSet>(this, TileSetResourceKey);
 			_level.LoadMap(_resourceTree.GetLoadedResource<LevelMap>(this, MapResourceKey));
-			_level.LoadBinding(_resourceTree.GetLoadedResource<LevelBinding>(this, BindingResourceKey));
+			_level.LoadBinding(GetLevelBinding(_level, BindingResourceKey));
 		}
 		if (settings.Act == 1)
 			PrepareAct1();

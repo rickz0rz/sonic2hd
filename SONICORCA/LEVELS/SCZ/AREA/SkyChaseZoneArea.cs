@@ -112,7 +112,7 @@ public class SkyChaseZoneArea : Area
 		{
 			_level.TileSet = _resourceTree.GetLoadedResource<TileSet>(this, TileSetResourceKey);
 			_level.LoadMap(_resourceTree.GetLoadedResource<LevelMap>(this, MapResourceKey));
-			_level.LoadBinding(_resourceTree.GetLoadedResource<LevelBinding>(this, BindingResourceKey));
+			_level.LoadBinding(GetLevelBinding(_level, BindingResourceKey));
 		}
 		// The zone has one act. Act 0 shows no act number, and a completed stage ends the zone: act 1 would load an
 		// act 2.

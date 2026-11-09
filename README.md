@@ -252,16 +252,27 @@ The script finds the disassembly at `S2DISASM_DIR`, `../s2disasm` or `../../soni
 `.dat` files to the `mods` folder in the user data folder. To use other folders, give them as arguments:
 `./tools/import-all.sh <s2disasm> <mods>`. Run the script again after an update of this repository.
 
-The sprites of Knuckles come from "Knuckles in Sonic 2", the `knuckles-in-sonic-2` branch of s2disasm. That branch
-has its own history, so it needs a folder of its own. To make the mod `knuckles`, use these commands:
+Knuckles mode comes from "Knuckles in Sonic 2" (KiS2), the `knuckles-in-sonic-2` branch of s2disasm. That branch
+has its own history, so it needs a folder of its own. To make Knuckles mode, use these commands:
 
 ```sh
 git clone --branch knuckles-in-sonic-2 https://github.com/sonicretro/s2disasm.git ../s2disasm-kis2
 S2HD_KIS2_DIR=../s2disasm-kis2 ./tools/import-all.sh
 ```
 
-Without `S2HD_KIS2_DIR`, the script does not make the sprites of Knuckles. Knuckles mode is not complete yet. This
-import is its first step.
+Then start a level with `--protagonist knuckles`. Knuckles plays alone. He can glide and climb as in KiS2.
+
+KiS2 changes the object layouts of most acts for the glide and the climb. It adds invisible walls, layer switches,
+monitors and spikes, and it moves or removes some objects. The maps and the collision do not change. The import makes
+a second binding for each act, `BINDINGK`, and a level loads it when Knuckles plays:
+
+- The mod of each imported zone has the `BINDINGK` of the zone, from the layouts of KiS2.
+- The mod `knuckles` has the sprites of Knuckles and the `BINDINGK` of Emerald Hill, Chemical Plant and Hill Top.
+  These are the HD bindings with the changes of KiS2. The import removes the HD objects that KiS2 removes, moves the
+  HD objects that KiS2 moves, and adds the objects that KiS2 adds.
+
+Without `S2HD_KIS2_DIR`, the script does not make Knuckles mode. Super Knuckles, his life icon and his special stage
+art are not done yet.
 
 The script also makes the mod `tile-animations` from the game data. The HD tile sets of Emerald Hill, Chemical Plant
 and Hill Top keep the frames of their animated tiles in the tile set. The mod moves these frames into an animation

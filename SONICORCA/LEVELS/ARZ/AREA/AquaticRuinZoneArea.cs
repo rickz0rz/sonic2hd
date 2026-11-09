@@ -85,7 +85,7 @@ public class AquaticRuinZoneArea : Area
 		{
 			_level.TileSet = _resourceTree.GetLoadedResource<TileSet>(this, TileSetResourceKey);
 			_level.LoadMap(_resourceTree.GetLoadedResource<LevelMap>(this, MapResourceKey));
-			_level.LoadBinding(_resourceTree.GetLoadedResource<LevelBinding>(this, BindingResourceKey));
+			_level.LoadBinding(GetLevelBinding(_level, BindingResourceKey));
 		}
 		int act = settings.Act == 2 ? 2 : 1;
 		_level.CurrentAct = act;
