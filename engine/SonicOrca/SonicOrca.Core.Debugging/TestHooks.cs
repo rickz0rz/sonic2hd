@@ -19,6 +19,7 @@ namespace SonicOrca.Core.Debugging;
 /// <item>S2HD_TEST_VERSUS_ZONE=3: a versus match starts this zone at once, without the setup screen.</item>
 /// <item>S2HD_TEST_VERSUS_SPECIAL_STAGE_SEGMENTS="10:4,3:8,0:2|5:1,2:2,1:0": each versus special stage ends at once with
 /// the rings of the next group, one pair of rings for each segment.</item>
+/// <item>S2HD_TEST_DEFEAT_BOSS_AT_TICK=900: at this level tick, a boss takes its last hit, to test what happens after the fight.</item>
 /// <item>S2HD_TEST_EMERALDS=7: gives the player this number of emeralds when a level starts.</item>
 /// <item>S2HD_TEST_SPECIAL_STAGE_AT_TICK=300: at this level tick, goes to the special stage as from a star circle.</item>
 /// <item>S2HD_TEST_SPECIAL_STAGE_RESULTS=30,1,1: the special stage goes to its results screen at once, with these rings,
@@ -59,6 +60,10 @@ public static class TestHooks
 	public static readonly bool[] VersusZoomedOut = Environment.GetEnvironmentVariable("S2HD_TEST_VERSUS_ZOOM") is { Length: > 0 } zoom
 		? zoom.Split(',').Select(value => value.Trim() != "in").ToArray()
 		: null;
+
+	/// <summary>The level tick when a boss takes its last hit, or null.</summary>
+	public static readonly int? DefeatBossAtTick =
+		int.TryParse(Environment.GetEnvironmentVariable("S2HD_TEST_DEFEAT_BOSS_AT_TICK"), out int bossTick) ? bossTick : null;
 
 	/// <summary>The level tick when the character of player 2 dies in versus mode, to test the respawn, or null.</summary>
 	public static readonly int? KillPlayer2AtTick =

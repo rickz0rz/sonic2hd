@@ -66,9 +66,23 @@ public sealed class BossArena
 
 	private bool _levelMusicRestarted;
 
+	private readonly Func<Rectanglei, Vector2i, object> _makeState;
+
+	private readonly int? _openRightTo;
+
 	/// <param name="origin">The position of the act origin in the level, in level units.</param>
-	public BossArena(Level level, Vector2i origin, BossArenaSettings settings, string bossKey, string bossMusic, string levelMusic)
+	/// <param name="state">
+	/// Makes the state object of the boss from the arena bounds and the act origin. Null gives the act origin in the
+	/// OriginX and OriginY state variables.
+	/// </param>
+	/// <param name="openRightTo">
+	/// The right of the bounds, in level units, after the boss flees. Null opens them to <see cref="BossArenaSettings.FleeRight"/>.
+	/// </param>
+	public BossArena(Level level, Vector2i origin, BossArenaSettings settings, string bossKey, string bossMusic, string levelMusic,
+		Func<Rectanglei, Vector2i, object> state = null, int? openRightTo = null)
 	{
+		_makeState = state;
+		_openRightTo = openRightTo;
 		_level = level;
 		_origin = origin;
 		_settings = settings;
@@ -182,7 +196,8 @@ public sealed class BossArena
 	private void OpenRight()
 	{
 		Rectanglei bounds = _level.Bounds;
-		int right = Math.Max(bounds.Right, Math.Min(bounds.Right + FleeOpenSpeed, ToLevelX(_settings.FleeRight + OriginalScreenWidth + HdMargin)));
+		int limit = _openRightTo ?? ToLevelX(_settings.FleeRight + OriginalScreenWidth + HdMargin);
+		int right = Math.Max(bounds.Right, Math.Min(bounds.Right + FleeOpenSpeed, limit));
 		int left = Math.Max(bounds.Left, (int)_level.Camera.Bounds.Left);
 		_level.Bounds = Rectanglei.FromLTRB(left, bounds.Top, right, bounds.Bottom);
 	}
@@ -191,9 +206,9 @@ public sealed class BossArena
 	{
 		Vector2i position = new Vector2i(ToLevelX(_settings.BossPosition.X), ToLevelY(_settings.BossPosition.Y));
 		// The property names of the state object must match the state variables of the boss
-		var state = new { OriginX = _origin.X, OriginY = _origin.Y };
+		object state = _makeState != null ? _makeState(GetArenaBounds(), _origin) : new { OriginX = _origin.X, OriginY = _origin.Y };
 		int layer = _level.Map.Layers.IndexOf(_level.Player.Protagonist.Layer);
-		_boss = _level.ObjectManager.AddObject(new ObjectPlacement(_bossKey, Math.Max(layer, 0), position, state)) as BossObject;
+		_boss = _level.ObjectManager.AddObject(new ObjectPlacement(_bossKey, Math.Max(layer, 0), position, state ?? new { })) as BossObject;
 	}
 
 	private void PlayMusic(string key)

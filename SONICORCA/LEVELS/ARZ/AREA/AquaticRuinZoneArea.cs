@@ -58,8 +58,7 @@ public class AquaticRuinZoneArea : Area
 	}.Concat(AnimalResourceKeys).ToArray();
 
 	/// <summary>The boss events of act 2 (LevEvents_ARZ2) and the start position of the boss (Obj89).</summary>
-	private static readonly BossArenaSettings BossArenaSettings = new BossArenaSettings(0x2810, 0x400, 0x2A40, 0x2A40, 0x2A40, 0x3F8,
-		new Vector2i(0x2AE0, 0x388), 0x2C00, SpawnOnLock: true);
+	private static readonly BossArenaSettings BossArenaSettings = Bosses.AquaticRuin.Arena;
 
 	private SonicOrcaGameContext _gameContext;
 	private ResourceTree _resourceTree;

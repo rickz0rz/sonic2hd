@@ -56,8 +56,7 @@ public class OilOceanZoneArea : Area
 	}.Concat(AnimalResourceKeys).ToArray();
 
 	/// <summary>The boss events of act 2 (LevEvents_OOZ2) and the start position of the boss (Obj55).</summary>
-	private static readonly BossArenaSettings BossArenaSettings = new BossArenaSettings(0x2668, 0x1E0, 0x2880, 0x2880, 0x28C0, 0x1D8,
-		new Vector2i(0x2940, 0x2D0), 0x2A20);
+	private static readonly BossArenaSettings BossArenaSettings = Bosses.OilOcean.Arena;
 
 	private SonicOrcaGameContext _gameContext;
 	private ResourceTree _resourceTree;

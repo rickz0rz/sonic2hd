@@ -454,6 +454,58 @@ public sealed partial class RegressionTests
 		});
 	}
 
+	/// <summary>
+	/// Plays a new mod level that ends with the boss of Emerald Hill. Sonic runs to the boss marker, the arena locks and
+	/// the boss comes. A test hook defeats the boss, the boss flees, and Sonic opens the egg prison to the right of the
+	/// arena. The captures show the fight, the defeat and the end of the act. The log must name the boss music.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void ModLevelBoss_MatchesGoldenScreenshots()
+	{
+		RunTwoRuns("mod-level-boss", Path.Combine(TestPaths.GoldenDirectory, "mod-level-boss"), new[] { 650, 800, 2000 }, userData =>
+		{
+			WriteBossLevel(Path.Combine(userData, "mods", "bosstest", "SONICORCA", "LEVELS", "BOSSTEST"), SonicOrca.Core.Bosses.EmeraldHill);
+			string recording = Path.Combine(userData, "boss.rec");
+			// Sonic runs to the right all the time, and jumps, so that he opens the egg prison
+			File.WriteAllBytes(recording, MakeRecording(2100, tick => (1.0, tick > 350 && tick % 50 < 25)));
+			return $"--level bosstest --protagonist sonic --sidekick none --playback \"{recording}\"";
+		}, new Dictionary<string, string> { ["S2HD_TEST_DEFEAT_BOSS_AT_TICK"] = "700" },
+		userData => Assert.Contains("Music: SONICORCA/MUSIC/BOSS/S2", File.ReadAllText(Path.Combine(userData, "sonicorca.log"))));
+	}
+
+	/// <summary>
+	/// Writes a new level, as the level editor makes it, that ends with a boss. The marker "boss" is on the floor line
+	/// of the new level, at the floor of the arena of the boss, and the egg prison is to the right of the arena.
+	/// </summary>
+	private static void WriteBossLevel(string folder, SonicOrca.Core.BossInfo boss)
+	{
+		const int bossX = 5000;
+		Directory.CreateDirectory(folder);
+		File.WriteAllBytes(Path.Combine(folder, "AREA.area.cs"), SonicOrca.Core.NewLevel.MakeArea());
+		XElement info = (ReadXml(SonicOrca.Core.NewLevel.MakeInfo("Boss Test", "SONICORCA/LEVELS/EHZ/TILESET")));
+		info.SetAttributeValue("boss", boss.ObjectKey);
+		info.Save(Path.Combine(folder, "INFO.xml"));
+		XElement map = ReadXml(SonicOrca.Core.NewLevel.MakeMap());
+		map.Element("markers").Add(new XElement("marker", new XAttribute("name", "boss"),
+			new XAttribute("x", bossX), new XAttribute("y", SonicOrca.Core.NewLevel.FloorY - boss.FloorY),
+			new XAttribute("layer", "1")));
+		map.Save(Path.Combine(folder, "MAP.map.xml"));
+		XElement binding = ReadXml(SonicOrca.Core.NewLevel.MakeBinding());
+		XElement common = binding.Descendants("Common").Single();
+		common.Element("Key").Value = "SONICORCA/OBJECTS/CAPSULE";
+		common.Element("Name").Value = "Capsule 0";
+		common.Element("Position").SetAttributeValue("X", bossX + 2000);
+		common.Element("Position").SetAttributeValue("Y", SonicOrca.Core.NewLevel.FloorY - 124);
+		binding.Save(Path.Combine(folder, "BINDING.binding.xml"));
+	}
+
+	private static XElement ReadXml(byte[] bytes)
+	{
+		using MemoryStream stream = new MemoryStream(bytes);
+		return XDocument.Load(stream).Root;
+	}
+
 	private static void CopyExampleMod(string userData)
 	{
 		CopyDirectory(Path.Combine(TestPaths.RepoRoot, "examples", "mods", "lua-item-block", "SONICORCA"), Path.Combine(userData, "mods", "lua-item-block", "SONICORCA"));

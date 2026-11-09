@@ -26,6 +26,12 @@ namespace SONICORCA.MODAREA;
 /// starts, the area makes one object of it, and the object stays for all the level. Its start function runs when the
 /// level starts, and its update function on each tick, with all the functions of a Lua object.
 /// </para>
+/// <para>
+/// A level can end with a boss of Sonic 2: the attribute <c>boss</c> of the info file is the key of the boss object,
+/// for example <c>boss="SONICORCA/OBJECTS/DRILLEGGMAN"</c> (see <see cref="Bosses"/>). The marker "boss" is where the
+/// boss starts. The arena, the lock of the camera and the trigger are those of the boss in its zone, at the same
+/// distances from the marker. After the fight, an egg prison (CAPSULE) that the level has ends the level.
+/// </para>
 /// </summary>
 public class ModArea : Area
 {
@@ -35,8 +41,11 @@ public class ModArea : Area
 	private const string InfoResourceKey = "//INFO";
 	private const string DefaultStartMarker = "startpos";
 	private const string ScriptResourceKey = "//SCRIPT";
+	private const string BossMarker = "boss";
+	private const string BossMusicResourceKey = "SONICORCA/MUSIC/BOSS/S2";
 
 	private Level _level;
+	private BossArena _bossArena;
 
 	public ModArea()
 		: base(new[] { MapResourceKey, BindingResourceKey, InfoResourceKey })
@@ -57,6 +66,14 @@ public class ModArea : Area
 		if (!string.IsNullOrEmpty(music))
 			keys.Add(music);
 		keys.AddRange(info.GetAttribute("animals").Split(' ', System.StringSplitOptions.RemoveEmptyEntries));
+		// A boss of an imported zone is only in the resources when the zone was imported
+		BossInfo boss = Bosses.Find(info.GetAttribute("boss"));
+		if (boss != null && resourceTree[boss.ObjectKey]?.Resource != null)
+		{
+			keys.Add(boss.ObjectKey);
+			if (resourceTree[BossMusicResourceKey]?.Resource != null)
+				keys.Add(BossMusicResourceKey);
+		}
 		return keys;
 	}
 
@@ -93,6 +110,24 @@ public class ModArea : Area
 		level.Bounds = GetBounds(level);
 		level.RingsPerfectTarget = level.ObjectManager.ObjectEntryTable.GetRingCountInRegion(level.Bounds);
 		settings.StartPath = 0;
+		_bossArena = settings.Versus ? null : MakeBossArena(level, info);
+	}
+
+	/// <summary>The arena of the boss of the info file, or null when the level has no boss or no "boss" marker.</summary>
+	private static BossArena MakeBossArena(Level level, XmlElement info)
+	{
+		BossInfo boss = Bosses.Find(info.GetAttribute("boss"));
+		if (boss == null || !level.TryGetMarker(BossMarker, out LevelMarker marker))
+			return null;
+		// The act origin is where the boss starts in its zone, less the start position of the boss
+		Vector2i origin = marker.Position - boss.Arena.BossPosition * 4;
+		return new BossArena(level, origin, boss.Arena, boss.ObjectKey, BossMusicResourceKey, level.LevelMusic, boss.State, level.Bounds.Right);
+	}
+
+	public override void OnUpdate()
+	{
+		if (_level != null && _level.StateFlags.HasFlag(LevelStateFlags.Updating))
+			_bossArena?.Update();
 	}
 
 	/// <summary>Makes the object of the level script, if the level has one. It stays alive out of view.</summary>

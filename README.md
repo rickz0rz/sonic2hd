@@ -211,6 +211,23 @@ object, for example to change the water, to start an earthquake, to play music o
 in `INFO.xml`, for example `tileset="SONICORCA/LEVELS/EHZ/TILESET"`, the level uses the tile set of another level
 and needs no tile set of its own.
 
+A mod level can end with a boss of Sonic 2. Put the key of the boss object in the attribute `boss`, for example
+`boss="SONICORCA/OBJECTS/DRILLEGGMAN"`. Put the marker `boss` in the map where the boss starts. The arena, the lock of
+the camera and the boss music come from the zone of the boss. They have the same distances from the marker as in the
+zone. Put an egg prison (`CAPSULE`) to the right of the arena. The level ends when a character opens it. These bosses
+can end a level:
+
+| Boss | Key | Note |
+| --- | --- | --- |
+| Emerald Hill | `SONICORCA/OBJECTS/DRILLEGGMAN` | |
+| Chemical Plant | `SONICORCA/OBJECTS/WATEREGGMAN` | The boss comes in from the right of the arena. |
+| Aquatic Ruin | `SONICORCA/OBJECTS/ARZBOSS` | Needs the imported ARZ. |
+| Casino Night | `SONICORCA/OBJECTS/CNZBOSS` | Needs the imported CNZ. |
+| Hill Top | `SONICORCA/OBJECTS/SUBMARINEEGGMAN` | The boss comes up from below the floor. |
+| Mystic Cave | `SONICORCA/OBJECTS/MCZBOSS` | Needs the imported MCZ. The boss comes down from the ceiling. |
+| Oil Ocean | `SONICORCA/OBJECTS/OOZBOSS` | Needs the imported OOZ. The boss comes up from below the floor. |
+| Metropolis | `SONICORCA/OBJECTS/MTZBOSS` | Needs the imported MTZ. |
+
 Two example mods are in `examples/mods`. Their READMEs describe the files and the Lua API:
 
 - `lua-item-block`: an item block that a character hits from below, and a coin.

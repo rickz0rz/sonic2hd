@@ -32,6 +32,9 @@
     <Compile Include="../../SONICORCA/Core/Levels.cs" Link="Game/Levels.cs" />
     <Compile Include="../../SONICORCA/Core/LevelInfo.cs" Link="Game/LevelInfo.cs" />
     <Compile Include="../../SONICORCA/Core/NewLevel.cs" Link="Game/NewLevel.cs" />
+    <!-- The bosses that a mod level can end with, for the test of a mod level with a boss -->
+    <Compile Include="../../SONICORCA/Core/Bosses.cs" Link="Game/Bosses.cs" />
+    <Compile Include="../../SONICORCA/Core/BossArena.cs" Link="Game/BossArena.cs" />
     <!-- The palette fades of the original credits -->
     <Compile Include="../../S2HD/MegaDriveFade.cs" Link="Game/MegaDriveFade.cs" />
     <!-- The logic of the ending cutscene that does not draw -->
