@@ -161,19 +161,26 @@ public class HalfPipeSpecialStageScreen : Screen
 	public const int ObjectDrawDistance = 180;
 
 	/// <summary>
-	/// The number of track nodes between the camera and the player. With <see cref="CameraHeight"/> and
-	/// <see cref="CameraTilt"/>, the view is as in the original: the bottom of the pipe at the player is 73% down the
-	/// screen, the centre of the pipe 24% down, and the walls at 69% of the width (SS_Offset_X and SS_Offset_Y, with
-	/// the H32 screen of the original). The track goes away above the player, so the player does not hide the rings
-	/// and bombs that come.
+	/// The number of track nodes from the current node to the player. The player collects the rings and the bombs at
+	/// this node, so this value sets the timing of the stage.
 	/// </summary>
 	private const int PlayerLead = 6;
 
-	/// <summary>The height of the camera above the centre line of the pipe, in track units (the pipe radius is 4).</summary>
-	private const double CameraHeight = 0.7;
+	/// <summary>
+	/// The number of track nodes from the current node to the camera. The camera is 4.5 nodes behind the player.
+	/// With <see cref="CameraHeight"/> and <see cref="CameraTilt"/>, the view is near the original: the camera is low
+	/// in the pipe, the track goes away near the middle of the screen, and the player is in the lower part.
+	/// </summary>
+	private const double CameraLead = 1.5;
+
+	/// <summary>
+	/// The height of the camera above the centre line of the pipe, in track units. The pipe radius is 4, so the
+	/// camera is 2.4 units above the bottom of the pipe.
+	/// </summary>
+	private const double CameraHeight = -1.6;
 
 	/// <summary>The angle in degrees that the camera looks down, under the slope of the track.</summary>
-	private const double CameraTilt = 23.4;
+	private const double CameraTilt = 5.0;
 
 	/// <summary>A bomb takes this number of rings, or all of the rings when the player has fewer.</summary>
 	private const int BombRingLoss = 10;
@@ -264,7 +271,7 @@ public class HalfPipeSpecialStageScreen : Screen
 	private const double TailsHeight = SonicHeight * 227.0 / 264.0;
 
 	/// <summary>A player in the outer lane shows this far behind a player in the inner lane, nearer to the camera.</summary>
-	private const double OuterLaneDepth = 1.0;
+	private const double OuterLaneDepth = 0.4;
 
 	private const double RingSize = 0.7;
 
@@ -1192,10 +1199,13 @@ public class HalfPipeSpecialStageScreen : Screen
 		_objectShader?.Dispose();
 	}
 
-	/// <summary>The camera follows the track smoothly: it is between the current node and the next node.</summary>
+	/// <summary>The camera follows the track smoothly, <see cref="CameraLead"/> nodes ahead of the current node.</summary>
 	private void UpdateCamera()
 	{
-		(Vector3 position, double yaw, double pitch) = GetTrackPoint(_currentTrackNode, _trackFraction);
+		// The camera is ahead of the current node, between two nodes
+		double along = Math.Min(_currentTrackNode + _trackFraction + CameraLead, _track.Nodes.Count - 1);
+		int node = (int)Math.Floor(along);
+		(Vector3 position, double yaw, double pitch) = GetTrackPoint(node, along - node);
 		_camera = position + new Vector3(0.0, CameraHeight, 0.0);
 		pitch -= MathX.ToRadians(CameraTilt);
 		_cameraTarget = _camera + new Vector3(Math.Sin(yaw) * Math.Cos(pitch), Math.Sin(pitch), Math.Cos(yaw) * Math.Cos(pitch));
