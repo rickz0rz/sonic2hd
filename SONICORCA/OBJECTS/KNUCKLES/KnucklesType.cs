@@ -38,4 +38,8 @@ public class KnucklesType : ObjectType
 	/// <summary>The original sprites of Knuckles (KnucklesArt).</summary>
 	[Dependency]
 	public const string AnimationGroupResourceKey = "/ANIGROUP";
+
+	/// <summary>The stars of Super Knuckles (Obj7E). An import before them does not have them.</summary>
+	[Dependency(Optional = true)]
+	public const string StarsAnimationGroupResourceKey = "SONICORCA/OBJECTS/KNUCKLES/STARS/ANIGROUP";
 }
