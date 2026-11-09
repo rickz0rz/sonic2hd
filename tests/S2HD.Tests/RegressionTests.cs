@@ -506,6 +506,24 @@ public sealed partial class RegressionTests
 		return XDocument.Load(stream).Root;
 	}
 
+	/// <summary>
+	/// Plays Emerald Hill as Knuckles, from the import of "Knuckles in Sonic 2". Knuckles has no sidekick. He runs to
+	/// the right and jumps. The test skips without the KiS2 folder (S2HD_KIS2_DIR).
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void Knuckles_MatchesGoldenScreenshots()
+	{
+		string kis2 = KnucklesArtTests.FindKis2();
+		RunTwoRuns("knuckles", Path.Combine(TestPaths.GoldenDirectory, "knuckles"), new[] { 200, 420, 500 }, userData =>
+		{
+			SonicOrca.Original.OriginalImport.ImportKnuckles(kis2, Path.Combine(userData, "mods", "knuckles"), _ => { });
+			string recording = Path.Combine(userData, "knuckles.rec");
+			File.WriteAllBytes(recording, MakeRecording(600, tick => (1.0, tick > 350 && tick % 50 < 25)));
+			return $"--level ehz --protagonist knuckles --playback \"{recording}\"";
+		});
+	}
+
 	private static void CopyExampleMod(string userData)
 	{
 		CopyDirectory(Path.Combine(TestPaths.RepoRoot, "examples", "mods", "lua-item-block", "SONICORCA"), Path.Combine(userData, "mods", "lua-item-block", "SONICORCA"));

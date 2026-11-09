@@ -336,7 +336,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	private const double SuperFriction = 0.1875;
 
 	/// <summary>The jump speed of a super character ($800 in Sonic_Jump). Under water it is $380, as for Sonic.</summary>
-	private const double SuperJumpForce = 32.0;
+	private const double SuperFormJumpForce = 32.0;
 
 	/// <summary>The lowest spindash speed of a super character ($B00 in SpindashSpeedsSuper).</summary>
 	private const double SuperSpindashBaseSpeed = 44.0;
@@ -622,6 +622,15 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	internal double TopSpeed { get; set; }
 
 	internal double JumpForce { get; set; }
+
+	/// <summary>The jump speed out of the water: $680 for Sonic and Tails.</summary>
+	protected double NormalJumpForce { get; set; } = 26.0;
+
+	/// <summary>The jump speed under water: $380 for Sonic and Tails.</summary>
+	protected double UnderwaterJumpForce { get; set; } = 26.0 * (2205.0 / 4095.0);
+
+	/// <summary>The jump speed of the super form out of the water: $800 for Super Sonic.</summary>
+	protected double SuperJumpForce { get; set; } = SuperFormJumpForce;
 
 	private double JumpReleaseForce { get; set; }
 
@@ -2985,7 +2994,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 			Deceleration = SuperDeceleration;
 		}
 		Friction = Acceleration;
-		JumpForce = 26.0;
+		JumpForce = NormalJumpForce;
 		JumpReleaseForce = 16.0;
 		Gravity = 0.875;
 		if (Mode == CollisionMode.Air)
@@ -3019,7 +3028,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 				Friction *= 0.5;
 				TopSpeed *= 0.5;
 			}
-			JumpForce *= 2205.0 / 4095.0;
+			JumpForce = UnderwaterJumpForce;
 			JumpReleaseForce *= 0.5;
 			Gravity = 0.25;
 		}
