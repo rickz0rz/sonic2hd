@@ -31,6 +31,9 @@ internal class LevelHud : IDisposable
 
 	private const string TailsLifeResourceKey = "SONICORCA/HUD/LIFE/TAILS";
 
+	/// <summary>The life icon of Knuckles. Only the import of "Knuckles in Sonic 2" makes it.</summary>
+	private const string KnucklesLifeResourceKey = "SONICORCA/HUD/LIFE/KNUCKLES";
+
 	private const string szScore = "SCORE";
 
 	private const string szTime = "TIME";
@@ -66,6 +69,9 @@ internal class LevelHud : IDisposable
 
 	private ITexture _lifeTextureTails;
 
+	/// <summary>The life icon of Knuckles, or null without the import of Knuckles.</summary>
+	private ITexture _lifeTextureKnuckles;
+
 	private double _redAnimation;
 
 	public bool ItalicFont { get; set; }
@@ -84,6 +90,11 @@ internal class LevelHud : IDisposable
 		_fontResourceKey = ItalicFont ? HudItalicFontResourceKey : HudFontResourceKey;
 		_resourceSession = new ResourceSession(resourceTree);
 		_resourceSession.PushDependencies(_fontResourceKey, SonicCheckeredResourceKey, TailsCheckeredResourceKey, SonicTriangleResourceKey, TailsTriangleResourceKey, KnucklesTriangleResourceKey, SonicLifeResourceKey, TailsLifeResourceKey);
+		bool hasKnucklesLife = resourceTree[KnucklesLifeResourceKey]?.Resource != null;
+		if (hasKnucklesLife)
+		{
+			_resourceSession.PushDependencies(KnucklesLifeResourceKey);
+		}
 		await _resourceSession.LoadAsync(ct);
 		_font = resourceTree.GetLoadedResource<Font>(_fontResourceKey);
 		_checkeredTextureSonic = resourceTree.GetLoadedResource<ITexture>(SonicCheckeredResourceKey);
@@ -93,6 +104,7 @@ internal class LevelHud : IDisposable
 		_triangleTextureKnuckles = resourceTree.GetLoadedResource<ITexture>(KnucklesTriangleResourceKey);
 		_lifeTextureSonic = resourceTree.GetLoadedResource<ITexture>(SonicLifeResourceKey);
 		_lifeTextureTails = resourceTree.GetLoadedResource<ITexture>(TailsLifeResourceKey);
+		_lifeTextureKnuckles = hasKnucklesLife ? resourceTree.GetLoadedResource<ITexture>(KnucklesLifeResourceKey) : null;
 	}
 
 	public void Dispose()
@@ -280,8 +292,8 @@ internal class LevelHud : IDisposable
 		}
 		else
 		{
-			// There is no life icon for Knuckles, so the HUD uses the icon of Sonic
-			i2dRenderer.RenderTexture(_lifeTextureSonic, new Vector2(264.0, 958.0));
+			// Without the import of Knuckles, the HUD uses the icon of Sonic
+			i2dRenderer.RenderTexture(_lifeTextureKnuckles ?? _lifeTextureSonic, new Vector2(264.0, 958.0));
 		}
 	}
 }

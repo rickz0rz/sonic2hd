@@ -218,6 +218,9 @@ public static class OriginalImport
 		}
 		WriteSprites(folder, new[] { KnucklesArt.Import(kis2) });
 		File.WriteAllBytes(Path.Combine(KeyFolder(folder, KnucklesArt.ObjectKey), "PALETTE.png"), KnucklesArt.ImportPalette(kis2));
+		string lifeIcon = KeyFolder(folder, KnucklesArt.LifeIconKey) + ".png";
+		Directory.CreateDirectory(Path.GetDirectoryName(lifeIcon));
+		File.WriteAllBytes(lifeIcon, KnucklesArt.ImportLifeIcon(kis2));
 		// The resource that names the code of the object, SONICORCA/OBJECTS/KNUCKLES/KnucklesType.cs
 		File.WriteAllText(Path.Combine(KeyFolder(folder, KnucklesArt.ObjectKey), "_.object.cs"), "#use SONICORCA.OBJECTS.KNUCKLES");
 		log($"Wrote the sprites of Knuckles to {KeyFolder(folder, KnucklesArt.ObjectKey)}.");
