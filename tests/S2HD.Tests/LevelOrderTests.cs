@@ -87,17 +87,29 @@ public sealed class LevelOrderTests
 	}
 
 	[Fact]
-	public void WriteModLevelInfo_ChangesTheNameAndTheMusic_AndKeepsTheOtherAttributes()
+	public void WriteModLevelInfo_ChangesTheNameTheMusicAndTheBoss_AndKeepsTheOtherAttributes()
 	{
 		byte[] info = Encoding.UTF8.GetBytes("<level name=\"Old\" music=\"SONICORCA/MUSIC/A\" start=\"startpos\" tileset=\"SONICORCA/LEVELS/EHZ/TILESET\" />");
 
 		System.Xml.Linq.XElement level = System.Xml.Linq.XElement.Parse(Encoding.UTF8.GetString(
-			Levels.WriteModLevelInfo(new System.IO.MemoryStream(info), "New", "SONICORCA/MUSIC/B")).TrimStart('\uFEFF'));
+			Levels.WriteModLevelInfo(new System.IO.MemoryStream(info), "New", "SONICORCA/MUSIC/B", "SONICORCA/OBJECTS/DRILLEGGMAN")).TrimStart('\uFEFF'));
 
 		Assert.Equal("New", (string)level.Attribute("name"));
 		Assert.Equal("SONICORCA/MUSIC/B", (string)level.Attribute("music"));
+		Assert.Equal("SONICORCA/OBJECTS/DRILLEGGMAN", (string)level.Attribute("boss"));
 		Assert.Equal("startpos", (string)level.Attribute("start"));
 		Assert.Equal("SONICORCA/LEVELS/EHZ/TILESET", (string)level.Attribute("tileset"));
+	}
+
+	[Fact]
+	public void WriteModLevelInfo_WithNoBoss_RemovesTheBoss()
+	{
+		byte[] info = Encoding.UTF8.GetBytes("<level name=\"Old\" boss=\"SONICORCA/OBJECTS/DRILLEGGMAN\" />");
+
+		System.Xml.Linq.XElement level = System.Xml.Linq.XElement.Parse(Encoding.UTF8.GetString(
+			Levels.WriteModLevelInfo(new System.IO.MemoryStream(info), "Old", null, null)).TrimStart('\uFEFF'));
+
+		Assert.Null(level.Attribute("boss"));
 	}
 
 	[Fact]

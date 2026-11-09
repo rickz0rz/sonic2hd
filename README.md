@@ -649,9 +649,20 @@ To give the level tiles of its own, type the path of a PNG image in "Tile
 image". Each tile is 64 x 64 pixels, so the width and the height of the image must be multiples of 64, and 8192
 pixels at most. Each cell of the image that is not fully transparent becomes a tile, from the top left, row by row.
 The folder then has the tile set (`TILESET`) with the image as its texture. The map has an empty background layer, an empty front layer, a floor line, and
-a start position. A signpost near the right end ends the level. To end it with a boss, delete the signpost and add a
-Lua boss, for example `LUAWISP` of the example mod `lua-item-block`. The level is not in the story until you add it. The
+a start position. A signpost near the right end ends the level. The level is not in the story until you add it. The
 editor saves the changes of the level to `mods/editor/<SHORT NAME>.dat`, as for the other levels.
+
+To end a new level with a boss of Sonic 2, use these steps:
+
+1. In the levels tool, select the level and click "Ending". Each click shows the next boss.
+2. In the markers tool, add a point marker with the name `boss` where the boss starts.
+3. Look at the orange outline. It shows the arena of the boss on the screen, and the floor of the arena in the zone of
+   the boss. Put the floor of the level on that line.
+4. Delete the signpost. Add an egg prison (`CAPSULE`) to the right of the arena.
+5. Save, then open the level again.
+
+The row "Boss needs" tells you what the level still needs for its boss. You can also end a level with a Lua boss,
+for example `LUAWISP` of the example mod `lua-item-block`.
 
 A new object is a Lua object (see "Lua objects and mod levels"). Click "+ New object" at the top of the list of
 the objects tool, and type a name. The key follows the name, for example `SONICORCA/OBJECTS/BIGROCK`. Click "Kind"
@@ -677,8 +688,8 @@ To change the object, open `_.object.lua` in a text editor. When you select the 
 in the properties to show the file. Save the file, and the game loads the script again. To add frames, change
 `ANIGROUP.anigroup.xml` and `TEXTURE.png`, and start the game again.
 
-Save writes the order of the story and the new names of the Sonic 2 levels to `mods/editor/LEVELS.dat`. The name and
-the music of a mod level go into its `INFO` file in `mods/editor/<SHORT NAME>.dat`. The title card shows the new
+Save writes the order of the story and the new names of the Sonic 2 levels to `mods/editor/LEVELS.dat`. The name,
+the music and the boss of a mod level go into its `INFO` file in `mods/editor/<SHORT NAME>.dat`. The title card shows the new
 name of a Sonic 2 level, and adds "ZONE" to it. The story, the level select and the next level
 after `--level` use this order. The level select shows the levels that are not in the story after the other levels,
 with a star. To go back to the order and the names of Sonic 2, delete the file.

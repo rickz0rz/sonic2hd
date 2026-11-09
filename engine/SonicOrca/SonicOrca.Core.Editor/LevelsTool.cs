@@ -7,9 +7,9 @@ namespace SonicOrca.Core.Editor;
 /// <summary>
 /// Opens levels, makes new levels and changes the order of the levels of the story. The list shows the levels of the
 /// story in their order, then the levels that are not in the story. The story goes from each level to the next level
-/// of the list. The tool also changes the name of a level, and the music of a mod level. Save writes the order and
-/// the names of the Sonic 2 levels into mods/editor/LEVELS.dat, and the name and the music of a mod level into its
-/// INFO file in mods/editor/NAME.dat. Undo does not change these values.
+/// of the list. The tool also changes the name of a level, and the music and the boss of a mod level. Save writes the
+/// order and the names of the Sonic 2 levels into mods/editor/LEVELS.dat, and the name, the music and the boss of a
+/// mod level into its INFO file in mods/editor/NAME.dat. Undo does not change these values.
 /// </summary>
 internal sealed class LevelsTool : EditorTool
 {
@@ -24,8 +24,11 @@ internal sealed class LevelsTool : EditorTool
 	/// <summary>The new names of the Sonic 2 levels, by short name, with the changes that are not saved.</summary>
 	private readonly Dictionary<string, string> _titles = new Dictionary<string, string>();
 
-	/// <summary>The mod levels with a new name or new music that is not saved, by short name.</summary>
-	private readonly Dictionary<string, (string Name, string Music)> _modChanges = new Dictionary<string, (string Name, string Music)>();
+	/// <summary>The mod levels with a new name, new music or a new boss that is not saved, by short name.</summary>
+	private readonly Dictionary<string, (string Name, string Music, string Boss)> _modChanges = new Dictionary<string, (string Name, string Music, string Boss)>();
+
+	/// <summary>The bosses that can end a mod level.</summary>
+	private IReadOnlyList<LevelBoss> _bosses = new LevelBoss[0];
 
 	/// <summary>The keys of the music that a level can play.</summary>
 	private IReadOnlyList<string> _music = new string[0];
@@ -62,7 +65,7 @@ internal sealed class LevelsTool : EditorTool
 
 	public override string Hint => _creating
 		? "Type a name, choose the level with the tiles, then click Create. The new level opens in the editor."
-		: "Click a level. Open it, change its name or music, or change the story. Save, then play, to see a new name. New music plays when the level opens again.";
+		: "Click a level. Open it, change its name, music or ending, or change the story. Save, then play, to see a new name. New music and a new boss come when the level opens again.";
 
 	public override string Status => $"Levels {_levels.Count}   In the story {_story.Count}";
 
@@ -95,9 +98,9 @@ internal sealed class LevelsTool : EditorTool
 		{
 			paths.Add(Catalog.SaveStoryOrder(_story, _titles));
 		}
-		foreach (KeyValuePair<string, (string Name, string Music)> change in _modChanges)
+		foreach (KeyValuePair<string, (string Name, string Music, string Boss)> change in _modChanges)
 		{
-			paths.Add(Catalog.SaveModLevelInfo(change.Key, change.Value.Name, change.Value.Music));
+			paths.Add(Catalog.SaveModLevelInfo(change.Key, change.Value.Name, change.Value.Music, change.Value.Boss));
 		}
 		Reload();
 		return paths;
@@ -114,6 +117,7 @@ internal sealed class LevelsTool : EditorTool
 		_modChanges.Clear();
 		_levels = Catalog?.GetLevels() ?? new LevelCatalogEntry[0];
 		_music = Catalog?.GetMusic() ?? new string[0];
+		_bosses = Catalog?.GetBosses() ?? new LevelBoss[0];
 		_story.Clear();
 		_story.AddRange(_levels.Where(level => level.InStory).Select(level => level.Mnemonic));
 		_titles.Clear();
@@ -150,7 +154,7 @@ internal sealed class LevelsTool : EditorTool
 				Editor.ShowMessage("The name is empty.");
 				return false;
 			}
-			_modChanges[level.Mnemonic] = (name, GetMusic(level));
+			_modChanges[level.Mnemonic] = (name, GetMusic(level), GetBoss(level));
 			Editor.ShowMessage("Save, then play, to see the new name in the title card.");
 			return true;
 		}
@@ -176,7 +180,50 @@ internal sealed class LevelsTool : EditorTool
 		}
 		int index = _music.ToList().IndexOf(GetMusic(level));
 		index = index < 0 ? (direction > 0 ? 0 : _music.Count - 1) : ((index + direction) % _music.Count + _music.Count) % _music.Count;
-		_modChanges[level.Mnemonic] = (GetName(level), _music[index]);
+		_modChanges[level.Mnemonic] = (GetName(level), _music[index], GetBoss(level));
+	}
+
+	/// <summary>The key of the boss of a mod level with the changes that are not saved, or null.</summary>
+	private string GetBoss(LevelCatalogEntry level)
+	{
+		return _modChanges.TryGetValue(level.Mnemonic, out var change) ? change.Boss : level.Boss;
+	}
+
+	/// <summary>
+	/// The boss at the end of the level that the editor has open, with the changes that are not saved. Null when the
+	/// level has no boss, or when its boss is not in the list of the bosses.
+	/// </summary>
+	public LevelBoss OpenLevelBoss
+	{
+		get
+		{
+			LevelCatalogEntry level = _levels.FirstOrDefault(x => x.Mnemonic == OpenMnemonic);
+			string key = level != null && level.IsMod ? GetBoss(level) : null;
+			return key == null ? null : _bosses.FirstOrDefault(boss => string.Equals(boss.ObjectKey, key, System.StringComparison.OrdinalIgnoreCase));
+		}
+	}
+
+	/// <summary>Gives a mod level the next boss (1) or the boss before (-1). The list starts with no boss.</summary>
+	private void StepBoss(LevelCatalogEntry level, int direction)
+	{
+		List<string> keys = _bosses.Select(boss => boss.ObjectKey).Prepend(null).ToList();
+		int index = keys.FindIndex(key => string.Equals(key, GetBoss(level), System.StringComparison.OrdinalIgnoreCase));
+		index = index < 0 ? 0 : ((index + direction) % keys.Count + keys.Count) % keys.Count;
+		_modChanges[level.Mnemonic] = (GetName(level), GetMusic(level), keys[index]);
+		Editor.ShowMessage(keys[index] == null
+			? "The level ends at a signpost. Save, then open the level again, to play it without the boss."
+			: "Put the marker \"boss\" where the boss starts, and an egg prison to the right of the arena. Save, then open the level again, to play the boss.");
+	}
+
+	private string ShowBoss(LevelCatalogEntry level)
+	{
+		string key = GetBoss(level);
+		if (key == null)
+		{
+			return "signpost";
+		}
+		LevelBoss boss = _bosses.FirstOrDefault(x => string.Equals(x.ObjectKey, key, System.StringComparison.OrdinalIgnoreCase));
+		return boss != null ? "boss of " + boss.Name : "boss " + key + " (not loaded)";
 	}
 
 	private static string ShowMusic(string key)
@@ -299,6 +346,12 @@ internal sealed class LevelsTool : EditorTool
 				Value = level.IsMod ? ShowMusic(GetMusic(level)) : "set by the zone",
 				Step = level.IsMod ? direction => StepMusic(level, direction) : null
 			},
+			new EditorPropertyRow
+			{
+				Label = "Ending",
+				Value = level.IsMod ? ShowBoss(level) : "set by the zone",
+				Step = level.IsMod ? direction => StepBoss(level, direction) : null
+			},
 			new EditorPropertyRow { Label = "Short name", Value = level.Mnemonic },
 			new EditorPropertyRow { Label = "Acts", Value = level.Acts.ToString() },
 			new EditorPropertyRow { Label = "From", Value = level.IsMod ? "a mod" : "Sonic 2" },
@@ -309,6 +362,12 @@ internal sealed class LevelsTool : EditorTool
 				Step = _ => Change(EditorLevelOrder.SetInStory(_story, level.Mnemonic, position < 0))
 			}
 		};
+		if (level.IsMod && GetBoss(level) != null)
+		{
+			// The row after "Ending" says what the open level still needs for its boss
+			string needs = level.Mnemonic != OpenMnemonic ? "open the level to check" : Editor.GetBossProblem() ?? "nothing more";
+			rows.Insert(rows.FindIndex(row => row.Label == "Ending") + 1, new EditorPropertyRow { Label = "Boss needs", Value = needs });
+		}
 		if (position >= 0)
 		{
 			rows.Add(new EditorPropertyRow { Label = "Move up", Value = position > 0 ? "click" : "first level", Step = _ => Change(EditorLevelOrder.Move(_story, level.Mnemonic, -1)) });

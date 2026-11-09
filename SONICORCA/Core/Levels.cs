@@ -218,10 +218,14 @@ internal static class Levels
 	/// <summary>The music of a mod level from its INFO file, or null.</summary>
 	public static string GetModLevelMusic(string mnemonic, ResourceTree resourceTree) => ReadInfoAttribute(resourceTree, mnemonic, "music");
 
+	/// <summary>The key of the boss object at the end of a mod level from its INFO file, or null.</summary>
+	public static string GetModLevelBoss(string mnemonic, ResourceTree resourceTree) => ReadInfoAttribute(resourceTree, mnemonic, "boss");
+
 	/// <summary>
-	/// Gives the INFO file of a mod level with a new name and new music. The other attributes of the file stay.
+	/// Gives the INFO file of a mod level with a new name, new music and a new boss. The other attributes of the file stay.
 	/// </summary>
-	public static byte[] WriteModLevelInfo(System.IO.Stream info, string name, string music)
+	/// <param name="boss">The key of the boss object, or null for no boss.</param>
+	public static byte[] WriteModLevelInfo(System.IO.Stream info, string name, string music, string boss)
 	{
 		System.Xml.XmlDocument document = new System.Xml.XmlDocument();
 		document.Load(info);
@@ -230,6 +234,10 @@ internal static class Levels
 			document.DocumentElement.RemoveAttribute("music");
 		else
 			document.DocumentElement.SetAttribute("music", music);
+		if (string.IsNullOrEmpty(boss))
+			document.DocumentElement.RemoveAttribute("boss");
+		else
+			document.DocumentElement.SetAttribute("boss", boss);
 		using System.IO.MemoryStream stream = new System.IO.MemoryStream();
 		using (System.Xml.XmlWriter writer = System.Xml.XmlWriter.Create(stream, new System.Xml.XmlWriterSettings { Indent = true }))
 			document.Save(writer);

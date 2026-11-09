@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using SonicOrca.Geometry;
 
 namespace SonicOrca.Core;
 
@@ -16,8 +17,15 @@ public interface ILevelCatalog
 	/// <param name="titles">The new names of Sonic 2 levels, by short name. A level without a new name has its name of the game.</param>
 	string SaveStoryOrder(IReadOnlyList<string> mnemonics, IReadOnlyDictionary<string, string> titles);
 
-	/// <summary>Saves the name and the music of a mod level into its INFO file, and uses them at once. Returns the path of the file.</summary>
-	string SaveModLevelInfo(string mnemonic, string name, string music);
+	/// <summary>
+	/// Saves the name, the music and the boss of a mod level into its INFO file, and uses them at once. Returns the
+	/// path of the file.
+	/// </summary>
+	/// <param name="boss">The key of the boss object, or null for no boss.</param>
+	string SaveModLevelInfo(string mnemonic, string name, string music, string boss);
+
+	/// <summary>The bosses that can end a mod level. A boss of an imported zone is in the list only when the zone is imported.</summary>
+	IReadOnlyList<LevelBoss> GetBosses();
 
 	/// <summary>The keys of the music that a level can play.</summary>
 	IReadOnlyList<string> GetMusic();
@@ -49,8 +57,16 @@ public interface ILevelCatalog
 /// <param name="StoryNumber">The number of the level in the story, from 1, or 0 when the level is not in the story.</param>
 /// <param name="OriginalName">The name of a Sonic 2 level in the game, or null for a mod level.</param>
 /// <param name="Music">The key of the music of a mod level, or null. The area of a Sonic 2 level sets its music.</param>
+/// <param name="Boss">The key of the boss object at the end of a mod level, or null. The area of a Sonic 2 level sets its boss.</param>
 public sealed record LevelCatalogEntry(string Mnemonic, string Name, int Acts, bool IsMod, string AreaResourceKey, int StoryNumber,
-	string OriginalName = null, string Music = null)
+	string OriginalName = null, string Music = null, string Boss = null)
 {
 	public bool InStory => StoryNumber > 0;
 }
+
+/// <summary>A boss that can end a mod level, in the <see cref="ILevelCatalog"/>.</summary>
+/// <param name="Name">The name of the zone of the boss, for example "Emerald Hill".</param>
+/// <param name="ObjectKey">The key of the boss object.</param>
+/// <param name="Arena">The bounds of the arena on a 1920 x 1080 screen, in level units from the marker "boss".</param>
+/// <param name="FloorY">The floor of the arena in the zone of the boss, in level units below the marker "boss".</param>
+public sealed record LevelBoss(string Name, string ObjectKey, Rectanglei Arena, int FloorY);
