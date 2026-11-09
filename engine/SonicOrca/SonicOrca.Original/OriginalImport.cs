@@ -218,6 +218,8 @@ public static class OriginalImport
 		}
 		WriteSprites(folder, new[] { KnucklesArt.Import(kis2), KnucklesArt.ImportSpecialStage(kis2), SpecialStageArt.ImportKnucklesResults(kis2) });
 		File.WriteAllBytes(Path.Combine(KeyFolder(folder, KnucklesArt.ObjectKey), "PALETTE.png"), KnucklesArt.ImportPalette(kis2));
+		EndingArt.ImportKnuckles(kis2, folder);
+		OriginalCredits.ImportKnucklesLogo(kis2, folder);
 		string lifeIcon = KeyFolder(folder, KnucklesArt.LifeIconKey) + ".png";
 		Directory.CreateDirectory(Path.GetDirectoryName(lifeIcon));
 		File.WriteAllBytes(lifeIcon, KnucklesArt.ImportLifeIcon(kis2));

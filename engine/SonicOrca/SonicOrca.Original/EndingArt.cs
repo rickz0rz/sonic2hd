@@ -139,23 +139,62 @@ public static class EndingArt
 			new Variant("TAILS", "art/nemesis/Final image of Tails.nem", "art/nemesis/Chicken.nem",
 				"mappings/misc/Closeup of Sonic flying plane in ending sequence.eni", ReadTailsPalette, ImportTails, ResourceKey + "/TAILS/CHARACTER"),
 		};
-		List<List<SpritePiece>> planeFrames = SpriteImport.ParseMappings(File.ReadAllText(Path.Combine(disassembly, "mappings/sprite/objCF.asm")));
 		foreach (Variant variant in variants)
 		{
-			string variantFolder = variant.Folder.Length == 0 ? output : Path.Combine(output, variant.Folder);
-			string variantKey = variant.Folder.Length == 0 ? ResourceKey : ResourceKey + "/" + variant.Folder;
-			Directory.CreateDirectory(variantFolder);
-			uint[] palette = variant.ReadPalette(disassembly);
-			ImportedSprite character = variant.ImportCharacter(disassembly, palette);
-			string characterFolder = Path.Combine(new[] { folder }.Concat(variant.CharacterKey.Split('/')).ToArray());
-			WriteSprite(Path.GetDirectoryName(characterFolder), Path.GetFileName(characterFolder), character);
-			WriteSprite(variantFolder, "BIRDS", SpriteImport.Import(new OriginalSprite(variantKey + "/BIRDS", variant.AnimalArtFile, "mappings/sprite/obj28_a.asm", 0), disassembly, palette, Scale));
-			byte[] vram = ReadVram(disassembly, variant.CharacterArtFile, variant.AnimalArtFile);
-			WriteSprite(variantFolder, "PLANE", SpriteImport.Import(variantKey + "/PLANE", vram, planeFrames, new[] { 0, 1 }, Array.Empty<int>(), palette, Scale));
-			File.WriteAllBytes(Path.Combine(variantFolder, "CLOSEUP.png"), RenderCloseUp(disassembly, vram, palette, variant.CloseUpFile));
+			ImportVariant(disassembly, folder, output, variant);
 		}
 		// When Tails plays alone, Sonic flies the Tornado
 		WriteSprite(Path.Combine(output, "TAILS"), "PILOT", ImportPilot(disassembly, ReadTailsPalette(disassembly), ResourceKey + "/TAILS/PILOT", SonicArtFile, SonicDplcFile, SonicPilotTile, SonicPilotFrames));
+	}
+
+	/// <summary>The art of one character of the ending: the character, the birds, the plane and the close-up.</summary>
+	private static void ImportVariant(string disassembly, string folder, string output, Variant variant)
+	{
+		List<List<SpritePiece>> planeFrames = SpriteImport.ParseMappings(File.ReadAllText(Path.Combine(disassembly, "mappings/sprite/objCF.asm")));
+		string variantFolder = variant.Folder.Length == 0 ? output : Path.Combine(output, variant.Folder);
+		string variantKey = variant.Folder.Length == 0 ? ResourceKey : ResourceKey + "/" + variant.Folder;
+		Directory.CreateDirectory(variantFolder);
+		uint[] palette = variant.ReadPalette(disassembly);
+		ImportedSprite character = variant.ImportCharacter(disassembly, palette);
+		string characterFolder = Path.Combine(new[] { folder }.Concat(variant.CharacterKey.Split('/')).ToArray());
+		WriteSprite(Path.GetDirectoryName(characterFolder), Path.GetFileName(characterFolder), character);
+		WriteSprite(variantFolder, "BIRDS", SpriteImport.Import(new OriginalSprite(variantKey + "/BIRDS", variant.AnimalArtFile, "mappings/sprite/obj28_a.asm", 0), disassembly, palette, Scale));
+		byte[] vram = ReadVram(disassembly, variant.CharacterArtFile, variant.AnimalArtFile);
+		WriteSprite(variantFolder, "PLANE", SpriteImport.Import(variantKey + "/PLANE", vram, planeFrames, new[] { 0, 1 }, Array.Empty<int>(), palette, Scale));
+		File.WriteAllBytes(Path.Combine(variantFolder, "CLOSEUP.png"), RenderCloseUp(disassembly, vram, palette, variant.CloseUpFile));
+	}
+
+	/// <summary>
+	/// Writes the ending of Knuckles in Sonic 2 (KiS2) from the folder of KiS2: KNUCKLES, and SUPERKNUCKLES with the 7
+	/// emeralds. KiS2 plays the ending of Sonic for all (Ending_Routine 0), with the art of Knuckles at
+	/// ArtTile_EndingCharacter (EndingSequence_LoadCharacterArt), the palettes of Sonic and Tails that KiS2 changed to the
+	/// colours of Knuckles, its own frames of ObjCF, and eagles in place of the Flickies with the 7 emeralds
+	/// (EndingSequence_LoadFlickyArt).
+	/// </summary>
+	public static void ImportKnuckles(string kis2, string folder)
+	{
+		string output = Path.Combine(new[] { folder }.Concat(ResourceKey.Split('/')).ToArray());
+		const string characterArt = "art/nemesis/Final image of Knuckles.nem";
+		const string closeUp = "mappings/misc/Closeup of Tails flying plane in ending sequence.eni";
+		ImportVariant(kis2, folder, output, new Variant("KNUCKLES", characterArt, "art/nemesis/Flicky.nem", closeUp, ReadSonicPalette,
+			(directory, palette) => ImportKnucklesCharacter(directory, palette, ResourceKey + "/KNUCKLES/CHARACTER"), ResourceKey + "/KNUCKLES/CHARACTER"));
+		ImportVariant(kis2, folder, output, new Variant("SUPERKNUCKLES", characterArt, "art/nemesis/Eagle.nem", closeUp, ReadSonicPalette,
+			(directory, palette) => ImportKnucklesCharacter(directory, palette, ResourceKey + "/SUPERKNUCKLES/CHARACTER"), ResourceKey + "/SUPERKNUCKLES/CHARACTER"));
+	}
+
+	/// <summary>
+	/// Knuckles in the ending of KiS2: the code of Sonic with the animations of Knuckles. The fall is the animation
+	/// SonAni_Float2, which is KnucklesAni_Float2 in KiS2. On the plane, loc_A53A of KiS2 sets the wait animation with
+	/// prev_anim Walk on each frame, so the animation starts again on each frame and shows its first frame, $56.
+	/// </summary>
+	private static ImportedSprite ImportKnucklesCharacter(string kis2, uint[] palette, string key)
+	{
+		OriginalScript[] scripts =
+		{
+			new OriginalScript("Fall (KnucklesAni_Float2)", 5, new[] { 0xC0, 0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6, 0xC7, 0xC8, 0xC9 }),
+			new OriginalScript("Wait (first frame of KnucklesAni_Wait)", 5, new[] { 0x56 }),
+		};
+		return ImportCharacter(kis2, key, "art/uncompressed/Knuckles' art.bin", "mappings/sprite/Knuckles.asm", "mappings/spriteDPLC/Knuckles.asm", scripts, palette);
 	}
 
 	/// <summary>
