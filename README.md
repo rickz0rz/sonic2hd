@@ -260,7 +260,9 @@ git clone --branch knuckles-in-sonic-2 https://github.com/sonicretro/s2disasm.gi
 S2HD_KIS2_DIR=../s2disasm-kis2 ./tools/import-all.sh
 ```
 
-Then start a level with `--protagonist knuckles`. Knuckles plays alone. He can glide and climb as in KiS2.
+Then choose "KNUCKLES" in the character selection of the title screen, or start a level with
+`--protagonist knuckles`. Knuckles plays alone. He can glide and climb as in KiS2, and with 7 emeralds and 50 rings
+a press of jump in the air makes him Super Knuckles.
 
 KiS2 changes the object layouts of most acts for the glide and the climb. It adds invisible walls, layer switches,
 monitors and spikes, and it moves or removes some objects. The maps and the collision do not change. The import makes
@@ -271,8 +273,8 @@ a second binding for each act, `BINDINGK`, and a level loads it when Knuckles pl
   These are the HD bindings with the changes of KiS2. The import removes the HD objects that KiS2 removes, moves the
   HD objects that KiS2 moves, and adds the objects that KiS2 adds.
 
-Without `S2HD_KIS2_DIR`, the script does not make Knuckles mode. Super Knuckles, his life icon and his special stage
-art are not done yet.
+Without `S2HD_KIS2_DIR`, the script does not make Knuckles mode. His special stage art and the ending of KiS2 are not
+done yet: in the special stage and in the ending, Sonic plays.
 
 The script also makes the mod `tile-animations` from the game data. The HD tile sets of Emerald Hill, Chemical Plant
 and Hill Top keep the frames of their animated tiles in the tile set. The mod moves these frames into an animation
