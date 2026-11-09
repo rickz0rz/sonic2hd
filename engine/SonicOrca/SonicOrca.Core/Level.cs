@@ -574,6 +574,12 @@ public class Level : IDisposable
 			protagonistType = CharacterType.Sonic;
 			sidekickType = CharacterType.Tails;
 		}
+		// Knuckles comes only from the import of "Knuckles in Sonic 2". Without it, Sonic plays.
+		if (protagonistType == CharacterType.Knuckles && _gameContext.ResourceTree[CharacterTypeResourceKeys[(int)CharacterType.Knuckles]]?.Resource == null)
+		{
+			Trace.WriteLine("Knuckles is not imported (s2hd-data import-knuckles), so Sonic plays.");
+			protagonistType = CharacterType.Sonic;
+		}
 		// In versus mode, Tails is the protagonist of player 2, not a sidekick
 		_player2 = null;
 		VersusRules = null;

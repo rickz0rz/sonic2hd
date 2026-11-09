@@ -47,6 +47,12 @@ public class CommonResources : IDisposable
 
 	private const string EntriesResourcePath = "SONICORCA/LEVELS/COMMONRESOURCES";
 
+	/// <summary>
+	/// Resources that all schemes load when the resource tree has them. The game data does not have them: only an
+	/// import makes them, for example Knuckles (s2hd-data import-knuckles).
+	/// </summary>
+	private static readonly string[] OptionalResourcePaths = { "SONICORCA/OBJECTS/KNUCKLES" };
+
 	private readonly Dictionary<string, IEnumerable<CommonResourceEntry>> _entries = new Dictionary<string, IEnumerable<CommonResourceEntry>>();
 
 	private readonly SonicOrcaGameContext _gameContext;
@@ -137,6 +143,13 @@ public class CommonResources : IDisposable
 
 	private IEnumerable<string> GetResourcePaths(string scheme)
 	{
+		foreach (string path in OptionalResourcePaths)
+		{
+			if (_gameContext.ResourceTree[path]?.Resource != null)
+			{
+				yield return path;
+			}
+		}
 		if (_entries.TryGetValue(string.Empty, out IEnumerable<CommonResourceEntry> entries))
 		{
 			foreach (CommonResourceEntry entry in entries)
