@@ -252,6 +252,17 @@ The script finds the disassembly at `S2DISASM_DIR`, `../s2disasm` or `../../soni
 `.dat` files to the `mods` folder in the user data folder. To use other folders, give them as arguments:
 `./tools/import-all.sh <s2disasm> <mods>`. Run the script again after an update of this repository.
 
+The sprites of Knuckles come from "Knuckles in Sonic 2", the `knuckles-in-sonic-2` branch of s2disasm. That branch
+has its own history, so it needs a folder of its own. To make the mod `knuckles`, use these commands:
+
+```sh
+git clone --branch knuckles-in-sonic-2 https://github.com/sonicretro/s2disasm.git ../s2disasm-kis2
+S2HD_KIS2_DIR=../s2disasm-kis2 ./tools/import-all.sh
+```
+
+Without `S2HD_KIS2_DIR`, the script does not make the sprites of Knuckles. Knuckles mode is not complete yet. This
+import is its first step.
+
 The script also makes the mod `tile-animations` from the game data. The HD tile sets of Emerald Hill, Chemical Plant
 and Hill Top keep the frames of their animated tiles in the tile set. The mod moves these frames into an animation
 group (`ANIGROUP`) next to each tile set, as the import does for the other zones. Each frame keeps its delay and its

@@ -15,7 +15,8 @@
 // the original, which gives a small file for the game's mods folder. import-special-stages converts the special
 // stage layouts of the original game from a Sonic 2 disassembly (github.com/sonicretro/s2disasm) into that folder.
 // import-level makes the map (with collision) and the object binding of a zone, for example CNZ, from the same
-// disassembly. import-super-sonic makes the sprites of Super Sonic from the art of Sonic. import-music plays the songs and the sounds that the demo data does not have on emulated sound chips,
+// disassembly. import-super-sonic makes the sprites of Super Sonic from the art of Sonic. import-knuckles makes the
+// sprites of Knuckles from the knuckles-in-sonic-2 branch of s2disasm, in a folder of its own. import-music plays the songs and the sounds that the demo data does not have on emulated sound chips,
 // and uses ffmpeg (or S2HD_FFMPEG) to encode them as Ogg Vorbis. Each song gets a loop point. convert-tile-animations
 // moves the frames of the animated tiles of the tile sets in a .dat file into an ANIGROUP for the animation editor.
 using System;
@@ -44,6 +45,7 @@ try
 		["import-demos", string disassembly, string folder] => ImportDemos(disassembly, folder),
 		["import-ending", string disassembly, string folder] => ImportEnding(disassembly, folder),
 		["import-super-sonic", string disassembly, string folder] => ImportSuperSonic(disassembly, folder),
+		["import-knuckles", string kis2, string folder] => ImportKnuckles(kis2, folder),
 		["import-music", string disassembly, string folder] => ImportMusic(disassembly, folder),
 		["convert-tile-animations", string baseFile, string folder] => ConvertTileAnimations(baseFile, folder),
 		_ => Usage(),
@@ -161,6 +163,12 @@ static int ImportSuperSonic(string disassembly, string folder)
 	return 0;
 }
 
+static int ImportKnuckles(string kis2, string folder)
+{
+	OriginalImport.ImportKnuckles(kis2, folder, Console.WriteLine);
+	return 0;
+}
+
 static int ImportDemos(string disassembly, string folder)
 {
 	OriginalImport.ImportDemos(disassembly, folder, Console.WriteLine);
@@ -227,6 +235,7 @@ static int Usage()
 		  s2hd-data import-demos <s2disasm folder> <folder>
 		  s2hd-data import-ending <s2disasm folder> <folder>
 		  s2hd-data import-super-sonic <s2disasm folder> <folder>
+		  s2hd-data import-knuckles <KiS2 folder> <folder>
 		  s2hd-data import-music <s2disasm folder> <folder>
 		  s2hd-data convert-tile-animations <file.dat> <folder>
 		""");

@@ -195,6 +195,20 @@ public static class OriginalImport
 		log($"Wrote the sprites of Super Sonic to {KeyFolder(folder, SuperSonicArt.ObjectKey)}.");
 	}
 
+	/// <summary>
+	/// Makes the sprites of Knuckles from the folder of "Knuckles in Sonic 2": the knuckles-in-sonic-2 branch of
+	/// s2disasm, which is not the folder of s2disasm.
+	/// </summary>
+	public static void ImportKnuckles(string kis2, string folder, Action<string> log)
+	{
+		if (!KnucklesArt.IsKis2Folder(kis2))
+		{
+			throw new IOException($"The folder {kis2} does not contain the art of Knuckles. Give the folder of the knuckles-in-sonic-2 branch of s2disasm.");
+		}
+		WriteSprites(folder, new[] { KnucklesArt.Import(kis2) });
+		log($"Wrote the sprites of Knuckles to {KeyFolder(folder, KnucklesArt.ObjectKey)}.");
+	}
+
 	/// <summary>Makes the art of the ending cutscene, the slides of the original credits, and the logo at their end.</summary>
 	public static void ImportEnding(string disassembly, string folder, Action<string> log)
 	{

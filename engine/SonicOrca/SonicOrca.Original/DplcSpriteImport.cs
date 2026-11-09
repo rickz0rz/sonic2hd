@@ -11,7 +11,10 @@ namespace SonicOrca.Original;
 /// <param name="Delay">The frames that each mapping frame shows, minus 1, as in the original.</param>
 /// <param name="Frames">The mapping frames.</param>
 /// <param name="HoldLast">True when the script stays on its last frame ($FE 1 or $FD). False when it starts again ($FF).</param>
-public sealed record OriginalScript(string Name, int Delay, int[] Frames, bool HoldLast = false);
+/// <summary>An animation script of the original: its delay, its mapping frames, and where it loops.</summary>
+/// <param name="HoldLast">True when the animation stays on its last frame ($FE 1 or $FD).</param>
+/// <param name="Loop">The frame where the animation starts again at its end, for "$FE n", or null for the first frame.</param>
+public sealed record OriginalScript(string Name, int Delay, int[] Frames, bool HoldLast = false, int? Loop = null);
 
 /// <summary>
 /// Makes the sprites of a character of the original, whose frames load their tiles with DPLC (dynamic pattern load
@@ -59,7 +62,8 @@ public static class DplcSpriteImport
 		anigroup.AppendLine("  <animations>");
 		foreach (OriginalScript script in scripts)
 		{
-			string loop = script.HoldLast ? $" loop=\"{script.Frames.Length - 1}\"" : "";
+			int? loopFrame = script.HoldLast ? script.Frames.Length - 1 : script.Loop;
+			string loop = loopFrame is int loopIndex && loopIndex > 0 ? $" loop=\"{loopIndex}\"" : "";
 			anigroup.AppendLine($"    <!-- {script.Name} -->");
 			anigroup.AppendLine($"    <animation delay=\"{script.Delay}\"{loop}>");
 			foreach (int id in script.Frames)

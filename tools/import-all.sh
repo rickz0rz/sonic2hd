@@ -7,6 +7,8 @@
 #   ./tools/import-all.sh [s2disasm-dir] [mods-dir]
 #
 # s2disasm-dir: S2DISASM_DIR, or ../../sonicretro/s2disasm or ../s2disasm from the repository.
+# KiS2: with S2HD_KIS2_DIR set to a folder of the knuckles-in-sonic-2 branch of s2disasm, the script also makes the
+#   sprites of Knuckles (the mod knuckles). Without it, the script does not make them.
 # mods-dir: S2HD_MODS_DIR, or the mods folder in the user data folder
 #   (~/Library/Application Support/SonicOrca/mods on macOS, ~/Documents/SonicOrca/mods on other systems).
 #
@@ -74,6 +76,9 @@ for zone in "${ZONES[@]}"; do
 done
 import special-stages import-special-stages "$DISASM"
 import super-sonic import-super-sonic "$DISASM"
+if [[ -n "${S2HD_KIS2_DIR:-}" ]]; then
+	import knuckles import-knuckles "$(cd "$S2HD_KIS2_DIR" && pwd)"
+fi
 # The ARZ and CNZ demos need the imports of these zones, which the loop above makes
 import demos import-demos "$DISASM"
 import ending import-ending "$DISASM"
