@@ -365,13 +365,23 @@ public sealed partial class RegressionTests
 	/// </summary>
 	private static byte[] MakeRecording(int tickCount, Func<int, (double ThrottleX, bool Action)> input)
 	{
+		return MakeRecording(tickCount, tick =>
+		{
+			(double throttleX, bool action) = input(tick);
+			return (throttleX, 0.0, action);
+		});
+	}
+
+	/// <summary>Makes an input recording with a vertical direction too: -1 is up, 1 is down.</summary>
+	private static byte[] MakeRecording(int tickCount, Func<int, (double ThrottleX, double DirectionY, bool Action)> input)
+	{
 		using MemoryStream stream = new MemoryStream();
 		using BinaryWriter writer = new BinaryWriter(stream);
 		for (int tick = 0; tick < tickCount; tick++)
 		{
-			(double throttleX, bool action) = input(tick);
+			(double throttleX, double directionY, bool action) = input(tick);
 			writer.Write(throttleX);
-			writer.Write(0.0);
+			writer.Write(directionY);
 			writer.Write(action);
 			writer.Write(false);
 			writer.Write(0);
@@ -542,6 +552,57 @@ public sealed partial class RegressionTests
 			File.WriteAllBytes(recording, MakeRecording(800, tick => (1.0, Jump(tick))));
 			return $"--level ehz --protagonist knuckles --playback \"{recording}\"";
 		});
+	}
+
+	/// <summary>
+	/// Knuckles glides into the wall of a block in a new level, climbs up, and climbs onto the block. The captures show
+	/// the climb, the climb onto the ledge, and Knuckles on the block. The test skips without the KiS2 folder
+	/// (S2HD_KIS2_DIR).
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void KnucklesClimb_MatchesGoldenScreenshots()
+	{
+		string kis2 = KnucklesArtTests.FindKis2();
+		RunTwoRuns("knuckles-climb", Path.Combine(TestPaths.GoldenDirectory, "knuckles-climb"), new[] { 400, 500, 560 }, userData =>
+		{
+			SonicOrca.Original.OriginalImport.ImportKnuckles(kis2, Path.Combine(userData, "mods", "knuckles"), _ => { });
+			WriteBlockLevel(Path.Combine(userData, "mods", "blocktest", "SONICORCA", "LEVELS", "BLOCKTEST"));
+			string recording = Path.Combine(userData, "climb.rec");
+			// Run, jump, glide into the wall, then hold up
+			File.WriteAllBytes(recording, MakeRecording(700, tick => (
+				tick >= 200 && tick < 270 ? 1.0 : 0.0,
+				tick >= 360 && tick < 650 ? -1.0 : 0.0,
+				(tick >= 260 && tick < 265) || (tick >= 280 && tick < 450))));
+			return $"--level blocktest --protagonist knuckles --playback \"{recording}\"";
+		});
+	}
+
+	/// <summary>
+	/// Writes a new level, as the level editor makes it, with a block on the floor: 800 units wide and 600 high, 2000
+	/// units to the right of the start.
+	/// </summary>
+	private static void WriteBlockLevel(string folder)
+	{
+		const int left = 3000;
+		const int right = 3800;
+		int floor = SonicOrca.Core.NewLevel.FloorY;
+		int top = floor - 600;
+		Directory.CreateDirectory(folder);
+		File.WriteAllBytes(Path.Combine(folder, "AREA.area.cs"), SonicOrca.Core.NewLevel.MakeArea());
+		File.WriteAllBytes(Path.Combine(folder, "INFO.xml"), SonicOrca.Core.NewLevel.MakeInfo("Block Test", "SONICORCA/LEVELS/EHZ/TILESET"));
+		XElement map = ReadXml(SonicOrca.Core.NewLevel.MakeMap());
+		map.Descendants("marker").Single(m => (string)m.Attribute("name") == "startpos").SetAttributeValue("x", 1000);
+		// The top, the right side and the left side of the block, clockwise
+		foreach ((int ax, int ay, int bx, int by) in new[] { (left, top, right, top), (right, top, right, floor), (left, floor, left, top) })
+		{
+			map.Element("collision").Element("vectors").Add(new XElement("vector", new XAttribute("a", $"{ax},{ay}"), new XAttribute("b", $"{bx},{by}"),
+				new XAttribute("paths", "3"), new XAttribute("flags", "0")));
+		}
+		map.Save(Path.Combine(folder, "MAP.map.xml"));
+		XElement binding = ReadXml(SonicOrca.Core.NewLevel.MakeBinding());
+		binding.Descendants("Definition").Remove();
+		binding.Save(Path.Combine(folder, "BINDING.binding.xml"));
 	}
 
 	private static void CopyExampleMod(string userData)
