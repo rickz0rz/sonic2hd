@@ -36,7 +36,13 @@ internal class UserInterface
 	private const int SonicAndTailsSelection = 0;
 	private const int SonicSelection = 1;
 	private const int TailsSelection = 2;
-	private const int CharacterSelectionCount = 3;
+	private const int KnucklesSelection = 3;
+
+	/// <summary>Knuckles comes only from the import of "Knuckles in Sonic 2" (s2hd-data import-knuckles).</summary>
+	private const string KnucklesResourceKey = "SONICORCA/OBJECTS/KNUCKLES";
+
+	/// <summary>The choices of the character selection: Knuckles too when the import made him.</summary>
+	private int CharacterSelectionCount => _gameContext.ResourceTree[KnucklesResourceKey]?.Resource != null ? 4 : 3;
 
 	/// <summary>The Y position of the menu items and of "PRESS START".</summary>
 	private const int MenuY = 900;
@@ -475,6 +481,11 @@ internal class UserInterface
 				lps.ProtagonistCharacter = CharacterType.Tails;
 				lps.SidekickCharacter = CharacterType.Null;
 				break;
+			case KnucklesSelection:
+				// Knuckles plays alone, as in Knuckles in Sonic 2
+				lps.ProtagonistCharacter = CharacterType.Knuckles;
+				lps.SidekickCharacter = CharacterType.Null;
+				break;
 		}
 	}
 
@@ -673,11 +684,12 @@ internal class UserInterface
 		double characterSelectOpacity = _characterSelectOpacity;
 		Colour inactiveColour = new Colour(characterSelectOpacity, 0.25, 0.25, 0.25);
 		Colour activeColour = new Colour(characterSelectOpacity, 1.0, 1.0, 1.0);
-		string text = new string[3]
+		string text = new string[4]
 		{
 			"SONIC & TAILS",
 			"SONIC",
-			"TAILS"
+			"TAILS",
+			"KNUCKLES"
 		}[_characterSelectionIndex];
 		I2dRenderer g = renderer.Get2dRenderer();
 		IFontRenderer fontRenderer = renderer.GetFontRenderer();
