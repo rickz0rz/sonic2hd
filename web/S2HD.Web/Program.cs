@@ -27,6 +27,9 @@ public static partial class Program
 	/// <summary>The folder for the files of the Sonic 2 disassembly during an import.</summary>
 	private const string DisassemblyPath = "/s2disasm";
 
+	/// <summary>The folder for the files of the knuckles-in-sonic-2 branch of s2disasm during an import.</summary>
+	private const string Kis2Path = "/kis2";
+
 	/// <summary>The folder for the resource files of the mods during an import.</summary>
 	private const string ImportPath = "/tmp/imports";
 
@@ -149,26 +152,40 @@ public static partial class Program
 	/// Returns the names of the mods that the import from the disassembly makes and that the game data does not have,
 	/// separated by spaces. The page writes the mods into /content/mods/NAME.dat.
 	/// </summary>
+	/// <param name="knuckles">True when the page has the zip of KiS2, so that the import also makes Knuckles mode.</param>
 	[JSExport]
-	public static string GetMissingMods()
+	public static string GetMissingMods(bool knuckles)
 	{
-		return string.Join(" ", ImportModNames().Where(mod => !File.Exists(GetModPath(mod))));
+		return string.Join(" ", ImportModNames(knuckles).Where(mod => !File.Exists(GetModPath(mod))));
 	}
 
 	/// <summary>Returns the names of all the mods that the import from the disassembly makes, separated by spaces.</summary>
+	/// <param name="knuckles">True when the page has the zip of KiS2, so that the import also makes Knuckles mode.</param>
 	[JSExport]
-	public static string GetImportMods() => string.Join(" ", ImportModNames());
+	public static string GetImportMods(bool knuckles) => string.Join(" ", ImportModNames(knuckles));
+
+	/// <summary>
+	/// Returns the names of the mods that the zip of KiS2 changes, separated by spaces: the zones, which then also
+	/// have their Knuckles bindings, and the mod knuckles. The page makes these mods again when it gets the zip.
+	/// </summary>
+	[JSExport]
+	public static string GetKnucklesMods() => string.Join(" ", OriginalImport.Zones.Append(OriginalImport.KnucklesMod));
 
 	/// <summary>
 	/// Extracts the zip of the Sonic 2 disassembly (for example a GitHub download of sonicretro/s2disasm), which the
 	/// page wrote to the file system, and prepares the steps that make the missing mods. Returns the number of steps,
-	/// or -1 when the zip does not contain the disassembly. The game data must be in place first.
+	/// -1 when the zip does not contain the disassembly, or -2 when the zip of KiS2 does not contain KiS2. The game
+	/// data must be in place first.
 	/// </summary>
+	/// <param name="zipPath">The zip of the disassembly.</param>
+	/// <param name="kis2ZipPath">
+	/// The zip of the knuckles-in-sonic-2 branch of s2disasm, or an empty string. With it, the import also makes
+	/// Knuckles mode.
+	/// </param>
 	[JSExport]
-	public static int PrepareImport(string zipPath)
+	public static int PrepareImport(string zipPath, string kis2ZipPath)
 	{
-		if (Directory.Exists(DisassemblyPath))
-			Directory.Delete(DisassemblyPath, recursive: true);
+		FinishImport();
 		ZipFile.ExtractToDirectory(zipPath, DisassemblyPath);
 		File.Delete(zipPath);
 		_disassembly = OriginalImport.FindDisassembly(DisassemblyPath);
@@ -177,11 +194,23 @@ public static partial class Program
 			FinishImport();
 			return -1;
 		}
+		string kis2 = null;
+		if (!string.IsNullOrEmpty(kis2ZipPath))
+		{
+			ZipFile.ExtractToDirectory(kis2ZipPath, Kis2Path);
+			File.Delete(kis2ZipPath);
+			kis2 = OriginalImport.FindKis2(Kis2Path);
+			if (kis2 == null)
+			{
+				FinishImport();
+				return -2;
+			}
+		}
 		ResourceType.RegisterTypesFrom(typeof(PngResourceType).Assembly);
 		_baseTree = new ResourceFile(Path.Combine(ContentPath, "data", "sonicorca.dat")).Scan();
-		HashSet<string> missing = new HashSet<string>(GetMissingMods().Split(' ', StringSplitOptions.RemoveEmptyEntries));
+		HashSet<string> missing = new HashSet<string>(GetMissingMods(kis2 != null).Split(' ', StringSplitOptions.RemoveEmptyEntries));
 		// Without ffmpeg, the music is song files that the game plays live on the emulated chips
-		_importSteps = OriginalImport.GetSteps(null, line => Trace.WriteLine(line), _baseTree).Where(step => missing.Contains(step.Mod)).ToArray();
+		_importSteps = OriginalImport.GetSteps(null, line => Trace.WriteLine(line), _baseTree, kis2).Where(step => missing.Contains(step.Mod)).ToArray();
 		return _importSteps.Count;
 	}
 
@@ -221,7 +250,7 @@ public static partial class Program
 	[JSExport]
 	public static void FinishImport()
 	{
-		foreach (string folder in new[] { DisassemblyPath, ImportPath })
+		foreach (string folder in new[] { DisassemblyPath, Kis2Path, ImportPath })
 		{
 			if (Directory.Exists(folder))
 				Directory.Delete(folder, recursive: true);
@@ -232,7 +261,9 @@ public static partial class Program
 	}
 
 	/// <summary>The names of the mods of a full import, in order.</summary>
-	private static IEnumerable<string> ImportModNames() => OriginalImport.GetSteps(null, _ => { }).Select(step => step.Mod).Distinct();
+	/// <param name="knuckles">True to include the mod knuckles.</param>
+	private static IEnumerable<string> ImportModNames(bool knuckles) =>
+		OriginalImport.GetSteps(null, _ => { }, null, knuckles ? Kis2Path : null).Select(step => step.Mod).Distinct();
 
 	private static string GetModPath(string mod) => Path.Combine(ContentPath, "mods", mod + ".dat");
 
