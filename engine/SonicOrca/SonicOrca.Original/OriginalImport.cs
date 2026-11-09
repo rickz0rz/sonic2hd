@@ -216,7 +216,7 @@ public static class OriginalImport
 		{
 			throw new IOException($"The folder {kis2} does not contain the art of Knuckles. Give the folder of the knuckles-in-sonic-2 branch of s2disasm.");
 		}
-		WriteSprites(folder, new[] { KnucklesArt.Import(kis2), KnucklesArt.ImportSpecialStage(kis2) });
+		WriteSprites(folder, new[] { KnucklesArt.Import(kis2), KnucklesArt.ImportSpecialStage(kis2), SpecialStageArt.ImportKnucklesResults(kis2) });
 		File.WriteAllBytes(Path.Combine(KeyFolder(folder, KnucklesArt.ObjectKey), "PALETTE.png"), KnucklesArt.ImportPalette(kis2));
 		string lifeIcon = KeyFolder(folder, KnucklesArt.LifeIconKey) + ".png";
 		Directory.CreateDirectory(Path.GetDirectoryName(lifeIcon));

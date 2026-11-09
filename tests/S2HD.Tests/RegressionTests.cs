@@ -1197,6 +1197,22 @@ public sealed partial class RegressionTests
 	}
 
 	/// <summary>
+	/// The results screen of the seventh special stage for Knuckles, with the art of Knuckles in Sonic 2: "KNUCKLES HAS
+	/// ALL THE CHAOS EMERALDS", and then "NOW KNUCKLES CAN CHANGE INTO SUPER KNUCKLES". The test skips without the KiS2
+	/// folder (S2HD_KIS2_DIR).
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void KnucklesSpecialStageResults_MatchesGoldenScreenshots()
+	{
+		string kis2 = KnucklesArtTests.FindKis2();
+		RunAndCompare("--halfpipe 7 --protagonist knuckles", new[] { 20375, 20751 }, Path.Combine(TestPaths.GoldenDirectory, "knuckles-special-stage-results"),
+			"knuckles-special-stage-results",
+			new Dictionary<string, string> { ["S2HD_TEST_SPECIAL_STAGE_RESULTS"] = "20,1,1", ["S2HD_TEST_EMERALDS"] = "6" }, withImportedMods: true,
+			prepareUserData: userData => SonicOrca.Original.OriginalImport.ImportKnuckles(kis2, Path.Combine(userData, "mods", "knuckles"), _ => { }));
+	}
+
+	/// <summary>
 	/// Plays the first special stage alone with no input and the imported art. The messages use the letters of the
 	/// original: "GET 30 RINGS!", its letters that fly away, "8 RINGS TO GO!" and "NOT ENOUGH RINGS...". The ring
 	/// counter uses the big digits of the original.
