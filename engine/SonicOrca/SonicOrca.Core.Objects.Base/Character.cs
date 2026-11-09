@@ -729,8 +729,66 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	{
 	}
 
-	/// <summary>True when the last collision found a wall on this side: -1 for the left, 1 for the right.</summary>
-	protected bool TouchesWall(int side) => _collisionEvents[(int)(side < 0 ? CollisionMode.Left : CollisionMode.Right)] != null;
+	/// <summary>
+	/// The horizontal distance from a point to the nearest wall on one side, in level units, or null when no wall is
+	/// that near. A wall is a collision vector of the left or the right mode on the path of the character.
+	/// </summary>
+	/// <param name="side">-1 to look to the left, 1 to look to the right.</param>
+	protected double? GetWallDistance(int side, double x, double y, double maximumDistance)
+	{
+		double? nearest = null;
+		foreach (CollisionVector vector in GetVectorsNear(new Rectangle(side < 0 ? x - maximumDistance : x, y - 1.0, maximumDistance, 2.0)))
+		{
+			if (vector.Mode != CollisionMode.Left && vector.Mode != CollisionMode.Right)
+				continue;
+			Vector2i a = vector.AbsoluteA;
+			Vector2i b = vector.AbsoluteB;
+			if (a.Y == b.Y || y < Math.Min(a.Y, b.Y) || y > Math.Max(a.Y, b.Y))
+				continue;
+			double distance = (a.X + (double)(b.X - a.X) * (y - a.Y) / (b.Y - a.Y) - x) * side;
+			if (distance >= 0.0 && distance <= maximumDistance && (nearest == null || distance < nearest))
+				nearest = distance;
+		}
+		return nearest;
+	}
+
+	/// <summary>
+	/// The vertical distance from a point to the nearest floor below it (direction 1) or ceiling above it (direction
+	/// -1), in level units, or null when none is that near. A floor is a vector of the top mode, a ceiling a vector of
+	/// the bottom mode.
+	/// </summary>
+	protected double? GetFloorDistance(int direction, double x, double y, double maximumDistance)
+	{
+		CollisionMode mode = direction > 0 ? CollisionMode.Top : CollisionMode.Bottom;
+		double? nearest = null;
+		foreach (CollisionVector vector in GetVectorsNear(new Rectangle(x - 1.0, direction < 0 ? y - maximumDistance : y, 2.0, maximumDistance)))
+		{
+			if (vector.Mode != mode)
+				continue;
+			Vector2i a = vector.AbsoluteA;
+			Vector2i b = vector.AbsoluteB;
+			if (a.X == b.X || x < Math.Min(a.X, b.X) || x > Math.Max(a.X, b.X))
+				continue;
+			double distance = (a.Y + (double)(b.Y - a.Y) * (x - a.X) / (b.X - a.X) - y) * direction;
+			if (distance >= 0.0 && distance <= maximumDistance && (nearest == null || distance < nearest))
+				nearest = distance;
+		}
+		return nearest;
+	}
+
+	/// <summary>The collision vectors in an area that the character can touch: on its path, not ignored.</summary>
+	private IEnumerable<CollisionVector> GetVectorsNear(Rectangle area)
+	{
+		Rectanglei search = new Rectanglei((int)Math.Floor(area.X) - 1, (int)Math.Floor(area.Y) - 1, (int)Math.Ceiling(area.Width) + 3, (int)Math.Ceiling(area.Height) + 3);
+		return Level.CollisionTable.GetPossibleCollisionIntersections(search, CheckLandscapeCollision, CheckObjectCollision)
+			.Where(vector => CanCollideWithVector(vector) && !CheckIgnoreFlag(vector));
+	}
+
+	/// <summary>
+	/// True when the last collision found a wall on this side of the character: -1 for the left, 1 for the right. The
+	/// mode of a wall is the side of the solid, so a wall at the right of the character has the left mode.
+	/// </summary>
+	protected bool TouchesWall(int side) => _collisionEvents[(int)(side < 0 ? CollisionMode.Right : CollisionMode.Left)] != null;
 
 	protected int InvulnerabilityTicks { get; set; }
 

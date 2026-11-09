@@ -17,9 +17,15 @@ namespace SONICORCA.OBJECTS.KNUCKLES;
 /// A second press of jump in the air starts a glide (Knuckles_BeginGlide). The glide follows the routines of KiS2:
 /// Knuckles_GlideSpeedControl gives the speed and the turn, Knuckles_GlideControl ends the glide. When the player lets
 /// go of jump, Knuckles falls. On a flat floor he slides, and he gets up when he stops or the player lets go of jump.
-/// When he falls from a glide onto a flat floor, he lands hard. A glide and a slide break monitors and enemies. A
-/// wall stops the glide, and Knuckles falls. The values of the original are in subpixels: 256 make one pixel, and one
-/// pixel is 4 level units, so a value of the original is 64 times its value here.
+/// When he falls from a glide onto a flat floor, he lands hard. A glide and a slide break monitors and enemies. The
+/// values of the original are in subpixels: 256 make one pixel, and one pixel is 4 level units, so a value of the
+/// original is 64 times its value here.
+/// </para>
+/// <para>
+/// A glide into a wall starts a climb (Knuckles_BeginClimb). Up and down move Knuckles one pixel each frame, two for
+/// Super Knuckles (Knuckles_Climbing_Wall). At the top of the wall he climbs onto the ledge
+/// (Knuckles_DoLedgeClimbingAnimation). At the bottom of the wall he lets go, and on a floor he stands. Jump makes
+/// him jump away from the wall.
 /// </para>
 /// </summary>
 public class KnucklesInstance : Character
@@ -79,18 +85,61 @@ public class KnucklesInstance : Character
 
 	private const int AnimationSlide = 34;
 
+	private const int AnimationClimb = 35;
+
+	private const int AnimationClimbLedge = 36;
+
 	private const int AnimationGetUp = 37;
 
 	/// <summary>The frames of the turn of a glide (Knuckles_DoGlidingAnimation), as frames of the glide animation. 4 is frame 0, flipped.</summary>
 	private static readonly int[] GlideTurnFrames = { 0, 1, 2, 3, 4, 3, 2, 1 };
 
-	/// <summary>The states of double_jump_flag in KiS2. The climb comes in a later step.</summary>
+	/// <summary>One pixel of the original, in level units.</summary>
+	private const double Pixel = 4.0;
+
+	/// <summary>The radius of Knuckles on a wall: x_radius and y_radius 10.</summary>
+	private const double ClimbRadius = 10 * Pixel;
+
+	/// <summary>Knuckles_Climbing_Wall looks for the wall 11 pixels above and below his centre.</summary>
+	private const double ClimbWallCheckY = 11 * Pixel;
+
+	/// <summary>Knuckles_BeginClimb holds the top of a low wall that is less than 12 pixels down.</summary>
+	private const double LowWallDistance = 12 * Pixel;
+
+	/// <summary>Above this distance to the wall, the wall ends above Knuckles, and he climbs onto the ledge.</summary>
+	private const double LedgeDistance = 4 * Pixel;
+
+	/// <summary>The climb frame changes each 4 frames (double_jump_property counts from 3).</summary>
+	private const int ClimbFrameTicks = 4;
+
+	private const int ClimbFrames = 6;
+
+	/// <summary>The jump from a wall: $400 away from the wall and $380 up.</summary>
+	private const double WallJumpSpeedX = 0x400 / 64.0;
+
+	private const double WallJumpSpeedY = 0x380 / 64.0;
+
+	/// <summary>
+	/// The steps of the climb onto a ledge (Knuckles_DoLedgeClimbingAnimation): the frame of ClimbLedge (-1 for the
+	/// stand), the move in pixels towards the wall and up, and the frames that the step lasts.
+	/// </summary>
+	private static readonly (int Frame, int X, int Y, int Ticks)[] LedgeSteps =
+	{
+		(0, 3, -3, 6),
+		(1, 8, -10, 6),
+		(2, -8, -12, 6),
+		(-1, 8, -5, 6)
+	};
+
+	/// <summary>The states of double_jump_flag in KiS2.</summary>
 	private enum GlideState
 	{
 		None,
 		Glide,
 		Fall,
-		Slide
+		Slide,
+		Climb,
+		ClimbLedge
 	}
 
 	private GlideState _state;
@@ -105,6 +154,21 @@ public class KnucklesInstance : Character
 	private int _landingAnimation = -1;
 
 	private int _landingLockTicks;
+
+	/// <summary>x_sub on a wall: the X where Knuckles took hold of the wall. When something moves him, he lets go.</summary>
+	private double _climbX;
+
+	private int _climbFrame;
+
+	private int _climbFrameTimer;
+
+	/// <summary>The step of the climb onto a ledge and the frames left in it.</summary>
+	private int _ledgeStep;
+
+	private int _ledgeTimer;
+
+	/// <summary>True in the frame of a jump from a wall, so that the same press does not start a glide.</summary>
+	private bool _jumpedFromWall;
 
 	[HideInEditor]
 	public override bool IsGliding => _state == GlideState.Glide || _state == GlideState.Slide;
@@ -130,6 +194,11 @@ public class KnucklesInstance : Character
 	/// <summary>Knuckles_BeginGlide: a second press of jump in the air, when Knuckles does not go up fast.</summary>
 	protected override bool OnAirJumpPressed()
 	{
+		if (_jumpedFromWall)
+		{
+			_jumpedFromWall = false;
+			return true;
+		}
 		if (_state != GlideState.None || IsHurt || IsSidekick || Velocity.Y < -GlideStartSpeed)
 			return false;
 		IsSpinball = false;
@@ -154,6 +223,7 @@ public class KnucklesInstance : Character
 
 	protected override bool UpdateOwnMovement()
 	{
+		_jumpedFromWall = false;
 		if (IsHurt || IsDead)
 		{
 			_state = GlideState.None;
@@ -171,6 +241,10 @@ public class KnucklesInstance : Character
 				return false;
 			case GlideState.Slide:
 				return UpdateSlide();
+			case GlideState.Climb:
+				return UpdateClimb();
+			case GlideState.ClimbLedge:
+				return UpdateClimbLedge();
 		}
 		if (_landingLockTicks > 0)
 		{
@@ -198,10 +272,13 @@ public class KnucklesInstance : Character
 			_state = GlideState.None;
 			return false;
 		}
-		// A wall stops the glide. The climb on the wall comes in a later step.
-		if ((TouchesWall(-1) && Velocity.X <= 0.0) || (TouchesWall(1) && Velocity.X >= 0.0))
+		// Knuckles_BeginClimb: a wall in front of Knuckles stops the glide, and he takes hold of it
+		// The side of the glide comes from the turn: the collision stops the horizontal velocity at a wall
+		int side = Math.Cos(_turn * Math.PI * 2.0 / 256.0) < 0.0 ? -1 : 1;
+		if (TouchesWall(side))
 		{
-			StartFall(divideSpeed: false);
+			if (!TryStartClimb(side))
+				StartFall(divideSpeed: false);
 			return false;
 		}
 		if (!Input.ABC.HasFlag(CharacterInputButtonState.Down))
@@ -259,6 +336,145 @@ public class KnucklesInstance : Character
 	{
 		int frame = GlideTurnFrames[((_turn + 0x10) & 0xFF) >> 5];
 		Facing = frame == 4 ? -1 : 1;
+	}
+
+	/// <summary>
+	/// Knuckles_BeginClimb: Knuckles takes hold of a wall beside him, at his centre. He stops, faces the wall, and
+	/// moves to touch it with his radius on a wall.
+	/// </summary>
+	private bool TryStartClimb(int side)
+	{
+		double? wall = GetWallDistance(side, PositionPrecise.X, PositionPrecise.Y, ClimbRadius + LedgeDistance);
+		if (wall == null)
+		{
+			// .checkFloor: the top of a low wall within 12 pixels below a point 11 pixels above the centre. Knuckles
+			// moves down to hold the top of the wall, and then climbs onto it.
+			double edgeX = PositionPrecise.X + side * (ClimbRadius + Pixel);
+			double? top = GetFloorDistance(1, edgeX, PositionPrecise.Y - ClimbWallCheckY, LowWallDistance);
+			if (top == null || top.Value >= LowWallDistance)
+				return false;
+			PositionPrecise = new Vector2(PositionPrecise.X, PositionPrecise.Y + top.Value);
+			wall = GetWallDistance(side, PositionPrecise.X, PositionPrecise.Y, ClimbRadius + LedgeDistance);
+			if (wall == null)
+				return false;
+		}
+		_state = GlideState.Climb;
+		Facing = side;
+		Velocity = new Vector2(0.0, 0.0);
+		GroundVelocity = 0.0;
+		PositionPrecise = new Vector2(PositionPrecise.X + side * (wall.Value - ClimbRadius), PositionPrecise.Y);
+		_climbX = PositionPrecise.X;
+		_climbFrame = 0;
+		_climbFrameTimer = ClimbFrameTicks - 1;
+		return true;
+	}
+
+	/// <summary>Knuckles_Climbing_Wall for one frame.</summary>
+	private bool UpdateClimb()
+	{
+		if (Mode != CollisionMode.Air || Math.Abs(PositionPrecise.X - _climbX) >= 1.0)
+		{
+			// Something moved Knuckles, or he stands on something
+			LetGoOfWall();
+			return false;
+		}
+		Velocity = new Vector2(0.0, 0.0);
+		GroundVelocity = 0.0;
+		int side = Facing;
+		double x = PositionPrecise.X;
+		double y = PositionPrecise.Y;
+		double step = IsSuper ? 2 * Pixel : Pixel;
+		int frameDelta = 0;
+		if (Input.VerticalDirection < 0.0)
+		{
+			// Up: at the top of the wall, Knuckles climbs onto the ledge
+			double? wall = GetWallDistance(side, x, y - ClimbWallCheckY, ClimbRadius + LedgeDistance);
+			if (wall == null || wall.Value - ClimbRadius >= LedgeDistance)
+			{
+				StartClimbLedge();
+				return true;
+			}
+			if (wall.Value - ClimbRadius < 1.0)
+			{
+				double? ceiling = GetFloorDistance(-1, x, y - 8 * Pixel, ClimbRadius + step);
+				if (ceiling == null || ceiling.Value >= ClimbRadius + step)
+					PositionPrecise = new Vector2(x, y - step);
+				frameDelta = 1;
+			}
+		}
+		else if (Input.VerticalDirection > 0.0)
+		{
+			// Down: at the bottom of the wall, Knuckles lets go. On a floor, he stands.
+			double? wall = GetWallDistance(side, x, y + ClimbWallCheckY, ClimbRadius + 1.0);
+			if (wall == null)
+			{
+				LetGoOfWall();
+				return false;
+			}
+			double? floor = GetFloorDistance(1, x, y + 9 * Pixel, ClimbRadius + step);
+			if (floor != null && floor.Value < ClimbRadius + step)
+			{
+				// Sonic_ResetOnFloor_Part2: Knuckles stands, and the collision puts him on the floor
+				_state = GlideState.None;
+				PositionPrecise = new Vector2(x, y + 9 * Pixel + floor.Value - NormalCollisionRadius.Y);
+				return true;
+			}
+			PositionPrecise = new Vector2(x, y + step);
+			frameDelta = -1;
+		}
+		if (frameDelta != 0 && --_climbFrameTimer < 0)
+		{
+			_climbFrameTimer = ClimbFrameTicks - 1;
+			_climbFrame = (_climbFrame + frameDelta + ClimbFrames) % ClimbFrames;
+		}
+		if (Input.ABC == CharacterInputButtonState.Pressed)
+		{
+			// A jump away from the wall, in a ball
+			_state = GlideState.None;
+			_jumpedFromWall = true;
+			Facing = -side;
+			Velocity = new Vector2(-side * WallJumpSpeedX, -WallJumpSpeedY);
+			IsSpinball = true;
+			Jumped = true;
+			IsJumping = true;
+			return true;
+		}
+		return true;
+	}
+
+	/// <summary>Knuckles_LetGoOfWall: Knuckles falls as after a glide.</summary>
+	private void LetGoOfWall()
+	{
+		_state = Mode == CollisionMode.Air ? GlideState.Fall : GlideState.None;
+	}
+
+	private void StartClimbLedge()
+	{
+		_state = GlideState.ClimbLedge;
+		_ledgeStep = -1;
+		_ledgeTimer = 0;
+		UpdateClimbLedge();
+	}
+
+	/// <summary>
+	/// Knuckles_Climbing_Onto_Ledge: Knuckles moves up and onto the ledge in steps. At the end he stands, and the
+	/// collision puts him on the ledge.
+	/// </summary>
+	private bool UpdateClimbLedge()
+	{
+		Velocity = new Vector2(0.0, 0.0);
+		GroundVelocity = 0.0;
+		if (--_ledgeTimer > 0)
+			return true;
+		if (++_ledgeStep >= LedgeSteps.Length)
+		{
+			_state = GlideState.None;
+			return true;
+		}
+		(int _, int moveX, int moveY, int ticks) = LedgeSteps[_ledgeStep];
+		PositionPrecise += new Vector2(Facing * moveX * Pixel, moveY * Pixel);
+		_ledgeTimer = ticks;
+		return true;
 	}
 
 	/// <summary>The fall after a glide. When the player lets go of jump, the horizontal speed is divided by 4.</summary>
@@ -340,6 +556,17 @@ public class KnucklesInstance : Character
 				return;
 			case GlideState.Slide:
 				SetAnimation(AnimationSlide);
+				return;
+			case GlideState.Climb:
+				SetAnimation(AnimationClimb);
+				Animation.CurrentFrameIndex = _climbFrame;
+				return;
+			case GlideState.ClimbLedge:
+				int ledgeFrame = LedgeSteps[Math.Max(_ledgeStep, 0)].Frame;
+				if (ledgeFrame < 0)
+					return;
+				SetAnimation(AnimationClimbLedge);
+				Animation.CurrentFrameIndex = ledgeFrame;
 				return;
 		}
 		if (_landingAnimation >= 0)
