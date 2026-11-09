@@ -524,6 +524,26 @@ public sealed partial class RegressionTests
 		});
 	}
 
+	/// <summary>
+	/// Plays Emerald Hill as Knuckles, and glides twice. The first glide ends at a cliff, and Knuckles falls. The
+	/// second glide goes over the palm trees. The test skips without the KiS2 folder (S2HD_KIS2_DIR).
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void KnucklesGlide_MatchesGoldenScreenshots()
+	{
+		string kis2 = KnucklesArtTests.FindKis2();
+		RunTwoRuns("knuckles-glide", Path.Combine(TestPaths.GoldenDirectory, "knuckles-glide"), new[] { 360, 420, 640, 740 }, userData =>
+		{
+			SonicOrca.Original.OriginalImport.ImportKnuckles(kis2, Path.Combine(userData, "mods", "knuckles"), _ => { });
+			string recording = Path.Combine(userData, "glide.rec");
+			// A jump, then a second press that the player holds: a glide
+			static bool Jump(int tick) => (tick >= 300 && tick < 310) || (tick >= 320 && tick < 470) || (tick >= 600 && tick < 610) || (tick >= 620 && tick < 900);
+			File.WriteAllBytes(recording, MakeRecording(800, tick => (1.0, Jump(tick))));
+			return $"--level ehz --protagonist knuckles --playback \"{recording}\"";
+		});
+	}
+
 	private static void CopyExampleMod(string userData)
 	{
 		CopyDirectory(Path.Combine(TestPaths.RepoRoot, "examples", "mods", "lua-item-block", "SONICORCA"), Path.Combine(userData, "mods", "lua-item-block", "SONICORCA"));

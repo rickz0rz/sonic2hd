@@ -44,6 +44,9 @@ public static class KnucklesArt
 	/// <summary>The climb onto a ledge: the frames of Knuckles_DoLedgeClimbingAnimation, 6 frames each.</summary>
 	public const int ClimbLedgeAnimation = 36;
 
+	/// <summary>Knuckles gets up after a slide (KnucklesAni_GetUp, which the original calls KnuxAni_ClimbLedge).</summary>
+	public const int GetUpAnimation = 37;
+
 	/// <summary>The files of KiS2 that the import needs. The folder of the import must have each of them.</summary>
 	public static readonly IReadOnlyList<string> RequiredFiles = new[] { ArtFile, MappingsFile, DplcFile, PaletteFile };
 
@@ -132,6 +135,7 @@ public static class KnucklesArt
 		new OriginalScript("Slide", 0x1F, new[] { 0xCC }),                                    // Knuckles_BeginSlide
 		new OriginalScript("Climb", 3, new[] { 0xB7, 0xB8, 0xB9, 0xBA, 0xBB, 0xBC }),        // Knuckles_Climbing_Wall
 		new OriginalScript("ClimbLedge", 6, new[] { 0xBD, 0xBE, 0xBF }, HoldLast: true),     // Knuckles_DoLedgeClimbingAnimation
+		new OriginalScript("GetUp", 0x0F, new[] { 0xCD }, HoldLast: true),                   // KnucklesAni_GetUp
 	};
 
 	/// <summary>True when the folder has the files of KiS2 that the import needs.</summary>

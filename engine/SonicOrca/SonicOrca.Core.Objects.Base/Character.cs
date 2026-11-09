@@ -549,7 +549,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 
 	public CollisionVector GroundVector { get; set; }
 
-	private double GroundAngle
+	protected double GroundAngle
 	{
 		get
 		{
@@ -691,13 +691,46 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	{
 		get
 		{
-			if (!IsSpinball && !IsCharging)
+			if (!IsSpinball && !IsCharging && !IsGliding)
 			{
 				return IsInvincible || IsSuper;
 			}
 			return true;
 		}
 	}
+
+	/// <summary>True while the character glides. Only Knuckles glides.</summary>
+	public virtual bool IsGliding => false;
+
+	/// <summary>Ends a glide. Only Knuckles glides.</summary>
+	public virtual void StopGliding(bool fall = false)
+	{
+	}
+
+	/// <summary>
+	/// Lets a character press jump in the air for an action of its own, for example the glide of Knuckles. The
+	/// abilities come first.
+	/// </summary>
+	/// <returns>True when the character used the press.</returns>
+	protected virtual bool OnAirJumpPressed() => false;
+
+	/// <summary>
+	/// Lets a character move in a way of its own in this tick, for example in a glide. The character then sets its
+	/// velocity or ground speed itself.
+	/// </summary>
+	/// <returns>True when the character moved, so that the normal movement does not run.</returns>
+	protected virtual bool UpdateOwnMovement() => false;
+
+	/// <summary>False while a character cannot jump from the ground, for example while Knuckles slides after a glide.</summary>
+	protected virtual bool CanJumpFromGround => true;
+
+	/// <summary>The character landed. The ground speed is already set.</summary>
+	protected virtual void OnLanded()
+	{
+	}
+
+	/// <summary>True when the last collision found a wall on this side: -1 for the left, 1 for the right.</summary>
+	protected bool TouchesWall(int side) => _collisionEvents[(int)(side < 0 ? CollisionMode.Left : CollisionMode.Right)] != null;
 
 	protected int InvulnerabilityTicks { get; set; }
 
@@ -1782,6 +1815,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 				Velocity = default;
 				InvulnerabilityTicks = HurtInvulnerabilityTicks;
 			}
+			OnLanded();
 		}
 		Player.ResetScoreChain();
 	}
@@ -3125,6 +3159,10 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 
 	private void UpdateMovement()
 	{
+		if (UpdateOwnMovement())
+		{
+			return;
+		}
 		if (Mode == CollisionMode.Air)
 		{
 			Vector2 velocity = Velocity;
@@ -3431,6 +3469,10 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 						return;
 					}
 				}
+				if (OnAirJumpPressed())
+				{
+					return;
+				}
 				if (CanFly && _humanControlled)
 				{
 					CharacterEvents |= CharacterEvent.Fly;
@@ -3450,7 +3492,7 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 					Level.SoundManager.PlaySound(this, "SONICORCA/SOUND/JUMP");
 				}
 			}
-			else if (GroundVector != null && !GroundVector.Flags.HasFlag(CollisionFlags.PreventJump) && !(ForceSpinball && IsSpinball))
+			else if (GroundVector != null && !GroundVector.Flags.HasFlag(CollisionFlags.PreventJump) && !(ForceSpinball && IsSpinball) && CanJumpFromGround)
 			{
 				Jumped = true;
 				IsJumping = true;

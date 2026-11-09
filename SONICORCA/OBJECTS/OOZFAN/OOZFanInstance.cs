@@ -222,6 +222,8 @@ public class OOZFanInstance : ActiveObject
 			character.LeaveGround();
 		}
 		character.IsAirborne = true;
+		// KiS2: the air of the fan ends a glide of Knuckles
+		character.StopGliding();
 		character.Velocity = new Vector2(character.Velocity.X, 0.0);
 		character.GroundVelocity = Scale / 256.0;
 		if (!_tumbling.Contains(character) && character.TumbleAngle == 0.0)

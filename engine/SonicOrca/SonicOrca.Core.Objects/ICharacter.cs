@@ -70,6 +70,16 @@ public interface ICharacter : IActiveObject
 
 	bool IsDeadly { get; }
 
+	/// <summary>True while the character glides (Knuckles). A glide breaks monitors and enemies.</summary>
+	bool IsGliding { get; }
+
+	/// <summary>
+	/// Ends a glide or a slide, as KiS2 does for some objects, for example the fans of OOZ. Nothing happens without a
+	/// glide.
+	/// </summary>
+	/// <param name="fall">True to fall as after a glide (a hit on a boss), false to move on as in a normal fall.</param>
+	void StopGliding(bool fall = false);
+
 	bool IsSpinball { get; set; }
 
 	bool IsUnderwater { get; set; }
