@@ -147,12 +147,13 @@ public static class SuperSonicArt
 	}
 
 	/// <summary>Makes the texture and the animation group of the stars of Super Sonic (Obj7E), at four times the size.</summary>
-	public static ImportedSprite ImportStars(string disassembly)
+	/// <param name="objectKey">The object folder, or null for <see cref="StarsObjectKey"/>. Super Knuckles has his own.</param>
+	public static ImportedSprite ImportStars(string disassembly, string objectKey = null)
 	{
 		byte[] art = SpriteImport.ReadArt(disassembly, StarsArtFile);
 		List<List<SpritePiece>> frames = SpriteImport.ParseMappings(File.ReadAllText(Path.Combine(disassembly, StarsMappingsFile)));
 		uint[] palette = SpriteImport.ReadPalette(disassembly, PaletteFile);
-		return SpriteImport.Import(StarsObjectKey, art, frames, new[] { 0 }, Array.Empty<int>(), palette, 4);
+		return SpriteImport.Import(objectKey ?? StarsObjectKey, art, frames, new[] { 0 }, Array.Empty<int>(), palette, 4);
 	}
 
 	/// <summary>Reads the frames of a DPLC file of s2disasm (dplcHeader and dplcEntry macros): the tiles and the first tile of each entry.</summary>

@@ -70,6 +70,12 @@ public static class KnucklesArt
 	/// </summary>
 	public const string PaletteKey = "SONICORCA/OBJECTS/KNUCKLES/PALETTE";
 
+	/// <summary>
+	/// The stars of Super Knuckles (Obj7E). KiS2 keeps the art of the stars of Super Sonic, with palette line 0, which
+	/// has the colours of Knuckles.
+	/// </summary>
+	public const string StarsObjectKey = "SONICORCA/OBJECTS/KNUCKLES/STARS";
+
 	/// <summary>The life icon of the HUD. The HD life icons of Sonic and Tails are SONICORCA/HUD/LIFE/SONIC and TAILS.</summary>
 	public const string LifeIconKey = "SONICORCA/HUD/LIFE/KNUCKLES";
 

@@ -56,6 +56,9 @@ public class KnucklesInstance : Character
 
 	private bool _wasSuper;
 
+	/// <summary>The stars of Super Knuckles, or null without them.</summary>
+	private SONICORCA.OBJECTS.SONIC.SuperStars _stars;
+
 	/// <summary>The jump speed of Knuckles under water, $300, in level units.</summary>
 	private const double KnucklesUnderwaterJumpForce = 0x300 / 64.0;
 
@@ -211,6 +214,8 @@ public class KnucklesInstance : Character
 		SuperAcceleration = SuperKnucklesAcceleration;
 		SuperDeceleration = SuperKnucklesDeceleration;
 		HasSuperAbility = true;
+		if (ResourceTree.TryGetLoadedResource(KnucklesType.StarsAnimationGroupResourceKey, out AnimationGroup starsGroup))
+			_stars = new SONICORCA.OBJECTS.SONIC.SuperStars(starsGroup);
 		if (Level.OriginalPhysics)
 		{
 			// The collision box of the original Knuckles: x_radius 9 and y_radius $13, and 7 and $E in a roll
@@ -585,10 +590,14 @@ public class KnucklesInstance : Character
 		{
 			_superPalette ??= SONICORCA.OBJECTS.SONIC.SuperSonicPalette.Create(Level.GameContext.Window.GraphicsContext, Animation.AnimationGroup, SuperKnucklesSchedule);
 			_superPalette?.Start();
+			_stars?.Reset();
 		}
 		_wasSuper = IsSuper;
 		if (IsSuper)
+		{
 			_superPalette?.Update();
+			_stars?.Update(this);
+		}
 	}
 
 	protected override void OnAnimate()
@@ -658,5 +667,13 @@ public class KnucklesInstance : Character
 			else
 				objectRenderer.RenderOriginal(Animation, new Vector2(0.0, offsetY), IsFacingLeft);
 		}
+	}
+
+	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
+	{
+		base.OnDraw(renderer, viewOptions);
+		// Obj7E has a higher priority than the character, so the stars are in front of him
+		if (_stars != null && IsSuper && !viewOptions.Shadows)
+			_stars.Draw(renderer, this);
 	}
 }
