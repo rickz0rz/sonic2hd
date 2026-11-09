@@ -457,11 +457,12 @@ public sealed record OriginalZone(string Name, string Key, string ChunksFile, st
 /// <param name="TileCollision">The collision data of the front layer, for the level editor.</param>
 /// <param name="TileAnimations">The animation group (ANIGROUP) of the animated tiles of the tile set, or null.</param>
 /// <param name="VersusBinding">The binding of versus mode with the two-player object layouts of the original (CNZ), or null.</param>
+/// <param name="KnucklesBinding">The binding of Knuckles mode with the object layouts of KiS2, or null.</param>
 public sealed record ImportedLevel(LevelMap Map, LevelBinding Binding, IReadOnlyList<string> Notes,
 	IReadOnlyList<ImportedSprite> Sprites, IReadOnlyDictionary<string, string> NewObjects,
 	string TileSet = null, byte[] PriorityTexture = null, IReadOnlyDictionary<string, byte[]> Textures = null,
 	TileCollision TileCollision = null, string TileAnimations = null, LevelBinding VersusBinding = null,
-	ObjectPaletteCycles ObjectPaletteCycles = null);
+	ObjectPaletteCycles ObjectPaletteCycles = null, LevelBinding KnucklesBinding = null);
 
 /// <summary>
 /// Makes the map and the binding of a SonicOrca level from a zone of the original game. The tiles are the blocks of
@@ -618,7 +619,11 @@ public static class LevelImport
 		["SONICORCA/OBJECTS/OOZSWINGPLATFORM"] = "SONICORCA.OBJECTS.OOZSWINGPLATFORM",
 	};
 
-	public static ImportedLevel Import(OriginalZone zone, string disassembly)
+	/// <param name="kis2">
+	/// The folder of the knuckles-in-sonic-2 branch of s2disasm, or null. With it, the import also makes the binding of
+	/// Knuckles mode from the object layouts of KiS2.
+	/// </param>
+	public static ImportedLevel Import(OriginalZone zone, string disassembly, string kis2 = null)
 	{
 		string Path(string file) => System.IO.Path.Combine(disassembly, file);
 		byte[] chunks = Kosinski.Decompress(File.ReadAllBytes(Path(zone.ChunksFile)));
@@ -813,7 +818,10 @@ public static class LevelImport
 		// Casino Night has object layouts of its own for two players (ObjectsManager_Init). The versus binding has the
 		// same rings, bumpers and reels, and these objects.
 		LevelBinding versusBinding = zone.Acts.Any(a => a.VersusObjectsFile != null) ? new LevelBinding() : null;
-		LevelBinding[] bindings = versusBinding == null ? new[] { binding } : new[] { binding, versusBinding };
+		// Knuckles in Sonic 2 has object layouts of its own: walls, layer switches and monitors for the glide and the
+		// climb. The Knuckles binding has the same rings, bumpers and reels, and these objects.
+		LevelBinding knucklesBinding = kis2 != null && zone.Acts.All(a => File.Exists(System.IO.Path.Combine(kis2, a.ObjectsFile))) ? new LevelBinding() : null;
+		LevelBinding[] bindings = new[] { binding, versusBinding, knucklesBinding }.Where(b => b != null).ToArray();
 		var notes = new List<string>();
 		var unsupported = new SortedDictionary<int, int>();
 		foreach (OriginalAct act in zone.Acts)
@@ -845,20 +853,24 @@ public static class LevelImport
 					AddMapBumpers(zone, act, Path(act.BumpersFile), target);
 				}
 			}
-			AddObjects(binding, act, act.ObjectsFile, "", unsupported);
+			AddObjects(binding, act, Path(act.ObjectsFile), "", unsupported);
 			if (versusBinding != null)
 			{
-				AddObjects(versusBinding, act, act.VersusObjectsFile ?? act.ObjectsFile, "2p", null);
+				AddObjects(versusBinding, act, Path(act.VersusObjectsFile ?? act.ObjectsFile), "2p", null);
+			}
+			if (knucklesBinding != null)
+			{
+				AddObjects(knucklesBinding, act, System.IO.Path.Combine(kis2, act.ObjectsFile), "k", null);
 			}
 		}
 
-		// Converts the objects of a layout file of an act into a binding. The suffix keeps the IDs of the two layouts
-		// apart. Unsupported counts the types that SonicOrca does not have, or is null.
+		// Converts the objects of a layout file of an act into a binding. The suffix keeps the IDs of the layouts apart.
+		// Unsupported counts the types that SonicOrca does not have, or is null.
 		void AddObjects(LevelBinding binding, OriginalAct act, string file, string suffix, SortedDictionary<int, int> unsupported)
 		{
 			string n = act.Number.ToString();
 			int index = 0;
-			foreach (ObjectPlacements.OriginalObjectPlacement original in ObjectPlacements.FromFile(Path(file)))
+			foreach (ObjectPlacements.OriginalObjectPlacement original in ObjectPlacements.FromFile(file))
 			{
 				// The signpost of act 2 deletes itself (Obj0D_Init) outside two player mode. The import keeps it as a
 				// signpost for versus mode only. Metropolis act 2 is not the last act, so its signpost is a normal one.
@@ -945,7 +957,7 @@ public static class LevelImport
 		var newObjects = binding.ObjectPlacements.Select(p => p.Key).Concat(zone.Sprites.Select(s => s.ObjectKey)).Concat(zone.AreaObjects).Distinct()
 			.Where(RepositoryObjects.ContainsKey).ToDictionary(key => key, key => RepositoryObjects[key]);
 		return new ImportedLevel(map, binding, notes, sprites, newObjects, tileSet, priorityTexture, textures,
-			TileCollision.FromBlocks(FrontLayerIndex, blocks, heights, primary, secondary), tileAnimations, versusBinding, objectPaletteCycles);
+			TileCollision.FromBlocks(FrontLayerIndex, blocks, heights, primary, secondary), tileAnimations, versusBinding, objectPaletteCycles, knucklesBinding);
 	}
 
 	/// <summary>The key colour of each cycled entry, and its colour at each step of its cycle.</summary>

@@ -75,7 +75,7 @@ public class MetropolisZoneArea : Area
 		{
 			_level.TileSet = _resourceTree.GetLoadedResource<TileSet>(this, TileSetResourceKey);
 			_level.LoadMap(_resourceTree.GetLoadedResource<LevelMap>(this, MapResourceKey));
-			_level.LoadBinding(_resourceTree.GetLoadedResource<LevelBinding>(this, BindingResourceKey));
+			_level.LoadBinding(GetLevelBinding(_level, BindingResourceKey));
 		}
 		int act = Math.Clamp(settings.Act, 1, 3);
 		_level.CurrentAct = act;

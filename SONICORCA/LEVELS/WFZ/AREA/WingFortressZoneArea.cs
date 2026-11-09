@@ -151,7 +151,7 @@ public class WingFortressZoneArea : Area
 			// The map is shared: put back the layout changes of the last play
 			LayoutChanges.Reset(map);
 			_level.LoadMap(map);
-			_level.LoadBinding(_resourceTree.GetLoadedResource<LevelBinding>(this, BindingResourceKey));
+			_level.LoadBinding(GetLevelBinding(_level, BindingResourceKey));
 		}
 		// The zone has one act. Act 0 shows no act number, and a completed stage ends the zone: act 1 would load an
 		// act 2.

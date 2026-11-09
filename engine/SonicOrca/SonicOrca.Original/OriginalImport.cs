@@ -95,14 +95,17 @@ public static class OriginalImport
 		return Directory.GetDirectories(root).FirstOrDefault(d => File.Exists(Path.Combine(d, MarkerFile)));
 	}
 
-	/// <summary>Makes the map (with collision), the object binding and the art of a zone.</summary>
-	public static ImportedLevel ImportLevel(OriginalZone zone, string disassembly, string folder, Action<string> log)
+	/// <summary>
+	/// Makes the map (with collision), the object binding and the art of a zone. With the folder of KiS2, it also makes
+	/// the binding of Knuckles mode, BINDINGK.
+	/// </summary>
+	public static ImportedLevel ImportLevel(OriginalZone zone, string disassembly, string folder, Action<string> log, string kis2 = null)
 	{
 		if (!File.Exists(Path.Combine(disassembly, zone.ChunksFile)))
 		{
 			throw new IOException($"The folder {disassembly} does not contain the level data of s2disasm.");
 		}
-		ImportedLevel level = LevelImport.Import(zone, disassembly);
+		ImportedLevel level = LevelImport.Import(zone, disassembly, kis2);
 		string output = KeyFolder(folder, zone.Key);
 		Directory.CreateDirectory(output);
 		new LevelMapWriter(level.Map).Save(Path.Combine(output, "MAP.map.xml"));
@@ -116,6 +119,12 @@ public static class OriginalImport
 		{
 			// The area of the zone uses it in versus mode, when the players chose the two-player layouts
 			new LevelBindingWriter(level.VersusBinding).Save(Path.Combine(output, "BINDING2P.binding.xml"));
+		}
+		if (level.KnucklesBinding != null)
+		{
+			// The areas use it when Knuckles plays (Area.GetLevelBinding)
+			new LevelBindingWriter(level.KnucklesBinding).Save(Path.Combine(output, KnucklesLayouts.BindingName + ".binding.xml"));
+			log($"Wrote the Knuckles binding of {zone.Name}: {level.KnucklesBinding.ObjectPlacements.Count} objects.");
 		}
 		// The collision data of the original, so that the level editor can trace the collision again
 		if (level.TileCollision != null)
@@ -197,9 +206,11 @@ public static class OriginalImport
 
 	/// <summary>
 	/// Makes the sprites of Knuckles from the folder of "Knuckles in Sonic 2": the knuckles-in-sonic-2 branch of
-	/// s2disasm, which is not the folder of s2disasm.
+	/// s2disasm, which is not the folder of s2disasm. With the folder of s2disasm and the game data, it also makes the
+	/// Knuckles bindings of the HD zones (see <see cref="KnucklesLayouts"/>). The import of a zone makes the Knuckles
+	/// binding of an imported zone.
 	/// </summary>
-	public static void ImportKnuckles(string kis2, string folder, Action<string> log)
+	public static void ImportKnuckles(string kis2, string folder, Action<string> log, string s2disasm = null, ResourceTree gameData = null)
 	{
 		if (!KnucklesArt.IsKis2Folder(kis2))
 		{
@@ -209,6 +220,36 @@ public static class OriginalImport
 		// The resource that names the code of the object, SONICORCA/OBJECTS/KNUCKLES/KnucklesType.cs
 		File.WriteAllText(Path.Combine(KeyFolder(folder, KnucklesArt.ObjectKey), "_.object.cs"), "#use SONICORCA.OBJECTS.KNUCKLES");
 		log($"Wrote the sprites of Knuckles to {KeyFolder(folder, KnucklesArt.ObjectKey)}.");
+		if (s2disasm == null || gameData == null)
+		{
+			return;
+		}
+		var addedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+		foreach (string zone in KnucklesLayouts.HdZones.Keys)
+		{
+			Resource binding = gameData[$"SONICORCA/LEVELS/{zone}/BINDING"]?.Resource;
+			if (binding == null)
+			{
+				log($"The game data has no binding of {zone}, so its Knuckles binding is not made.");
+				continue;
+			}
+			string xml;
+			using (StreamReader reader = new StreamReader(binding.Source.ReadUncompressed()))
+			{
+				xml = reader.ReadToEnd();
+			}
+			string output = KeyFolder(folder, $"SONICORCA/LEVELS/{zone}");
+			Directory.CreateDirectory(output);
+			File.WriteAllText(Path.Combine(output, KnucklesLayouts.BindingName + ".binding.xml"), KnucklesLayouts.MakeHdBinding(zone, xml, s2disasm, kis2, log, addedKeys));
+		}
+		// The game data does not have some of the objects that KiS2 adds, for example the invisible blocks: a resource
+		// names their code, as the import of a zone does
+		foreach (string key in addedKeys.Where(key => gameData[key]?.Resource == null && LevelImport.RepositoryObjects.ContainsKey(key)))
+		{
+			string file = KeyFolder(folder, key) + ".object.cs";
+			Directory.CreateDirectory(Path.GetDirectoryName(file));
+			File.WriteAllText(file, "#use " + LevelImport.RepositoryObjects[key]);
+		}
 	}
 
 	/// <summary>Makes the art of the ending cutscene, the slides of the original credits, and the logo at their end.</summary>

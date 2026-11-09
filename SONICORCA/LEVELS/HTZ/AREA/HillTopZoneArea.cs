@@ -153,7 +153,7 @@ public class HillTopZoneArea : Area
 		{
 			_level.TileSet = _gameContext.ResourceTree.GetLoadedResource<TileSet>(this, TileSetResourceKey);
 			_level.LoadMap(_gameContext.ResourceTree.GetLoadedResource<LevelMap>(this, MapResourceKey));
-			_level.LoadBinding(_gameContext.ResourceTree.GetLoadedResource<LevelBinding>(this, BindingResourceKey));
+			_level.LoadBinding(GetLevelBinding(_level, BindingResourceKey));
 		}
 		if (settings.Act == 1)
 			PrepareAct1();

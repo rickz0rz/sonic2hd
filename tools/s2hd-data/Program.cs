@@ -41,11 +41,15 @@ try
 		["pack", string folder, string file] => Pack(folder, file, null),
 		["pack", string folder, string file, "--base", string baseFile] => Pack(folder, file, baseFile),
 		["import-special-stages", string disassembly, string folder] => ImportSpecialStages(disassembly, folder),
-		["import-level", string zone, string disassembly, string folder] => ImportLevel(zone, disassembly, folder),
+		["import-level", string zone, string disassembly, string folder] => ImportLevel(zone, disassembly, folder, null),
+		["import-level", string zone, string disassembly, string folder, "--kis2", string kis2] => ImportLevel(zone, disassembly, folder, kis2),
+		["import-level", string zone, string disassembly, "--kis2", string kis2, string folder] => ImportLevel(zone, disassembly, folder, kis2),
 		["import-demos", string disassembly, string folder] => ImportDemos(disassembly, folder),
 		["import-ending", string disassembly, string folder] => ImportEnding(disassembly, folder),
 		["import-super-sonic", string disassembly, string folder] => ImportSuperSonic(disassembly, folder),
-		["import-knuckles", string kis2, string folder] => ImportKnuckles(kis2, folder),
+		["import-knuckles", string kis2, string folder] => ImportKnuckles(kis2, folder, null, null),
+		["import-knuckles", string kis2, string folder, "--s2disasm", string s2disasm, "--base", string baseFile] => ImportKnuckles(kis2, folder, s2disasm, baseFile),
+		["import-knuckles", string kis2, "--s2disasm", string s2disasm, "--base", string baseFile, string folder] => ImportKnuckles(kis2, folder, s2disasm, baseFile),
 		["import-music", string disassembly, string folder] => ImportMusic(disassembly, folder),
 		["convert-tile-animations", string baseFile, string folder] => ConvertTileAnimations(baseFile, folder),
 		_ => Usage(),
@@ -163,9 +167,9 @@ static int ImportSuperSonic(string disassembly, string folder)
 	return 0;
 }
 
-static int ImportKnuckles(string kis2, string folder)
+static int ImportKnuckles(string kis2, string folder, string s2disasm, string baseFile)
 {
-	OriginalImport.ImportKnuckles(kis2, folder, Console.WriteLine);
+	OriginalImport.ImportKnuckles(kis2, folder, Console.WriteLine, s2disasm, baseFile != null ? Scan(baseFile) : null);
 	return 0;
 }
 
@@ -195,14 +199,14 @@ static int ImportMusic(string disassembly, string folder)
 	return 0;
 }
 
-static int ImportLevel(string zoneName, string disassembly, string folder)
+static int ImportLevel(string zoneName, string disassembly, string folder, string kis2)
 {
 	if (!OriginalZone.All.TryGetValue(zoneName, out OriginalZone zone))
 	{
 		Console.Error.WriteLine($"Error: The zone {zoneName} is not known. Known zones: {string.Join(", ", OriginalZone.All.Keys)}.");
 		return 1;
 	}
-	OriginalImport.ImportLevel(zone, disassembly, folder, Console.WriteLine);
+	OriginalImport.ImportLevel(zone, disassembly, folder, Console.WriteLine, kis2);
 	return 0;
 }
 
@@ -231,11 +235,11 @@ static int Usage()
 		  s2hd-data pack   <folder> <file.dat> [--base <original.dat>]
 		  s2hd-data prune  <folder> <file.dat>...
 		  s2hd-data import-special-stages <s2disasm folder> <folder>
-		  s2hd-data import-level <zone> <s2disasm folder> <folder>
+		  s2hd-data import-level <zone> <s2disasm folder> <folder> [--kis2 <KiS2 folder>]
 		  s2hd-data import-demos <s2disasm folder> <folder>
 		  s2hd-data import-ending <s2disasm folder> <folder>
 		  s2hd-data import-super-sonic <s2disasm folder> <folder>
-		  s2hd-data import-knuckles <KiS2 folder> <folder>
+		  s2hd-data import-knuckles <KiS2 folder> <folder> [--s2disasm <s2disasm folder> --base <sonicorca.dat>]
 		  s2hd-data import-music <s2disasm folder> <folder>
 		  s2hd-data convert-tile-animations <file.dat> <folder>
 		""");

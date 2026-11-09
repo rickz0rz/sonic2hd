@@ -92,7 +92,7 @@ public class CasinoNightZoneArea : Area
 			_level.LoadMap(map);
 			// Versus mode uses the two-player object layouts of the original (ObjectsManager_Init), when the players chose them
 			bool versusLayouts = settings.Versus && settings.VersusTwoPlayerLayouts && _resourceTree[this.GetAbsolutePath(VersusBindingResourceKey)]?.Resource != null;
-			_level.LoadBinding(_resourceTree.GetLoadedResource<LevelBinding>(this, versusLayouts ? VersusBindingResourceKey : BindingResourceKey));
+			_level.LoadBinding(versusLayouts ? _resourceTree.GetLoadedResource<LevelBinding>(this, VersusBindingResourceKey) : GetLevelBinding(_level, BindingResourceKey));
 			if (versusLayouts)
 			{
 				Trace.WriteLine("Casino Night: the two-player object layouts");
