@@ -48,7 +48,7 @@ public static class KnucklesArt
 	public const int GetUpAnimation = 37;
 
 	/// <summary>The files of KiS2 that the import needs. The folder of the import must have each of them.</summary>
-	public static readonly IReadOnlyList<string> RequiredFiles = new[] { ArtFile, MappingsFile, DplcFile, PaletteFile };
+	public static readonly IReadOnlyList<string> RequiredFiles = new[] { ArtFile, MappingsFile, DplcFile, PaletteFile, SuperPaletteFile };
 
 	private const string ArtFile = "art/uncompressed/Knuckles' art.bin";
 
@@ -57,6 +57,18 @@ public static class KnucklesArt
 	private const string DplcFile = "mappings/spriteDPLC/Knuckles.asm";
 
 	private const string PaletteFile = "art/palettes/SonicAndTails.bin";
+
+	private const string SuperPaletteFile = "art/palettes/Super Knuckles transformation.bin";
+
+	/// <summary>
+	/// The colours of the palette cycle of Super Knuckles (PalCycle_SuperSonic in KiS2): one row of 3 colours for each
+	/// frame of CyclingPal_SKTransformation, after row 0, which has the normal colours of Knuckles. The cycle writes
+	/// the entries 2, 3 and 5 of palette line 0.
+	/// </summary>
+	public const string PaletteKey = "SONICORCA/OBJECTS/KNUCKLES/PALETTE";
+
+	/// <summary>The entries of palette line 0 that the palette cycle of Super Knuckles changes.</summary>
+	private static readonly int[] CycledEntries = { 2, 3, 5 };
 
 	/// <summary>The delay of the frames of a script whose speed depends on the speed of the character ($FF, $FE, $FD).</summary>
 	private const int SpeedDelay = 4;
@@ -149,6 +161,28 @@ public static class KnucklesArt
 		List<List<SpritePiece>> mappings = SpriteImport.ParseMappings(File.ReadAllText(Path.Combine(kis2, MappingsFile)));
 		List<List<(int Tiles, int Offset)>> dplcs = SuperSonicArt.ParseDplc(File.ReadAllText(Path.Combine(kis2, DplcFile)));
 		uint[] palette = SpriteImport.ReadPalette(kis2, PaletteFile);
-		return DplcSpriteImport.Import(ObjectKey, art, mappings, dplcs, Scripts, palette, 0, new[] { "//TEXTURE" });
+		return DplcSpriteImport.Import(ObjectKey, art, mappings, dplcs, Scripts, palette, 0, new[] { "//TEXTURE", "//PALETTE" });
+	}
+
+	/// <summary>
+	/// Makes the image of the colours of the palette cycle of Super Knuckles: 3 colours wide, with the normal colours
+	/// in row 0 and one row for each frame of the cycle.
+	/// </summary>
+	public static byte[] ImportPalette(string kis2)
+	{
+		uint[] normal = SpriteImport.ReadPalette(kis2, PaletteFile);
+		uint[] cycle = SpriteImport.ReadColours(File.ReadAllBytes(Path.Combine(kis2, SuperPaletteFile)));
+		uint[] colours = CycledEntries.Select(entry => normal[entry]).Concat(cycle).ToArray();
+		int width = CycledEntries.Length;
+		int rows = colours.Length / width;
+		var pixels = new byte[rows * width * 4];
+		for (int i = 0; i < rows * width; i++)
+		{
+			pixels[i * 4] = (byte)(colours[i] >> 24);
+			pixels[i * 4 + 1] = (byte)(colours[i] >> 16);
+			pixels[i * 4 + 2] = (byte)(colours[i] >> 8);
+			pixels[i * 4 + 3] = (byte)colours[i];
+		}
+		return SpriteImport.EncodePng(pixels, width, rows);
 	}
 }

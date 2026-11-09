@@ -16,20 +16,26 @@ namespace SONICORCA.OBJECTS.SONIC;
 /// </summary>
 internal sealed class SuperSonicPalette : IDisposable
 {
-	/// <summary>The fade-in shows the frames 0 to 5 of CyclingPal_SSTransformation.</summary>
-	private const int FadeFrames = 6;
+	/// <summary>
+	/// The timing of a palette cycle: the rows of the fade-in, the last row of the normal cycle, and the timers. A
+	/// frame shows for its timer plus one tick.
+	/// </summary>
+	/// <param name="FadeFrames">The fade-in shows the rows 0 to FadeFrames - 1. The normal cycle starts at row FadeFrames.</param>
+	/// <param name="LastCycleFrame">The last row of the normal cycle. After it, the cycle starts again at row FadeFrames.</param>
+	/// <param name="StartTimer">The timer before the first row.</param>
+	/// <param name="FadeTimer">The timer of each row of the fade-in.</param>
+	/// <param name="CycleTimer">The timer of each row of the normal cycle.</param>
+	/// <param name="LastFrameTimer">The timer of the last row of the normal cycle, or null for <paramref name="CycleTimer"/>.</param>
+	public sealed record Schedule(int FadeFrames, int LastCycleFrame, int StartTimer, int FadeTimer, int CycleTimer, int? LastFrameTimer = null);
 
-	/// <summary>The normal cycle shows the frames $30 to $70. A bug of the original skips the last frame, $78.</summary>
-	private const int LastCycleFrame = 14;
+	/// <summary>
+	/// The timing of Super Sonic. The fade-in shows the frames 0 to 5 of CyclingPal_SSTransformation, each for 4 ticks.
+	/// The normal cycle shows the frames $30 to $70, each for 8 ticks. A bug of the original skips the last frame,
+	/// $78. Sonic_CheckGoSuper sets Palette_timer to $F.
+	/// </summary>
+	public static readonly Schedule SuperSonic = new Schedule(6, 14, 15, 3, 7);
 
-	/// <summary>Sonic_CheckGoSuper sets Palette_timer to $F.</summary>
-	private const int StartTimer = 15;
-
-	/// <summary>The fade-in shows each frame for 4 ticks.</summary>
-	private const int FadeTimer = 3;
-
-	/// <summary>The normal cycle shows each frame for 8 ticks.</summary>
-	private const int CycleTimer = 7;
+	private readonly Schedule _schedule;
 
 	private const int BytesPerPixel = 4;
 
@@ -56,8 +62,9 @@ internal sealed class SuperSonicPalette : IDisposable
 
 	private int _uploadedFrame = -1;
 
-	private SuperSonicPalette(IGraphicsContext graphicsContext, AnimationGroup animationGroup, byte[] pixels, int width, int[][] colours)
+	private SuperSonicPalette(IGraphicsContext graphicsContext, AnimationGroup animationGroup, byte[] pixels, int width, int[][] colours, Schedule schedule)
 	{
+		_schedule = schedule;
 		_pixels = pixels;
 		_width = width;
 		_colours = colours;
@@ -71,7 +78,8 @@ internal sealed class SuperSonicPalette : IDisposable
 	/// Returns the palette cycle for the original sprites of Super Sonic, or null when the group has no palette (an
 	/// import before version 5, whose sprites have the Super Sonic colours already).
 	/// </summary>
-	public static SuperSonicPalette Create(IGraphicsContext graphicsContext, AnimationGroup animationGroup)
+	/// <param name="schedule">The timing of the cycle, or null for <see cref="SuperSonic"/>.</param>
+	public static SuperSonicPalette Create(IGraphicsContext graphicsContext, AnimationGroup animationGroup, Schedule schedule = null)
 	{
 		if (animationGroup.Textures.Count < 2 || animationGroup.Textures[0].Resource == null || animationGroup.Textures[1].Resource == null)
 			return null;
@@ -84,7 +92,7 @@ internal sealed class SuperSonicPalette : IDisposable
 			for (int i = 0; i < colourCount; i++)
 				colours[frame][i] = GetRgb(palette, (frame * colourCount + i) * BytesPerPixel);
 		}
-		return new SuperSonicPalette(graphicsContext, animationGroup, pixels, width, colours);
+		return new SuperSonicPalette(graphicsContext, animationGroup, pixels, width, colours, schedule ?? SuperSonic);
 	}
 
 	/// <summary>Starts the fade-in, as Sonic_CheckGoSuper does.</summary>
@@ -92,7 +100,7 @@ internal sealed class SuperSonicPalette : IDisposable
 	{
 		_frame = 0;
 		_nextFrame = 0;
-		_timer = StartTimer;
+		_timer = _schedule.StartTimer;
 		_fading = true;
 	}
 
@@ -104,14 +112,17 @@ internal sealed class SuperSonicPalette : IDisposable
 		_frame = _nextFrame++;
 		if (_fading)
 		{
-			_timer = FadeTimer;
-			_fading = _nextFrame < FadeFrames;
+			_timer = _schedule.FadeTimer;
+			_fading = _nextFrame < _schedule.FadeFrames;
 		}
 		else
 		{
-			_timer = CycleTimer;
-			if (_nextFrame > LastCycleFrame)
-				_nextFrame = FadeFrames;
+			_timer = _schedule.CycleTimer;
+			if (_nextFrame > _schedule.LastCycleFrame)
+			{
+				_nextFrame = _schedule.FadeFrames;
+				_timer = _schedule.LastFrameTimer ?? _schedule.CycleTimer;
+			}
 		}
 	}
 

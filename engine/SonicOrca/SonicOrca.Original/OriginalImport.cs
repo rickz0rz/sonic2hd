@@ -217,6 +217,7 @@ public static class OriginalImport
 			throw new IOException($"The folder {kis2} does not contain the art of Knuckles. Give the folder of the knuckles-in-sonic-2 branch of s2disasm.");
 		}
 		WriteSprites(folder, new[] { KnucklesArt.Import(kis2) });
+		File.WriteAllBytes(Path.Combine(KeyFolder(folder, KnucklesArt.ObjectKey), "PALETTE.png"), KnucklesArt.ImportPalette(kis2));
 		// The resource that names the code of the object, SONICORCA/OBJECTS/KNUCKLES/KnucklesType.cs
 		File.WriteAllText(Path.Combine(KeyFolder(folder, KnucklesArt.ObjectKey), "_.object.cs"), "#use SONICORCA.OBJECTS.KNUCKLES");
 		log($"Wrote the sprites of Knuckles to {KeyFolder(folder, KnucklesArt.ObjectKey)}.");

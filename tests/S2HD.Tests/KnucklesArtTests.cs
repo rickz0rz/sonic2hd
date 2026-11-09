@@ -26,6 +26,23 @@ public sealed class KnucklesArtTests
 	}
 
 	/// <summary>
+	/// The palette of Super Knuckles has the normal colours of the entries 2, 3 and 5 in row 0, and then the 10 frames of
+	/// CyclingPal_SKTransformation, which have other colours.
+	/// </summary>
+	[Fact]
+	public void ImportPalette_HasTheNormalColours_ThenTheTenFramesOfTheCycle()
+	{
+		byte[] png = KnucklesArt.ImportPalette(FindKis2());
+
+		var reader = new Hjg.Pngcs.PngReader(new System.IO.MemoryStream(png));
+		Assert.Equal(3, reader.ImgInfo.Cols);
+		Assert.Equal(11, reader.ImgInfo.Rows);
+		byte[][] rows = Enumerable.Range(0, 11).Select(row => reader.ReadRowByte(row).ScanlineB.ToArray()).ToArray();
+		reader.End();
+		Assert.All(rows.Skip(1), row => Assert.NotEqual(rows[0], row));
+	}
+
+	/// <summary>
 	/// The folder of the knuckles-in-sonic-2 branch of s2disasm: S2HD_KIS2_DIR, or ../s2disasm-kis2 next to the
 	/// repository. The test skips when the folder is not there.
 	/// </summary>
