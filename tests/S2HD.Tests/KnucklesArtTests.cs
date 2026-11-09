@@ -42,6 +42,24 @@ public sealed class KnucklesArtTests
 		Assert.All(rows.Skip(1), row => Assert.NotEqual(rows[0], row));
 	}
 
+	/// <summary>The life icon has the size of the HD life icons, 68 pixels, with the head of 16 pixels at four times the size in the middle.</summary>
+	[Fact]
+	public void ImportLifeIcon_HasTheSizeOfTheHdIcons()
+	{
+		byte[] png = KnucklesArt.ImportLifeIcon(FindKis2());
+
+		var reader = new Hjg.Pngcs.PngReader(new System.IO.MemoryStream(png));
+		Assert.Equal(68, reader.ImgInfo.Cols);
+		Assert.Equal(68, reader.ImgInfo.Rows);
+		byte[] edge = reader.ReadRowByte(0).ScanlineB.ToArray();
+		byte[] middle = reader.ReadRowByte(34).ScanlineB.ToArray();
+		reader.End();
+		int channels = edge.Length / 68;
+		// The margin of 2 pixels is transparent, and the head is not
+		Assert.All(Enumerable.Range(0, 68), x => Assert.Equal(0, edge[x * channels + 3]));
+		Assert.Equal(255, middle[34 * channels + 3]);
+	}
+
 	/// <summary>
 	/// The folder of the knuckles-in-sonic-2 branch of s2disasm: S2HD_KIS2_DIR, or ../s2disasm-kis2 next to the
 	/// repository. The test skips when the folder is not there.

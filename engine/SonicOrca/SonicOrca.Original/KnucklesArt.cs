@@ -67,6 +67,14 @@ public static class KnucklesArt
 	/// </summary>
 	public const string PaletteKey = "SONICORCA/OBJECTS/KNUCKLES/PALETTE";
 
+	/// <summary>The life icon of the HUD. The HD life icons of Sonic and Tails are SONICORCA/HUD/LIFE/SONIC and TAILS.</summary>
+	public const string LifeIconKey = "SONICORCA/HUD/LIFE/KNUCKLES";
+
+	private const string LifeIconFile = "art/nemesis/Knuckles lives counter.nem";
+
+	/// <summary>The HD life icons are 68 pixels wide and high. The icon of the original is 16 pixels, 64 at four times the size.</summary>
+	private const int LifeIconSize = 68;
+
 	/// <summary>The entries of palette line 0 that the palette cycle of Super Knuckles changes.</summary>
 	private static readonly int[] CycledEntries = { 2, 3, 5 };
 
@@ -149,6 +157,47 @@ public static class KnucklesArt
 		new OriginalScript("ClimbLedge", 6, new[] { 0xBD, 0xBE, 0xBF }, HoldLast: true),     // Knuckles_DoLedgeClimbingAnimation
 		new OriginalScript("GetUp", 0x0F, new[] { 0xCD }, HoldLast: true),                   // KnucklesAni_GetUp
 	};
+
+	/// <summary>
+	/// Makes the life icon of the HUD: the head of Knuckles, the first 2 x 2 tiles of the lives counter of KiS2 (tiles in
+	/// columns), with palette line 0, at four times the size, in the middle of an image of the size of the HD icons.
+	/// </summary>
+	public static byte[] ImportLifeIcon(string kis2)
+	{
+		byte[] art = SpriteImport.ReadArt(kis2, LifeIconFile);
+		uint[] palette = SpriteImport.ReadPalette(kis2, PaletteFile);
+		const int scale = 4;
+		const int tilePixels = 8;
+		int margin = (LifeIconSize - 2 * tilePixels * scale) / 2;
+		var pixels = new byte[LifeIconSize * LifeIconSize * 4];
+		for (int y = 0; y < 2 * tilePixels; y++)
+		{
+			for (int x = 0; x < 2 * tilePixels; x++)
+			{
+				// A sprite piece of 2 x 2 tiles has its tiles in columns: 0 and 1 on the left, 2 and 3 on the right
+				int tile = (x / tilePixels) * 2 + y / tilePixels;
+				int offset = tile * 32 + (y % tilePixels) * 4 + (x % tilePixels) / 2;
+				int index = (x % 2 == 0) ? art[offset] >> 4 : art[offset] & 0xF;
+				if (index == 0)
+				{
+					continue;
+				}
+				uint colour = palette[index];
+				for (int dy = 0; dy < scale; dy++)
+				{
+					for (int dx = 0; dx < scale; dx++)
+					{
+						int at = ((margin + y * scale + dy) * LifeIconSize + margin + x * scale + dx) * 4;
+						pixels[at] = (byte)(colour >> 24);
+						pixels[at + 1] = (byte)(colour >> 16);
+						pixels[at + 2] = (byte)(colour >> 8);
+						pixels[at + 3] = 0xFF;
+					}
+				}
+			}
+		}
+		return SpriteImport.EncodePng(pixels, LifeIconSize, LifeIconSize);
+	}
 
 	/// <summary>True when the folder has the files of KiS2 that the import needs.</summary>
 	public static bool IsKis2Folder(string folder) => RequiredFiles.All(file => File.Exists(Path.Combine(folder, file)));
