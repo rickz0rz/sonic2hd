@@ -71,6 +71,9 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	private const string FloorResourceKey = "SONICORCA/SPECIALSTAGE/HALFPIPE/FLOOR";
 
+	/// <summary>The gold ball of the rings of balls around the pipe, at the yellow stripes of the floor.</summary>
+	private const string BallResourceKey = "SONICORCA/SPECIALSTAGE/HALFPIPE/BALL";
+
 	/// <summary>The colors of the pipe of each stage, from the import of the disassembly (see SpecialStageColours).</summary>
 	private const string ColoursResourceKey = "SONICORCA/SPECIALSTAGE/COLOURS";
 
@@ -275,6 +278,21 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	private const double RingSize = 0.7;
 
+	/// <summary>The size of a ball of the rings of balls around the pipe, in track units.</summary>
+	private const double BallSize = 1.3;
+
+	/// <summary>
+	/// The number of gaps between the balls of a ring of balls, on the half circle at the open top of the pipe. A ring
+	/// has one more ball than gaps: a ball at each edge of the pipe, and a ball each 30 degrees between them.
+	/// </summary>
+	private const int BallsPerHalfCircle = 6;
+
+	/// <summary>
+	/// The place of the yellow stripe in one repeat of the floor texture, in track nodes from the start of the repeat.
+	/// The stripe is at rows 3162 to 3222 of the 4096 rows of the texture.
+	/// </summary>
+	private const double YellowStripeNode = 6.07;
+
 	/// <summary>
 	/// The glow behind a ring is this many times the size of the ring. It is small and faint, so that the ring looks
 	/// brighter, not like a ring with a halo. The rings are small on the wide screen, so this makes them easier to see
@@ -359,6 +377,11 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	/// <summary>The floor in the colors of this stage, or null when the floor texture has them already.</summary>
 	private ITexture _stageFloorTexture;
+
+	private ITexture _ballTexture;
+
+	/// <summary>The ball in the colours of the stage, or null for stage 1.</summary>
+	private ITexture _stageBallTexture;
 
 	private ITexture _bombTexture;
 
@@ -595,7 +618,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		string[] keys =
 		{
 			FontResourceKey, BackgroundResourceKey, FloorResourceKey, SonicAnimationResourceKey, RingAnimationResourceKey,
-			RingEffectAnimationResourceKey, ExplosionAnimationResourceKey, BombResourceKey, ShadowResourceKey, BallShadowResourceKey, GlowResourceKey,
+			RingEffectAnimationResourceKey, ExplosionAnimationResourceKey, BombResourceKey, ShadowResourceKey, BallShadowResourceKey, GlowResourceKey, BallResourceKey,
 			RingsLabelResourceKey, MusicResourceKey, RingSoundResourceKey, JumpSoundResourceKey, RingLossSoundResourceKey,
 			BombSoundResourceKey, CheckpointSoundResourceKey, ErrorSoundResourceKey, TallySoundResourceKey,
 			TallyEndSoundResourceKey, PerfectSoundResourceKey, EmeraldMusicResourceKey,
@@ -661,10 +684,13 @@ public class HalfPipeSpecialStageScreen : Screen
 		_font = tree.GetLoadedResource<Font>(FontResourceKey);
 		_backgroundTexture = tree.GetLoadedResource<ITexture>(BackgroundResourceKey);
 		_floorTexture = tree.GetLoadedResource<ITexture>(FloorResourceKey);
+		_ballTexture = tree.GetLoadedResource<ITexture>(BallResourceKey);
 		if (hasColours)
 		{
-			_stageFloorTexture = CreateStageFloorTexture(tree);
+			_stageFloorTexture = CreateStageTexture(tree, FloorResourceKey);
 			_floorTexture = _stageFloorTexture ?? _floorTexture;
+			_stageBallTexture = CreateStageTexture(tree, BallResourceKey);
+			_ballTexture = _stageBallTexture ?? _ballTexture;
 		}
 		_bombTexture = tree.GetLoadedResource<ITexture>(BombResourceKey);
 		_glowTexture = tree.GetLoadedResource<ITexture>(GlowResourceKey);
@@ -1145,7 +1171,7 @@ public class HalfPipeSpecialStageScreen : Screen
 	/// Makes the floor in the colors of this stage, from the floor texture, which has the colors of stage 1. Gives null
 	/// when the stage has the colors of stage 1, or when the colors cannot be read.
 	/// </summary>
-	private ITexture CreateStageFloorTexture(ResourceTree tree)
+	private ITexture CreateStageTexture(ResourceTree tree, string key)
 	{
 		try
 		{
@@ -1161,7 +1187,7 @@ public class HalfPipeSpecialStageScreen : Screen
 			{
 				return null;
 			}
-			Resource floor = tree[FloorResourceKey]?.Resource;
+			Resource floor = tree[key]?.Resource;
 			if (floor == null)
 			{
 				return null;
@@ -1176,7 +1202,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		}
 		catch (Exception ex) when (ex is IOException || ex is FormatException || ex is XmlException || ex is InvalidOperationException)
 		{
-			Trace.WriteLine("The floor keeps the colors of stage 1: " + ex.Message);
+			Trace.WriteLine($"{key} keeps the colors of stage 1: " + ex.Message);
 			return null;
 		}
 	}
@@ -1195,6 +1221,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		_pipeBuffer?.Dispose();
 		_emeraldTexture?.Dispose();
 		_stageFloorTexture?.Dispose();
+		_stageBallTexture?.Dispose();
 		_pipeShader?.Dispose();
 		_objectShader?.Dispose();
 	}
@@ -1442,6 +1469,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		DrawPipe(program);
 
 		List<TexturedQuad> quads = new List<TexturedQuad>();
+		AddBallQuads(quads);
 		AddObjectQuads(quads);
 		AddPlayerQuads(quads, _player, GetDrawPose(_player, _sonicPreviousPose), _sonicAnimation, _playerHeight);
 		if (_tails != null)
@@ -1524,9 +1552,7 @@ public class HalfPipeSpecialStageScreen : Screen
 	/// </summary>
 	private void FillPipeBuffer()
 	{
-		double textureScale = 8.0 / _floorTexture.Width;
-		// The number of track nodes that one repeat of the floor texture covers.
-		int textureRepeatNodes = (int)(_floorTexture.Height * textureScale / HalfPipeTrackBuilder.NodeSpacing);
+		int textureRepeatNodes = GetTextureRepeatNodes();
 		Vector3[] crossSection = GetCrossSection();
 		Vector3[] previousSection = null;
 		Vector3[] section = new Vector3[crossSection.Length];
@@ -1579,6 +1605,47 @@ public class HalfPipeSpecialStageScreen : Screen
 		// The quads between nodes first and first + 1 come first
 		_pipeBuffer.Render(PrimitiveType.Quads, first * QuadsPerNode * 4, (last - first) * QuadsPerNode * 4);
 	}
+
+	/// <summary>
+	/// Adds the rings of gold balls around the pipe. A ring of balls is at each yellow stripe of the floor, on the half
+	/// circle above the pipe, from the left edge to the right edge. As the rings and the bombs, the balls are at full
+	/// brightness.
+	/// </summary>
+	private void AddBallQuads(List<TexturedQuad> quads)
+	{
+		if (_ballTexture == null)
+		{
+			return;
+		}
+		int repeat = GetTextureRepeatNodes();
+		var source = new Rectanglei(0, 0, _ballTexture.Width, _ballTexture.Height);
+		int firstRepeat = Math.Max(0, (int)Math.Floor((_currentTrackNode - YellowStripeNode) / repeat));
+		for (int r = firstRepeat; ; r++)
+		{
+			double place = r * repeat + YellowStripeNode;
+			if (place > Math.Min(_currentTrackNode + ObjectDrawDistance, _track.Nodes.Count - 1))
+			{
+				break;
+			}
+			if (place < _currentTrackNode)
+			{
+				continue;
+			}
+			int node = (int)Math.Floor(place);
+			(Vector3 position, double yaw, _) = GetTrackPoint(node, place - node);
+			Matrix4 transform = Matrix4.Identity.RotateY(yaw).Translate(position);
+			for (int i = 0; i <= BallsPerHalfCircle; i++)
+			{
+				// The angle from the bottom: -pi / 2 is the left edge, -pi is the top and -3 pi / 2 is the right edge
+				double angle = -Math.PI / 2.0 - i * Math.PI / BallsPerHalfCircle;
+				// The centre of the ball is on the circle of the pipe
+				quads.Add(WithStyle(CreateSprite(transform, angle, -BallSize / 2.0 - SurfaceGap, BallSize, BallSize, _ballTexture, source), QuadStyle.Bright));
+			}
+		}
+	}
+
+	/// <summary>The number of track nodes that one repeat of the floor texture covers.</summary>
+	private int GetTextureRepeatNodes() => (int)(_floorTexture.Height * (8.0 / _floorTexture.Width) / HalfPipeTrackBuilder.NodeSpacing);
 
 	private void AddObjectQuads(List<TexturedQuad> quads)
 	{
