@@ -106,6 +106,10 @@ public class SignpostInstance : ActiveObject
 
 	protected override void OnStart()
 	{
+		// Knuckles has the face of Knuckles in Sonic 2 in the place of the face of Sonic
+		if (Level.Player.ProtagonistCharacterType == CharacterType.Knuckles &&
+			ResourceTree.TryGetLoadedResource(SignpostType.KnucklesAnimationGroupResourceKey, out AnimationGroup knucklesGroup))
+			_knucklesFace = new AnimationInstance(knucklesGroup);
 		// The level editor shows the signpost, so that the user can see and move it
 		if (_versusOnly && !Level.Versus && Level.State != LevelState.Editing)
 		{
@@ -365,8 +369,26 @@ public class SignpostInstance : ActiveObject
 
 	protected override void OnAnimate() => _animation.Animate();
 
+	/// <summary>The face of Knuckles of KiS2: animation 0 is the face, and 1 to 3 are the frames of the turn. Null for the other characters.</summary>
+	private AnimationInstance _knucklesFace;
+
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 	{
-		renderer.GetObjectRenderer().Render(_animation);
+		int offset = _animation.Index - AnimationSonic;
+		if (_knucklesFace == null || offset < OffsetToFront || offset > OffsetToSide)
+		{
+			renderer.GetObjectRenderer().Render(_animation);
+			return;
+		}
+		// The face of Sonic shows the face of Knuckles. A turn shows the frames of the turn of the original: the edge
+		// (frame 4 of Obj0D) in its first half, the side (frame 3) in its second half, or the other way round.
+		bool firstHalf = _animation.CurrentFrameIndex * 2 < _animation.Animation.Frames.Count;
+		_knucklesFace.Index = offset == OffsetFront ? 0 : (offset == OffsetToFront) == firstHalf ? 2 : 1;
+		// The frames of the HD sign are centred on the object. The frames of the original are as large, and 32 units
+		// lower, because the post of the original goes further down.
+		renderer.GetObjectRenderer().RenderOriginal(_knucklesFace, new Vector2(0.0, -KnucklesFaceOffsetY));
 	}
+
+	/// <summary>The offset of the frames of the original sign below the frames of the HD sign.</summary>
+	private const double KnucklesFaceOffsetY = 32.0;
 }

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -75,6 +76,20 @@ public static class KnucklesArt
 	/// has the colours of Knuckles.
 	/// </summary>
 	public const string StarsObjectKey = "SONICORCA/OBJECTS/KNUCKLES/STARS";
+
+	/// <summary>
+	/// The face of Knuckles on the signpost (Obj0D). KiS2 loads "Signpost (Knuckles patch).nem" over the face of Sonic
+	/// (ArtTile_ArtNem_Signpost+34). Animation 0 is the face (mapping frame 0), and animations 1 to 3 are the frames of
+	/// the turn (mapping frames 3 to 5).
+	/// </summary>
+	public const string SignpostKey = "SONICORCA/OBJECTS/SIGNPOST/KNUCKLES";
+
+	/// <summary>
+	/// The extra life of Knuckles in a monitor. The extra life of the original monitor (Ani_obj26_Sonic) shows mapping
+	/// frame 2, which has the tiles of the lives counter (ArtTile_ArtNem_Powerups+$154 is ArtTile_ArtNem_life_counter),
+	/// so KiS2 shows the head of Knuckles of its lives counter: 16 pixels, 64 at four times the size.
+	/// </summary>
+	public const string MonitorIconKey = "SONICORCA/OBJECTS/MONITOR/KNUCKLES";
 
 	/// <summary>The life icon of the HUD. The HD life icons of Sonic and Tails are SONICORCA/HUD/LIFE/SONIC and TAILS.</summary>
 	public const string LifeIconKey = "SONICORCA/HUD/LIFE/KNUCKLES";
@@ -202,18 +217,39 @@ public static class KnucklesArt
 		return DplcSpriteImport.Import(SpecialStageObjectKey, art, mappings, dplcs, scripts, palette, 1, new[] { "//TEXTURE" });
 	}
 
+	/// <summary>Makes the face of Knuckles on the signpost, with palette line 0 of KiS2, at four times the size.</summary>
+	public static ImportedSprite ImportSignpost(string kis2)
+	{
+		byte[] signpost = SpriteImport.ReadArt(kis2, "art/nemesis/Signpost.nem");
+		byte[] patch = SpriteImport.ReadArt(kis2, "art/nemesis/Signpost (Knuckles patch).nem");
+		const int patchTile = 34;
+		byte[] art = new byte[Math.Max(signpost.Length, (patchTile * 32) + patch.Length)];
+		signpost.CopyTo(art, 0);
+		patch.CopyTo(art, patchTile * 32);
+		List<List<SpritePiece>> mappings = SpriteImport.ParseMappings(File.ReadAllText(Path.Combine(kis2, "mappings/sprite/obj0D_a.asm")));
+		List<List<SpritePiece>> frames = new[] { 0, 3, 4, 5 }.Select(frame => mappings[frame]).ToList();
+		uint[] palette = SpriteImport.ReadPalette(kis2, PaletteFile);
+		return SpriteImport.Import(SignpostKey, art, frames, new[] { 0 }, System.Array.Empty<int>(), palette, 4);
+	}
+
 	/// <summary>
 	/// Makes the life icon of the HUD: the head of Knuckles, the first 2 x 2 tiles of the lives counter of KiS2 (tiles in
 	/// columns), with palette line 0, at four times the size, in the middle of an image of the size of the HD icons.
 	/// </summary>
-	public static byte[] ImportLifeIcon(string kis2)
+	public static byte[] ImportLifeIcon(string kis2) => ImportHead(kis2, LifeIconSize);
+
+	/// <summary>Makes the extra life of Knuckles in a monitor: the head of the lives counter, 64 pixels wide and high.</summary>
+	public static byte[] ImportMonitorIcon(string kis2) => ImportHead(kis2, 64);
+
+	/// <summary>The head of the lives counter of KiS2 at four times the size, in the middle of a square image.</summary>
+	private static byte[] ImportHead(string kis2, int imageSize)
 	{
 		byte[] art = SpriteImport.ReadArt(kis2, LifeIconFile);
 		uint[] palette = SpriteImport.ReadPalette(kis2, PaletteFile);
 		const int scale = 4;
 		const int tilePixels = 8;
-		int margin = (LifeIconSize - 2 * tilePixels * scale) / 2;
-		var pixels = new byte[LifeIconSize * LifeIconSize * 4];
+		int margin = (imageSize - 2 * tilePixels * scale) / 2;
+		var pixels = new byte[imageSize * imageSize * 4];
 		for (int y = 0; y < 2 * tilePixels; y++)
 		{
 			for (int x = 0; x < 2 * tilePixels; x++)
@@ -231,7 +267,7 @@ public static class KnucklesArt
 				{
 					for (int dx = 0; dx < scale; dx++)
 					{
-						int at = ((margin + y * scale + dy) * LifeIconSize + margin + x * scale + dx) * 4;
+						int at = ((margin + y * scale + dy) * imageSize + margin + x * scale + dx) * 4;
 						pixels[at] = (byte)(colour >> 24);
 						pixels[at + 1] = (byte)(colour >> 16);
 						pixels[at + 2] = (byte)(colour >> 8);
@@ -240,7 +276,7 @@ public static class KnucklesArt
 				}
 			}
 		}
-		return SpriteImport.EncodePng(pixels, LifeIconSize, LifeIconSize);
+		return SpriteImport.EncodePng(pixels, imageSize, imageSize);
 	}
 
 	/// <summary>True when the folder has the files of KiS2 that the import needs.</summary>

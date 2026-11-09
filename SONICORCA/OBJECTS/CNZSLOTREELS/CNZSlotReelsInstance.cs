@@ -23,6 +23,10 @@ public class CNZSlotReelsInstance : ActiveObject
 	protected override void OnStart()
 	{
 		_texture = ResourceTree.GetLoadedResource<ITexture>(Type.GetAbsolutePath(CNZSlotReelsType.TextureResourceKey));
+		// Knuckles in Sonic 2 has the face of Knuckles on the reels in the place of the face of Sonic
+		if (Level.Player.ProtagonistCharacterType == CharacterType.Knuckles &&
+			ResourceTree.TryGetLoadedResource(Type.GetAbsolutePath(CNZSlotReelsType.KnucklesTextureResourceKey), out ITexture knucklesTexture))
+			_texture = knucklesTexture;
 		// In front of the landscape, behind the characters
 		Priority = 1;
 	}
