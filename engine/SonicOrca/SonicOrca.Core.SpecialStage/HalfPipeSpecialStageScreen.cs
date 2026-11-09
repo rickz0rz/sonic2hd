@@ -82,6 +82,12 @@ public class HalfPipeSpecialStageScreen : Screen
 	/// </summary>
 	private const string KnucklesAnimationResourceKey = "SONICORCA/SPECIALSTAGE/KNUCKLESANIM/ANIGROUP";
 
+	/// <summary>The results screen of Knuckles in Sonic 2, with the word "Knuckles" (SpecialStageArt.ImportKnucklesResults).</summary>
+	private const string KnucklesResultsResourceKey = "SONICORCA/SPECIALSTAGE/ORIGINAL/RESULTSK/ANIGROUP";
+
+	/// <summary>The frame of the word "Knuckles" in the results of KiS2 (Obj6F_Knuckles).</summary>
+	private const int KnucklesNameFrame = 0x1D;
+
 	/// <summary>The height of the frames of the HD group of Sonic, in pixels. The sprites of Knuckles have the same scale.</summary>
 	private const double SonicFrameHeight = 264.0;
 
@@ -316,6 +322,9 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	/// <summary>True when Knuckles plays.</summary>
 	private readonly bool _knuckles;
+
+	/// <summary>The results art of Knuckles in Sonic 2, or null.</summary>
+	private AnimationGroup _knucklesResults;
 
 	/// <summary>The height of the sprite of the main player: Sonic, or Knuckles at the scale of Sonic.</summary>
 	private double _playerHeight = SonicHeight;
@@ -615,6 +624,11 @@ public class HalfPipeSpecialStageScreen : Screen
 		{
 			_resourceSession.PushDependency(KnucklesAnimationResourceKey);
 		}
+		bool knucklesResults = _knuckles && hasOriginalArt && resources[KnucklesResultsResourceKey]?.Resource != null;
+		if (knucklesResults)
+		{
+			_resourceSession.PushDependency(KnucklesResultsResourceKey);
+		}
 		_resourceSession.PushDependency(resultsJingleKey);
 		string emeraldJingleKey = resources[GotEmeraldJingleResourceKey]?.Resource != null ? GotEmeraldJingleResourceKey : EmeraldMusicResourceKey;
 		_resourceSession.PushDependency(emeraldJingleKey);
@@ -672,6 +686,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		_emeraldJingle = tree.GetLoadedResource<Sample>(emeraldJingleKey);
 		_resultsJingle = tree.GetLoadedResource<Sample>(resultsJingleKey);
 		_originalArt = hasOriginalArt ? new HalfPipeOriginalArt(tree) : null;
+		_knucklesResults = knucklesResults ? tree.GetLoadedResource<AnimationGroup>(KnucklesResultsResourceKey) : null;
 		if (_tails != null)
 		{
 			_tailsAnimation = new AnimationInstance(tree, TailsAnimationResourceKey);
@@ -1286,14 +1301,15 @@ public class HalfPipeSpecialStageScreen : Screen
 	private void DrawOriginalResults(I2dRenderer g)
 	{
 		g.RenderQuad(Colours.White, new Rectangle(0.0, 0.0, 1920.0, 1080.0));
-		AnimationGroup results = _originalArt.Results;
+		AnimationGroup results = _knucklesResults ?? _originalArt.Results;
 		double left = HalfPipeOriginalArt.ResultsLeft;
 		const double centreX = 160.0;
 		const double centreY = 112.0;
-		// A text slides from its start towards the centre of the screen
-		double Slide(double start) => start > centreX
-			? Math.Max(centreX, start - _resultsFrames * ResultsTextSpeed)
-			: Math.Min(centreX, start + _resultsFrames * ResultsTextSpeed);
+		// A text slides from its start towards its place, the centre of the screen unless the text has another
+		double SlideTo(double start, double target) => start > target
+			? Math.Max(target, start - _resultsFrames * ResultsTextSpeed)
+			: Math.Min(target, start + _resultsFrames * ResultsTextSpeed);
+		double Slide(double start) => SlideTo(start, centreX);
 		bool allEmeralds = _results.SuperMessage;
 		int titleFrame = allEmeralds ? 25 : _results.EmeraldWon ? 4 : 0;
 		if (_results.Phase == HalfPipeResultsPhase.SuperMessage)
@@ -1303,7 +1319,15 @@ public class HalfPipeSpecialStageScreen : Screen
 		else
 		{
 			HalfPipeOriginalArt.DrawFrame(g, results, titleFrame, left, Slide(320 + 128), centreY - 70);
-			if (_results.EmeraldWon)
+			if (_results.EmeraldWon && _knucklesResults != null)
+			{
+				// KiS2 split the text in two (Obj6F_SubObjectMetaData): "got a" or "has all the" comes from -48 to 80
+				// pixels right of the centre, and "Knuckles" from -120 to 8 pixels right of it, 44 pixels more to the
+				// left with all the emeralds
+				HalfPipeOriginalArt.DrawFrame(g, results, allEmeralds ? 22 : 1, left, SlideTo(-48, centreX + 80), centreY - 88);
+				HalfPipeOriginalArt.DrawFrame(g, results, KnucklesNameFrame, left, SlideTo(-120 - (allEmeralds ? 44 : 0), centreX + 8 - (allEmeralds ? 44 : 0)), centreY - 88);
+			}
+			else if (_results.EmeraldWon)
 			{
 				// "Sonic got a" or "Sonic has all the", from the left
 				HalfPipeOriginalArt.DrawFrame(g, results, allEmeralds ? 22 : 1, left, Slide(-128), centreY - 88);
@@ -1366,6 +1390,13 @@ public class HalfPipeSpecialStageScreen : Screen
 		if (frames <= HalfPipeResults.SuperMessageLeaveFrames)
 		{
 			HalfPipeOriginalArt.DrawFrame(g, results, titleFrame, left, Math.Min(320 + 128, centreX + frames * HalfPipeResults.LeaveSpeed), centreY - 70);
+			if (_knucklesResults != null)
+			{
+				// "has all the" and "Knuckles" leave to the left
+				HalfPipeOriginalArt.DrawFrame(g, results, 22, left, Math.Max(-128, centreX + 80 - frames * HalfPipeResults.LeaveSpeed), centreY - 88);
+				HalfPipeOriginalArt.DrawFrame(g, results, KnucklesNameFrame, left, Math.Max(-128, centreX + 8 - 44 - frames * HalfPipeResults.LeaveSpeed), centreY - 88);
+				return;
+			}
 			HalfPipeOriginalArt.DrawFrame(g, results, 22, left, Math.Max(-128, centreX - frames * HalfPipeResults.LeaveSpeed), centreY - 88);
 			return;
 		}

@@ -28,6 +28,15 @@ public static class SpecialStageArt
 	/// </summary>
 	public const string HudKey = "SONICORCA/SPECIALSTAGE/ORIGINAL/HUD";
 
+	/// <summary>
+	/// The results screen of Knuckles in Sonic 2 (KiS2). Its mappings of Obj6F have the word "Knuckles" apart from
+	/// "got a", in frame $1D, and the results load the letter K too (SpecialStage_ResultsLetters of KiS2).
+	/// </summary>
+	public const string KnucklesResultsKey = "SONICORCA/SPECIALSTAGE/ORIGINAL/RESULTSK";
+
+	/// <summary>The letter K of the font of large broken letters, which only KiS2 loads, after the full stop.</summary>
+	private static readonly (int Tile, int Size) LetterK = (0x22, 4);
+
 	/// <summary>The digits 0 to 9 of the counters of the results screen, in the colours of the results screen.</summary>
 	public const string DigitsKey = "SONICORCA/SPECIALSTAGE/ORIGINAL/DIGITS";
 
@@ -74,24 +83,34 @@ public static class SpecialStageArt
 				disassembly, stagePalette, Scale),
 			SpriteImport.Import(new OriginalSprite(StartKey, "art/nemesis/Start text from special stage.nem", "mappings/sprite/obj5F_a.asm", 0),
 				disassembly, stagePalette, Scale),
-			SpriteImport.Import(ResultsKey, GetResultsArt(disassembly),
-				SpriteImport.ParseMappings(File.ReadAllText(Path.Combine(disassembly, "mappings/sprite/obj6F.asm"))), new[] { 0 },
-				Array.Empty<int>(), resultsPalette, Scale),
+			ImportResults(disassembly, ResultsKey, ResultsLetters),
 			ImportDigits(disassembly, resultsPalette)
 		};
+	}
+
+	/// <summary>The results screen of Knuckles in Sonic 2, from the folder of KiS2.</summary>
+	public static ImportedSprite ImportKnucklesResults(string kis2) => ImportResults(kis2, KnucklesResultsKey, ResultsLetters.Append(LetterK).ToArray());
+
+	private static ImportedSprite ImportResults(string disassembly, string key, (int Tile, int Size)[] letters)
+	{
+		uint[] resultsPalette = new uint[64];
+		SpriteImport.ReadPaletteFile(disassembly, "art/palettes/Special Stage Results Screen.bin", resultsPalette, 0);
+		return SpriteImport.Import(key, GetResultsArt(disassembly, letters),
+			SpriteImport.ParseMappings(File.ReadAllText(Path.Combine(disassembly, "mappings/sprite/obj6F.asm"))), new[] { 0 },
+			Array.Empty<int>(), resultsPalette, Scale);
 	}
 
 	/// <summary>
 	/// The video memory of the results screen: the art at the tiles where the original loads it. The counters at tile
 	/// $520 are digits that the HUD code writes while the screen runs, so the game draws them with <see cref="DigitsKey"/>.
 	/// </summary>
-	private static byte[] GetResultsArt(string disassembly)
+	private static byte[] GetResultsArt(string disassembly, (int Tile, int Size)[] letters)
 	{
 		byte[] art = new byte[(HudTile + 0x40) * BytesPerTile];
 		void Load(byte[] data, int tile) => data.AsSpan(0, Math.Min(data.Length, art.Length - tile * BytesPerTile)).CopyTo(art.AsSpan(tile * BytesPerTile));
 		byte[] font = SpriteImport.ReadArt(disassembly, "art/nemesis/Font using large broken letters.nem");
 		int letterTile = 2;
-		foreach ((int tile, int size) in ResultsLetters)
+		foreach ((int tile, int size) in letters)
 		{
 			Load(font.AsSpan(tile * BytesPerTile, size * BytesPerTile).ToArray(), letterTile);
 			letterTile += size;
