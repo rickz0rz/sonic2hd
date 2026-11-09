@@ -43,18 +43,26 @@ internal sealed class LevelCatalog : ILevelCatalog
 		return EditorModFile.Save(new[] { change }, EditorModFile.GetPath(_gameContext.UserDataDirectory, Levels.OrderResourceKey));
 	}
 
-	public string SaveModLevelInfo(string mnemonic, string name, string music)
+	public string SaveModLevelInfo(string mnemonic, string name, string music, string boss)
 	{
 		Resource resource = _gameContext.ResourceTree[$"SONICORCA/LEVELS/{mnemonic.ToUpperInvariant()}/INFO"]?.Resource
 			?? throw new InvalidOperationException($"The level {mnemonic} has no INFO file.");
 		byte[] data;
 		using (Stream stream = resource.Source.ReadUncompressed())
-			data = Levels.WriteModLevelInfo(stream, name, music);
-		// The resource then reads the new data, so the next load of the level uses the new name and music
+			data = Levels.WriteModLevelInfo(stream, name, music, boss);
+		// The resource then reads the new data, so the next load of the level uses the new name, music and boss
 		return EditorModFile.Save(new[] { new EditorModFile.Change(resource, data) }, EditorModFile.GetPath(_gameContext.UserDataDirectory, resource.FullKeyPath));
 	}
 
 	public IReadOnlyList<string> GetMusic() => Levels.GetMusicKeys(_gameContext.ResourceTree);
+
+	public IReadOnlyList<LevelBoss> GetBosses()
+	{
+		return Bosses.All
+			.Where(boss => _gameContext.ResourceTree[boss.ObjectKey]?.Resource != null)
+			.Select(boss => new LevelBoss(boss.Name, boss.ObjectKey, BossArena.GetArenaBounds(boss.Arena, boss.Arena.BossPosition * -4, 1920, 1080), boss.FloorY))
+			.ToArray();
+	}
 
 	public string GetTitleCardName(string areaResourceKey)
 	{
@@ -121,6 +129,7 @@ internal sealed class LevelCatalog : ILevelCatalog
 		return new LevelCatalogEntry(level.Mnemonic, level.Name, level.Acts, isMod,
 			Levels.GetAreaResourceKey(level.Mnemonic, _gameContext.ResourceTree), storyNumber,
 			isMod ? null : Levels.GetOriginalName(level.Mnemonic),
-			isMod ? Levels.GetModLevelMusic(level.Mnemonic, _gameContext.ResourceTree) : null);
+			isMod ? Levels.GetModLevelMusic(level.Mnemonic, _gameContext.ResourceTree) : null,
+			isMod ? Levels.GetModLevelBoss(level.Mnemonic, _gameContext.ResourceTree) : null);
 	}
 }

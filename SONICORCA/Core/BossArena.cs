@@ -166,17 +166,20 @@ public sealed class BossArena
 		}
 	}
 
+	private Rectanglei GetArenaBounds() => GetArenaBounds(_settings, _origin, (int)_level.Camera.Bounds.Width, (int)_level.Camera.Bounds.Height);
+
 	/// <summary>
 	/// The arena: the original camera range plus the screen, centred and made larger when the HD screen is larger.
 	/// </summary>
-	private Rectanglei GetArenaBounds()
+	/// <param name="origin">The position of the act origin, in level units.</param>
+	/// <param name="width">The width of the camera, in level units.</param>
+	/// <param name="height">The height of the camera, in level units.</param>
+	public static Rectanglei GetArenaBounds(BossArenaSettings settings, Vector2i origin, int width, int height)
 	{
-		int left = ToLevelX(_settings.ArenaLeft);
-		int right = ToLevelX(_settings.ArenaRight + OriginalScreenWidth);
-		int top = ToLevelY(_settings.MinY);
-		int bottom = ToLevelY(_settings.MaxY + OriginalScreenHeight);
-		int width = (int)_level.Camera.Bounds.Width;
-		int height = (int)_level.Camera.Bounds.Height;
+		int left = origin.X + settings.ArenaLeft * Scale;
+		int right = origin.X + (settings.ArenaRight + OriginalScreenWidth) * Scale;
+		int top = origin.Y + settings.MinY * Scale;
+		int bottom = origin.Y + (settings.MaxY + OriginalScreenHeight) * Scale;
 		if (right - left < width)
 		{
 			int centre = (left + right) / 2;

@@ -1665,6 +1665,10 @@ public sealed class LevelEditor : IDisposable
 		// font renderer uses
 		g.ModelMatrix = Matrix4.Identity;
 		renderer.GetObjectRenderer().Scale = new Vector2(1.0, 1.0);
+		if (!_tool.CoversLevel)
+		{
+			DrawBossArena(renderer, g);
+		}
 		_tool.DrawOverlay(renderer, g);
 		if (!_tool.CoversLevel)
 		{
@@ -1730,6 +1734,61 @@ public sealed class LevelEditor : IDisposable
 			string name = _level.StartMarkerName;
 			DrawStart(renderer, g, (Vector2)_level.StartPosition, SelectionColour, name == null ? "START" : $"START: no {name} marker");
 		}
+	}
+
+	private static readonly Colour BossArenaColour = new Colour(1.0, 1.0, 0.55, 0.15);
+
+	/// <summary>The marker where the boss at the end of a mod level starts.</summary>
+	internal const string BossMarkerName = "boss";
+
+	/// <summary>The marker where the boss starts, or null when the map does not have it.</summary>
+	private LevelMarker BossMarker => _level.Map.Markers.FirstOrDefault(m => string.Equals(m.Name, BossMarkerName, StringComparison.OrdinalIgnoreCase));
+
+	/// <summary>
+	/// What the open level still needs for its boss, or null when it has all that it needs: the marker "boss" and an
+	/// egg prison.
+	/// </summary>
+	internal string GetBossProblem()
+	{
+		if (BossMarker == null)
+		{
+			return "no marker \"boss\": add it where the boss starts";
+		}
+		if (!Placements.Any(p => p.Key.EndsWith("/CAPSULE", StringComparison.OrdinalIgnoreCase)))
+		{
+			return "no egg prison: add a CAPSULE object right of the arena";
+		}
+		return null;
+	}
+
+	/// <summary>
+	/// Draws the arena of the boss at the end of the open level, in every tool: its bounds on a 1920 x 1080 screen, and
+	/// the floor of the arena in the zone of the boss, so that the level can put its floor there.
+	/// </summary>
+	private void DrawBossArena(Renderer renderer, I2dRenderer g)
+	{
+		LevelBoss boss = _levelsTool.OpenLevelBoss;
+		LevelMarker marker = boss != null ? BossMarker : null;
+		if (marker == null)
+		{
+			return;
+		}
+		Rectanglei arena = boss.Arena;
+		Rectangle world = new Rectangle(marker.Position.X + arena.X, marker.Position.Y + arena.Y, arena.Width, arena.Height);
+		if (!Camera.Bounds.Inflate(new Vector2(256.0, 256.0)).IntersectsWith(world))
+		{
+			return;
+		}
+		Rectangle screen = ToScreen(world);
+		g.RenderRectangle(ShadowColour, screen, 6.0);
+		g.RenderRectangle(BossArenaColour, screen, 3.0);
+		// The labels stay in view when the arena is larger than the view
+		double labelX = Math.Max(screen.X, 0.0) + 8.0;
+		DrawLabel(renderer, g, $"Boss arena ({boss.Name})", labelX, Math.Max(screen.Y, TopBarHeight) + 8.0, BossArenaColour);
+		double floorY = ToScreen(new Vector2(0.0, marker.Position.Y + boss.FloorY)).Y;
+		g.RenderLine(ShadowColour, new Vector2(screen.X, floorY), new Vector2(screen.Right, floorY), 6.0);
+		g.RenderLine(BossArenaColour, new Vector2(screen.X, floorY), new Vector2(screen.Right, floorY), 3.0);
+		DrawLabel(renderer, g, "floor of the arena in its zone", labelX, floorY + 8.0, BossArenaColour);
 	}
 
 	/// <summary>Draws the cross of the start at a level position, with its label.</summary>
