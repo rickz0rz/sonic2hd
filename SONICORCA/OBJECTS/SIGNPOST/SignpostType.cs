@@ -13,6 +13,9 @@ public class SignpostType : ObjectType
 {
 	[Dependency]
 	public const string AnimationGroupResourceKey = "/ANIGROUP";
+	/// <summary>The face of Knuckles of Knuckles in Sonic 2. Only the import of Knuckles makes it (KnucklesArt.ImportSignpost).</summary>
+	[Dependency(Optional = true)]
+	public const string KnucklesAnimationGroupResourceKey = "SONICORCA/OBJECTS/SIGNPOST/KNUCKLES/ANIGROUP";
 	[Dependency]
 	public const string SparkleObjectResourceKey = "SONICORCA/OBJECTS/RING/SPARKLE";
 	[Dependency]

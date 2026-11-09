@@ -12,6 +12,9 @@ public class MonitorType : ObjectType
 {
 	[Dependency]
 	public const string AnimationGroupResourceKey = "/ANIGROUP";
+	/// <summary>The extra life of Knuckles. Only the import of Knuckles makes it (KnucklesArt.ImportMonitorIcon).</summary>
+	[Dependency(Optional = true)]
+	public const string KnucklesIconResourceKey = "SONICORCA/OBJECTS/MONITOR/KNUCKLES";
 	[Dependency]
 	public const string ExplosionResourceKey = "SONICORCA/OBJECTS/EXPLOSION/BADNIK";
 }

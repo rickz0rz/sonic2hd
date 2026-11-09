@@ -85,6 +85,30 @@ public sealed class KnucklesArtTests
 	}
 
 	/// <summary>
+	/// The signpost of Knuckles has the face and the 3 frames of the turn. The extra life of a monitor is the head of
+	/// the lives counter, 64 pixels. The slot reels of Knuckles differ from the reels of Sonic 2 only by the face.
+	/// </summary>
+	[Fact]
+	public void SignpostMonitorAndReels_HaveTheArtOfKis2()
+	{
+		string kis2 = FindKis2();
+
+		ImportedSprite signpost = KnucklesArt.ImportSignpost(kis2);
+		byte[] icon = KnucklesArt.ImportMonitorIcon(kis2);
+		uint[] palette = new uint[64];
+		SpriteImport.ReadPaletteFile(kis2, "art/palettes/SonicAndTails.bin", palette, 0);
+		byte[] reels = SlotReels.RenderTexture(kis2, palette, 4);
+		byte[] knucklesReels = SlotReels.RenderTexture(kis2, palette, 4, kis2);
+
+		Assert.Equal(4, XDocument.Parse(signpost.AnimationGroup).Descendants("animation").Count());
+		var reader = new Hjg.Pngcs.PngReader(new System.IO.MemoryStream(icon));
+		Assert.Equal(64, reader.ImgInfo.Cols);
+		Assert.Equal(64, reader.ImgInfo.Rows);
+		reader.End();
+		Assert.NotEqual(reels, knucklesReels);
+	}
+
+	/// <summary>
 	/// The folder of the knuckles-in-sonic-2 branch of s2disasm: S2HD_KIS2_DIR, or ../s2disasm-kis2 next to the
 	/// repository. The test skips when the folder is not there.
 	/// </summary>
