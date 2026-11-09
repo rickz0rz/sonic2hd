@@ -118,7 +118,9 @@ public sealed class KnucklesArtTests
 		{
 			System.IO.Directory.Delete(folder, recursive: true);
 		}
+	}
 
+	/// <summary>
 	/// The signpost of Knuckles has the face and the 3 frames of the turn. The extra life of a monitor is the head of
 	/// the lives counter, 64 pixels. The slot reels of Knuckles differ from the reels of Sonic 2 only by the face.
 	/// </summary>
