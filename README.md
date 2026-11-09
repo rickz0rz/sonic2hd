@@ -275,7 +275,9 @@ a second binding for each act, `BINDINGK`, and a level loads it when Knuckles pl
 
 In the special stage, Knuckles runs with his sprites of KiS2, and he needs the lower ring counts of KiS2. Without
 `S2HD_KIS2_DIR`, the script does not make Knuckles mode. The results screen of the special stage has the texts of
-KiS2, with the name of Knuckles. The ending of KiS2 is not done yet: the ending shows Sonic.
+KiS2, with the name of Knuckles. After the last level, Knuckles has the ending of KiS2: the ending of Sonic with the
+art of Knuckles, and eagles with the 7 emeralds. The credits end with the banner "KNUCKLES THE ECHIDNA IN" above the
+logo. `--ending knuckles` and `--ending superknuckles` play this ending.
 
 The script also makes the mod `tile-animations` from the game data. The HD tile sets of Emerald Hill, Chemical Plant
 and Hill Top keep the frames of their animated tiles in the tile set. The mod moves these frames into an animation

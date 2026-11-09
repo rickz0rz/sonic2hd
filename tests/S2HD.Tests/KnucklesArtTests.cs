@@ -85,6 +85,42 @@ public sealed class KnucklesArtTests
 	}
 
 	/// <summary>
+	/// The ending of KiS2 has the art of Knuckles with Flickies, and with eagles for the 7 emeralds. Knuckles waits on
+	/// the plane with the first frame of KnucklesAni_Wait. The credits end with the logo of KiS2 for each palette.
+	/// </summary>
+	[Fact]
+	public void ImportKnuckles_WritesTheEndingAndTheLogoOfKis2()
+	{
+		string kis2 = FindKis2();
+		string folder = System.IO.Directory.CreateTempSubdirectory("s2hd-knuckles-ending-").FullName;
+		try
+		{
+			EndingArt.ImportKnuckles(kis2, folder);
+			OriginalCredits.ImportKnucklesLogo(kis2, folder);
+
+			foreach (string variant in new[] { "KNUCKLES", "SUPERKNUCKLES" })
+			{
+				foreach (string part in new[] { "CHARACTER/ANIGROUP.anigroup.xml", "BIRDS/ANIGROUP.anigroup.xml", "PLANE/ANIGROUP.anigroup.xml", "CLOSEUP.png" })
+				{
+					Assert.True(System.IO.File.Exists(System.IO.Path.Combine(folder, "SONICORCA", "ENDING", variant, part)), $"{variant}/{part}");
+				}
+			}
+			XElement[] animations = XDocument.Load(System.IO.Path.Combine(folder, "SONICORCA", "ENDING", "KNUCKLES", "CHARACTER", "ANIGROUP.anigroup.xml"))
+				.Descendants("animation").ToArray();
+			Assert.Equal(2, animations.Length);
+			Assert.Single(animations[1].Elements("frame"));
+			for (int p = 0; p < OriginalCredits.LogoPalettes; p++)
+			{
+				Assert.True(System.IO.File.Exists(System.IO.Path.Combine(folder, "SONICORCA", "CREDITS", "ORIGINAL", OriginalCredits.KnucklesLogoFolder, $"PALETTE{p}.png")));
+			}
+		}
+		finally
+		{
+			System.IO.Directory.Delete(folder, recursive: true);
+		}
+	}
+
+	/// <summary>
 	/// The folder of the knuckles-in-sonic-2 branch of s2disasm: S2HD_KIS2_DIR, or ../s2disasm-kis2 next to the
 	/// repository. The test skips when the folder is not there.
 	/// </summary>

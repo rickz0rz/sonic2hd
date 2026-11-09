@@ -89,19 +89,21 @@ internal class RootGameState : IGameState, IDisposable
 		{
 			if (_cmdLineArgs.HasOption("ending"))
 			{
-				// --ending plays the ending cutscene of the original and then the credits. "--ending super" and
-				// "--ending tails" play the ending of Super Sonic and of Tails.
+				// --ending plays the ending cutscene of the original and then the credits. "--ending super",
+				// "--ending tails", "--ending knuckles" and "--ending superknuckles" play the other endings.
 				string variant = _cmdLineArgs.GetOptionValues("ending").FirstOrDefault()?.ToLowerInvariant();
 				S2HD.Ending.EndingCharacter character = variant switch
 				{
 					"super" => S2HD.Ending.EndingCharacter.SuperSonic,
 					"tails" => S2HD.Ending.EndingCharacter.Tails,
+					"knuckles" => S2HD.Ending.EndingCharacter.Knuckles,
+					"superknuckles" => S2HD.Ending.EndingCharacter.SuperKnuckles,
 					_ => S2HD.Ending.EndingCharacter.Sonic
 				};
 				ChangeGameState(new S2HD.Ending.EndingGameState(_gameContext, character));
 				foreach (UpdateResult updateResult in _currentGameState.Update())
 					yield return updateResult;
-				foreach (UpdateResult updateResult in PlayCredits())
+				foreach (UpdateResult updateResult in PlayCredits(character is S2HD.Ending.EndingCharacter.Knuckles or S2HD.Ending.EndingCharacter.SuperKnuckles))
 					yield return updateResult;
 			}
 			else if (_cmdLineArgs.HasOption("credits"))
@@ -261,7 +263,7 @@ internal class RootGameState : IGameState, IDisposable
 		// Show the credits only when the player finished the game, not when the player quit from the pause menu.
 		else if (!storyState.QuitViaOptions)
 		{
-			foreach (UpdateResult updateResult in PlayCredits())
+			foreach (UpdateResult updateResult in PlayCredits(storyState.Settings.ProtagonistCharacter == CharacterType.Knuckles))
 				yield return updateResult;
 		}
 	}
@@ -269,12 +271,12 @@ internal class RootGameState : IGameState, IDisposable
 	/// <summary>The ending cutscene of the original for the characters of the story, then the credits.</summary>
 	private IEnumerable<UpdateResult> PlayEndingAndCredits(StoryPlaythroughGameState storyState)
 	{
-		S2HD.Ending.EndingCharacter character = S2HD.Ending.EndingGameState.ChooseCharacter(storyState.Settings);
+		S2HD.Ending.EndingCharacter character = S2HD.Ending.EndingGameState.ChooseCharacter(storyState.Settings, _gameContext.ResourceTree);
 		System.Diagnostics.Trace.WriteLine($"Playing the ending of {character}");
 		ChangeGameState(new S2HD.Ending.EndingGameState(_gameContext, character));
 		foreach (UpdateResult updateResult in _currentGameState.Update())
 			yield return updateResult;
-		foreach (UpdateResult updateResult in PlayCredits())
+		foreach (UpdateResult updateResult in PlayCredits(storyState.Settings.ProtagonistCharacter == CharacterType.Knuckles))
 			yield return updateResult;
 	}
 
@@ -327,10 +329,11 @@ internal class RootGameState : IGameState, IDisposable
 	/// <summary>
 	/// Plays the credits of the original game, when the import made them, and then the HD credits film.
 	/// </summary>
-	private IEnumerable<UpdateResult> PlayCredits()
+	/// <param name="knuckles">True after the game of Knuckles, for the logo of Knuckles in Sonic 2.</param>
+	private IEnumerable<UpdateResult> PlayCredits(bool knuckles = false)
 	{
 		System.Diagnostics.Trace.WriteLine("Playing the credits");
-		ChangeGameState(new OriginalCreditsGameState(_gameContext));
+		ChangeGameState(new OriginalCreditsGameState(_gameContext, knuckles));
 		foreach (UpdateResult updateResult in _currentGameState.Update())
 			yield return updateResult;
 		ChangeGameState(new CreditsGameState(_gameContext));

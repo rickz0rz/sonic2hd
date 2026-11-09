@@ -156,7 +156,9 @@ public static class OriginalCredits
 	}
 
 	/// <summary>Draws the logo with each palette of its cycle, as PNG files of the full screen.</summary>
-	public static byte[][] RenderLogo(string disassembly)
+	/// <param name="logoRow">The row of the logo on the plane: KiS2 moved it down to row 15.</param>
+	/// <param name="overlay">Draws more art on each image, or null.</param>
+	public static byte[][] RenderLogo(string disassembly, int logoRow = LogoRow, Action<byte[]> overlay = null)
 	{
 		byte[] art = SpriteImport.ReadArt(disassembly, LogoArtFile);
 		ushort[] map = Enigma.Decompress(File.ReadAllBytes(Path.Combine(disassembly, LogoMapFile)));
@@ -178,10 +180,11 @@ public static class OriginalCredits
 				{
 					ushort entry = map[row * LogoColumns + column];
 					int line = (entry >> 13) & 3;
-					DrawTile(pixels, art, entry & 0x7FF, LogoColumn + column, LogoRow + row, (x, y, index) => palette[line * 16 + index],
+					DrawTile(pixels, art, entry & 0x7FF, LogoColumn + column, logoRow + row, (x, y, index) => palette[line * 16 + index],
 						(entry & 0x800) != 0, (entry & 0x1000) != 0);
 				}
 			}
+			overlay?.Invoke(pixels);
 			images[p] = SpriteImport.EncodePng(pixels, ScreenWidth, ScreenHeight);
 		}
 		return images;
@@ -213,6 +216,61 @@ public static class OriginalCredits
 		return slides.Count;
 	}
 
+	/// <summary>The logo of Knuckles in Sonic 2, next to LOGO: the logo 4 rows lower, with the banner above it.</summary>
+	public const string KnucklesLogoFolder = "LOGOK";
+
+	/// <summary>
+	/// Writes the logo of the end of the credits of Knuckles in Sonic 2 (KiS2) from the folder of KiS2, into the folder
+	/// <see cref="KnucklesLogoFolder"/>. KiS2 moves the logo down from row 11 to row 15 (planeLoc(64,12,15)), and shows
+	/// the banner "KNUCKLES THE ECHIDNA IN" above it (Obj0E_CreditsBanner at 160, 68) and the trademark sign
+	/// (Obj0E_CreditsTrademark at 292, 48). They use palette line 3, Pal_KiS2_Ending.
+	/// </summary>
+	public static void ImportKnucklesLogo(string kis2, string folder)
+	{
+		const int otherTextTile = 0x3DD; // ArtTile_ArtNem_TitleOtherText
+		byte[] vram = new byte[0x500 * BytesPerTile];
+		void Load(string file, int tile)
+		{
+			byte[] data = SpriteImport.ReadArt(kis2, file);
+			Array.Copy(data, 0, vram, tile * BytesPerTile, Math.Min(data.Length, vram.Length - tile * BytesPerTile));
+		}
+		Load("art/nemesis/Other text from title screen.nem", otherTextTile);
+		Load("art/nemesis/Giant banner from title screen.nem", 0x3FE); // ArtTile_ArtNem_TitleBanner
+		Load("art/nemesis/'THE ECHIDNA IN' from title screen.nem", 0x488); // ArtTile_ArtNem_TitleTheEchidnaIn
+		uint[] banner = SpriteImport.ReadColours(File.ReadAllBytes(Path.Combine(kis2, "art/palettes/Ending Knuckles Banner.bin")));
+		List<SpritePiece> bannerPieces = SpriteImport.ParseMappings(File.ReadAllText(Path.Combine(kis2, "mappings/sprite/obj0E_banner.asm")))[0];
+		List<SpritePiece> trademark = SpriteImport.ParseMappings(File.ReadAllText(Path.Combine(kis2, "mappings/sprite/obj0E_other_text.asm")))[2];
+		void Overlay(byte[] pixels)
+		{
+			// The banner has its tiles from tile 0 (ArtTile_ArtNem_Title), the trademark from the other text
+			DrawSprite(pixels, vram, bannerPieces, 0, 160, 68, index => banner[index]);
+			DrawSprite(pixels, vram, trademark, otherTextTile, 292, 48, index => banner[index]);
+		}
+		string logoFolder = Path.Combine(new[] { folder }.Concat(ResourceKey.Split('/')).Append(KnucklesLogoFolder).ToArray());
+		Directory.CreateDirectory(logoFolder);
+		byte[][] logo = RenderLogo(kis2, 15, Overlay);
+		for (int p = 0; p < logo.Length; p++)
+		{
+			File.WriteAllBytes(Path.Combine(logoFolder, $"PALETTE{p}.png"), logo[p]);
+		}
+	}
+
+	/// <summary>Draws the pieces of a sprite frame at a position on the screen. The tiles of a piece go down its columns.</summary>
+	private static void DrawSprite(byte[] pixels, byte[] vram, IEnumerable<SpritePiece> pieces, int baseTile, int x, int y, Func<int, uint> colour)
+	{
+		foreach (SpritePiece piece in pieces)
+		{
+			for (int column = 0; column < piece.Width; column++)
+			{
+				for (int row = 0; row < piece.Height; row++)
+				{
+					int tile = baseTile + piece.Tile + column * piece.Height + row;
+					DrawTileAt(pixels, vram, tile, x + piece.X + column * TileSize, y + piece.Y + row * TileSize, (px, py, index) => colour(index));
+				}
+			}
+		}
+	}
+
 	/// <summary>The name of the folder of a slide, from 0: SLIDE01, SLIDE02 and so on.</summary>
 	public static string GetSlideName(int index) => $"SLIDE{index + 1:00}";
 
@@ -228,10 +286,20 @@ public static class OriginalCredits
 	/// <summary>Draws a tile of 8 x 8 pixels at a position in tiles. Colour 0 is transparent.</summary>
 	private static void DrawTile(byte[] pixels, byte[] art, int tile, int column, int row, Func<int, int, int, uint> colour, bool flipX = false, bool flipY = false)
 	{
+		DrawTileAt(pixels, art, tile, column * TileSize, row * TileSize, colour, flipX, flipY);
+	}
+
+	/// <summary>Draws a tile of 8 x 8 pixels at a position in pixels. Colour 0 is transparent, and pixels off the screen do not draw.</summary>
+	private static void DrawTileAt(byte[] pixels, byte[] art, int tile, int left, int top, Func<int, int, int, uint> colour, bool flipX = false, bool flipY = false)
+	{
 		for (int y = 0; y < TileSize; y++)
 		{
 			for (int x = 0; x < TileSize; x++)
 			{
+				if (left + x < 0 || left + x >= ScreenWidth || top + y < 0 || top + y >= ScreenHeight)
+				{
+					continue;
+				}
 				int tx = flipX ? TileSize - 1 - x : x;
 				int ty = flipY ? TileSize - 1 - y : y;
 				int offset = tile * BytesPerTile + ty * 4 + tx / 2;
@@ -245,7 +313,7 @@ public static class OriginalCredits
 					continue;
 				}
 				uint rgba = colour(x, y, index);
-				int p = ((row * TileSize + y) * ScreenWidth + column * TileSize + x) * 4;
+				int p = ((top + y) * ScreenWidth + left + x) * 4;
 				pixels[p] = (byte)(rgba >> 24);
 				pixels[p + 1] = (byte)(rgba >> 16);
 				pixels[p + 2] = (byte)(rgba >> 8);

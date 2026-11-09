@@ -74,9 +74,20 @@ internal sealed class OriginalCreditsGameState : IGameState, IDisposable
 	/// <summary>The palette of the logo that shows, or -1.</summary>
 	private int _logoPalette = -1;
 
-	public OriginalCreditsGameState(SonicOrcaGameContext gameContext)
+	/// <summary>The folder of the logo: LOGO, or LOGOK for Knuckles in Sonic 2.</summary>
+	private readonly string _logoFolder = "LOGO";
+
+	/// <param name="knuckles">
+	/// True after the game of Knuckles: the logo of Knuckles in Sonic 2, with the banner "KNUCKLES THE ECHIDNA IN", when
+	/// the import made it.
+	/// </param>
+	public OriginalCreditsGameState(SonicOrcaGameContext gameContext, bool knuckles = false)
 	{
 		_gameContext = gameContext;
+		if (knuckles && gameContext.ResourceTree[$"{ResourceKey}/LOGOK/PALETTE0"]?.Resource != null)
+		{
+			_logoFolder = "LOGOK";
+		}
 	}
 
 	/// <summary>True when the import made the original credits.</summary>
@@ -97,7 +108,7 @@ internal sealed class OriginalCreditsGameState : IGameState, IDisposable
 		}
 		for (int p = 0; p < LogoPalettes; p++)
 		{
-			_resourceSession.PushDependency(GetLogoKey(p));
+			_resourceSession.PushDependency(GetLogoKey(_logoFolder, p));
 		}
 		bool hasMusic = tree[MusicResourceKey]?.Resource != null;
 		if (hasMusic)
@@ -119,7 +130,7 @@ internal sealed class OriginalCreditsGameState : IGameState, IDisposable
 		}
 		for (int p = 0; p < LogoPalettes; p++)
 		{
-			_logo.Add(GetTexture(GetLogoKey(p)));
+			_logo.Add(GetTexture(GetLogoKey(_logoFolder, p)));
 		}
 		if (hasMusic)
 		{
@@ -255,5 +266,5 @@ internal sealed class OriginalCreditsGameState : IGameState, IDisposable
 
 	private static string GetSlideKey(int slide, int line) => $"{ResourceKey}/SLIDE{slide + 1:00}/LINE{line}";
 
-	private static string GetLogoKey(int palette) => $"{ResourceKey}/LOGO/PALETTE{palette}";
+	private static string GetLogoKey(string folder, int palette) => $"{ResourceKey}/{folder}/PALETTE{palette}";
 }

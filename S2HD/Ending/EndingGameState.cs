@@ -82,7 +82,11 @@ internal sealed partial class EndingGameState : IGameState, IDisposable
 	private AnimationGroup _characterGroup;
 
 	/// <summary>The character of the ending (Ending_Routine).</summary>
+	/// <summary>The character for the logic of the cutscene. Knuckles plays the ending of Sonic, as in KiS2.</summary>
 	private readonly EndingCharacter _variant;
+
+	/// <summary>The character for the art: Knuckles has his own art.</summary>
+	private readonly EndingCharacter _artVariant;
 
 	/// <summary>The tails of Tails (Obj05), in the ending of Tails.</summary>
 	private EndingSprite _tails;
@@ -134,7 +138,8 @@ internal sealed partial class EndingGameState : IGameState, IDisposable
 	public EndingGameState(SonicOrcaGameContext gameContext, EndingCharacter variant = EndingCharacter.Sonic)
 	{
 		_gameContext = gameContext;
-		_variant = variant;
+		_artVariant = variant;
+		_variant = variant is EndingCharacter.Knuckles or EndingCharacter.SuperKnuckles ? EndingCharacter.Sonic : variant;
 		if (variant == EndingCharacter.Tails)
 		{
 			// EndingSequence: the ending of Tails has no photos (objoff_2E $10), and it waits $100 frames
@@ -146,10 +151,14 @@ internal sealed partial class EndingGameState : IGameState, IDisposable
 
 	/// <summary>
 	/// The character of the ending, as EndingSequence chooses it: Tails when he plays alone, else Super Sonic with the
-	/// 7 emeralds, else Sonic.
+	/// 7 emeralds, else Sonic. Knuckles has the ending of Knuckles in Sonic 2 when the import made its art.
 	/// </summary>
-	public static EndingCharacter ChooseCharacter(LevelPrepareSettings settings)
+	public static EndingCharacter ChooseCharacter(LevelPrepareSettings settings, ResourceTree tree = null)
 	{
+		if (settings.ProtagonistCharacter == CharacterType.Knuckles && tree?[KnucklesCharacterKey]?.Resource != null)
+		{
+			return settings.Emeralds >= 7 ? EndingCharacter.SuperKnuckles : EndingCharacter.Knuckles;
+		}
 		if (settings.ProtagonistCharacter == CharacterType.Tails && settings.SidekickCharacter == CharacterType.Null)
 		{
 			return EndingCharacter.Tails;
@@ -560,14 +569,19 @@ internal sealed partial class EndingGameState : IGameState, IDisposable
 	private static string GetPictureKey(int index) => $"{ResourceKey}/PICTURES/{index + 1}";
 
 	/// <summary>The folder of the art of the character: the ending of Sonic has its art in the main folder.</summary>
-	private string VariantKey => _variant switch
+	private string VariantKey => _artVariant switch
 	{
 		EndingCharacter.SuperSonic => ResourceKey + "/SUPERSONIC",
 		EndingCharacter.Tails => ResourceKey + "/TAILS",
+		EndingCharacter.Knuckles => ResourceKey + "/KNUCKLES",
+		EndingCharacter.SuperKnuckles => ResourceKey + "/SUPERKNUCKLES",
 		_ => ResourceKey
 	};
 
-	private string CharacterKey => _variant == EndingCharacter.Sonic ? ResourceKey + "/SONIC/ANIGROUP" : VariantKey + "/CHARACTER/ANIGROUP";
+	/// <summary>The art of Knuckles, which only the import of Knuckles in Sonic 2 makes (EndingArt.ImportKnuckles).</summary>
+	private const string KnucklesCharacterKey = ResourceKey + "/KNUCKLES/CHARACTER/ANIGROUP";
+
+	private string CharacterKey => _artVariant == EndingCharacter.Sonic ? ResourceKey + "/SONIC/ANIGROUP" : VariantKey + "/CHARACTER/ANIGROUP";
 
 	/// <summary>The pilot: Tails, or Sonic when Tails plays alone.</summary>
 	private string PilotKey => _variant == EndingCharacter.Tails ? ResourceKey + "/TAILS/PILOT/ANIGROUP" : ResourceKey + "/TORNADO/PILOT/ANIGROUP";
@@ -578,7 +592,13 @@ internal enum EndingCharacter
 {
 	Sonic,
 	SuperSonic,
-	Tails
+	Tails,
+
+	/// <summary>Knuckles in Sonic 2: the ending of Sonic with the art of Knuckles and the Flickies.</summary>
+	Knuckles,
+
+	/// <summary>Knuckles in Sonic 2 with the 7 emeralds: the ending of Sonic with the art of Knuckles and the eagles.</summary>
+	SuperKnuckles
 }
 
 /// <summary>The animations of the groups of the ending, as the import makes them (SonicOrca.Original.EndingArt).</summary>
