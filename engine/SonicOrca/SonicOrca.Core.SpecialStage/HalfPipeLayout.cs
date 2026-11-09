@@ -82,6 +82,21 @@ public static class HalfPipeLayout
 		{ 100, 190, 210 },
 	};
 
+	/// <summary>
+	/// The same as <see cref="SoloRingQuotas"/>, for Knuckles. "Knuckles in Sonic 2" lowered the quotas of a player
+	/// alone (SpecialStage_RingReq_Alone of its disassembly).
+	/// </summary>
+	private static readonly int[,] KnucklesRingQuotas =
+	{
+		{ 30, 70, 130 },
+		{ 50, 90, 130 },
+		{ 50, 100, 140 },
+		{ 40, 90, 140 },
+		{ 40, 80, 130 },
+		{ 70, 130, 170 },
+		{ 50, 100, 140 },
+	};
+
 	// Original angle units: $40 is the bottom of the pipe, and the angle goes up toward the left
 	private const int Bottom = 0x40;
 
@@ -89,13 +104,14 @@ public static class HalfPipeLayout
 
 	/// <param name="stage">The special stage number, from 0 to 6.</param>
 	/// <param name="duo">True when Sonic and Tails play together, which needs more rings in some stages.</param>
-	public static int[] GetRingQuotas(int stage, bool duo)
+	/// <param name="knuckles">True when Knuckles plays, with the lower quotas of Knuckles in Sonic 2.</param>
+	public static int[] GetRingQuotas(int stage, bool duo, bool knuckles = false)
 	{
 		if (stage < 0 || stage >= StageCount)
 		{
 			throw new ArgumentOutOfRangeException(nameof(stage));
 		}
-		int[,] quotas = duo ? DuoRingQuotas : SoloRingQuotas;
+		int[,] quotas = duo ? DuoRingQuotas : knuckles ? KnucklesRingQuotas : SoloRingQuotas;
 		return new[] { quotas[stage, 0], quotas[stage, 1], quotas[stage, 2] };
 	}
 

@@ -153,8 +153,11 @@ internal class RootGameState : IGameState, IDisposable
 				string[] sidekick = _cmdLineArgs.GetOptionValues("sidekick");
 				bool withTails = sidekick.Length == 0 || GetCharacterType(sidekick[0]) == CharacterType.Tails;
 				// "--halfpipe 2 --versus" plays the special stage of versus mode
-				ChangeGameState(new ScreenGameState(_gameContext, new HalfPipeSpecialStageScreen(_gameContext, stage, withTails, TestHooks.Emeralds ?? 0,
-					versus: _cmdLineArgs.HasOption("versus"))));
+				// "--halfpipe 2 --protagonist knuckles" plays Knuckles alone
+				string[] protagonist = _cmdLineArgs.GetOptionValues("protagonist");
+				bool knuckles = protagonist.Length > 0 && GetCharacterType(protagonist[0]) == CharacterType.Knuckles;
+				ChangeGameState(new ScreenGameState(_gameContext, new HalfPipeSpecialStageScreen(_gameContext, stage, withTails && !knuckles, TestHooks.Emeralds ?? 0,
+					versus: _cmdLineArgs.HasOption("versus"), knuckles: knuckles)));
 				foreach (UpdateResult updateResult in _currentGameState.Update())
 					yield return updateResult;
 			}
