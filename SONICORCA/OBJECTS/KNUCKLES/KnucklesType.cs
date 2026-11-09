@@ -29,6 +29,10 @@ namespace SONICORCA.OBJECTS.KNUCKLES;
 [Dependency("SONICORCA/SOUND/SPLASH")]
 [Dependency("SONICORCA/SOUND/DROWNWARNING")]
 [Dependency("SONICORCA/SOUND/DROWN")]
+// Only the music import of tools/s2hd-data makes these resources
+[Dependency(Character.SuperMusicResourceKey, Optional = true)]
+[Dependency(Character.SuperFastMusicResourceKey, Optional = true)]
+[Dependency(Character.SuperTransformSoundResourceKey, Optional = true)]
 public class KnucklesType : ObjectType
 {
 	/// <summary>The original sprites of Knuckles (KnucklesArt).</summary>

@@ -33,6 +33,29 @@ public class KnucklesInstance : Character
 	/// <summary>The jump speed of Knuckles, $600, in level units.</summary>
 	private const double KnucklesJumpForce = 0x600 / 64.0;
 
+	/// <summary>Super Knuckles moves slower than Super Sonic (Knuckles_TurnSuper): top speed $800, acceleration $18 and deceleration $C0.</summary>
+	private const double SuperKnucklesTopSpeed = 0x800 / 64.0;
+
+	private const double SuperKnucklesAcceleration = 0x18 / 64.0;
+
+	private const double SuperKnucklesDeceleration = 0xC0 / 64.0;
+
+	/// <summary>The transformation into Super Knuckles (KnucklesAni_Transform).</summary>
+	private const int AnimationTransform = 30;
+
+	/// <summary>
+	/// The palette cycle of Super Knuckles (PalCycle_SuperSonic in KiS2). Knuckles_TurnSuper sets Palette_timer to $F.
+	/// The fade-in only marks the cycle as started, so it shows the normal colours (row 0) once. Each frame of the
+	/// cycle shows for 3 ticks, and the last frame for 15 ticks.
+	/// </summary>
+	private static readonly SONICORCA.OBJECTS.SONIC.SuperSonicPalette.Schedule SuperKnucklesSchedule =
+		new SONICORCA.OBJECTS.SONIC.SuperSonicPalette.Schedule(1, 10, 15, 2, 2, LastFrameTimer: 14);
+
+	/// <summary>The palette cycle of Super Knuckles, or null before he first becomes Super Knuckles or without the palette.</summary>
+	private SONICORCA.OBJECTS.SONIC.SuperSonicPalette _superPalette;
+
+	private bool _wasSuper;
+
 	/// <summary>The jump speed of Knuckles under water, $300, in level units.</summary>
 	private const double KnucklesUnderwaterJumpForce = 0x300 / 64.0;
 
@@ -170,6 +193,8 @@ public class KnucklesInstance : Character
 	/// <summary>True in the frame of a jump from a wall, so that the same press does not start a glide.</summary>
 	private bool _jumpedFromWall;
 
+	protected override bool BecomesSuperAtJumpTop => false;
+
 	[HideInEditor]
 	public override bool IsGliding => _state == GlideState.Glide || _state == GlideState.Slide;
 
@@ -180,8 +205,12 @@ public class KnucklesInstance : Character
 		AnimationGroupResourceKey = Type.GetAbsolutePath(KnucklesType.AnimationGroupResourceKey);
 		NormalJumpForce = KnucklesJumpForce;
 		UnderwaterJumpForce = KnucklesUnderwaterJumpForce;
-		// Super Knuckles does not jump higher (KiS2)
+		// Super Knuckles does not jump higher, and he is slower than Super Sonic (KiS2)
 		SuperJumpForce = KnucklesJumpForce;
+		SuperTopSpeed = SuperKnucklesTopSpeed;
+		SuperAcceleration = SuperKnucklesAcceleration;
+		SuperDeceleration = SuperKnucklesDeceleration;
+		HasSuperAbility = true;
 		if (Level.OriginalPhysics)
 		{
 			// The collision box of the original Knuckles: x_radius 9 and y_radius $13, and 7 and $E in a roll
@@ -201,6 +230,9 @@ public class KnucklesInstance : Character
 		}
 		if (_state != GlideState.None || IsHurt || IsSidekick || Velocity.Y < -GlideStartSpeed)
 			return false;
+		// Sonic_CheckGoSuper of KiS2: the press makes Knuckles super when he can be, else it starts a glide
+		if (TryBecomeSuper())
+			return true;
 		IsSpinball = false;
 		IsJumping = false;
 		_state = GlideState.Glide;
@@ -539,11 +571,36 @@ public class KnucklesInstance : Character
 		_landingLockTicks = LandingLockTicks;
 	}
 
+	protected override void OnStop()
+	{
+		base.OnStop();
+		_superPalette?.Dispose();
+		_superPalette = null;
+	}
+
+	protected override void OnUpdate()
+	{
+		base.OnUpdate();
+		if (IsSuper && !_wasSuper)
+		{
+			_superPalette ??= SONICORCA.OBJECTS.SONIC.SuperSonicPalette.Create(Level.GameContext.Window.GraphicsContext, Animation.AnimationGroup, SuperKnucklesSchedule);
+			_superPalette?.Start();
+		}
+		_wasSuper = IsSuper;
+		if (IsSuper)
+			_superPalette?.Update();
+	}
+
 	protected override void OnAnimate()
 	{
 		base.OnAnimate();
 		if (IsHurt || IsDead)
 			return;
+		if (IsTransformingToSuper)
+		{
+			SetAnimation(AnimationTransform);
+			return;
+		}
 		switch (_state)
 		{
 			case GlideState.Glide:
@@ -596,7 +653,10 @@ public class KnucklesInstance : Character
 			if (DrawBodyRotated)
 				objectRenderer.ModelMatrix *= Matrix4.CreateRotationZ(ShowAngle);
 			double offsetY = IsSpinball ? SpinballCollisionRadius.Y - OriginalSpinballCollisionRadiusY : NormalCollisionRadius.Y - OriginalCollisionRadiusY;
-			objectRenderer.RenderOriginal(Animation, new Vector2(0.0, offsetY), IsFacingLeft);
+			if (IsSuper && _superPalette != null)
+				_superPalette.Render(objectRenderer, Animation, new Vector2(0.0, offsetY), IsFacingLeft);
+			else
+				objectRenderer.RenderOriginal(Animation, new Vector2(0.0, offsetY), IsFacingLeft);
 		}
 	}
 }

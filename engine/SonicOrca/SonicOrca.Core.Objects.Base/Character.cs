@@ -326,11 +326,20 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	private const int SuperPaletteCycleTicks = 72;
 
 	/// <summary>The top speed, the acceleration and the deceleration of a super character ($A00, $30, $100).</summary>
-	private const double SuperTopSpeed = 40.0;
+	/// <summary>The top speed of the super form. Super Knuckles has a lower one.</summary>
+	protected double SuperTopSpeed { get; set; } = DefaultSuperTopSpeed;
 
-	private const double SuperAcceleration = 0.75;
+	/// <summary>The acceleration of the super form.</summary>
+	protected double SuperAcceleration { get; set; } = DefaultSuperAcceleration;
 
-	private const double SuperDeceleration = 4.0;
+	/// <summary>The deceleration of the super form.</summary>
+	protected double SuperDeceleration { get; set; } = DefaultSuperDeceleration;
+
+	private const double DefaultSuperTopSpeed = 40.0;
+
+	private const double DefaultSuperAcceleration = 0.75;
+
+	private const double DefaultSuperDeceleration = 4.0;
 
 	/// <summary>The friction of a super character that walks ($C in Obj01_UpdateSpeedOnGround), also under water.</summary>
 	private const double SuperFriction = 0.1875;
@@ -3631,23 +3640,40 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 	/// </summary>
 	private void CheckGoSuper()
 	{
-		if (!HasSuperAbility || IsSidekick || IsSuper || !Jumped || Mode != CollisionMode.Air)
+		if (!BecomesSuperAtJumpTop || Velocity.Y < 0.0 || Velocity.Y >= 4.0)
 		{
 			return;
 		}
-		if (Velocity.Y < 0.0 || Velocity.Y >= 4.0)
+		TryBecomeSuper();
+	}
+
+	/// <summary>
+	/// False for a character that does not become super at the top of a jump. Knuckles becomes super when the player
+	/// presses jump in the air (KiS2), with <see cref="TryBecomeSuper"/>.
+	/// </summary>
+	protected virtual bool BecomesSuperAtJumpTop => true;
+
+	/// <summary>
+	/// Makes the character super when it jumped and is in the air, and the player has the emeralds and the rings, and
+	/// the time runs.
+	/// </summary>
+	/// <returns>True when the character became super.</returns>
+	protected bool TryBecomeSuper()
+	{
+		if (!HasSuperAbility || IsSidekick || IsSuper || !Jumped || Mode != CollisionMode.Air)
 		{
-			return;
+			return false;
 		}
 		if (Player.Emeralds < SuperEmeralds || Player.CurrentRings < SuperRings)
 		{
-			return;
+			return false;
 		}
 		if (!Level.StateFlags.HasFlag(LevelStateFlags.UpdateTime))
 		{
-			return;
+			return false;
 		}
 		BecomeSuper();
+		return true;
 	}
 
 	/// <summary>
