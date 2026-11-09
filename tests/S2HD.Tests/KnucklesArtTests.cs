@@ -61,6 +61,30 @@ public sealed class KnucklesArtTests
 	}
 
 	/// <summary>
+	/// The special stage sprites of Knuckles have the animations of the HD group of Sonic: the run with the 4 upright
+	/// frames, and the ball with 2 frames.
+	/// </summary>
+	[Fact]
+	public void ImportSpecialStage_HasTheRunAndTheBall()
+	{
+		ImportedSprite sprite = KnucklesArt.ImportSpecialStage(FindKis2());
+
+		XElement[] animations = XDocument.Parse(sprite.AnimationGroup).Descendants("animation").ToArray();
+		Assert.Equal(2, animations.Length);
+		Assert.Equal(4, animations[0].Elements("frame").Count());
+		Assert.Equal(2, animations[1].Elements("frame").Count());
+	}
+
+	/// <summary>Knuckles in Sonic 2 lowered the ring quotas of a player alone. Sonic and Tails keep the quotas of Sonic 2.</summary>
+	[Fact]
+	public void KnucklesRingQuotas_AreTheQuotasOfKis2()
+	{
+		Assert.Equal(new[] { 50, 90, 130 }, SonicOrca.Core.SpecialStage.HalfPipeLayout.GetRingQuotas(1, duo: false, knuckles: true));
+		Assert.Equal(new[] { 50, 100, 140 }, SonicOrca.Core.SpecialStage.HalfPipeLayout.GetRingQuotas(1, duo: false));
+		Assert.Equal(new[] { 50, 100, 140 }, SonicOrca.Core.SpecialStage.HalfPipeLayout.GetRingQuotas(6, duo: false, knuckles: true));
+	}
+
+	/// <summary>
 	/// The folder of the knuckles-in-sonic-2 branch of s2disasm: S2HD_KIS2_DIR, or ../s2disasm-kis2 next to the
 	/// repository. The test skips when the folder is not there.
 	/// </summary>

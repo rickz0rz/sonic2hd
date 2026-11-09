@@ -48,7 +48,10 @@ public static class KnucklesArt
 	public const int GetUpAnimation = 37;
 
 	/// <summary>The files of KiS2 that the import needs. The folder of the import must have each of them.</summary>
-	public static readonly IReadOnlyList<string> RequiredFiles = new[] { ArtFile, MappingsFile, DplcFile, PaletteFile, SuperPaletteFile };
+	public static readonly IReadOnlyList<string> RequiredFiles = new[]
+	{
+		ArtFile, MappingsFile, DplcFile, PaletteFile, SuperPaletteFile, SpecialStageArtFile, SpecialStageMappingsFile, SpecialStageDplcFile
+	};
 
 	private const string ArtFile = "art/uncompressed/Knuckles' art.bin";
 
@@ -74,6 +77,21 @@ public static class KnucklesArt
 
 	/// <summary>The HD life icons are 68 pixels wide and high. The icon of the original is 16 pixels, 64 at four times the size.</summary>
 	private const int LifeIconSize = 68;
+
+	/// <summary>
+	/// The sprites of Knuckles in the special stage, from behind: animation 0 runs (Obj09 animation 0, the upright
+	/// frames 0 to 3), and animation 1 is the ball (Obj09 animation 3, the frames $10 and $11). The HD special stage
+	/// turns the sprite with the pipe, so it needs only the upright frames, as the HD group of Sonic has.
+	/// </summary>
+	public const string SpecialStageObjectKey = "SONICORCA/SPECIALSTAGE/KNUCKLESANIM";
+
+	private const string SpecialStageArtFile = "art/nemesis/Knuckles animation frames in special stage.nem";
+
+	private const string SpecialStageMappingsFile = "mappings/sprite/obj09.asm";
+
+	private const string SpecialStageDplcFile = "mappings/spriteDPLC/obj09.asm";
+
+	private const string SpecialStagePaletteFile = "art/palettes/Special Stage Main.bin";
 
 	/// <summary>The entries of palette line 0 that the palette cycle of Super Knuckles changes.</summary>
 	private static readonly int[] CycledEntries = { 2, 3, 5 };
@@ -157,6 +175,26 @@ public static class KnucklesArt
 		new OriginalScript("ClimbLedge", 6, new[] { 0xBD, 0xBE, 0xBF }, HoldLast: true),     // Knuckles_DoLedgeClimbingAnimation
 		new OriginalScript("GetUp", 0x0F, new[] { 0xCD }, HoldLast: true),                   // KnucklesAni_GetUp
 	};
+
+	/// <summary>
+	/// Makes the sprites of Knuckles in the special stage, at four times the size. KiS2 loads them with standard DPLCs.
+	/// Obj09 has palette line 1 in its art tile, and KiS2 changed that line of the special stage palette to the
+	/// colours of Knuckles.
+	/// </summary>
+	public static ImportedSprite ImportSpecialStage(string kis2)
+	{
+		byte[] art = SpriteImport.ReadArt(kis2, SpecialStageArtFile);
+		List<List<SpritePiece>> mappings = SpriteImport.ParseMappings(File.ReadAllText(Path.Combine(kis2, SpecialStageMappingsFile)));
+		List<List<(int Tiles, int Offset)>> dplcs = SuperSonicArt.ParseDplc(File.ReadAllText(Path.Combine(kis2, SpecialStageDplcFile)));
+		uint[] palette = new uint[64];
+		SpriteImport.ReadPaletteFile(kis2, SpecialStagePaletteFile, palette, 0);
+		OriginalScript[] scripts =
+		{
+			new OriginalScript("Run", 1, new[] { 0, 1, 2, 3 }),
+			new OriginalScript("Ball", 1, new[] { 0x10, 0x11 }),
+		};
+		return DplcSpriteImport.Import(SpecialStageObjectKey, art, mappings, dplcs, scripts, palette, 1, new[] { "//TEXTURE" });
+	}
 
 	/// <summary>
 	/// Makes the life icon of the HUD: the head of Knuckles, the first 2 x 2 tiles of the lives counter of KiS2 (tiles in

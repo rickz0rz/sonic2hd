@@ -76,6 +76,15 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	private const string SonicAnimationResourceKey = "SONICORCA/SPECIALSTAGE/ANIGROUP";
 
+	/// <summary>
+	/// The original sprites of Knuckles, with the same animations as the group of Sonic. Only the import of "Knuckles in
+	/// Sonic 2" makes them (KnucklesArt.ImportSpecialStage).
+	/// </summary>
+	private const string KnucklesAnimationResourceKey = "SONICORCA/SPECIALSTAGE/KNUCKLESANIM/ANIGROUP";
+
+	/// <summary>The height of the frames of the HD group of Sonic, in pixels. The sprites of Knuckles have the same scale.</summary>
+	private const double SonicFrameHeight = 264.0;
+
 	private const string RingAnimationResourceKey = "SONICORCA/SPECIALSTAGE/RINGANIM";
 
 	private const string RingEffectAnimationResourceKey = "SONICORCA/SPECIALSTAGE/RINGEFFECTANIM";
@@ -305,6 +314,12 @@ public class HalfPipeSpecialStageScreen : Screen
 
 	private readonly ResourceSession _resourceSession;
 
+	/// <summary>True when Knuckles plays.</summary>
+	private readonly bool _knuckles;
+
+	/// <summary>The height of the sprite of the main player: Sonic, or Knuckles at the scale of Sonic.</summary>
+	private double _playerHeight = SonicHeight;
+
 	private readonly HalfPipePlayer _player = new HalfPipePlayer();
 
 	/// <summary>Tails, or null when Sonic plays alone.</summary>
@@ -518,9 +533,15 @@ public class HalfPipeSpecialStageScreen : Screen
 	/// ring goals and no emerald, and each checkpoint ends a segment. The stage ends without a results screen, and
 	/// <see cref="VersusSegments"/> has the rings of each player.
 	/// </param>
-	public HalfPipeSpecialStageScreen(SonicOrcaGameContext gameContext, int stage = 0, bool withTails = false, int emeralds = 0, int score = 0, bool versus = false)
+	/// <param name="knuckles">
+	/// True when Knuckles plays, alone. He has the lower ring quotas of Knuckles in Sonic 2, and his sprites when the
+	/// import made them.
+	/// </param>
+	public HalfPipeSpecialStageScreen(SonicOrcaGameContext gameContext, int stage = 0, bool withTails = false, int emeralds = 0, int score = 0, bool versus = false,
+		bool knuckles = false)
 	{
 		_stage = stage;
+		_knuckles = knuckles && !withTails && !versus;
 		_startEmeralds = emeralds;
 		_startScore = score;
 		_versus = versus;
@@ -589,6 +610,11 @@ public class HalfPipeSpecialStageScreen : Screen
 			}
 		}
 		string resultsJingleKey = resources[ResultsJingleResourceKey]?.Resource != null ? ResultsJingleResourceKey : EmeraldMusicResourceKey;
+		bool knucklesArt = _knuckles && resources[KnucklesAnimationResourceKey]?.Resource != null;
+		if (knucklesArt)
+		{
+			_resourceSession.PushDependency(KnucklesAnimationResourceKey);
+		}
 		_resourceSession.PushDependency(resultsJingleKey);
 		string emeraldJingleKey = resources[GotEmeraldJingleResourceKey]?.Resource != null ? GotEmeraldJingleResourceKey : EmeraldMusicResourceKey;
 		_resourceSession.PushDependency(emeraldJingleKey);
@@ -624,7 +650,12 @@ public class HalfPipeSpecialStageScreen : Screen
 		_shadowTexture = tree.GetLoadedResource<ITexture>(ShadowResourceKey);
 		_ballShadowTexture = tree.GetLoadedResource<ITexture>(BallShadowResourceKey);
 		_ringsLabelTexture = tree.GetLoadedResource<ITexture>(RingsLabelResourceKey);
-		_sonicAnimation = new AnimationInstance(tree, SonicAnimationResourceKey);
+		_sonicAnimation = new AnimationInstance(tree, knucklesArt ? KnucklesAnimationResourceKey : SonicAnimationResourceKey);
+		if (knucklesArt)
+		{
+			// The original sprites of Knuckles have the pixel scale of the HD sprites of Sonic
+			_playerHeight = SonicHeight * _sonicAnimation.AnimationGroup[0].Frames[0].Source.Height / SonicFrameHeight;
+		}
 		_ringAnimation = new AnimationInstance(tree, RingAnimationResourceKey);
 		_ringEffectAnimation = tree.GetLoadedResource<AnimationGroup>(RingEffectAnimationResourceKey);
 		_explosionAnimation = tree.GetLoadedResource<AnimationGroup>(ExplosionAnimationResourceKey);
@@ -656,7 +687,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		_objectShader = OrcaShader.CreateFromFile(_graphicsContext, "shaders/halfpipe/object.shader");
 		_vertexBuffer = _graphicsContext.CreateVertexBuffer(3, 2);
 		_projectionMatrix = Matrix4.Perspective(MathX.ToRadians(_fov), 16.0 / 9.0, 1.0, 1024.0);
-		_track = HalfPipeTrackBuilder.Build(_stageData ?? HalfPipeLayout.CreateGenerated(), HalfPipeLayout.GetRingQuotas(_stage, duo: _tails != null));
+		_track = HalfPipeTrackBuilder.Build(_stageData ?? HalfPipeLayout.CreateGenerated(), HalfPipeLayout.GetRingQuotas(_stage, duo: _tails != null, knuckles: _knuckles));
 		_objects = _track.Objects;
 		_checkpoints = _track.Checkpoints;
 		_flow = new HalfPipeStageFlow(_track, _versus);
@@ -1371,7 +1402,7 @@ public class HalfPipeSpecialStageScreen : Screen
 
 		List<TexturedQuad> quads = new List<TexturedQuad>();
 		AddObjectQuads(quads);
-		AddPlayerQuads(quads, _player, GetDrawPose(_player, _sonicPreviousPose), _sonicAnimation, SonicHeight);
+		AddPlayerQuads(quads, _player, GetDrawPose(_player, _sonicPreviousPose), _sonicAnimation, _playerHeight);
 		if (_tails != null)
 		{
 			AddPlayerQuads(quads, _tails, GetDrawPose(_tails, _tailsPreviousPose), _tailsAnimation, TailsHeight);

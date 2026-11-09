@@ -273,8 +273,9 @@ a second binding for each act, `BINDINGK`, and a level loads it when Knuckles pl
   These are the HD bindings with the changes of KiS2. The import removes the HD objects that KiS2 removes, moves the
   HD objects that KiS2 moves, and adds the objects that KiS2 adds.
 
-Without `S2HD_KIS2_DIR`, the script does not make Knuckles mode. His special stage art and the ending of KiS2 are not
-done yet: in the special stage and in the ending, Sonic plays.
+In the special stage, Knuckles runs with his sprites of KiS2, and he needs the lower ring counts of KiS2. Without
+`S2HD_KIS2_DIR`, the script does not make Knuckles mode. The name of Knuckles on the results screen of the special
+stage and the ending of KiS2 are not done yet: the results screen and the ending show Sonic.
 
 The script also makes the mod `tile-animations` from the game data. The HD tile sets of Emerald Hill, Chemical Plant
 and Hill Top keep the frames of their animated tiles in the tile set. The mod moves these frames into an animation
