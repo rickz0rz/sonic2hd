@@ -940,6 +940,13 @@ public static class LevelImport
 				}
 			}
 			textures["SONICORCA/OBJECTS/CNZSLOTREELS/TEXTURE"] = SlotReels.RenderTexture(disassembly, palette, Scale);
+			if (knucklesBinding != null && File.Exists(System.IO.Path.Combine(kis2, SlotReels.KnucklesArtFile)))
+			{
+				// The reels of Knuckles: his face, and the colours of Knuckles in palette line 0 (SonicAndTails.bin of KiS2)
+				uint[] knucklesPalette = (uint[])palette.Clone();
+				SpriteImport.ReadPaletteFile(kis2, "art/palettes/SonicAndTails.bin", knucklesPalette, 0);
+				textures[SlotReels.KnucklesTextureKey] = SlotReels.RenderTexture(disassembly, knucklesPalette, Scale, kis2);
+			}
 		}
 		foreach (KeyValuePair<int, int> pair in unsupported)
 		{

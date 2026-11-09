@@ -17,4 +17,7 @@ public class CNZSlotReelsType : ObjectType
 	/// <summary>The three reel strips side by side. Each strip has its 8 faces twice, so that a window never wraps.</summary>
 	[Dependency]
 	public const string TextureResourceKey = "/TEXTURE";
+	/// <summary>The reels of Knuckles. Only the import of CNZ with the folder of KiS2 makes them.</summary>
+	[Dependency(Optional = true)]
+	public const string KnucklesTextureResourceKey = "/TEXTUREK";
 }

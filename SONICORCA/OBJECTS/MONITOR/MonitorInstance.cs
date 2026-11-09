@@ -78,9 +78,12 @@ public class MonitorInstance : ActiveObject
 		MonitorContents.SpeedShoes, MonitorContents.Barrier, MonitorContents.Invincibility, MonitorContents.SwapPlaces,
 	};
 
-	// The character is the protagonist character type as an integer: 1 is Sonic and 2 is Tails.
+	// The character is the protagonist character type as an integer: 1 is Sonic and 2 is Tails. Knuckles has the
+	// items of Sonic: the monitor draws his extra life over it.
 	private static int GetScreenContentsAnimationIndex(MonitorContents contents, int character)
 	{
+		if (character != (int)CharacterType.Tails)
+			character = (int)CharacterType.Sonic;
 		switch (contents)
 		{
 			case MonitorContents.Life:
@@ -142,6 +145,9 @@ public class MonitorInstance : ActiveObject
 		// In versus mode, each monitor shows a question mark and gives a random item (Obj26_Init of the original)
 		_screenAnimation.Index = GetScreenContentsAnimationIndex(Level.Versus ? MonitorContents.Random : _contents, (int)Level.Player.ProtagonistCharacterType);
 		_screenOverlayAnimation.Index = AnimationScreenOverlay;
+		if (_contents == MonitorContents.Life && !Level.Versus && Level.Player.ProtagonistCharacterType == CharacterType.Knuckles &&
+			ResourceTree.TryGetLoadedResource(MonitorType.KnucklesIconResourceKey, out ITexture knucklesIcon))
+			_knucklesIcon = knucklesIcon;
 		if (_broken)
 			return;
 		_contentsAnimation = new AnimationInstance(animationGroup);
@@ -314,6 +320,9 @@ public class MonitorInstance : ActiveObject
 		_contentsAnimation.Animate();
 	}
 
+	/// <summary>The extra life of Knuckles of KiS2, which shows in place of the extra life of Sonic, or null.</summary>
+	private ITexture _knucklesIcon;
+
 	protected override void OnDraw(Renderer renderer, LayerViewOptions viewOptions)
 	{
 		IObjectRenderer objectRenderer = renderer.GetObjectRenderer();
@@ -323,12 +332,25 @@ public class MonitorInstance : ActiveObject
 		objectRenderer.FilterAmount *= 0.25;
 		if (!_broken)
 		{
-			objectRenderer.Render(_screenAnimation, new Vector2(2.0, -10.0));
+			if (_knucklesIcon != null)
+				DrawKnucklesIcon(objectRenderer, new Vector2(2.0, -10.0));
+			else
+				objectRenderer.Render(_screenAnimation, new Vector2(2.0, -10.0));
 			objectRenderer.Render(_screenOverlayAnimation, new Vector2(0.0, -13.0));
 		}
 		objectRenderer.Render(_shellOverlayAnimation);
 		if (!_raisingContents)
 			return;
-		objectRenderer.Render(_contentsAnimation, _contentsPosition);
+		if (_knucklesIcon != null)
+			DrawKnucklesIcon(objectRenderer, (Vector2)_contentsPosition);
+		else
+			objectRenderer.Render(_contentsAnimation, _contentsPosition);
+	}
+
+	/// <summary>Draws the extra life of Knuckles with its centre at a position.</summary>
+	private void DrawKnucklesIcon(IObjectRenderer objectRenderer, Vector2 centre)
+	{
+		objectRenderer.Texture = _knucklesIcon;
+		objectRenderer.Render(new Rectangle(0, 0, _knucklesIcon.Width, _knucklesIcon.Height), centre);
 	}
 }

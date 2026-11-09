@@ -10,6 +10,15 @@ public static class SlotReels
 {
 	public const string ArtFile = "art/uncompressed/Slot pictures.bin";
 
+	/// <summary>
+	/// The face of Knuckles of Knuckles in Sonic 2 (KiS2). SlotMachine_GetPixelRow of KiS2 takes face 0, the face of
+	/// Sonic, from this file.
+	/// </summary>
+	public const string KnucklesArtFile = "art/uncompressed/Slot pictures (Knuckles patch).bin";
+
+	/// <summary>The reels of Knuckles, next to TEXTURE in the folder of the reels. The reels use it when Knuckles plays.</summary>
+	public const string KnucklesTextureKey = "SONICORCA/OBJECTS/CNZSLOTREELS/TEXTUREK";
+
 	/// <summary>The block of the top left quarter of the left reel window (APM_CNZ adds the reel blocks at $2EC).</summary>
 	public const int WindowBlock = 0x2EC;
 
@@ -27,9 +36,15 @@ public static class SlotReels
 	/// Renders the three strips side by side. Each strip has its 8 faces twice (512 rows), so that a 32-row window
 	/// that starts at any row of the first 256 never wraps.
 	/// </summary>
-	public static byte[] RenderTexture(string disassembly, uint[] palette, int scale)
+	/// <param name="kis2">The folder of KiS2 for the reels of Knuckles: face 0 is the face of Knuckles. Null for Sonic 2.</param>
+	public static byte[] RenderTexture(string disassembly, uint[] palette, int scale, string kis2 = null)
 	{
 		byte[] art = File.ReadAllBytes(Path.Combine(disassembly, ArtFile));
+		if (kis2 != null)
+		{
+			byte[] knuckles = File.ReadAllBytes(Path.Combine(kis2, KnucklesArtFile));
+			System.Array.Copy(knuckles, 0, art, 0, System.Math.Min(knuckles.Length, 0x200));
+		}
 		int width = 3 * FaceSize * scale;
 		int rows = 2 * Sequences[0].Length * FaceSize;
 		int height = rows * scale;
