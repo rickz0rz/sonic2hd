@@ -16,7 +16,7 @@ public sealed class KnucklesArtTests
 
 		XElement[] animations = XDocument.Parse(sprite.AnimationGroup).Descendants("animation").ToArray();
 		Assert.Equal(KnucklesArt.TransformAnimation, Enum.GetValues<SonicOrca.Core.Objects.Base.CharacterAnimation>().Length);
-		Assert.Equal(KnucklesArt.ClimbLedgeAnimation + 1, animations.Length);
+		Assert.Equal(KnucklesArt.GetUpAnimation + 1, animations.Length);
 		// The walk has the 8 upright frames, and the glide has the 5 frames of the turn
 		Assert.Equal(8, animations[(int)SonicOrca.Core.Objects.Base.CharacterAnimation.Walk].Elements("frame").Count());
 		Assert.Equal(5, animations[KnucklesArt.GlideAnimation].Elements("frame").Count());

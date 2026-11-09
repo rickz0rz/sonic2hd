@@ -92,6 +92,8 @@ public class MTZSpringWallInstance : ActiveObject
 	{
 		int direction = Direction;
 		double speedX = BounceSpeed * direction;
+		// KiS2: the spring wall ends a glide of Knuckles
+		character.StopGliding();
 		character.Velocity = new Vector2(speedX, (_subtype & 0x80) != 0 ? 0.0 : -BounceSpeed);
 		character.GroundVelocity = speedX;
 		character.Facing = direction;

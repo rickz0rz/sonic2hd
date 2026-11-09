@@ -96,6 +96,8 @@ public class BossObject : Enemy
 	/// </summary>
 	protected virtual void Hit(ICharacter character)
 	{
+		// KiS2 (Touch_Enemy_Part2): a hit bounces Knuckles out of his glide
+		character.StopGliding(fall: true);
 		if (character.IsAirborne || Level.OriginalPhysics)
 		{
 			character.Velocity *= -1.0;

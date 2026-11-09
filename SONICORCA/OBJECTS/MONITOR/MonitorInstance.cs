@@ -208,7 +208,7 @@ public class MonitorInstance : ActiveObject
 
 	private bool CanCharacterBreak(ICharacter character)
 	{
-		return character.Velocity.Y >= 0.0 && !character.IsSidekick && character.IsSpinball;
+		return character.Velocity.Y >= 0.0 && !character.IsSidekick && (character.IsSpinball || character.IsGliding);
 	}
 
 	private void Break(ICharacter character)
