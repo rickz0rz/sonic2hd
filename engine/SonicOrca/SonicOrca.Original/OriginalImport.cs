@@ -26,7 +26,7 @@ public static class OriginalImport
 	/// The version of the import. Change it when a change of the importers changes the mods, so that the web build
 	/// makes its stored mods again.
 	/// </summary>
-	public const int Version = 24;
+	public const int Version = 25;
 
 	/// <summary>The zones that the import makes, in the order of tools/import-all.sh.</summary>
 	public static readonly IReadOnlyList<string> Zones = new[] { "arz", "cnz", "mcz", "ooz", "mtz", "scz", "wfz", "dez" };
@@ -289,7 +289,7 @@ public static class OriginalImport
 		}
 	}
 
-	/// <summary>Makes the art of the ending cutscene, the slides of the original credits, and the logo at their end.</summary>
+	/// <summary>Makes the art of the ending cutscene, the font and the slides of the original credits, and the logo at their end.</summary>
 	public static void ImportEnding(string disassembly, string folder, Action<string> log)
 	{
 		if (!File.Exists(Path.Combine(disassembly, MarkerFile)))
@@ -298,7 +298,7 @@ public static class OriginalImport
 		}
 		EndingArt.Import(disassembly, folder);
 		int slides = OriginalCredits.Import(disassembly, folder);
-		log($"Wrote the art of the ending to {EndingArt.ResourceKey}, and {slides} slides of the credits and the logo to {OriginalCredits.ResourceKey}.");
+		log($"Wrote the art of the ending to {EndingArt.ResourceKey}, and the font, the text of {slides} slides of the credits and the logo to {OriginalCredits.ResourceKey}.");
 	}
 
 	/// <summary>Makes the recordings of the attract demos.</summary>

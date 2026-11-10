@@ -319,8 +319,23 @@ two versions.
 ### Original credits
 
 The import also makes the credits of the original game: 21 slides of text and the Sonic 2 logo at the end. It reads
-the text and the layout of the slides from `s2.asm`, and draws them with the credits font of the disassembly. The
-credits music (`9E - Credits`) comes with the music import.
+the text and the layout of the slides from `s2.asm`, and writes them to `SONICORCA/CREDITS/ORIGINAL/SLIDES.xml`. It
+writes each character of the credits font of the disassembly as a white image in `SONICORCA/CREDITS/ORIGINAL/FONT`.
+The game makes each line of text from these images and gives the line its colour. The credits music
+(`9E - Credits`) comes with the music import.
+
+To change the credits, unpack the `ending` mod and edit the files:
+
+- In `SLIDES.xml`, each `slide` element is one slide. Each `text` element is one line of text. `x` and `y` give the
+  top left corner of the line in pixels of the original screen (320 x 224). `line="0"` is white and `line="1"` is
+  yellow.
+- In `FONT`, the name of an image is its character: `A.png`, `9.png`, `FULLSTOP.png`, `APOSTROPHE.png`,
+  `LEFTBRACKET.png`, `RIGHTBRACKET.png` and `COPYRIGHT.png` (the © sign). For another character, the name is `U` and
+  the hexadecimal code of the character, for example `U00C9.png` for É. Draw the character in white on a transparent
+  background.
+- A character is 8 pixels of the original high. The width of its image, relative to its height, gives the width of
+  the character. Thus a 16 x 8 image (or 64 x 32 for a larger image) is 16 pixels of the original wide. A space is
+  8 pixels wide. A character without an image is not drawn, and it is 16 pixels wide.
 
 ```sh
 dotnet run --project tools/s2hd-data -- import-ending ../s2disasm ending
@@ -732,7 +747,7 @@ publish/S2HD.app/Contents/MacOS/S2HD --animations SONICORCA/OBJECTS/SONIC/ANIGRO
 
 The left panel lists all the animation groups of the game and of the mods. Click the filter row and type to find a
 group. After the groups, the list has the images that are not in an animation group, marked "image": for example the
-title, the photos and the close-ups of the ending (`ENDING/...`), the slides of the credits (`CREDITS/ORIGINAL/...`)
+title, the photos and the close-ups of the ending (`ENDING/...`), the characters of the credits font (`CREDITS/ORIGINAL/FONT/...`)
 and the fonts. `--animations SONICORCA/ENDING/PICTURES/1` opens an image. The editor shows the image, and "Edit 0" and
 "Replace 0" change it in the same way as a texture of a group (see below). An image has no animations to change. A
 new image can have another size: the game draws it at the place and size of the old image.

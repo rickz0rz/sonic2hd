@@ -8,6 +8,7 @@ using SonicOrca.Audio;
 using SonicOrca.Geometry;
 using SonicOrca.Graphics;
 using SonicOrca.Input;
+using SonicOrca.Original;
 using SonicOrca.Resources;
 
 namespace S2HD;
@@ -15,11 +16,14 @@ namespace S2HD;
 /// <summary>
 /// Plays the credits of the original game: slides of text that fade in and out, then the Sonic 2 logo that flashes.
 /// The timing and the fades are the same as in EndgameCredits of the original. The import of the disassembly makes
-/// the slides (see SonicOrca.Original.OriginalCredits). Without the import, this state ends at once.
+/// the text of the slides and an image for each character of the font (see <see cref="OriginalCredits"/>). This state
+/// makes each line of text from the images of its characters. Without the import, this state ends at once.
 /// </summary>
 internal sealed class OriginalCreditsGameState : IGameState, IDisposable
 {
-	private const string ResourceKey = "SONICORCA/CREDITS/ORIGINAL";
+	private const string ResourceKey = OriginalCredits.ResourceKey;
+
+	private const string SlidesResourceKey = ResourceKey + "/" + OriginalCredits.SlidesKey;
 
 	private const string MusicResourceKey = "SONICORCA/MUSIC/CREDITS/ORIGINAL";
 
@@ -60,7 +64,10 @@ internal sealed class OriginalCreditsGameState : IGameState, IDisposable
 
 	private ResourceSession _resourceSession;
 
-	private readonly List<ITexture[]> _slides = new List<ITexture[]>();
+	private List<OriginalCredits.Slide> _slides = new List<OriginalCredits.Slide>();
+
+	/// <summary>The image of each character of the font. A character without an image is not drawn.</summary>
+	private readonly Dictionary<char, ITexture> _characters = new Dictionary<char, ITexture>();
 
 	private readonly List<ITexture> _logo = new List<ITexture>();
 
@@ -91,7 +98,7 @@ internal sealed class OriginalCreditsGameState : IGameState, IDisposable
 	}
 
 	/// <summary>True when the import made the original credits.</summary>
-	public static bool IsAvailable(ResourceTree tree) => tree[GetSlideKey(0, 0)]?.Resource != null;
+	public static bool IsAvailable(ResourceTree tree) => tree[SlidesResourceKey]?.Resource != null;
 
 	public IEnumerable<UpdateResult> Update()
 	{
@@ -100,11 +107,24 @@ internal sealed class OriginalCreditsGameState : IGameState, IDisposable
 		{
 			yield break;
 		}
-		int slideCount = Enumerable.Range(0, 100).TakeWhile(i => tree[GetSlideKey(i, 0)]?.Resource != null).Count();
 		_resourceSession = new ResourceSession(tree);
-		for (int i = 0; i < slideCount; i++)
+		_resourceSession.PushDependency(SlidesResourceKey);
+		Task load = _resourceSession.LoadAsync(CancellationToken.None);
+		while (!load.IsCompleted)
 		{
-			_resourceSession.PushDependencies(GetSlideKey(i, 0), GetSlideKey(i, 1));
+			yield return UpdateResult.Next();
+		}
+		if (load.IsFaulted)
+		{
+			yield break;
+		}
+		_slides = OriginalCredits.ParseSlides(tree.GetLoadedResource<XmlLoadedResource>(SlidesResourceKey).XmlDocument);
+		char[] characters = _slides.SelectMany(slide => slide.Items).SelectMany(item => item.Text).Distinct()
+			.Where(c => tree[GetCharacterKey(c)]?.Resource != null)
+			.ToArray();
+		foreach (char c in characters)
+		{
+			_resourceSession.PushDependency(GetCharacterKey(c));
 		}
 		for (int p = 0; p < LogoPalettes; p++)
 		{
@@ -115,7 +135,7 @@ internal sealed class OriginalCreditsGameState : IGameState, IDisposable
 		{
 			_resourceSession.PushDependency(MusicResourceKey);
 		}
-		Task load = _resourceSession.LoadAsync(CancellationToken.None);
+		load = _resourceSession.LoadAsync(CancellationToken.None);
 		while (!load.IsCompleted)
 		{
 			yield return UpdateResult.Next();
@@ -124,9 +144,9 @@ internal sealed class OriginalCreditsGameState : IGameState, IDisposable
 		{
 			yield break;
 		}
-		for (int i = 0; i < slideCount; i++)
+		foreach (char c in characters)
 		{
-			_slides.Add(new[] { GetTexture(GetSlideKey(i, 0)), GetTexture(GetSlideKey(i, 1)) });
+			_characters[c] = GetTexture(GetCharacterKey(c));
 		}
 		for (int p = 0; p < LogoPalettes; p++)
 		{
@@ -208,12 +228,12 @@ internal sealed class OriginalCreditsGameState : IGameState, IDisposable
 		Rectangle screen = new Rectangle((1920.0 - ScreenWidth * scale) / 2.0, 0.0, ScreenWidth * scale, 1080.0);
 		if (_slide >= 0)
 		{
-			for (int line = 0; line < _colours.Length; line++)
+			foreach (OriginalCredits.TextItem item in _slides[_slide].Items)
 			{
-				if (_colours[line] != 0)
+				if (item.Line >= 0 && item.Line < _colours.Length && _colours[item.Line] != 0)
 				{
-					g.Colour = ToColour(_colours[line]);
-					g.RenderTexture(_slides[_slide][line], screen);
+					g.Colour = ToColour(_colours[item.Line]);
+					DrawText(g, screen, scale, item);
 				}
 			}
 			g.Colour = Colours.White;
@@ -223,6 +243,32 @@ internal sealed class OriginalCreditsGameState : IGameState, IDisposable
 			// RenderQuad leaves its colour in the renderer, so set white for the texture
 			g.Colour = Colours.White;
 			g.RenderTexture(_logo[_logoPalette], screen);
+		}
+	}
+
+	/// <summary>
+	/// Draws a line of text, one character after the other. A character is <see cref="OriginalCredits.CharacterHeight"/>
+	/// pixels of the original high, and its image gives its width: an image of 2 x 1 characters is 16 x 8 pixels of
+	/// the original. As on plane A of the original, the text stops at the right edge of the screen.
+	/// </summary>
+	private void DrawText(I2dRenderer g, Rectangle screen, double scale, OriginalCredits.TextItem item)
+	{
+		double x = item.X;
+		foreach (char c in item.Text)
+		{
+			ITexture texture = _characters.GetValueOrDefault(c);
+			double width = texture != null
+				? OriginalCredits.CharacterHeight * texture.Width / (double)texture.Height
+				: c == ' ' ? OriginalCredits.SpaceWidth : OriginalCredits.TileSize * 2;
+			if (x + width > ScreenWidth)
+			{
+				break;
+			}
+			if (texture != null)
+			{
+				g.RenderTexture(texture, new Rectangle(screen.X + x * scale, screen.Y + item.Y * scale, width * scale, OriginalCredits.CharacterHeight * scale));
+			}
+			x += width;
 		}
 	}
 
@@ -264,7 +310,7 @@ internal sealed class OriginalCreditsGameState : IGameState, IDisposable
 		return new Colour((byte)((colour >> 1 & 7) * 255 / 7), (byte)((colour >> 5 & 7) * 255 / 7), (byte)((colour >> 9 & 7) * 255 / 7));
 	}
 
-	private static string GetSlideKey(int slide, int line) => $"{ResourceKey}/SLIDE{slide + 1:00}/LINE{line}";
+	private static string GetCharacterKey(char c) => $"{ResourceKey}/{OriginalCredits.FontFolder}/{OriginalCredits.GetCharacterName(c)}";
 
 	private static string GetLogoKey(string folder, int palette) => $"{ResourceKey}/{folder}/PALETTE{palette}";
 }
