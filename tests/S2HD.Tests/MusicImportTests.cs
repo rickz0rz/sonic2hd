@@ -157,6 +157,37 @@ public sealed class MusicImportTests
 	}
 
 	[Fact]
+	public void ImportSong_WithoutFfmpeg_RendersTheCreditsToAWaveFile_AndKeepsTheOtherSongsLive()
+	{
+		string disassembly = SpecialStageImportTests.FindDisassembly();
+		(string File, string Key) credits = MusicImport.Songs.Single(song => song.Key == "SONICORCA/MUSIC/CREDITS/ORIGINAL");
+		(string File, string Key) emerald = MusicImport.Songs.Single(song => song.Key == "SONICORCA/MUSIC/JINGLE/EMERALD");
+		string folder = Path.Combine(Path.GetTempPath(), "s2hd-music-" + Guid.NewGuid().ToString("N"));
+		try
+		{
+			MusicImport.ImportSong(credits, disassembly, folder, null);
+			MusicImport.ImportSong(emerald, disassembly, folder, null);
+
+			string creditsFolder = Path.Combine(folder, "SONICORCA", "MUSIC", "CREDITS", "ORIGINAL");
+			string wave = Path.Combine(creditsFolder, "SAMPLE.wav");
+			Assert.True(File.Exists(wave));
+			Assert.False(File.Exists(Path.Combine(creditsFolder, "SAMPLE.smps")));
+			Assert.True(File.Exists(Path.Combine(creditsFolder, "_.sampleinfo.xml")));
+			// 16-bit stereo at 48000 Hz: 4 bytes for each sample. The credits are about 161 seconds long.
+			double seconds = (new FileInfo(wave).Length - 44) / 4.0 / SongRenderer.SampleRate;
+			Assert.InRange(seconds, 150.0, 170.0);
+			Assert.True(File.Exists(Path.Combine(folder, "SONICORCA", "MUSIC", "JINGLE", "EMERALD", "SAMPLE.smps")));
+		}
+		finally
+		{
+			if (Directory.Exists(folder))
+			{
+				Directory.Delete(folder, true);
+			}
+		}
+	}
+
+	[Fact]
 	public void Render_SuperTransform_PlaysOnceAndStaysBelowFullScale()
 	{
 		string disassembly = SpecialStageImportTests.FindDisassembly();

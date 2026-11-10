@@ -51,6 +51,16 @@ public static class MusicImport
 	};
 
 	/// <summary>
+	/// The songs that the import renders to a PCM sample (KEY/SAMPLE.wav) when it has no ffmpeg (the web build), in
+	/// place of a song that plays live. The original credits are long and play over a screen that has nothing else to
+	/// do, so the game plays them from a sample, as on the desktop.
+	/// </summary>
+	public static readonly IReadOnlySet<string> PrerenderedSongs = new HashSet<string>
+	{
+		"SONICORCA/MUSIC/CREDITS/ORIGINAL"
+	};
+
+	/// <summary>
 	/// The songs to import a second time at the tempo of the speed shoes (zSpedUpTempoTable): the file in
 	/// <see cref="MusicFolder"/>, the resource key of the fast music, and the tempo. The original changes only the
 	/// tempo of the song that plays. A song that plays live does the same (see <see cref="SongSample"/>).
@@ -96,7 +106,8 @@ public static class MusicImport
 	/// <summary>
 	/// Imports one song: the sample KEY/SAMPLE.ogg and the sample info KEY/_.sampleinfo.xml. Without ffmpeg (the web
 	/// build), the sample is KEY/SAMPLE.smps: the song and its drums, which the game plays live on the emulated chips.
-	/// Returns a line that tells the length and the loop point of the song.
+	/// A song of <see cref="PrerenderedSongs"/> is then KEY/SAMPLE.wav. Returns a line that tells the length and the
+	/// loop point of the song.
 	/// </summary>
 	/// <param name="song">The song, from <see cref="Songs"/>.</param>
 	/// <param name="disassembly">The folder of the disassembly.</param>
@@ -113,7 +124,7 @@ public static class MusicImport
 		}
 		string keyFolder = Path.Combine(new[] { folder }.Concat(song.Key.Split('/')).ToArray());
 		Directory.CreateDirectory(keyFolder);
-		if (ffmpeg == null)
+		if (ffmpeg == null && !PrerenderedSongs.Contains(song.Key))
 		{
 			SmpsResourceType.Write(Path.Combine(keyFolder, "SAMPLE.smps"), smps, SongRenderer.LoadDrums(Path.Combine(disassembly, DacFolder)));
 			WriteSampleInfo(Path.Combine(keyFolder, "_.sampleinfo.xml"), null);
@@ -122,13 +133,17 @@ public static class MusicImport
 		RenderedSong rendered = SongRenderer.Render(smps, Path.Combine(disassembly, DacFolder));
 		string wave = Path.Combine(keyFolder, "SAMPLE.wav");
 		rendered.WriteWave(wave);
-		try
+		// Without ffmpeg, the game plays the wave file
+		if (ffmpeg != null)
 		{
-			Encode(ffmpeg, wave, Path.Combine(keyFolder, "SAMPLE.ogg"));
-		}
-		finally
-		{
-			File.Delete(wave);
+			try
+			{
+				Encode(ffmpeg, wave, Path.Combine(keyFolder, "SAMPLE.ogg"));
+			}
+			finally
+			{
+				File.Delete(wave);
+			}
 		}
 		WriteSampleInfo(Path.Combine(keyFolder, "_.sampleinfo.xml"), rendered.LoopSample);
 		string loop = rendered.LoopSample is int sample

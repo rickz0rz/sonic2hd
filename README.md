@@ -138,8 +138,10 @@ the stored zip. **Delete stored files** removes the zip and the mods. Mods in th
 priority over the import.
 
 The browser has no ffmpeg, so the web import does not make Ogg Vorbis samples. It keeps each song and its drums
-(`SAMPLE.smps`), and the game plays the song live on the emulated sound chips. The music mod is then about 150 KB,
-against 21 MB of Ogg Vorbis on the desktop. The desktop keeps the Ogg Vorbis samples, which use less processor time.
+(`SAMPLE.smps`), and the game plays the song live on the emulated sound chips. The desktop keeps the Ogg Vorbis
+samples, which use less processor time. The music of the original credits is the exception: the web import plays the
+song on the emulated chips once (about 2 seconds in Chrome) and keeps the sound as a WAVE file (`SAMPLE.wav`, 31 MB).
+The music mod is then about 31 MB, against 21 MB of Ogg Vorbis on the desktop.
 
 For tests, `?disasm=<url>` stores a zip of the disassembly from the same site, as the button does.
 
