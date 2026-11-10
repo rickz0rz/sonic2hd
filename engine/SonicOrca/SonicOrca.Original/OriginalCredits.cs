@@ -4,14 +4,19 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Xml;
+using System.Xml.Linq;
 
 namespace SonicOrca.Original;
 
 /// <summary>
 /// Makes the original credits of the disassembly: the slides of text and the Sonic 2 logo at the end. The original
-/// draws each slide on plane A with the credits font, then fades it in and out. The import draws each slide as two
-/// masks, one for each palette line of the text, so that the game can fade the colours as the original does. The
-/// logo flashes with a cycle of 9 palettes, so the import draws it once for each palette.
+/// draws each slide on plane A with the credits font, then fades it in and out. The import writes the font as one
+/// white image for each character (<see cref="FontFolder"/>) and the text of the slides as an XML file
+/// (<see cref="SlidesKey"/>). The game makes each line of text from the images of its characters and gives each line
+/// the colour of its palette line, so that it can fade the colours as the original does. A modder can change one
+/// character or one line of text. The logo flashes with a cycle of 9 palettes, so the import draws it once for each
+/// palette.
 /// </summary>
 public static class OriginalCredits
 {
@@ -23,19 +28,30 @@ public static class OriginalCredits
 	/// <summary>The resource folder of the original credits.</summary>
 	public const string ResourceKey = "SONICORCA/CREDITS/ORIGINAL";
 
+	/// <summary>The folder of the images of the characters, below <see cref="ResourceKey"/>.</summary>
+	public const string FontFolder = "FONT";
+
+	/// <summary>The XML file of the text of the slides, below <see cref="ResourceKey"/>.</summary>
+	public const string SlidesKey = "SLIDES";
+
+	/// <summary>The height of a character of the font, in pixels of the original. The images of the font can be larger.</summary>
+	public const int CharacterHeight = TileSize;
+
+	/// <summary>The width of a space, in pixels of the original.</summary>
+	public const int SpaceWidth = TileSize;
+
+	/// <summary>The copyright sign. The text of the disassembly has '@' for it.</summary>
+	public const char CopyrightSign = '\u00A9';
+
 	/// <summary>The palette lines of the text. Line 0 is white and line 1 is yellow.</summary>
 	public const int TextLines = 2;
 
 	/// <summary>The number of palettes of the cycle of the logo, in "art/palettes/Ending Cycle.bin".</summary>
 	public const int LogoPalettes = 9;
 
-	private const int TileSize = 8;
+	public const int TileSize = 8;
 
 	private const int BytesPerTile = 32;
-
-	private const int PlaneColumns = ScreenWidth / TileSize;
-
-	private const int PlaneRows = ScreenHeight / TileSize;
 
 	private const string SourceFile = "s2.asm";
 
@@ -66,10 +82,16 @@ public static class OriginalCredits
 	/// </summary>
 	private static readonly Dictionary<char, int> Charset = MakeCharset();
 
-	/// <summary>A slide: the text items, each with its palette line, its text and its position in tiles.</summary>
-	public sealed record Slide(IReadOnlyList<(int Line, string Text, int Column, int Row)> Items);
+	/// <summary>A line of text of a slide: its palette line, its text, and the position of its top left corner in pixels of the original.</summary>
+	public sealed record TextItem(int Line, string Text, int X, int Y);
 
-	/// <summary>Reads the slides of the credits from s2.asm, in their order.</summary>
+	/// <summary>A slide: its lines of text.</summary>
+	public sealed record Slide(IReadOnlyList<TextItem> Items);
+
+	/// <summary>
+	/// Reads the slides of the credits from s2.asm, in their order. The text has <see cref="CopyrightSign"/> in place
+	/// of '@'.
+	/// </summary>
 	public static List<Slide> ReadSlides(string disassembly)
 	{
 		string source = File.ReadAllText(Path.Combine(disassembly, SourceFile));
@@ -96,11 +118,13 @@ public static class OriginalCredits
 			{
 				throw new InvalidDataException($"s2.asm has no credits screen {label.Groups[1].Value}.");
 			}
-			List<(int, string, int, int)> items = new List<(int, string, int, int)>();
+			List<TextItem> items = new List<TextItem>();
 			foreach (Match item in Regex.Matches(screen.Groups[1].Value, @"(\w+)\s*,\s*textLoc\(\s*\$?([0-9A-Fa-f]+)\s*,\s*\$?([0-9A-Fa-f]+)\s*\)"))
 			{
 				(int line, string text) = texts[item.Groups[1].Value];
-				items.Add((line, text, int.Parse(item.Groups[2].Value, NumberStyles.HexNumber), int.Parse(item.Groups[3].Value, NumberStyles.HexNumber)));
+				int column = int.Parse(item.Groups[2].Value, NumberStyles.HexNumber);
+				int row = int.Parse(item.Groups[3].Value, NumberStyles.HexNumber);
+				items.Add(new TextItem(line, text.Replace('@', CopyrightSign), column * TileSize, row * TileSize));
 			}
 			slides.Add(new Slide(items));
 		}
@@ -111,7 +135,7 @@ public static class OriginalCredits
 	public static List<int> Encode(string text)
 	{
 		List<int> tiles = new List<int>();
-		foreach (char c in text)
+		foreach (char c in text.Replace(CopyrightSign, '@'))
 		{
 			tiles.Add(GetTile(c));
 			// In the macro, "case "I"" has no body of its own: AS does not go on to the next case. So I is one tile wide.
@@ -131,28 +155,76 @@ public static class OriginalCredits
 		return tiles;
 	}
 
-	/// <summary>Draws the masks of a slide: a white image of the text of each palette line, as PNG files.</summary>
-	public static byte[][] RenderSlide(Slide slide, byte[] font)
+	/// <summary>
+	/// Draws a character of the font as a white image (PNG), as the macro creditText writes it: one or two tiles
+	/// wide, one tile high.
+	/// </summary>
+	public static byte[] RenderCharacter(char c, byte[] font)
 	{
-		byte[][] masks = new byte[TextLines][];
-		for (int line = 0; line < TextLines; line++)
+		List<int> tiles = Encode(c.ToString());
+		int width = tiles.Count * TileSize;
+		byte[] pixels = new byte[width * CharacterHeight * 4];
+		for (int i = 0; i < tiles.Count; i++)
 		{
-			byte[] pixels = new byte[ScreenWidth * ScreenHeight * 4];
-			foreach ((int itemLine, string text, int column, int row) in slide.Items.Where(item => item.Line == line))
+			// Tile 0 is empty: the space
+			if (tiles[i] >= FontTile)
 			{
-				List<int> tiles = Encode(text);
-				for (int i = 0; i < tiles.Count && column + i < PlaneColumns; i++)
-				{
-					// Tile 0 is empty: the space
-					if (tiles[i] >= FontTile)
-					{
-						DrawTile(pixels, font, tiles[i] - FontTile, column + i, row, (x, y, index) => 0xFFFFFFFFu);
-					}
-				}
+				DrawTileAt(pixels, width, CharacterHeight, font, tiles[i] - FontTile, i * TileSize, 0, (x, y, index) => 0xFFFFFFFFu);
 			}
-			masks[line] = SpriteImport.EncodePng(pixels, ScreenWidth, ScreenHeight);
 		}
-		return masks;
+		return SpriteImport.EncodePng(pixels, width, CharacterHeight);
+	}
+
+	/// <summary>
+	/// The name of the image of a character in <see cref="FontFolder"/>: the letter or the digit, a name for the
+	/// punctuation of the credits, or U and the code of the character (U00E9 for e acute).
+	/// </summary>
+	public static string GetCharacterName(char c)
+	{
+		if (c is >= 'A' and <= 'Z' or >= '0' and <= '9')
+		{
+			return c.ToString();
+		}
+		return c switch
+		{
+			'.' => "FULLSTOP",
+			'\'' => "APOSTROPHE",
+			'(' => "LEFTBRACKET",
+			')' => "RIGHTBRACKET",
+			CopyrightSign => "COPYRIGHT",
+			_ => "U" + ((int)c).ToString("X4", CultureInfo.InvariantCulture)
+		};
+	}
+
+	/// <summary>Writes the slides as XML: a slide element for each slide, with a text element for each line of text.</summary>
+	public static string WriteSlides(IEnumerable<Slide> slides)
+	{
+		XElement root = new XElement("credits",
+			new XComment(" x and y are in pixels of the original screen (320 x 224). line 0 is white, line 1 is yellow. "),
+			slides.Select(slide => new XElement("slide",
+				slide.Items.Select(item => new XElement("text",
+					new XAttribute("line", item.Line),
+					new XAttribute("x", item.X),
+					new XAttribute("y", item.Y),
+					item.Text)))));
+		return new XDocument(new XDeclaration("1.0", "utf-8", null), root).Declaration + "\n" + root + "\n";
+	}
+
+	/// <summary>Reads the slides from the XML that <see cref="WriteSlides"/> makes.</summary>
+	public static List<Slide> ParseSlides(XmlDocument document)
+	{
+		List<Slide> slides = new List<Slide>();
+		foreach (XmlElement slide in document.SelectNodes("credits/slide").OfType<XmlElement>())
+		{
+			slides.Add(new Slide(slide.SelectNodes("text").OfType<XmlElement>()
+				.Select(text => new TextItem(
+					int.Parse(text.GetAttribute("line"), CultureInfo.InvariantCulture),
+					text.InnerText,
+					int.Parse(text.GetAttribute("x"), CultureInfo.InvariantCulture),
+					int.Parse(text.GetAttribute("y"), CultureInfo.InvariantCulture)))
+				.ToList()));
+		}
+		return slides;
 	}
 
 	/// <summary>Draws the logo with each palette of its cycle, as PNG files of the full screen.</summary>
@@ -196,15 +268,18 @@ public static class OriginalCredits
 		byte[] font = SpriteImport.ReadArt(disassembly, FontFile);
 		List<Slide> slides = ReadSlides(disassembly);
 		string output = Path.Combine(new[] { folder }.Concat(ResourceKey.Split('/')).ToArray());
-		for (int i = 0; i < slides.Count; i++)
+		Directory.CreateDirectory(output);
+		File.WriteAllText(Path.Combine(output, SlidesKey + ".xml"), WriteSlides(slides));
+		// All the capital letters, so that a modder can change the text, and all the other characters of the credits
+		string fontFolder = Path.Combine(output, FontFolder);
+		Directory.CreateDirectory(fontFolder);
+		IEnumerable<char> characters = Enumerable.Range('A', 26).Select(c => (char)c)
+			.Concat(slides.SelectMany(slide => slide.Items).SelectMany(item => item.Text))
+			.Where(c => c != ' ')
+			.Distinct();
+		foreach (char c in characters)
 		{
-			string slideFolder = Path.Combine(output, GetSlideName(i));
-			Directory.CreateDirectory(slideFolder);
-			byte[][] masks = RenderSlide(slides[i], font);
-			for (int line = 0; line < masks.Length; line++)
-			{
-				File.WriteAllBytes(Path.Combine(slideFolder, $"LINE{line}.png"), masks[line]);
-			}
+			File.WriteAllBytes(Path.Combine(fontFolder, GetCharacterName(c) + ".png"), RenderCharacter(c, font));
 		}
 		string logoFolder = Path.Combine(output, "LOGO");
 		Directory.CreateDirectory(logoFolder);
@@ -271,9 +346,6 @@ public static class OriginalCredits
 		}
 	}
 
-	/// <summary>The name of the folder of a slide, from 0: SLIDE01, SLIDE02 and so on.</summary>
-	public static string GetSlideName(int index) => $"SLIDE{index + 1:00}";
-
 	private static int GetTile(char c)
 	{
 		if (!Charset.TryGetValue(c, out int tile))
@@ -283,20 +355,29 @@ public static class OriginalCredits
 		return tile;
 	}
 
-	/// <summary>Draws a tile of 8 x 8 pixels at a position in tiles. Colour 0 is transparent.</summary>
+	/// <summary>Draws a tile of 8 x 8 pixels on the screen at a position in tiles. Colour 0 is transparent.</summary>
 	private static void DrawTile(byte[] pixels, byte[] art, int tile, int column, int row, Func<int, int, int, uint> colour, bool flipX = false, bool flipY = false)
 	{
-		DrawTileAt(pixels, art, tile, column * TileSize, row * TileSize, colour, flipX, flipY);
+		DrawTileAt(pixels, ScreenWidth, ScreenHeight, art, tile, column * TileSize, row * TileSize, colour, flipX, flipY);
 	}
 
-	/// <summary>Draws a tile of 8 x 8 pixels at a position in pixels. Colour 0 is transparent, and pixels off the screen do not draw.</summary>
+	/// <summary>Draws a tile of 8 x 8 pixels on the screen at a position in pixels.</summary>
 	private static void DrawTileAt(byte[] pixels, byte[] art, int tile, int left, int top, Func<int, int, int, uint> colour, bool flipX = false, bool flipY = false)
+	{
+		DrawTileAt(pixels, ScreenWidth, ScreenHeight, art, tile, left, top, colour, flipX, flipY);
+	}
+
+	/// <summary>
+	/// Draws a tile of 8 x 8 pixels at a position in pixels on an image. Colour 0 is transparent, and pixels off the
+	/// image do not draw.
+	/// </summary>
+	private static void DrawTileAt(byte[] pixels, int width, int height, byte[] art, int tile, int left, int top, Func<int, int, int, uint> colour, bool flipX = false, bool flipY = false)
 	{
 		for (int y = 0; y < TileSize; y++)
 		{
 			for (int x = 0; x < TileSize; x++)
 			{
-				if (left + x < 0 || left + x >= ScreenWidth || top + y < 0 || top + y >= ScreenHeight)
+				if (left + x < 0 || left + x >= width || top + y < 0 || top + y >= height)
 				{
 					continue;
 				}
@@ -313,7 +394,7 @@ public static class OriginalCredits
 					continue;
 				}
 				uint rgba = colour(x, y, index);
-				int p = ((top + y) * ScreenWidth + left + x) * 4;
+				int p = ((top + y) * width + left + x) * 4;
 				pixels[p] = (byte)(rgba >> 24);
 				pixels[p + 1] = (byte)(rgba >> 16);
 				pixels[p + 2] = (byte)(rgba >> 8);

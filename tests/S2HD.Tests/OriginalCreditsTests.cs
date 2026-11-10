@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Xml;
 using S2HD;
 using SonicOrca.Original;
 using Xunit;
@@ -20,6 +21,47 @@ public sealed class OriginalCreditsTests
 	{
 		// 1 = $3C,$3D (with "!"), 2 = $35,$36 (with "$"), 9 = $3E,$3F (with "#"), ( = $37, ) = $38
 		Assert.Equal(new List<int> { 0x37, 0x3C, 0x3D, 0x35, 0x36, 0x3E, 0x3F, 0x38 }, OriginalCredits.Encode("(129)"));
+	}
+
+	[Fact]
+	public void Encode_GivesTheTileOfAt_ForTheCopyrightSign()
+	{
+		Assert.Equal(new List<int> { 0x3B }, OriginalCredits.Encode(OriginalCredits.CopyrightSign.ToString()));
+	}
+
+	[Fact]
+	public void GetCharacterName_NamesLettersDigitsAndPunctuation()
+	{
+		Assert.Equal("A", OriginalCredits.GetCharacterName('A'));
+		Assert.Equal("9", OriginalCredits.GetCharacterName('9'));
+		Assert.Equal("FULLSTOP", OriginalCredits.GetCharacterName('.'));
+		Assert.Equal("APOSTROPHE", OriginalCredits.GetCharacterName('\''));
+		Assert.Equal("LEFTBRACKET", OriginalCredits.GetCharacterName('('));
+		Assert.Equal("RIGHTBRACKET", OriginalCredits.GetCharacterName(')'));
+		Assert.Equal("COPYRIGHT", OriginalCredits.GetCharacterName(OriginalCredits.CopyrightSign));
+		Assert.Equal("U00C9", OriginalCredits.GetCharacterName('\u00C9'));
+	}
+
+	[Fact]
+	public void ParseSlides_ReadsWhatWriteSlidesWrites()
+	{
+		List<OriginalCredits.Slide> slides = new List<OriginalCredits.Slide>
+		{
+			new OriginalCredits.Slide(new[]
+			{
+				new OriginalCredits.TextItem(1, "EXECUTIVE", 88, 64),
+				new OriginalCredits.TextItem(0, "(" + OriginalCredits.CopyrightSign + "1992 S.O)", 0, 216)
+			}),
+			new OriginalCredits.Slide(new[] { new OriginalCredits.TextItem(0, "YUJI  NAKA (YU2)", 40, 120) })
+		};
+		XmlDocument document = new XmlDocument();
+		document.LoadXml(OriginalCredits.WriteSlides(slides));
+
+		List<OriginalCredits.Slide> read = OriginalCredits.ParseSlides(document);
+
+		Assert.Equal(2, read.Count);
+		Assert.Equal(slides[0].Items, read[0].Items);
+		Assert.Equal(slides[1].Items, read[1].Items);
 	}
 
 	[Fact]
