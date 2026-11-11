@@ -273,8 +273,12 @@ public class HalfPipeSpecialStageScreen : Screen
 	/// <summary>Tails is smaller than Sonic, as in the art (227 against 264 pixels).</summary>
 	private const double TailsHeight = SonicHeight * 227.0 / 264.0;
 
-	/// <summary>A player in the outer lane shows this far behind a player in the inner lane, nearer to the camera.</summary>
-	private const double OuterLaneDepth = 0.4;
+	/// <summary>
+	/// A player in the outer lane shows this far behind a player in the inner lane, nearer to the camera. The sprite
+	/// keeps its size on the screen (<see cref="GetLaneScale"/>), so it shows only lower. In the original, the outer lane
+	/// is 18 pixels lower ($80 against $6E from the centre), so the head of the player in the inner lane shows above it.
+	/// </summary>
+	private const double OuterLaneDepth = 1.0;
 
 	private const double RingSize = 0.7;
 
@@ -1757,25 +1761,44 @@ public class HalfPipeSpecialStageScreen : Screen
 		double y = pose.Y;
 		double distance = Math.Sqrt(x * x + y * y);
 		double angle = pose.Radians;
-		// The outer lane is nearer to the camera, a little behind the inner lane
+		// The outer lane is nearer to the camera, at the size of the inner lane, so it shows lower on the screen
 		double lane = (pose.Radius - HalfPipePlayer.InnerRadius) / (HalfPipePlayer.OuterRadius - HalfPipePlayer.InnerRadius);
 		double depth = -lane * OuterLaneDepth;
+		double scale = GetLaneScale(transform, angle, depth);
 		// The shadow is on the pipe, on the line from the centre through the player (Obj63). On the upper half of the
 		// pipe, it is on the lower half, below the player.
 		double shadowAngle = Math.Abs(angle) > Math.PI / 2.0 ? Math.Sign(angle) * (Math.PI - Math.Abs(angle)) : angle;
-		quads.Add(CreateSurfaceShadow(transform, shadowAngle, ShadowWidth, ShadowLength, depth, _shadowTexture));
+		quads.Add(CreateSurfaceShadow(transform, shadowAngle, ShadowWidth * scale, ShadowLength * scale, depth, _shadowTexture));
 		// The player shows on alternate frames while flashing after a bomb
 		if (player.FlashFramesLeft > 0 && _ticks % 2 == 0)
 		{
 			return;
 		}
 		Rectanglei source = animation.CurrentFrame.Source;
+		spriteHeight *= scale;
 		double width = spriteHeight * source.Width / source.Height;
 		// In the air the player is nearer to the centre than the surface
-		double height = Math.Max(0.0, (pose.Radius - distance) * PixelsToUnits);
+		double height = Math.Max(0.0, (pose.Radius - distance) * PixelsToUnits) * scale;
 		// The hurt animation turns the sprite once
 		double spin = player.IsHurt ? player.HurtProgress * 2.0 * Math.PI : 0.0;
 		quads.Add(CreateSprite(transform, angle, height, width, spriteHeight, animation.CurrentTexture, source, spin, depth));
+	}
+
+	/// <summary>
+	/// The scale of a player that is <paramref name="depth"/> nearer to the camera than the inner lane. The player then
+	/// has the size on the screen that it has in the inner lane, and shows only lower on the screen.
+	/// </summary>
+	private double GetLaneScale(Matrix4 transform, double angle, double depth)
+	{
+		if (depth == 0.0)
+		{
+			return 1.0;
+		}
+		double theta = Math.PI / 2.0 + angle;
+		Vector3 surface = new Vector3(-Math.Cos(theta) * PipeRadius * PipeWidthScale, -Math.Sin(theta) * PipeRadius, 0.0);
+		double inner = (_camera - transform * surface).Length;
+		double outer = (_camera - transform * (surface + new Vector3(0.0, 0.0, depth))).Length;
+		return inner > 0.0 ? outer / inner : 1.0;
 	}
 
 	/// <summary>
