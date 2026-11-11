@@ -346,6 +346,13 @@ public sealed partial class LuaNativeObject
 		return table;
 	}
 
+	/// <summary>
+	/// The act of the level that plays: 1 or 2 in most zones, 3 in the last act of Metropolis Zone (API 9). A seamless
+	/// change of act changes it while the objects stay.
+	/// </summary>
+	[LuaMember("act")]
+	public int Act() => _owner.Level.CurrentAct;
+
 	/// <summary>The y of the top of the water of the level, or nil when the level has no water.</summary>
 	[LuaMember("water_top")]
 	public LuaValue WaterTop() => _owner.GetWaterTop() is double top ? top : LuaValue.Nil;

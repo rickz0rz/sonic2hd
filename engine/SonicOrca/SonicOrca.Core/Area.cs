@@ -33,6 +33,13 @@ public abstract class Area : IDisposable, ILoadedResource
 
 	private const string KnucklesResourceKey = "SONICORCA/OBJECTS/KNUCKLES";
 
+	/// <summary>
+	/// The level script, next to the area: a Lua object script, the file SCRIPT.object.lua. Any area can have one, so
+	/// a mod can add a script to a zone of Sonic 2 or to a level of a mod. The script loads with the area. When the
+	/// level starts, the level makes one object of it (see <see cref="StartScript"/>).
+	/// </summary>
+	public const string ScriptResourceKey = "//SCRIPT";
+
 	public abstract void Prepare(Level level, LevelPrepareSettings settings);
 
 	/// <summary>
@@ -60,6 +67,26 @@ public abstract class Area : IDisposable, ILoadedResource
 
 	public virtual void OnStart()
 	{
+	}
+
+	/// <summary>
+	/// Makes the object of the level script, if the area has one. The object stays alive out of view, for all the
+	/// level. A seamless change to the next act keeps the objects of the level, so the object of the first act stays
+	/// and no second object starts.
+	/// </summary>
+	internal void StartScript(Level level)
+	{
+		if (level.PrepareSettings.Seamless)
+			return;
+		string script = this.GetAbsolutePath(ScriptResourceKey);
+		// GetLoadedResource throws for a key that does not exist, and most areas have no script
+		ResourceTree resourceTree = level.GameContext.ResourceTree;
+		if (resourceTree[script]?.Resource == null || !resourceTree.TryGetLoadedResource(script, out ObjectType _))
+			return;
+		int layer = level.Player?.Protagonist != null ? level.Map.Layers.IndexOf(level.Player.Protagonist.Layer) : 0;
+		ActiveObject scriptObject = level.ObjectManager.AddObject(new ObjectPlacement(script, Math.Max(layer, 0), level.GetPlayerStartPosition()));
+		if (scriptObject != null)
+			scriptObject.LockLifetime = true;
 	}
 
 	public virtual void OnUpdate()
