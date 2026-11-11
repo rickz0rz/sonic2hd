@@ -348,10 +348,13 @@ public class HalfPipeSpecialStageScreen : Screen
 	/// <summary>True when Knuckles plays.</summary>
 	private readonly bool _knuckles;
 
+	/// <summary>True when Tails plays alone. Tails is then the main player, in the inner lane.</summary>
+	private readonly bool _tailsAlone;
+
 	/// <summary>The results art of Knuckles in Sonic 2, or null.</summary>
 	private AnimationGroup _knucklesResults;
 
-	/// <summary>The height of the sprite of the main player: Sonic, or Knuckles at the scale of Sonic.</summary>
+	/// <summary>The height of the sprite of the main player: Sonic, Tails, or Knuckles at the scale of Sonic.</summary>
 	private double _playerHeight = SonicHeight;
 
 	private readonly HalfPipePlayer _player = new HalfPipePlayer();
@@ -576,11 +579,20 @@ public class HalfPipeSpecialStageScreen : Screen
 	/// True when Knuckles plays, alone. He has the lower ring quotas of Knuckles in Sonic 2, and his sprites when the
 	/// import made them.
 	/// </param>
+	/// <param name="tailsAlone">
+	/// True when Tails plays alone (Player_mode 2). Tails is the main player, with the ring quotas of one player. The
+	/// results show his name, and they do not show the Super Sonic message.
+	/// </param>
 	public HalfPipeSpecialStageScreen(SonicOrcaGameContext gameContext, int stage = 0, bool withTails = false, int emeralds = 0, int score = 0, bool versus = false,
-		bool knuckles = false)
+		bool knuckles = false, bool tailsAlone = false)
 	{
 		_stage = stage;
 		_knuckles = knuckles && !withTails && !versus;
+		_tailsAlone = tailsAlone && !withTails && !versus && !_knuckles;
+		if (_tailsAlone)
+		{
+			_playerHeight = TailsHeight;
+		}
 		_startEmeralds = emeralds;
 		_startScore = score;
 		_versus = versus;
@@ -626,6 +638,10 @@ public class HalfPipeSpecialStageScreen : Screen
 		foreach (string key in keys)
 		{
 			_resourceSession.PushDependency(key);
+		}
+		if (_tailsAlone)
+		{
+			_resourceSession.PushDependency(TailsAnimationResourceKey);
 		}
 		if (_tails != null)
 		{
@@ -697,7 +713,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		_shadowTexture = tree.GetLoadedResource<ITexture>(ShadowResourceKey);
 		_ballShadowTexture = tree.GetLoadedResource<ITexture>(BallShadowResourceKey);
 		_ringsLabelTexture = tree.GetLoadedResource<ITexture>(RingsLabelResourceKey);
-		_sonicAnimation = new AnimationInstance(tree, knucklesArt ? KnucklesAnimationResourceKey : SonicAnimationResourceKey);
+		_sonicAnimation = new AnimationInstance(tree, knucklesArt ? KnucklesAnimationResourceKey : _tailsAlone ? TailsAnimationResourceKey : SonicAnimationResourceKey);
 		if (knucklesArt)
 		{
 			// The original sprites of Knuckles have the pixel scale of the HD sprites of Sonic
@@ -1084,7 +1100,8 @@ public class HalfPipeSpecialStageScreen : Screen
 	private void StartResults(bool emeraldWon, int ringsCollected)
 	{
 		bool allEmeralds = _startEmeralds + (emeraldWon ? 1 : 0) >= HalfPipeLayout.StageCount;
-		_results = new HalfPipeResults(Rings, emeraldWon, ringsCollected, _track.RingCount, allEmeralds);
+		// Tails alone does not get the Super Sonic message (Obj6F_P1Rings)
+		_results = new HalfPipeResults(Rings, emeraldWon, ringsCollected, _track.RingCount, allEmeralds, canTransform: !_tailsAlone);
 		_resultsFrames = 0;
 		_musicInstance?.Stop();
 		_musicInstance?.Dispose();
@@ -1324,11 +1341,14 @@ public class HalfPipeSpecialStageScreen : Screen
 	{
 		AnimationGroup messages = _originalArt.Messages;
 		const double x = 0x80;
-		HalfPipeOriginalArt.DrawFrame(g, messages, HalfPipeOriginalArt.WingsFrame, HalfPipeOriginalArt.StageLeft, x, HandY);
+		// With Tails alone, the wings and the hand use the next palette line (Obj5A_PrintCheckpointMessage). The group
+		// has the frames of palette line 2 after all the frames of line 1.
+		int line = _tailsAlone ? messages.Count / 2 : 0;
+		HalfPipeOriginalArt.DrawFrame(g, messages, line + HalfPipeOriginalArt.WingsFrame, HalfPipeOriginalArt.StageLeft, x, HandY);
 		int phase = (_ticks - _messageStartTick) % 16;
 		int bounce = phase < 4 ? -phase : phase < 12 ? phase - 8 : 16 - phase;
 		bool failed = _flow.Message == HalfPipeStageFlow.CheckpointFailedMessage;
-		HalfPipeOriginalArt.DrawFrame(g, messages, HalfPipeOriginalArt.HandFrame, HalfPipeOriginalArt.StageLeft, x, HandY + bounce, flipY: failed);
+		HalfPipeOriginalArt.DrawFrame(g, messages, line + HalfPipeOriginalArt.HandFrame, HalfPipeOriginalArt.StageLeft, x, HandY + bounce, flipY: failed);
 	}
 
 	/// <summary>
@@ -1347,7 +1367,7 @@ public class HalfPipeSpecialStageScreen : Screen
 			? Math.Max(target, start - _resultsFrames * ResultsTextSpeed)
 			: Math.Min(target, start + _resultsFrames * ResultsTextSpeed);
 		double Slide(double start) => SlideTo(start, centreX);
-		bool allEmeralds = _results.SuperMessage;
+		bool allEmeralds = _results.AllEmeralds;
 		int titleFrame = allEmeralds ? 25 : _results.EmeraldWon ? 4 : 0;
 		if (_results.Phase == HalfPipeResultsPhase.SuperMessage)
 		{
@@ -1366,8 +1386,9 @@ public class HalfPipeSpecialStageScreen : Screen
 			}
 			else if (_results.EmeraldWon)
 			{
-				// "Sonic got a" or "Sonic has all the", from the left
-				HalfPipeOriginalArt.DrawFrame(g, results, allEmeralds ? 22 : 1, left, Slide(-128), centreY - 88);
+				// "Sonic got a" or "Sonic has all the", from the left. With Tails alone, the frame two after it has
+				// "Tails" (Obj6F_InitResultTitle).
+				HalfPipeOriginalArt.DrawFrame(g, results, (allEmeralds ? 22 : 1) + (_tailsAlone ? 2 : 0), left, Slide(-128), centreY - 88);
 			}
 		}
 		// The emeralds that the player has, in a ring around the last one. They show on every second frame
@@ -1396,7 +1417,8 @@ public class HalfPipeSpecialStageScreen : Screen
 		}
 		else
 		{
-			rows.Add((13, 320 + 384, _tails != null ? 40 : 48, ringsLeft - tailsRingsLeft));
+			// "Sonic rings", or "Tails rings" when Tails plays alone (Obj6F_P1Rings)
+			rows.Add((_tailsAlone ? 15 : 13, 320 + 384, _tails != null ? 40 : 48, ringsLeft - tailsRingsLeft));
 			if (_tails != null)
 			{
 				rows.Add((15, 320 + 400, 56, tailsRingsLeft));
@@ -1977,7 +1999,7 @@ public class HalfPipeSpecialStageScreen : Screen
 		fontRenderer.RenderString(title, new Rectangle(960.0, 240.0, 0.0, 0.0), FontAlignment.MiddleX, _font, 0);
 		if (_tails == null)
 		{
-			Line("SONIC RINGS", _results.Rings, 400.0);
+			Line(_tailsAlone ? "TAILS RINGS" : "SONIC RINGS", _results.Rings, 400.0);
 		}
 		else
 		{

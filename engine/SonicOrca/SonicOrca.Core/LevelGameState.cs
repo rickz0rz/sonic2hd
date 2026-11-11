@@ -239,7 +239,9 @@ public class LevelGameState : IGameState, IDisposable
 		// Tails plays in the special stage when Tails follows Sonic in the level
 		bool withTails = _player.ProtagonistCharacterType == CharacterType.Sonic && _player.SidekickCharacterType == CharacterType.Tails;
 		bool knuckles = _player.ProtagonistCharacterType == CharacterType.Knuckles;
-		var screen = new HalfPipeSpecialStageScreen(_gameContext, PrepareSettings.SpecialStage, withTails, _player.Emeralds, _player.Score, knuckles: knuckles);
+		bool tailsAlone = _player.ProtagonistCharacterType == CharacterType.Tails;
+		var screen = new HalfPipeSpecialStageScreen(_gameContext, PrepareSettings.SpecialStage, withTails, _player.Emeralds, _player.Score, knuckles: knuckles,
+			tailsAlone: tailsAlone);
 		_specialStage = new ScreenGameState(_gameContext, screen);
 		foreach (UpdateResult result in _specialStage.Update())
 		{

@@ -66,7 +66,10 @@ public sealed class HalfPipeResults
 
 	public bool EmeraldWon { get; }
 
-	/// <summary>The Super Sonic message shows after the tally: the player got the seventh emerald.</summary>
+	/// <summary>The player got the seventh emerald. The title then says "Chaos Emeralds".</summary>
+	public bool AllEmeralds { get; }
+
+	/// <summary>The Super Sonic message shows after the tally: the player got the seventh emerald and can transform.</summary>
 	public bool SuperMessage { get; }
 
 	public int RingBonus { get; private set; }
@@ -102,11 +105,16 @@ public sealed class HalfPipeResults
 	/// <param name="ringsCollected">The rings that the players collected, also those that bombs took away.</param>
 	/// <param name="ringsInStage">The rings that came in the stage before the emerald.</param>
 	/// <param name="allEmeralds">The player has all seven emeralds after this stage.</param>
-	public HalfPipeResults(int rings, bool emeraldWon, int ringsCollected, int ringsInStage, bool allEmeralds = false)
+	/// <param name="canTransform">
+	/// The player can change into a super form, so the results show the Super Sonic message after the last emerald.
+	/// Tails alone cannot.
+	/// </param>
+	public HalfPipeResults(int rings, bool emeraldWon, int ringsCollected, int ringsInStage, bool allEmeralds = false, bool canTransform = true)
 	{
 		Rings = rings;
 		EmeraldWon = emeraldWon;
-		SuperMessage = emeraldWon && allEmeralds;
+		AllEmeralds = emeraldWon && allEmeralds;
+		SuperMessage = AllEmeralds && canTransform;
 		RingBonus = rings * PointsPerRing;
 		GemsBonus = emeraldWon ? GemsBonusPoints : 0;
 		// The original does not check for the emerald here (UNCERTAIN in the specification)

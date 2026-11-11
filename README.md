@@ -475,6 +475,10 @@ players. The computer controls Tails: Tails does what Sonic did 16 frames before
 the second player controls Tails. The computer takes control again 3 seconds after the last input. Each player
 has separate rings, and the goals use the total. A jump or a bomb changes the lanes of the two players.
 
+When Tails plays alone, Tails runs alone in the special stage, with the ring quotas for one player. The winged
+hand of the checkpoint messages has the colors of Tails. The results screen shows "Tails got a Chaos Emerald". As
+in the original, Tails alone gets no Super Sonic message after the seventh emerald.
+
 ### Super Sonic
 
 With 7 emeralds and 50 rings or more, Sonic becomes Super Sonic at the top of a jump, as in the original. Super
@@ -892,7 +896,7 @@ game over ends the match, and the results go. See `docs/two-player-design.md` fo
 | `--no-error-dialog` | Writes an error to the console and the log, not to a dialog box. Test runs with `S2HD_EXIT_AFTER_CAPTURES=1` do this too |
 | `--credits`, `--options` | Opens the credits or the options screen |
 | `--ending [super\|tails]` | Plays the ending cutscene of the original, then the credits. `super` plays the ending of Super Sonic, and `tails` plays the ending of Tails |
-| `--halfpipe [1-7]` | Opens a 3D special stage. Left and right move Sonic around the pipe, and an action button jumps, with the physics of Sonic 2. Collect enough rings for each of the three checkpoints, and avoid the bombs. Tails follows Sonic. Add `--sidekick none` to play Sonic alone. Add `--versus` to play the special stage of versus mode, with Tails on game pad 2. Escape closes it |
+| `--halfpipe [1-7]` | Opens a 3D special stage. Left and right move Sonic around the pipe, and an action button jumps, with the physics of Sonic 2. Collect enough rings for each of the three checkpoints, and avoid the bombs. Tails follows Sonic. Add `--sidekick none` to play Sonic alone, or `--protagonist tails` to play Tails alone. Add `--versus` to play the special stage of versus mode, with Tails on game pad 2. Escape closes it |
 
 On macOS, pass options to the executable in the app bundle, for example
 `publish/S2HD.app/Contents/MacOS/S2HD --level cpz`.
