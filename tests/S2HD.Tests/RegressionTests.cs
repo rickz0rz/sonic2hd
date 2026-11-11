@@ -1233,6 +1233,32 @@ public sealed partial class RegressionTests
 	}
 
 	/// <summary>
+	/// Plays the first special stage as Tails alone, with no input and the imported art. Tails is the only player, in
+	/// the inner lane, with the ring quota of one player. The winged hand of "NOT ENOUGH RINGS..." has the colours of
+	/// Tails.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void TailsAloneSpecialStage_MatchesGoldenScreenshots()
+	{
+		RunAndCompare("--halfpipe 1 --protagonist tails", new[] { 20520, 21650 }, Path.Combine(TestPaths.GoldenDirectory, "tails-alone-special-stage"),
+			"tails-alone-special-stage", withImportedMods: true);
+	}
+
+	/// <summary>
+	/// The results screen of the seventh special stage for Tails alone: "TAILS HAS ALL THE CHAOS EMERALDS". As in the
+	/// original, the Super Sonic message does not follow, so the second screenshot still shows the results.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void TailsAloneSpecialStageResults_MatchesGoldenScreenshots()
+	{
+		RunAndCompare("--halfpipe 7 --protagonist tails", new[] { 20375, 20751 }, Path.Combine(TestPaths.GoldenDirectory, "tails-alone-special-stage-results"),
+			"tails-alone-special-stage-results",
+			new Dictionary<string, string> { ["S2HD_TEST_SPECIAL_STAGE_RESULTS"] = "20,1,1", ["S2HD_TEST_EMERALDS"] = "6" }, withImportedMods: true);
+	}
+
+	/// <summary>
 	/// Plays the first special stage alone with no input and the imported art. The messages use the letters of the
 	/// original: "GET 30 RINGS!", its letters that fly away, "8 RINGS TO GO!" and "NOT ENOUGH RINGS...". The ring
 	/// counter uses the big digits of the original.

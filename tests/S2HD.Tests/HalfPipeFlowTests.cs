@@ -262,6 +262,23 @@ public sealed class HalfPipeFlowTests
 	}
 
 	[Fact]
+	public void Results_ForTailsAlone_WithTheSeventhEmerald_ShowAllTheEmeralds_ButNoSuperSonicMessage()
+	{
+		var results = new HalfPipeResults(rings: 10, emeraldWon: true, ringsCollected: 20, ringsInStage: 50, allEmeralds: true, canTransform: false);
+		Assert.True(results.AllEmeralds);
+		Assert.False(results.SuperMessage);
+		int frames = 0;
+		while (!results.Finished && frames < 2000)
+		{
+			results.Update();
+			Assert.NotEqual(HalfPipeResultsPhase.SuperMessage, results.Phase);
+			frames++;
+		}
+
+		Assert.True(results.Finished);
+	}
+
+	[Fact]
 	public void Results_WithoutAllRings_GiveNoPerfectBonus()
 	{
 		var results = new HalfPipeResults(rings: 40, emeraldWon: false, ringsCollected: 120, ringsInStage: 206);
