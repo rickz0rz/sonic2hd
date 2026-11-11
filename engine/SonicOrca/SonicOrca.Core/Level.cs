@@ -545,6 +545,7 @@ public class Level : IDisposable
 		State = LevelState.Playing;
 		RingsCollected = 0;
 		Area.OnStart();
+		Area.StartScript(this);
 		SonicOrca.Core.Debugging.StoryTest.OnStart(this);
 	}
 

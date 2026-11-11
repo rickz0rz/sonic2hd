@@ -42,7 +42,7 @@ public sealed class LuaObjectType : ObjectType, IStateTableType
 	}
 
 	/// <summary>The API version that this engine gives to scripts.</summary>
-	public const int ApiVersion = 8;
+	public const int ApiVersion = 9;
 
 	private readonly Dictionary<string, string> _dependencyKeys = new Dictionary<string, string>(StringComparer.Ordinal);
 

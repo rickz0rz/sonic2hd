@@ -23,8 +23,9 @@ namespace SONICORCA.MODAREA;
 /// between the markers "bounds_lt" and "bounds_rb" when the map has them.
 /// <para>
 /// A level script is the optional resource SCRIPT: a Lua object script, the file SCRIPT.object.lua. When the level
-/// starts, the area makes one object of it, and the object stays for all the level. Its start function runs when the
-/// level starts, and its update function on each tick, with all the functions of a Lua object.
+/// starts, the level makes one object of it, and the object stays for all the level. Its start function runs when the
+/// level starts, and its update function on each tick, with all the functions of a Lua object. All areas can have a
+/// script (see <see cref="Area.ScriptResourceKey"/>).
 /// </para>
 /// <para>
 /// A level can end with a boss of Sonic 2: the attribute <c>boss</c> of the info file is the key of the boss object,
@@ -40,7 +41,6 @@ public class ModArea : Area
 	private const string BindingResourceKey = "//BINDING";
 	private const string InfoResourceKey = "//INFO";
 	private const string DefaultStartMarker = "startpos";
-	private const string ScriptResourceKey = "//SCRIPT";
 	private const string BossMarker = "boss";
 	private const string BossMusicResourceKey = "SONICORCA/MUSIC/BOSS/S2";
 
@@ -57,9 +57,6 @@ public class ModArea : Area
 	{
 		XmlElement info = ReadInfo(resourceTree);
 		List<string> keys = new List<string> { GetTileSetKey(info) };
-		string script = this.GetAbsolutePath(ScriptResourceKey);
-		if (resourceTree[script]?.Resource != null)
-			keys.Add(script);
 		if (info == null)
 			return keys;
 		string music = info.GetAttribute("music");
@@ -128,20 +125,6 @@ public class ModArea : Area
 	{
 		if (_level != null && _level.StateFlags.HasFlag(LevelStateFlags.Updating))
 			_bossArena?.Update();
-	}
-
-	/// <summary>Makes the object of the level script, if the level has one. It stays alive out of view.</summary>
-	public override void OnStart()
-	{
-		string script = this.GetAbsolutePath(ScriptResourceKey);
-		// GetLoadedResource throws for a key that does not exist, and a new level has no script
-		ResourceTree resourceTree = _level?.GameContext.ResourceTree;
-		if (resourceTree?[script]?.Resource == null || resourceTree.GetLoadedResource<ObjectType>(script) == null)
-			return;
-		int layer = _level.Player?.Protagonist != null ? _level.Map.Layers.IndexOf(_level.Player.Protagonist.Layer) : 0;
-		ActiveObject scriptObject = _level.ObjectManager.AddObject(new ObjectPlacement(script, System.Math.Max(layer, 0), _level.GetPlayerStartPosition()));
-		if (scriptObject != null)
-			scriptObject.LockLifetime = true;
 	}
 
 	private static Rectanglei GetBounds(Level level)

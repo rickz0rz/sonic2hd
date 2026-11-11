@@ -204,12 +204,19 @@ A mod can add an object with a Lua script, with no change to the code of the gam
 the properties of the object, and the functions that the game calls on each tick. The level editor shows the new
 objects, and the game loads a script again when its file changes.
 
-A mod can also add a level in `SONICORCA/LEVELS/NAME`, with a tile set, a map, a binding and an `INFO.xml` file.
-A level script is the optional file `SCRIPT.object.lua` in the folder of the level. It is a Lua object script. When
-the level starts, the game makes one object of it, and the object stays for all the level: its `start` function runs
-when the level starts, and its `update` function on each tick. A level script can use all the functions of a Lua
-object, for example to change the water, to start an earthquake, to play music or to make objects.
-`--level NAME` starts it, and the level select shows it after the zones of the game. With the attribute `tileset`
+A level script is the optional file `SCRIPT.object.lua` in the folder of a level. It is a Lua object script. When
+the level starts, the game makes one object of it at the start position of the player. The object stays for all the
+level: its `start` function runs when the level starts, and its `update` function on each tick. A level script can
+use all the functions of a Lua object, for example to change the water, to start an earthquake, to play music or to
+make objects.
+
+A mod can add a level script to a zone of Sonic 2, for example `SONICORCA/LEVELS/EHZ/SCRIPT.object.lua`. The C# code
+of the zone still runs. One script is for all the acts of the zone: `self:act()` gives the act that plays. A
+seamless change from act 1 to act 2 keeps the object of the script, so `start` does not run again. The example mod
+`examples/mods/ehz-flood` fills Emerald Hill act 1 with water.
+
+A mod can also add a level in `SONICORCA/LEVELS/NAME`, with a tile set, a map, a binding and an `INFO.xml` file,
+and a level script. `--level NAME` starts it, and the level select shows it after the zones of the game. With the attribute `tileset`
 in `INFO.xml`, for example `tileset="SONICORCA/LEVELS/EHZ/TILESET"`, the level uses the tile set of another level
 and needs no tile set of its own.
 

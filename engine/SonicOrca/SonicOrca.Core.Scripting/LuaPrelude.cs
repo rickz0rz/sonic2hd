@@ -25,7 +25,7 @@ internal static class LuaPrelude
 		  "clear_hitboxes", "play_sound", "spawn", "finish", "finish_forever", "find_floor", "destroy_enemy",
 		  "standing_characters", "characters", "water_top", "set_water_top", "set_earthquake", "complete_level",
 		  "fill_rectangle", "draw_line", "explode", "play_music", "play_level_music", "fade_out_music", "view_bounds",
-		  "camera_bounds", "set_camera_bounds" }) do
+		  "camera_bounds", "set_camera_bounds", "act" }) do
 		  methods[name] = function(self, ...)
 		    local native = rawget(self, "__native")
 		    return native[name](native, ...)

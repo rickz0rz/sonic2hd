@@ -465,6 +465,26 @@ public sealed partial class RegressionTests
 	}
 
 	/// <summary>
+	/// Plays Emerald Hill Zone with the example mod ehz-flood: a level script for a zone of Sonic 2. In act 1, the
+	/// water comes up over Sonic. In act 2, the script removes the water, so the capture has no water.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void LuaZoneScript_MatchesGoldenScreenshots()
+	{
+		void CopyFloodMod(string userData) =>
+			CopyDirectory(Path.Combine(TestPaths.RepoRoot, "examples", "mods", "ehz-flood", "SONICORCA"), Path.Combine(userData, "mods", "ehz-flood", "SONICORCA"));
+		void CheckNoScriptError(string userData) =>
+			Assert.DoesNotContain("Script error", File.ReadAllText(Path.Combine(userData, "sonicorca.log")));
+		RunAndCompare("--level ehz --act 1 --protagonist sonic --sidekick none", new[] { 300, 700 },
+			Path.Combine(TestPaths.GoldenDirectory, "lua-zone-script"), "lua-zone-script",
+			checkUserData: CheckNoScriptError, prepareUserData: CopyFloodMod);
+		RunAndCompare("--level ehz --act 2 --protagonist sonic --sidekick none", new[] { 300 },
+			Path.Combine(TestPaths.GoldenDirectory, "lua-zone-script-act2"), "lua-zone-script-act2",
+			checkUserData: CheckNoScriptError, prepareUserData: CopyFloodMod);
+	}
+
+	/// <summary>
 	/// Plays a new mod level that ends with the boss of Emerald Hill. Sonic runs to the boss marker, the arena locks and
 	/// the boss comes. A test hook defeats the boss, the boss flees, and Sonic opens the egg prison to the right of the
 	/// arena. The captures show the fight, the defeat and the end of the act. The log must name the boss music.
