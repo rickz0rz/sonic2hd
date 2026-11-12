@@ -4386,11 +4386,21 @@ public abstract class Character : ActiveObject, ICharacter, IActiveObject
 		}
 	}
 
+	/// <summary>
+	/// The model matrix of the body of a character. The 2D model matrix moves to the position of the character, and
+	/// the scale of the object renderer gives the size. At a zoom of the level larger than 1, the scale is larger than 1.
+	/// </summary>
+	public static Matrix4 GetBodyMatrix(Renderer renderer)
+	{
+		Vector2 scale = renderer.GetObjectRenderer().Scale;
+		return renderer.Get2dRenderer().ModelMatrix * Matrix4.CreateScale(scale.X, scale.Y);
+	}
+
 	protected virtual void DrawBody(Renderer renderer, LayerViewOptions viewOptions)
 	{
 		I2dRenderer i2dRenderer = renderer.Get2dRenderer();
 		ICharacterRenderer characterRenderer = renderer.GetCharacterRenderer();
-		characterRenderer.ModelMatrix = i2dRenderer.ModelMatrix;
+		characterRenderer.ModelMatrix = GetBodyMatrix(renderer);
 		double hueShift = Level.GameContext.Configuration.GetPropertyDouble("debug", "sonic_hue_shift");
 		double saturationShift = Level.GameContext.Configuration.GetPropertyDouble("debug", "sonic_sat_shift");
 		double luminanceShift = Level.GameContext.Configuration.GetPropertyDouble("debug", "sonic_lum_shift");

@@ -58,7 +58,7 @@ internal class GhostCharacterInstance : ActiveObject
 		{
 			I2dRenderer i2dRenderer = renderer.Get2dRenderer();
 			ICharacterRenderer characterRenderer = renderer.GetCharacterRenderer();
-			characterRenderer.ModelMatrix = i2dRenderer.ModelMatrix;
+			characterRenderer.ModelMatrix = Character.GetBodyMatrix(renderer);
 			if (Angle != 0.0)
 			{
 				characterRenderer.ModelMatrix *= Matrix4.CreateRotationZ(Angle * Math.PI);

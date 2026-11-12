@@ -191,9 +191,8 @@ public class SonicInstance : Character
 			DrawOriginalSuperSonic(renderer);
 			return;
 		}
-		I2dRenderer renderer2d = renderer.Get2dRenderer();
 		ICharacterRenderer characterRenderer = renderer.GetCharacterRenderer();
-		characterRenderer.ModelMatrix = renderer2d.ModelMatrix;
+		characterRenderer.ModelMatrix = GetBodyMatrix(renderer);
 		double hueShift = Level.GameContext.Configuration.GetPropertyDouble("debug", "sonic_hue_shift");
 		double saturationShift = Level.GameContext.Configuration.GetPropertyDouble("debug", "sonic_sat_shift");
 		double luminanceShift = Level.GameContext.Configuration.GetPropertyDouble("debug", "sonic_lum_shift");

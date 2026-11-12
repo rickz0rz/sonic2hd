@@ -89,9 +89,9 @@ public class TailsInstance : Character
 
 	protected override void DrawBody(Renderer renderer, LayerViewOptions viewOptions)
 	{
-		I2dRenderer renderer2d = renderer.Get2dRenderer();
+		Matrix4 bodyMatrix = GetBodyMatrix(renderer);
 		CharacterRenderer characterRenderer = CharacterRenderer.FromRenderer(renderer);
-		characterRenderer.ModelMatrix = renderer2d.ModelMatrix;
+		characterRenderer.ModelMatrix = bodyMatrix;
 		double hueShift = Level.GameContext.Configuration.GetPropertyDouble("debug", "tails_hue_shift");
 		double saturationShift = Level.GameContext.Configuration.GetPropertyDouble("debug", "tails_sat_shift");
 		double luminanceShift = Level.GameContext.Configuration.GetPropertyDouble("debug", "tails_lum_shift");
@@ -112,7 +112,7 @@ public class TailsInstance : Character
 				double angle = Math.Atan2(Velocity.Y, Velocity.X);
 				characterRenderer.ModelMatrix *= Matrix4.CreateRotationZ(angle);
 				characterRenderer.RenderTexture(_tailAnimationInstance.AnimationGroup.Textures[1], _tailAnimationInstance.AnimationGroup.Textures[0], hueShift, saturationShift, luminanceShift, (Rectangle)tailFrame.Source, tailDestination, true, Velocity.X < 0.0);
-				characterRenderer.ModelMatrix = renderer2d.ModelMatrix;
+				characterRenderer.ModelMatrix = bodyMatrix;
 			}
 			else
 				characterRenderer.RenderTexture(_tailAnimationInstance.AnimationGroup.Textures[1], _tailAnimationInstance.AnimationGroup.Textures[0], hueShift, saturationShift, luminanceShift, (Rectangle)tailFrame.Source, tailDestination, IsFacingRight, false);
