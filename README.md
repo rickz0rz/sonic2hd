@@ -226,6 +226,11 @@ A script can do something when the act ends (API 12). The function `act_complete
 signpost, an egg prison, a boss or `self:complete_level()` starts the score count. `self:act_completed()` is true
 from then until the next act starts. A routine can use it, for example `while not self:act_completed() do wait() end`.
 
+A script can do something when a character crosses a part of the map. The object `LUATRIGGER` of the example mod
+`examples/mods/lua-item-block` is an invisible line. When a character crosses it, the line calls its function
+`crossed`. Copy the object with a new name, and write your own `crossed`. `self:show_hidden()` is true in the level
+editor (API 13). The line draws itself only then.
+
 A mod can also add a level in `SONICORCA/LEVELS/NAME`, with a tile set, a map, a binding and an `INFO.xml` file,
 and a level script. `--level NAME` starts it, and the level select shows it after the zones of the game. With the attribute `tileset`
 in `INFO.xml`, for example `tileset="SONICORCA/LEVELS/EHZ/TILESET"`, the level uses the tile set of another level

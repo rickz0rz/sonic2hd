@@ -1,6 +1,6 @@
 # Lua item block: an example mod
 
-This mod adds ten objects with Lua scripts:
+This mod adds eleven objects with Lua scripts:
 
 - `LUAITEMBLOCK`: an item block. A character that hits it from below gets rings, and a coin jumps out of it. Then the block is used. A used block is still solid, but it does not react to more hits.
 - `LUACOIN`: the coin that jumps out of the block.
@@ -11,9 +11,10 @@ This mod adds ten objects with Lua scripts:
 - `LUAWHEEL`: a wheel that hangs from a rope and turns. It shows the drawing functions of API 6. A character that touches it makes it flash.
 - `LUAWISP`: a small boss. The camera locks on an arena around it, and the boss music plays. It floats over the nearest character. After `health` hits, it explodes and flies away, and the act ends. A mod level can end with it in place of a signpost.
 - `LUAFEATHER`: a feather. A character that touches it gets the double jump, and the feather goes away.
+- `LUATRIGGER`: a trigger line. It is invisible in the game. When a character crosses the line, the script calls its function `crossed`. The default `crossed` changes the zoom when `zoom` is not 0. A line with a `width` is horizontal. Otherwise `height` gives the length of a vertical line. `direction` 1 reacts only to a cross to the right or down, and -1 only to the left or up. `once` reacts only to the first cross. `sidekick` also reacts to the sidekick. Copy the folder with a new name, and write your own `crossed`, for example to play music or to start a boss.
 - `LUADOUBLEJUMP`: the double jump, an ability (API 8). In the air, after a jump, a jump press gives a second jump, one time until the character lands. The character loses the ability when it gets hurt. It is not for a place in a level: the feather gives it.
 
-The API of the scripts is version 12. API 2 adds the velocity of an object and `set_solid_top`. API 3 adds `standing_characters`. API 4 adds `characters`, and lets an object hold a character and read its buttons. API 5 adds the water, the earthquake and the end of the act. API 6 adds the options of `draw`, `fill_rectangle` and `draw_line`. API 7 adds the boss base, music and the limits of the camera. API 8 adds abilities. API 9 adds `act`. API 10 adds the `routine` function and `wait`. API 11 adds the zoom of the level. API 12 adds `act_complete` and `act_completed`. A script for an older API works without a change. The API can change. Set `api` to the version that the script needs: a game with an older API does not load the script. See `docs/lua-modding-design.md` for the design.
+The API of the scripts is version 13. API 2 adds the velocity of an object and `set_solid_top`. API 3 adds `standing_characters`. API 4 adds `characters`, and lets an object hold a character and read its buttons. API 5 adds the water, the earthquake and the end of the act. API 6 adds the options of `draw`, `fill_rectangle` and `draw_line`. API 7 adds the boss base, music and the limits of the camera. API 8 adds abilities. API 9 adds `act`. API 10 adds the `routine` function and `wait`. API 11 adds the zoom of the level. API 12 adds `act_complete` and `act_completed`. API 13 adds `show_hidden`. A script for an older API works without a change. The API can change. Set `api` to the version that the script needs: a game with an older API does not load the script. See `docs/lua-modding-design.md` for the design.
 
 ## Install the mod
 
@@ -47,7 +48,7 @@ A script calls `object { ... }` one time, with these fields:
 
 | Field | Content |
 | --- | --- |
-| `api` | The API version that the script needs: 1 to 12 |
+| `api` | The API version that the script needs: 1 to 13 |
 | `base` | Optional. `"boss"` gives the object the rules of a boss (API 7). See "Bosses" below. `"ability"` makes the object an ability (API 8). See "Abilities" below. |
 | `name`, `description` | The text of the level editor |
 | `classification` | `general`, `badnik`, `obstacle`, `platform`, `ring`, `scenery` and so on |
@@ -118,6 +119,7 @@ result.
 | `self:reset_zoom(ticks)` | Changes the zoom back to the default zoom of the level, in `ticks` ticks or at once (API 11) |
 | `self:set_earthquake(on)` | Starts or stops the earthquake: the screen shakes and the rumble plays. Stop it in `stop`, so that it does not continue after the object goes out of view. |
 | `self:act_completed()` | True after the act ended, until the next act starts, also after a seamless change of act (API 12) |
+| `self:show_hidden()` | True when the game shows the hidden objects: in the level editor, or with the debug option that shows the collision of the objects (API 13). An invisible object, for example `LUATRIGGER`, draws itself only then. |
 | `self:complete_level()` | Ends the act, as a signpost does. The timer stops and the score count shows, then the next act or level starts. When the player is in the air, the count waits until the player lands. A second call does nothing. |
 | `self:play_music(name)` | Plays music from a dependency (API 7) |
 | `self:play_level_music()` | Plays the music of the level again (API 7) |
