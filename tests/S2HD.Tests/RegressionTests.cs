@@ -569,6 +569,24 @@ public sealed partial class RegressionTests
 	}
 
 	/// <summary>
+	/// The HUD at 150% and at 75% (hud_scale in sonicorca.cfg). The score, the time and the rings grow about the top
+	/// left corner, and the lives about the bottom left corner. Then the ring counters of a special stage for Sonic and
+	/// Tails at 150%: each group grows about its place at the top of the screen.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void HudSize_MatchesGoldenScreenshots()
+	{
+		static Action<string> Scale(string value) => userData => File.WriteAllText(Path.Combine(userData, "sonicorca.cfg"), $"hud_scale={value}\n");
+		RunAndCompare("--level ehz --act 1 --protagonist sonic --sidekick none", new[] { 300 }, Path.Combine(TestPaths.GoldenDirectory, "hud-size-150"),
+			"hud-size-150", prepareUserData: Scale("1.5"));
+		RunAndCompare("--level ehz --act 1 --protagonist sonic --sidekick none", new[] { 300 }, Path.Combine(TestPaths.GoldenDirectory, "hud-size-75"),
+			"hud-size-75", prepareUserData: Scale("0.75"));
+		RunAndCompare("--halfpipe 1", new[] { 20520 }, Path.Combine(TestPaths.GoldenDirectory, "hud-size-special-stage"),
+			"hud-size-special-stage", withImportedMods: true, prepareUserData: Scale("1.5"));
+	}
+
+	/// <summary>
 	/// Writes a copy of the example level Sunny Meadow with the attribute zoom="0.8", a star post at the start position,
 	/// and a level script that zooms to 1.25 in 240 ticks on the first tick.
 	/// </summary>
@@ -1497,8 +1515,11 @@ public sealed partial class RegressionTests
 
 	private static void RunGame(string exe, string arguments, int[] ticks, string userData, IReadOnlyDictionary<string, string> environment)
 	{
-		// No frame limiter, so the game runs as fast as the machine allows
-		File.WriteAllText(Path.Combine(userData, "sonicorca.cfg"), "[graphics]\nmax_performance=1\n");
+		// No frame limiter, so the game runs as fast as the machine allows. A test can write more lines of the section
+		// [graphics] to the file first, for example hud_scale=1.5.
+		string config = Path.Combine(userData, "sonicorca.cfg");
+		string graphics = File.Exists(config) ? File.ReadAllText(config) : "";
+		File.WriteAllText(config, "[graphics]\nmax_performance=1\n" + graphics);
 		var startInfo = new ProcessStartInfo(exe, arguments)
 		{
 			UseShellExecute = false,

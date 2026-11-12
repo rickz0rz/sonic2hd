@@ -963,6 +963,16 @@ slow GPUs). To turn it on, for example in exclusive fullscreen, add this to `son
 vsync=1
 ```
 
+The "HUD SIZE" row of the video options sets the size of the HUD, from 75% to 150% in steps of 5%. It changes the
+score, the time, the rings and the lives of a level, also in versus mode, and the ring counters of a special stage.
+The title cards and the results screens keep their size. Each part of the HUD grows or shrinks about its corner of
+the screen. The game saves the size in `sonicorca.cfg`:
+
+```ini
+[graphics]
+hud_scale=1.25
+```
+
 ## Profiling
 
 Set the environment variable `S2HD_PROFILE=1` before launching. The game then logs a frame-time summary every

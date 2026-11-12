@@ -9,7 +9,8 @@ using SonicOrca.Resources;
 namespace SonicOrca.Core;
 
 /// <summary>
-/// Shows the score, time, rings and lives while the level runs. In debug mode it shows positions.
+/// Shows the score, time, rings and lives while the level runs. In debug mode it shows positions. The size of the HUD
+/// comes from the video settings.
 /// </summary>
 internal class LevelHud : IDisposable
 {
@@ -169,7 +170,38 @@ internal class LevelHud : IDisposable
 		_drawCamera = null;
 	}
 
+	/// <summary>The size of the HUD from the video settings: 1 is the normal size.</summary>
+	private double Scale => _level.GameContext.VideoSettings?.HudScale ?? 1.0;
+
+	/// <summary>
+	/// Starts a group of the HUD at the size of the HUD. The group grows or shrinks about its corner of the screen, so
+	/// it keeps its place at the edges. Dispose the result at the end of the group.
+	/// </summary>
+	private IDisposable BeginGroup(Renderer renderer, double anchorX, double anchorY)
+	{
+		I2dRenderer i2dRenderer = renderer.Get2dRenderer();
+		IDisposable state = i2dRenderer.BeginMatixState();
+		i2dRenderer.ModelMatrix = HudScale.About(i2dRenderer.ModelMatrix, Scale, anchorX, anchorY);
+		return state;
+	}
+
 	private void DrawNormal(Renderer renderer)
+	{
+		using (BeginGroup(renderer, 0.0, 0.0))
+		{
+			DrawTopLeft(renderer);
+		}
+		if (Player.Lives >= 0)
+		{
+			using (BeginGroup(renderer, 0.0, ScreenSize.Height))
+			{
+				DrawLives(renderer);
+			}
+		}
+	}
+
+	/// <summary>The score, the time and the rings at the top left of the screen.</summary>
+	private void DrawTopLeft(Renderer renderer)
 	{
 		DrawTLInfo(renderer, 226.0, 610.0, 98.0, szScore, Player.Score.ToString());
 		// The level time is in ticks. The hundredths come from the ticks that are left after the full seconds.
@@ -190,18 +222,20 @@ internal class LevelHud : IDisposable
 			DrawTLInfo(renderer, 226.0, 400.0, 162.0, szTime, $"{minutes}:{seconds:00}", countdown || minutes >= TimeWarningMinutes, rightAligned: false);
 		}
 		DrawTLInfo(renderer, 226.0, 516.0, 226.0, szRings, Player.CurrentRings.ToString(), Player.CurrentRings == 0);
-		if (Player.Lives >= 0)
-		{
-			DrawLives(renderer);
-		}
 	}
 
 	private void DrawDebug(Renderer renderer)
 	{
 		ICharacter protagonist = Player.Protagonist;
-		DrawTLInfoHexCoordinate(renderer, 226.0, 98.0, "PLAYER", protagonist.Position);
-		DrawTLInfoHexCoordinate(renderer, 226.0, 162.0, "SCROLL", (Vector2i)(_drawCamera ?? _level.Camera).Bounds.TopLeft);
-		DrawBottomText(renderer, "DEBUG MODE");
+		using (BeginGroup(renderer, 0.0, 0.0))
+		{
+			DrawTLInfoHexCoordinate(renderer, 226.0, 98.0, "PLAYER", protagonist.Position);
+			DrawTLInfoHexCoordinate(renderer, 226.0, 162.0, "SCROLL", (Vector2i)(_drawCamera ?? _level.Camera).Bounds.TopLeft);
+		}
+		using (BeginGroup(renderer, 0.0, ScreenSize.Height))
+		{
+			DrawBottomText(renderer, "DEBUG MODE");
+		}
 	}
 
 	private void DrawTLInfoHexCoordinate(Renderer renderer, double captionLeft, double captionTop, string caption, Vector2i coordinate)
