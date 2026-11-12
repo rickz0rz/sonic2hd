@@ -21,6 +21,7 @@ internal class S2HDSettings : IAudioSettings, IVideoSettings
 	private bool _enableWaterEffects;
 	private bool _enableHeatEffects;
 	private PhysicsMode _physics;
+	private double _hudScale;
 
 	public double MusicVolume
 	{
@@ -88,6 +89,18 @@ internal class S2HDSettings : IAudioSettings, IVideoSettings
 		}
 	}
 
+	/// <summary>The size of the HUD, from 75% to 150% in steps of 5%. It is saved as [graphics] hud_scale.</summary>
+	public double HudScale
+	{
+		get => _hudScale;
+		set
+		{
+			_hudScale = SonicOrca.HudScale.Clamp(value);
+			_config.SetProperty("graphics", "hud_scale", _hudScale.ToString("0.##", CultureInfo.InvariantCulture));
+			_config.Save();
+		}
+	}
+
 	/// <summary>How the game plays: as the original Sonic 2, or as Sonic 2 HD. A level uses it when it starts.</summary>
 	public PhysicsMode Physics
 	{
@@ -116,6 +129,7 @@ internal class S2HDSettings : IAudioSettings, IVideoSettings
 		_enableShadows = config.GetPropertyBoolean("graphics", "shadows", true);
 		_enableWaterEffects = config.GetPropertyBoolean("graphics", "water_effects", true);
 		_enableHeatEffects = config.GetPropertyBoolean("graphics", "heat_effects");
+		_hudScale = SonicOrca.HudScale.Clamp(config.GetPropertyDouble("graphics", "hud_scale", 1.0));
 		_physics = Enum.TryParse(config.GetProperty("game", "physics", "original"), ignoreCase: true, out PhysicsMode physics)
 			? physics
 			: PhysicsMode.Original;

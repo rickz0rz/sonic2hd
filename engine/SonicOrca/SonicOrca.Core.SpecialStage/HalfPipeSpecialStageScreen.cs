@@ -1911,8 +1911,14 @@ public class HalfPipeSpecialStageScreen : Screen
 		}
 		IFontRenderer fontRenderer;
 		double counterY = 160.0;
+		// The ring counters have the size of the HUD from the video settings. Each group grows or shrinks about its
+		// place at the top of the screen: the left corner, the centre or the right corner.
+		Matrix4 model = g.ModelMatrix;
+		double hudScale = _gameContext.VideoSettings?.HudScale ?? 1.0;
+		void Group(double anchorX) => g.ModelMatrix = HudScale.About(model, hudScale, anchorX, 0.0);
 		if (_tails == null)
 		{
+			Group(0.0);
 			g.RenderTexture(_ringsLabelTexture, new Rectangle(48.0, 40.0, _ringsLabelTexture.Width, _ringsLabelTexture.Height));
 			if (UsesOriginalText)
 			{
@@ -1925,6 +1931,7 @@ public class HalfPipeSpecialStageScreen : Screen
 			{
 				fontRenderer.RenderString(_rings.ToString(), new Rectangle(260.0, 48.0, 0.0, 0.0), FontAlignment.Left, _font, 0);
 			}
+			g.ModelMatrix = model;
 		}
 		else
 		{
@@ -1933,30 +1940,51 @@ public class HalfPipeSpecialStageScreen : Screen
 			const double nameY = 24.0;
 			double ringsY = nameY + _sonicLabelTexture.Height + 4.0;
 			double tailsX = 1920.0 - 48.0 - _ringsLabelTexture.Width - RingCountWidth;
-			g.RenderTexture(_sonicLabelTexture, new Rectangle(48.0, nameY, _sonicLabelTexture.Width, _sonicLabelTexture.Height));
-			g.RenderTexture(_ringsLabelTexture, new Rectangle(48.0, ringsY, _ringsLabelTexture.Width, _ringsLabelTexture.Height));
-			g.RenderTexture(_totalLabelTexture, new Rectangle(960.0 - _totalLabelTexture.Width / 2.0, 24.0, _totalLabelTexture.Width, _totalLabelTexture.Height));
-			g.RenderTexture(_tailsLabelTexture, new Rectangle(tailsX, nameY, _tailsLabelTexture.Width, _tailsLabelTexture.Height));
-			g.RenderTexture(_ringsLabelTexture, new Rectangle(tailsX, ringsY, _ringsLabelTexture.Width, _ringsLabelTexture.Height));
 			double sonicCountX = 48.0 + _ringsLabelTexture.Width + 16.0;
 			double tailsCountX = tailsX + _ringsLabelTexture.Width + 16.0;
+			double ringsCentreY = ringsY + _ringsLabelTexture.Height / 2.0;
+			double countY = ringsCentreY - 24.0;
+			fontRenderer = renderer.GetFontRenderer();
+			// Sonic at the left
+			Group(0.0);
+			g.RenderTexture(_sonicLabelTexture, new Rectangle(48.0, nameY, _sonicLabelTexture.Width, _sonicLabelTexture.Height));
+			g.RenderTexture(_ringsLabelTexture, new Rectangle(48.0, ringsY, _ringsLabelTexture.Width, _ringsLabelTexture.Height));
 			if (UsesOriginalText)
 			{
-				double ringsCentreY = ringsY + _ringsLabelTexture.Height / 2.0;
 				_originalArt.DrawHudNumber(g, _rings, sonicCountX, ringsCentreY);
-				// The total goes inside the box of the label
+			}
+			else
+			{
+				g.Deactivate();
+				fontRenderer.RenderString(_rings.ToString(), new Rectangle(sonicCountX, countY, 0.0, 0.0), FontAlignment.Left, _font, 0);
+			}
+			// The total at the centre. The number goes inside the box of the label.
+			Group(960.0);
+			g.RenderTexture(_totalLabelTexture, new Rectangle(960.0 - _totalLabelTexture.Width / 2.0, 24.0, _totalLabelTexture.Width, _totalLabelTexture.Height));
+			if (UsesOriginalText)
+			{
 				_originalArt.DrawHudNumber(g, Rings, 960.0, 24.0 + _totalLabelTexture.Height / 2.0, centred: true);
+			}
+			else
+			{
+				g.Deactivate();
+				fontRenderer.RenderString(Rings.ToString(), new Rectangle(960.0, 24.0 + _totalLabelTexture.Height / 2.0 - 16.0, 0.0, 0.0), FontAlignment.MiddleX, _font, 0);
+			}
+			// Tails at the right
+			Group(1920.0);
+			g.RenderTexture(_tailsLabelTexture, new Rectangle(tailsX, nameY, _tailsLabelTexture.Width, _tailsLabelTexture.Height));
+			g.RenderTexture(_ringsLabelTexture, new Rectangle(tailsX, ringsY, _ringsLabelTexture.Width, _ringsLabelTexture.Height));
+			if (UsesOriginalText)
+			{
 				_originalArt.DrawHudNumber(g, _tailsRings, tailsCountX, ringsCentreY);
 			}
-			g.Deactivate();
-			fontRenderer = renderer.GetFontRenderer();
-			if (!UsesOriginalText)
+			else
 			{
-				double countY = ringsY + _ringsLabelTexture.Height / 2.0 - 24.0;
-				fontRenderer.RenderString(_rings.ToString(), new Rectangle(sonicCountX, countY, 0.0, 0.0), FontAlignment.Left, _font, 0);
-				fontRenderer.RenderString(Rings.ToString(), new Rectangle(960.0, 24.0 + _totalLabelTexture.Height / 2.0 - 16.0, 0.0, 0.0), FontAlignment.MiddleX, _font, 0);
+				g.Deactivate();
 				fontRenderer.RenderString(_tailsRings.ToString(), new Rectangle(tailsCountX, countY, 0.0, 0.0), FontAlignment.Left, _font, 0);
 			}
+			g.Deactivate();
+			g.ModelMatrix = model;
 			counterY = 220.0;
 		}
 		if (_flow.Counter != null && !UsesOriginalText)

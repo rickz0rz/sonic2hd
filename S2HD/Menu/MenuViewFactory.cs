@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using SonicOrca;
 using SonicOrca.Core;
 using SonicOrca.Graphics;
@@ -71,7 +73,7 @@ internal class MenuViewFactory
 	public ISettingListMenuViewModel GetVideoOptions()
 	{
 		S2HDSettings settings = _gameContext.Settings;
-		return new SettingListMenuViewModel(new ISetting[4]
+		return new SettingListMenuViewModel(new ISetting[5]
 		{
 			new StandardOptionSetting("MODE", new string[3]
 			{
@@ -81,9 +83,19 @@ internal class MenuViewFactory
 			}, () => (int)settings.Mode, value => settings.Mode = (VideoMode)value),
 			new OnOffOptionSetting("SHADOWS", () => settings.EnableShadows, value => settings.EnableShadows = value),
 			new OnOffOptionSetting("WATER EFFECTS", () => settings.EnableWaterEffects, value => settings.EnableWaterEffects = value),
-			new OnOffOptionSetting("HEAT EFFECTS", () => settings.EnableHeatEffects, value => settings.EnableHeatEffects = value)
+			new OnOffOptionSetting("HEAT EFFECTS", () => settings.EnableHeatEffects, value => settings.EnableHeatEffects = value),
+			// The HUD of a level and the ring counters of a special stage, from 75% to 150%
+			new StandardOptionSetting("HUD SIZE", HudSizeNames,
+				() => (int)Math.Round((settings.HudScale - HudScale.Min) / HudScale.Step),
+				value => settings.HudScale = HudScale.Min + value * HudScale.Step)
 		}, MenuTags.OPTIONS_MENU);
 	}
+
+	/// <summary>The names of the HUD sizes: "75%" to "150%".</summary>
+	private static readonly string[] HudSizeNames = Enumerable
+		.Range(0, (int)Math.Round((HudScale.Max - HudScale.Min) / HudScale.Step) + 1)
+		.Select(i => $"{Math.Round((HudScale.Min + i * HudScale.Step) * 100)}%")
+		.ToArray();
 
 	/// <summary>The music volume as an audio slider setting.</summary>
 	private class MusicSetting : IAudioSliderSetting, ISetting
