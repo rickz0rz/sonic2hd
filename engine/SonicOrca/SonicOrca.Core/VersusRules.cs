@@ -171,6 +171,7 @@ public sealed class VersusRules
 		TimeLeft = null;
 		_level.StateFlags &= ~LevelStateFlags.UpdateTime;
 		Trace.WriteLine("Versus: the act ends");
+		_level.NotifyActComplete();
 		_level.FadeOut(LevelState.StageCompleted);
 	}
 

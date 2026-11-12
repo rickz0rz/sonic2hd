@@ -82,6 +82,11 @@ public class Camera
 
 	public virtual void Update()
 	{
+		// The limits can change on each tick, and a zoom out must stay inside them
+		if (_zoom < 1.0)
+		{
+			ApplyScale();
+		}
 		if (SpyMode)
 		{
 			UpdateSpyMode();
@@ -123,12 +128,33 @@ public class Camera
 	}
 
 	/// <summary>
+	/// The scale of the view: <see cref="BaseScale"/> times the zoom. A zoom out stops when the view fills the limits
+	/// of the camera, for example the arena of a boss or the end of an act. So the view does not show the level outside
+	/// the limits. A view with no zoom out keeps its size, also when it is larger than the limits.
+	/// </summary>
+	private double GetScale()
+	{
+		double scale = _baseScale * _zoom;
+		if (_zoom >= 1.0 || !_scaleApplied)
+		{
+			return scale;
+		}
+		Rectanglei limits = (Limits == Rectanglei.Empty) ? _level.Bounds : Limits;
+		if (limits.Width <= 0 || limits.Height <= 0)
+		{
+			return scale;
+		}
+		double fill = Math.Max(ScreenBounds.Width / limits.Width, ScreenBounds.Height / limits.Height);
+		return Math.Max(scale, Math.Min(_baseScale, fill));
+	}
+
+	/// <summary>
 	/// Gives the view the size of the screen bounds at the scale of the camera and the zoom. The centre of the view
 	/// and of the track bounds stays, so that a zoom that changes on each tick keeps the character in the same place.
 	/// </summary>
 	private void ApplyScale()
 	{
-		double scale = _baseScale * _zoom;
+		double scale = GetScale();
 		double width = ScreenBounds.Width / scale;
 		double height = ScreenBounds.Height / scale;
 		_bounds.X += (_bounds.Width - width) / 2.0;

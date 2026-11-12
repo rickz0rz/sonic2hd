@@ -409,6 +409,10 @@ public sealed partial class LuaNativeObject
 	[LuaMember("set_earthquake")]
 	public void SetEarthquake(bool active) => _owner.Level.EarthquakeActive = active;
 
+	/// <summary>True after the act ended, until the next act starts (API 12). act_complete(self) runs at that time.</summary>
+	[LuaMember("act_completed")]
+	public bool ActCompleted() => _owner.Level.IsActComplete;
+
 	/// <summary>Ends the act, as a signpost does. The score count shows, then the next act or level starts.</summary>
 	[LuaMember("complete_level")]
 	public void CompleteLevel() => _owner.CompleteLevel();

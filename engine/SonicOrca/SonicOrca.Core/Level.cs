@@ -468,6 +468,7 @@ public class Level : IDisposable
 		StateFlags = 0;
 		Ticks = 0;
 		BossFight = false;
+		IsActComplete = false;
 		_intervals.Clear();
 		InitialiseEarthquake();
 		FinishOnCompleteLevel = true;
@@ -1271,6 +1272,28 @@ public class Level : IDisposable
 	{
 		StateFlags |= LevelStateFlags.CompletingStage;
 		_completeHud.Start();
+		NotifyActComplete();
+	}
+
+	/// <summary>True after the act ended, until the next act starts.</summary>
+	public bool IsActComplete { get; private set; }
+
+	/// <summary>
+	/// The act ended: the score count starts, or the act of a versus match ends. Each active object hears it once
+	/// (see <see cref="ActiveObject.OnActComplete"/>), for example the Lua objects and the level script.
+	/// </summary>
+	internal void NotifyActComplete()
+	{
+		if (IsActComplete)
+		{
+			return;
+		}
+		IsActComplete = true;
+		Trace.WriteLine($"Act {CurrentAct} complete, tick {Ticks}");
+		foreach (ActiveObject activeObject in _objectManager.ActiveObjects.ToList())
+		{
+			activeObject.OnActComplete();
+		}
 	}
 
 	private void StartTimeOverSequence()
