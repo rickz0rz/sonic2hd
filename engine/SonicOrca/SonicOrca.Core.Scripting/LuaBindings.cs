@@ -413,6 +413,13 @@ public sealed partial class LuaNativeObject
 	[LuaMember("act_completed")]
 	public bool ActCompleted() => _owner.Level.IsActComplete;
 
+	/// <summary>
+	/// True when the game shows the hidden objects (API 13): in the level editor, or with the debug option that shows
+	/// the collision of the objects. An invisible object, for example a trigger line, draws itself only then.
+	/// </summary>
+	[LuaMember("show_hidden")]
+	public bool ShowHidden() => _owner.Level.State == LevelState.Editing || _owner.Level.LayerViewOptions.ShowObjectCollision;
+
 	/// <summary>Ends the act, as a signpost does. The score count shows, then the next act or level starts.</summary>
 	[LuaMember("complete_level")]
 	public void CompleteLevel() => _owner.CompleteLevel();
