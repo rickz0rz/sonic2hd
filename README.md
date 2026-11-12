@@ -429,8 +429,13 @@ an update of this repository. The import does these steps:
   belts of WFZ. The HD tiles have one palette, so the blocks with these colours get one frame for each change.
   An object with one frame and these colours gets a frame for each change, for example the big blocks of CNZ.
   The other objects with these colours, for example the bumpers of CNZ, get key colours. The object shader draws
-  each key colour as the colour of the current step (`PALETTECYCLES.xml` next to the map). An object of WFZ switches its first cycle between the fire and the
-  conveyor belts in the original. The tiles cannot switch, so WFZ shows the belts and SCZ shows the fire.
+  each key colour as the colour of the current step (`PALETTECYCLES.xml` next to the map).
+- In WFZ, an invisible line (`WFZFIRESWITCH`, Obj8B of the original) changes the same colours between the fire and
+  the conveyor belts. The level starts with the fire. A character that crosses the line to the right shows the belts,
+  and a character that crosses it to the left shows the fire. A flipped line does the opposite. The tiles with these
+  colours have the belts as a second animation (the `alternate` attribute of the tile set). As in the original, a
+  restart at a star post shows the fire until the player crosses a line. The objects with these colours, the flame of
+  the Tornado and the boss, always show the fire.
 - It writes the frames of the animated tiles into an animation group (`ANIGROUP`) of the tile set, so that the
   animation editor can change them.
 - It keeps the black of the blocks of the original: only colour 0 is transparent. In CNZ, the windows of the

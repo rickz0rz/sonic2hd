@@ -58,6 +58,34 @@ public static class PaletteCycles
 		return ReadCycles(zone, Table).Select(cycle => cycle with { Name = $"{routine} ({cycle.Name})" }).ToArray();
 	}
 
+	/// <summary>
+	/// The other cycles of a zone with an object that switches its cycles, or null. In Wing Fortress, object $8B
+	/// (Obj8B) switches the first cycle of PalCycle_WFZ from the fire to the conveyor belts (WFZ_SCZ_Fire_Toggle), and
+	/// back. The level starts with the fire.
+	/// </summary>
+	public static IReadOnlyList<PaletteCycle> ReadAlternate(string disassembly, string zone)
+	{
+		if (zone != "WFZ")
+		{
+			return null;
+		}
+		string source = File.ReadAllText(Path.Combine(disassembly, "s2.asm"));
+		byte[] Table(string label) => ReadTable(disassembly, source, label);
+		return WingFortressCycles(Table, belt: true).Select(cycle => cycle with { Name = $"PalCycle_WFZ ({cycle.Name})" }).ToArray();
+	}
+
+	/// <summary>
+	/// The cycles of PalCycle_WFZ. The first cycle has the fire (WFZ_SCZ_Fire_Toggle clear) or the conveyor belts.
+	/// </summary>
+	private static IReadOnlyList<PaletteCycle> WingFortressCycles(Func<string, byte[]> Table, bool belt) => new[]
+	{
+		belt
+			? Cycle("CyclingPal_WFZBelt", Table, 6, 4, step => Words(Line3 + 0xE, step * 8, 4))
+			: Cycle("CyclingPal_WFZFire", Table, 2, 4, step => Words(Line3 + 0xE, step * 8, 4)),
+		Cycle("CyclingPal_WFZ1", Table, 4, 0x22, step => Words(Line3 + 0x1C, step * 2, 1)),
+		Cycle("CyclingPal_WFZ2", Table, 6, 12, step => Words(Line3 + 0x1E, step * 2, 1)),
+	};
+
 	/// <summary>The cycles of a zone. The name of each cycle is the name of its colour table.</summary>
 	private static IReadOnlyList<PaletteCycle> ReadCycles(string zone, Func<string, byte[]> Table)
 	{
@@ -100,19 +128,9 @@ public static class PaletteCycles
 			}
 			case "WFZ":
 			case "SCZ":
-			{
-				// PalCycle_WFZ: an object switches the first cycle between the fire (SCZ starts with it) and the
-				// conveyor belts. The tiles of the importer cannot switch, so Wing Fortress has the belts.
-				PaletteCycle first = zone == "WFZ"
-					? Cycle("CyclingPal_WFZBelt", Table, 6, 4, step => Words(Line3 + 0xE, step * 8, 4))
-					: Cycle("CyclingPal_WFZFire", Table, 2, 4, step => Words(Line3 + 0xE, step * 8, 4));
-				return new[]
-				{
-					first,
-					Cycle("CyclingPal_WFZ1", Table, 4, 0x22, step => Words(Line3 + 0x1C, step * 2, 1)),
-					Cycle("CyclingPal_WFZ2", Table, 6, 12, step => Words(Line3 + 0x1E, step * 2, 1)),
-				};
-			}
+				// PalCycle_WFZ: both zones start with the fire. In Wing Fortress, an object switches to the conveyor
+				// belts (see ReadAlternate).
+				return WingFortressCycles(Table, belt: false);
 			case "DEZ":
 				// Death Egg uses PalCycle_CPZ: one timer for three tables
 				return new[]

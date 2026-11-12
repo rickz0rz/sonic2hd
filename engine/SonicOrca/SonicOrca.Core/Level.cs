@@ -544,6 +544,10 @@ public class Level : IDisposable
 		}
 		State = LevelState.Playing;
 		RingsCollected = 0;
+		if (TileSet != null)
+		{
+			TileSet.UseAlternateAnimations = false;
+		}
 		Area.OnStart();
 		Area.StartScript(this);
 		SonicOrca.Core.Debugging.StoryTest.OnStart(this);

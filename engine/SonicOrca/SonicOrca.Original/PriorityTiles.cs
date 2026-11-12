@@ -198,13 +198,18 @@ public static class PriorityTiles
 	/// </summary>
 	/// <param name="art">The level art: 8 x 8 patterns, 4 bits for each pixel.</param>
 	/// <param name="blockMappings">The 16 x 16 block mappings: four pattern words for each block.</param>
+	/// <param name="alternatePaletteCycles">
+	/// The cycles that an object of the zone can switch to, or null (see <see cref="PaletteCycles.ReadAlternate"/>). A
+	/// tile with other colours in these cycles gets a second animation, the "alternate" attribute of the tile set.
+	/// </param>
 	/// <returns>
 	/// The tile set, its PRIORITY texture, and the animation group (ANIGROUP) with one animation for each animated tile,
 	/// or null when no tile is animated.
 	/// </returns>
 	public static (string TileSet, byte[] Texture, string Animations) Create(int hdTiles, byte[] art, byte[] blockMappings, uint[] palette,
 		ICollection<int> priorityBlocks, ICollection<int> animatedBlocks, IReadOnlyList<AnimatedArt> animations, int scale,
-		ICollection<int> backgroundBlocks = null, IReadOnlyList<PaletteCycle> paletteCycles = null, IReadOnlyCollection<int> solidPatterns = null)
+		ICollection<int> backgroundBlocks = null, IReadOnlyList<PaletteCycle> paletteCycles = null, IReadOnlyCollection<int> solidPatterns = null,
+		IReadOnlyList<PaletteCycle> alternatePaletteCycles = null)
 	{
 		solidPatterns ??= Array.Empty<int>();
 		backgroundBlocks ??= Array.Empty<int>();
@@ -212,6 +217,8 @@ public static class PriorityTiles
 		int tileSize = BlockSize * scale;
 		// The tile id, then the texture slot and the time of each frame
 		var tiles = new SortedDictionary<int, List<(int Slot, int Duration)>>();
+		// The frames of the alternate animation of a tile, when it has one
+		var alternates = new Dictionary<int, List<(int Slot, int Duration)>>();
 		// Where the frames of an animated tile come from, for the level editor
 		var sources = new Dictionary<int, string>();
 		// The priority of the patterns to draw: high, low, or null for all the patterns (the background)
@@ -233,6 +240,16 @@ public static class PriorityTiles
 			{
 				paletteFrames = null;
 			}
+			// The frames with the alternate cycles, when the block uses a cycle that the switch changes
+			List<(int Duration, uint[] Palette)> alternateFrames = null;
+			if (paletteFrames != null && alternatePaletteCycles != null)
+			{
+				alternateFrames = GetPaletteFrames(palette, alternatePaletteCycles, GetEntries(art, blockMappings, block), out List<PaletteCycle> alternateCycles);
+				if (alternateCycles.Select(c => c.Name).SequenceEqual(usedCycles.Select(c => c.Name)))
+				{
+					alternateFrames = null;
+				}
+			}
 			string source = animation?.Source ?? (paletteFrames != null ? "palette cycle " + string.Join(", ", usedCycles.Select(c => c.Name)) : null);
 			int frameCount = animation?.Frames.Count ?? paletteFrames?.Count ?? 1;
 			foreach (bool? priority in new bool?[] { true, false, null })
@@ -251,6 +268,17 @@ public static class PriorityTiles
 				}
 				int id = (priority == null ? BackgroundFirstTile : priority.Value ? FirstTile : AnimatedFirstTile) + block;
 				tiles[id] = frames;
+				if (alternateFrames != null)
+				{
+					var alternate = new List<(int, int)>();
+					foreach ((int duration, uint[] alternatePalette) in alternateFrames)
+					{
+						alternate.Add((nextSlot, duration));
+						drawings.Add((nextSlot, art, alternatePalette, block, priority));
+						nextSlot++;
+					}
+					alternates[id] = alternate;
+				}
 				if (source != null && frames.Count > 1)
 				{
 					sources[id] = source;
@@ -292,16 +320,16 @@ public static class PriorityTiles
 			}
 			string tileSource = sources.TryGetValue(id, out string found) ? found : null;
 			string sourceAttribute = tileSource != null ? $" source=\"{SecurityElement.Escape(tileSource)}\"" : "";
-			xml.AppendLine($"    <tile id=\"{id}\" {position} anigroup=\"/ANIGROUP\" animation=\"{animationCount}\"{sourceAttribute} />");
-			animationXml.AppendLine($"    <!-- {animationCount}: tile {id}{(tileSource != null ? ", " + SecurityElement.Escape(tileSource).Replace("--", "-") : "")} -->");
-			animationXml.AppendLine("    <animation>");
-			foreach ((int slot, int duration) in frames)
-			{
-				// A frame shows for its delay plus 1 tick
-				animationXml.AppendLine($"      <frame x=\"{slot % TilesPerRow * tileSize}\" y=\"{slot / TilesPerRow * tileSize}\" w=\"{tileSize}\" h=\"{tileSize}\" delay=\"{Math.Max(0, duration - 1)}\" />");
-			}
-			animationXml.AppendLine("    </animation>");
+			bool hasAlternate = alternates.TryGetValue(id, out List<(int Slot, int Duration)> alternateFrames);
+			string alternateAttribute = hasAlternate ? $" alternate=\"{animationCount + 1}\"" : "";
+			xml.AppendLine($"    <tile id=\"{id}\" {position} anigroup=\"/ANIGROUP\" animation=\"{animationCount}\"{alternateAttribute}{sourceAttribute} />");
+			AppendAnimation(animationXml, animationCount, $"tile {id}{(tileSource != null ? ", " + tileSource : "")}", frames, tileSize);
 			animationCount++;
+			if (hasAlternate)
+			{
+				AppendAnimation(animationXml, animationCount, $"tile {id}, alternate", alternateFrames, tileSize);
+				animationCount++;
+			}
 		}
 		xml.AppendLine("  </tiles>");
 		xml.AppendLine("</tileset>");
@@ -309,6 +337,19 @@ public static class PriorityTiles
 			: "<?xml version=\"1.0\"?>\n<anigroup>\n  <textures>\n    <texture>//PRIORITY</texture>\n  </textures>\n  <animations>\n" +
 				animationXml + "  </animations>\n</anigroup>\n";
 		return (xml.ToString(), SpriteImport.EncodePng(pixels, width, height), animationGroup);
+	}
+
+	/// <summary>Writes one animation of the animation group, with a comment that names it.</summary>
+	private static void AppendAnimation(StringBuilder animationXml, int index, string description, List<(int Slot, int Duration)> frames, int tileSize)
+	{
+		animationXml.AppendLine($"    <!-- {index}: {SecurityElement.Escape(description).Replace("--", "-")} -->");
+		animationXml.AppendLine("    <animation>");
+		foreach ((int slot, int duration) in frames)
+		{
+			// A frame shows for its delay plus 1 tick
+			animationXml.AppendLine($"      <frame x=\"{slot % TilesPerRow * tileSize}\" y=\"{slot / TilesPerRow * tileSize}\" w=\"{tileSize}\" h=\"{tileSize}\" delay=\"{Math.Max(0, duration - 1)}\" />");
+		}
+		animationXml.AppendLine("    </animation>");
 	}
 
 	/// <summary>True when the block has a high-priority pattern (or a low-priority pattern).</summary>

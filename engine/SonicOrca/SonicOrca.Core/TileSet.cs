@@ -61,6 +61,12 @@ public class TileSet : IReadOnlyDictionary<int, ITile>, IReadOnlyCollection<KeyV
 
 	public int Count => _tileIds.Count;
 
+	/// <summary>
+	/// True to show the alternate animation of each tile that has one (<see cref="Tile.AlternateAnimationIndex"/>). A
+	/// level starts with false.
+	/// </summary>
+	public bool UseAlternateAnimations { get; set; }
+
 	public TileSet()
 	{
 	}

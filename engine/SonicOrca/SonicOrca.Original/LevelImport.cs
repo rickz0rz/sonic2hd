@@ -413,8 +413,8 @@ public sealed record OriginalZone(string Name, string Key, string ChunksFile, st
 					(0x50, 9, 0x6E), (0x51, 9, 0x78), (0x52, 9, 0x79), (0x53, 9, 0x78), (0x54, 9, 0x78), (0x55, 9, 0x7A),
 				}),
 			},
-			// $8B only changes the palette cycle of the fire. The area makes the boss ($C5) when the player reaches it.
-			SkippedObjects = new[] { 0x8B, 0xC5 }
+			// The area makes the boss ($C5) when the player reaches it
+			SkippedObjects = new[] { 0xC5 }
 		},
 		["DEZ"] = new OriginalZone("DEZ", "SONICORCA/LEVELS/DEZ", "mappings/128x128/CPZ_DEZ.kos",
 			"collision/CPZ and DEZ primary 16x16 collision index.kos", "collision/CPZ and DEZ secondary 16x16 collision index.kos",
@@ -588,6 +588,7 @@ public static class LevelImport
 		["SONICORCA/OBJECTS/WFZTURRET"] = "SONICORCA.OBJECTS.WFZTURRET",
 		["SONICORCA/OBJECTS/WFZLASER"] = "SONICORCA.OBJECTS.WFZLASER",
 		["SONICORCA/OBJECTS/WFZWHEEL"] = "SONICORCA.OBJECTS.WFZWHEEL",
+		["SONICORCA/OBJECTS/WFZFIRESWITCH"] = "SONICORCA.OBJECTS.WFZFIRESWITCH",
 		["SONICORCA/OBJECTS/WFZTHRUST"] = "SONICORCA.OBJECTS.WFZTHRUST",
 		["SONICORCA/OBJECTS/WFZBELTPLATFORM"] = "SONICORCA.OBJECTS.WFZBELTPLATFORM",
 		["SONICORCA/OBJECTS/WFZGUNPLATFORM"] = "SONICORCA.OBJECTS.WFZGUNPLATFORM",
@@ -698,6 +699,7 @@ public static class LevelImport
 		HashSet<int> animatedBlocks = null;
 		IReadOnlyList<AnimatedArt> animations = null;
 		IReadOnlyList<PaletteCycle> paletteCycles = null;
+		IReadOnlyList<PaletteCycle> alternatePaletteCycles = null;
 		var used = new HashSet<int>();
 		var usedAnimated = new HashSet<int>();
 		var usedBackground = new HashSet<int>();
@@ -724,6 +726,7 @@ public static class LevelImport
 			// The HD tiles have one palette, so the blocks with a colour of a palette cycle are drawn from the original
 			// art, with a frame for each change of the colours
 			paletteCycles = PaletteCycles.Read(disassembly, zone.Name);
+			alternatePaletteCycles = PaletteCycles.ReadAlternate(disassembly, zone.Name);
 			animatedBlocks.UnionWith(PriorityTiles.GetPaletteCycleBlocks(art, blockMappings, paletteCycles));
 			// The HD tiles show black as transparent, so the blocks with solid black are drawn from the original art too
 			animatedBlocks.UnionWith(PriorityTiles.GetSolidBlackBlocks(art, blockMappings, palette));
@@ -806,7 +809,8 @@ public static class LevelImport
 
 		if (zone.ArtFile != null)
 		{
-			(tileSet, priorityTexture, tileAnimations) = PriorityTiles.Create(zone.HdTiles, art, blockMappings, palette, used, usedAnimated, animations, Scale, usedBackground, paletteCycles, zone.SolidPatterns);
+			(tileSet, priorityTexture, tileAnimations) = PriorityTiles.Create(zone.HdTiles, art, blockMappings, palette, used, usedAnimated, animations, Scale, usedBackground, paletteCycles, zone.SolidPatterns,
+				alternatePaletteCycles);
 		}
 		foreach (LevelLayer layer in layers)
 		{
