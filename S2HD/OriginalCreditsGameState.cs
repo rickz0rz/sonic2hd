@@ -146,11 +146,11 @@ internal sealed class OriginalCreditsGameState : IGameState, IDisposable
 		}
 		foreach (char c in characters)
 		{
-			_characters[c] = GetTexture(GetCharacterKey(c));
+			_characters[c] = GetTexture(GetCharacterKey(c), OriginalCredits.CharacterHeight);
 		}
 		for (int p = 0; p < LogoPalettes; p++)
 		{
-			_logo.Add(GetTexture(GetLogoKey(_logoFolder, p)));
+			_logo.Add(GetTexture(GetLogoKey(_logoFolder, p), (int)ScreenHeight));
 		}
 		if (hasMusic)
 		{
@@ -298,10 +298,15 @@ internal sealed class OriginalCreditsGameState : IGameState, IDisposable
 		return pressed.Keyboard[EnterScancode] || pad.Start || pad.South || pad.East || pad.West;
 	}
 
-	private ITexture GetTexture(string key)
+	/// <summary>
+	/// Gets an image of the credits. An image at the size of the original, <paramref name="originalHeight"/> pixels
+	/// high, keeps sharp pixels. A larger image is a replacement in high definition. The screen scale of about 4.8 is
+	/// not a whole number, so sharp pixels would make the lines of such an image uneven. Thus it uses linear filtering.
+	/// </summary>
+	private ITexture GetTexture(string key, int originalHeight)
 	{
 		ITexture texture = _gameContext.ResourceTree.GetLoadedResource<ITexture>(key);
-		texture.Filtering = TextureFiltering.NearestNeighbour;
+		texture.Filtering = texture.Height > originalHeight ? TextureFiltering.Linear : TextureFiltering.NearestNeighbour;
 		return texture;
 	}
 
