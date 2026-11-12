@@ -13,7 +13,7 @@ This mod adds ten objects with Lua scripts:
 - `LUAFEATHER`: a feather. A character that touches it gets the double jump, and the feather goes away.
 - `LUADOUBLEJUMP`: the double jump, an ability (API 8). In the air, after a jump, a jump press gives a second jump, one time until the character lands. The character loses the ability when it gets hurt. It is not for a place in a level: the feather gives it.
 
-The API of the scripts is version 9. API 2 adds the velocity of an object and `set_solid_top`. API 3 adds `standing_characters`. API 4 adds `characters`, and lets an object hold a character and read its buttons. API 5 adds the water, the earthquake and the end of the act. API 6 adds the options of `draw`, `fill_rectangle` and `draw_line`. API 7 adds the boss base, music and the limits of the camera. API 8 adds abilities. API 9 adds `act`. A script for an older API works without a change. The API can change. Set `api` to the version that the script needs: a game with an older API does not load the script. See `docs/lua-modding-design.md` for the design.
+The API of the scripts is version 10. API 2 adds the velocity of an object and `set_solid_top`. API 3 adds `standing_characters`. API 4 adds `characters`, and lets an object hold a character and read its buttons. API 5 adds the water, the earthquake and the end of the act. API 6 adds the options of `draw`, `fill_rectangle` and `draw_line`. API 7 adds the boss base, music and the limits of the camera. API 8 adds abilities. API 9 adds `act`. API 10 adds the `routine` function and `wait`. A script for an older API works without a change. The API can change. Set `api` to the version that the script needs: a game with an older API does not load the script. See `docs/lua-modding-design.md` for the design.
 
 ## Install the mod
 
@@ -47,7 +47,7 @@ A script calls `object { ... }` one time, with these fields:
 
 | Field | Content |
 | --- | --- |
-| `api` | The API version that the script needs: 1 to 9 |
+| `api` | The API version that the script needs: 1 to 10 |
 | `base` | Optional. `"boss"` gives the object the rules of a boss (API 7). See "Bosses" below. `"ability"` makes the object an ability (API 8). See "Abilities" below. |
 | `name`, `description` | The text of the level editor |
 | `classification` | `general`, `badnik`, `obstacle`, `platform`, `ring`, `scenery` and so on |
@@ -65,8 +65,31 @@ The game calls these functions of the script. Each function is optional.
 | `draw(self)` | Each frame |
 | `collision(self, event)` | Another object touches a solid side or a hit box of this object. |
 | `stop(self)` | The object goes out of view. |
+| `routine(self)` | Each tick, after `update`, up to the next `wait` (API 10). See "Routines" below. |
 | `hit(self, character)` | A character hit a boss, and the boss has more health (API 7, base `"boss"`). |
 | `defeat(self)` | A boss has no more health (API 7, base `"boss"`). |
+
+## Routines
+
+The function `routine` runs as a coroutine. It starts on the first tick of the object. On each tick, after
+`update`, the game runs it up to its next call of `wait`. `wait(ticks)` stops it for that number of ticks, and
+`wait()` stops it for one tick. When the routine ends, the game does not run it again. Timed behavior is then
+simple to write:
+
+```lua
+function routine(self)
+  while true do
+    self.velocity_x = 2
+    wait(60)
+    self.velocity_x = -2
+    wait(60)
+  end
+end
+```
+
+Only the routine can call `wait`. In another function, `wait` is a script error. When the object goes out of view
+and comes back, the routine starts again from its start. A routine is deterministic, so a replay gives the same
+result.
 
 ## The object: self
 

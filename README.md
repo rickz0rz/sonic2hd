@@ -213,7 +213,8 @@ make objects.
 A mod can add a level script to a zone of Sonic 2, for example `SONICORCA/LEVELS/EHZ/SCRIPT.object.lua`. The C# code
 of the zone still runs. One script is for all the acts of the zone: `self:act()` gives the act that plays. A
 seamless change from act 1 to act 2 keeps the object of the script, so `start` does not run again. The example mod
-`examples/mods/ehz-flood` fills Emerald Hill act 1 with water.
+`examples/mods/ehz-flood` fills Emerald Hill act 1 with water, in steps. It uses a routine: a function that can call
+`wait(ticks)` to stop for a number of ticks (API 10).
 
 A mod can also add a level in `SONICORCA/LEVELS/NAME`, with a tile set, a map, a binding and an `INFO.xml` file,
 and a level script. `--level NAME` starts it, and the level select shows it after the zones of the game. With the attribute `tileset`
