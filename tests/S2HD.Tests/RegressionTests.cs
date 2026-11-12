@@ -446,6 +446,24 @@ public sealed partial class RegressionTests
 	}
 
 	/// <summary>
+	/// The fire switch of Wing Fortress (Obj8B). The level starts with the colours of the fire. Sonic starts right of
+	/// the flipped switch at x 7536 and walks left across it, so the tiles change to the colours of the conveyor belts.
+	/// At tick 700, a vertical conveyor belt is on the screen. The log names the change.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void WfzFireSwitch_MatchesGoldenScreenshots()
+	{
+		RunTwoRuns("wfz-fire-switch", Path.Combine(TestPaths.GoldenDirectory, "wfz-fire-switch"), new[] { 180, 700 }, userData =>
+		{
+			ImportedMods.CopyTo(userData);
+			string recording = Path.Combine(userData, "left.rec");
+			File.WriteAllBytes(recording, MakeRecording(900, tick => (tick >= 200 ? -1.0 : 0.0, false)));
+			return $"--level wfz --act 1 --startpos 7700 3200 --playback \"{recording}\"";
+		}, checkUserData: userData => Assert.Contains("WFZ fire switch at 7536: conveyor belts", File.ReadAllText(Path.Combine(userData, "sonicorca.log"))));
+	}
+
+	/// <summary>
 	/// Plays Sunny Meadow, the level of the example mod sunny-meadow, which has a level script. The script makes the
 	/// water of the pits go up and down. The captures show the water low, high and low again. Sonic walks to the right
 	/// for a short time, so that the walking beetle near the start does not hurt him.

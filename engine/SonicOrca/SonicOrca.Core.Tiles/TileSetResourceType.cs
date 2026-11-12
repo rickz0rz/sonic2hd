@@ -92,7 +92,8 @@ internal class TileSetResourceType : ResourceType
 		string source = node.TryGetAttributeValue("source", out value) ? value : null;
 		string animationGroup = node.TryGetAttributeValue("anigroup", out value) ? e.GetAbsolutePath(value) : null;
 		int animation = node.TryGetAttributeValue("animation", out value) ? int.Parse(value) : 0;
-		return new Tile(tileSet, id, frames, blend, source, animationGroup, animation);
+		int alternate = node.TryGetAttributeValue("alternate", out value) ? int.Parse(value) : -1;
+		return new Tile(tileSet, id, frames, blend, source, animationGroup, animation, alternate);
 	}
 
 	private static Tile.Frame ParseXmlTileFrame(XmlNode node, int defaultX, int defaultY, int defaultTextureId, int defaultDelay, float defaultOpacity)

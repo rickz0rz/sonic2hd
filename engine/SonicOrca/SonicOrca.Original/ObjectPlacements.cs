@@ -373,6 +373,15 @@ public static class ObjectPlacements
 					Time = originalPlacement.SubType & 0xF0
 				};
 				break;
+			case 139:
+				// Obj8B: bits 0 and 1 give the height (word_213AA), and a flipped object switches the other way
+				key = "SONICORCA/OBJECTS/WFZFIRESWITCH";
+				behaviour = new
+				{
+					Height = new[] { 256, 512, 1024, 2048 }[originalPlacement.SubType & 3],
+					FlipX = originalPlacement.FlipX
+				};
+				break;
 			case 184:
 				key = "SONICORCA/OBJECTS/WFZTURRET";
 				break;

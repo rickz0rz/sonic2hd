@@ -59,12 +59,36 @@ public sealed class LevelImportLateZonesTests
 	{
 		ImportedLevel level = Wfz.Value;
 
-		// $8B and the boss are left out on purpose
+		// The boss is left out on purpose. The area makes it.
 		Assert.Empty(level.Notes);
 		Assert.Equal(2, level.Binding.ObjectPlacements.Count(p => p.Key == "SONICORCA/OBJECTS/TORNADO"));
 		Assert.DoesNotContain(level.Binding.ObjectPlacements, p => p.Key == "SONICORCA/OBJECTS/CPZPLATFORM");
 		Assert.True(level.NewObjects.ContainsKey("SONICORCA/OBJECTS/WFZBOSS"));
 		Assert.True(level.NewObjects.ContainsKey("SONICORCA/OBJECTS/CLUCKER/SHOT"));
+	}
+
+	[Fact]
+	public void Wfz_TheFireSwitches_AreInTheBinding_AndTheTilesHaveTheBeltsAsAlternate()
+	{
+		ImportedLevel level = Wfz.Value;
+
+		// The 11 objects $8B of act 1. The first is at ($5C6, $1B8) with subtype 2: 2 x $80 pixels high.
+		Assert.Equal(11, level.Binding.ObjectPlacements.Count(p => p.Key == "SONICORCA/OBJECTS/WFZFIRESWITCH"));
+		Assert.True(level.NewObjects.ContainsKey("SONICORCA/OBJECTS/WFZFIRESWITCH"));
+		// The level starts with the fire. The belts are the alternate animation of the same tiles.
+		Assert.Contains("source=\"palette cycle PalCycle_WFZ (CyclingPal_WFZFire)\"", level.TileSet);
+		Assert.Contains("alternate=\"1\"", level.TileSet);
+		Assert.Contains("tile 1370, alternate", level.TileAnimations);
+		// The belt has a step every 6 ticks, the fire every 2 ticks
+		string alternate = level.TileAnimations.Split("tile 1370, alternate")[1].Split("</animation>")[0];
+		Assert.Contains("delay=\"5\"", alternate);
+	}
+
+	[Fact]
+	public void Scz_HasTheFire_AndNoAlternateAnimations()
+	{
+		Assert.Contains("CyclingPal_WFZFire", Scz.Value.TileSet);
+		Assert.DoesNotContain("alternate=", Scz.Value.TileSet);
 	}
 
 	[Fact]

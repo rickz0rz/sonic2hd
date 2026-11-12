@@ -87,14 +87,25 @@ public class Tile : ITile
 	/// <summary>The index of the animation of the tile in <see cref="AnimationGroupKey"/>.</summary>
 	public int AnimationIndex { get; }
 
+	/// <summary>
+	/// The index of a second animation in <see cref="AnimationGroupKey"/>, or -1. The tile shows it while
+	/// <see cref="TileSet.UseAlternateAnimations"/> is true. For example, an object of Wing Fortress changes the colours
+	/// of the conveyor belts and the fire.
+	/// </summary>
+	public int AlternateAnimationIndex { get; }
+
+	/// <summary>The animation that the tile shows now.</summary>
+	private int CurrentAnimationIndex => _tileSet != null && _tileSet.UseAlternateAnimations && AlternateAnimationIndex >= 0 ? AlternateAnimationIndex : AnimationIndex;
+
 	public Tile(TileSet tileSet, int id, IEnumerable<Frame> frames, TileBlendMode blend = TileBlendMode.Alpha, string source = null,
-		string animationGroupKey = null, int animationIndex = 0)
+		string animationGroupKey = null, int animationIndex = 0, int alternateAnimationIndex = -1)
 	{
 		_tileSet = tileSet;
 		_id = id;
 		Source = source;
 		AnimationGroupKey = animationGroupKey;
 		AnimationIndex = animationIndex;
+		AlternateAnimationIndex = alternateAnimationIndex;
 		_frames = frames.ToArray();
 		_blend = blend;
 		if (_frames.Length >= 1)
@@ -123,11 +134,12 @@ public class Tile : ITile
 	/// </summary>
 	private void UpdateAnimationFrames()
 	{
-		if (_animationGroup == null || AnimationIndex < 0 || AnimationIndex >= _animationGroup.Count)
+		int index = CurrentAnimationIndex;
+		if (_animationGroup == null || index < 0 || index >= _animationGroup.Count)
 		{
 			return;
 		}
-		_animation = _animationGroup[AnimationIndex];
+		_animation = _animationGroup[index];
 		if (_animation.Frames.Count == 0)
 		{
 			return;
@@ -147,8 +159,10 @@ public class Tile : ITile
 
 	public void Animate()
 	{
-		// The animation editor replaces the animations of a group when the user changes them
-		if (_animationGroup != null && AnimationIndex < _animationGroup.Count && _animationGroup[AnimationIndex] != _animation)
+		// The animation editor replaces the animations of a group when the user changes them. The tile set can also
+		// change to the alternate animations.
+		int index = CurrentAnimationIndex;
+		if (_animationGroup != null && index < _animationGroup.Count && _animationGroup[index] != _animation)
 		{
 			UpdateAnimationFrames();
 		}
