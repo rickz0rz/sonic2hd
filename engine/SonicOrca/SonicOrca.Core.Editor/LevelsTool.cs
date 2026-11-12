@@ -7,9 +7,10 @@ namespace SonicOrca.Core.Editor;
 /// <summary>
 /// Opens levels, makes new levels and changes the order of the levels of the story. The list shows the levels of the
 /// story in their order, then the levels that are not in the story. The story goes from each level to the next level
-/// of the list. The tool also changes the name of a level, and the music and the boss of a mod level. Save writes the
-/// order and the names of the Sonic 2 levels into mods/editor/LEVELS.dat, and the name, the music and the boss of a
-/// mod level into its INFO file in mods/editor/NAME.dat. Undo does not change these values.
+/// of the list. The tool also changes the name and the zoom of a level, and the music and the boss of a mod level. Save
+/// writes the order, the names and the zooms of the Sonic 2 levels into mods/editor/LEVELS.dat, and the name, the
+/// music, the boss and the zoom of a mod level into its INFO file in mods/editor/NAME.dat. Undo does not change these
+/// values.
 /// </summary>
 internal sealed class LevelsTool : EditorTool
 {
@@ -25,7 +26,13 @@ internal sealed class LevelsTool : EditorTool
 	private readonly Dictionary<string, string> _titles = new Dictionary<string, string>();
 
 	/// <summary>The mod levels with a new name, new music or a new boss that is not saved, by short name.</summary>
-	private readonly Dictionary<string, (string Name, string Music, string Boss)> _modChanges = new Dictionary<string, (string Name, string Music, string Boss)>();
+	private readonly Dictionary<string, (string Name, string Music, string Boss, double Zoom)> _modChanges = new Dictionary<string, (string Name, string Music, string Boss, double Zoom)>();
+
+	/// <summary>The zooms of the Sonic 2 levels that are not 1, by short name, with the changes that are not saved.</summary>
+	private readonly Dictionary<string, double> _zooms = new Dictionary<string, double>();
+
+	/// <summary>The change of the zoom for one click on the zoom row.</summary>
+	private const double ZoomStep = 0.05;
 
 	/// <summary>The bosses that can end a mod level.</summary>
 	private IReadOnlyList<LevelBoss> _bosses = new LevelBoss[0];
@@ -96,11 +103,11 @@ internal sealed class LevelsTool : EditorTool
 		List<string> paths = new List<string>();
 		if (_orderDirty)
 		{
-			paths.Add(Catalog.SaveStoryOrder(_story, _titles));
+			paths.Add(Catalog.SaveStoryOrder(_story, _titles, _zooms));
 		}
-		foreach (KeyValuePair<string, (string Name, string Music, string Boss)> change in _modChanges)
+		foreach (KeyValuePair<string, (string Name, string Music, string Boss, double Zoom)> change in _modChanges)
 		{
-			paths.Add(Catalog.SaveModLevelInfo(change.Key, change.Value.Name, change.Value.Music, change.Value.Boss));
+			paths.Add(Catalog.SaveModLevelInfo(change.Key, change.Value.Name, change.Value.Music, change.Value.Boss, change.Value.Zoom));
 		}
 		Reload();
 		return paths;
@@ -125,7 +132,46 @@ internal sealed class LevelsTool : EditorTool
 		{
 			_titles[level.Mnemonic] = level.Name;
 		}
+		_zooms.Clear();
+		foreach (LevelCatalogEntry level in _levels.Where(level => !level.IsMod && level.Zoom != 1.0))
+		{
+			_zooms[level.Mnemonic] = level.Zoom;
+		}
 	}
+
+	/// <summary>The zoom at the start of a level with the changes that are not saved.</summary>
+	private double GetZoom(LevelCatalogEntry level)
+	{
+		if (level.IsMod)
+		{
+			return _modChanges.TryGetValue(level.Mnemonic, out var change) ? change.Zoom : level.Zoom;
+		}
+		return _zooms.TryGetValue(level.Mnemonic, out double zoom) ? zoom : 1.0;
+	}
+
+	/// <summary>Gives a level a new zoom at its start, inside the limits of the zoom.</summary>
+	private void SetZoom(LevelCatalogEntry level, double zoom)
+	{
+		zoom = System.Math.Round(LevelZoom.Clamp(zoom), 3);
+		if (level.IsMod)
+		{
+			_modChanges[level.Mnemonic] = (GetName(level), GetMusic(level), GetBoss(level), zoom);
+		}
+		else
+		{
+			if (zoom == 1.0)
+			{
+				_zooms.Remove(level.Mnemonic);
+			}
+			else
+			{
+				_zooms[level.Mnemonic] = zoom;
+			}
+			_orderDirty = true;
+		}
+		Editor.ShowMessage("Save, then play, to start the level at the new zoom.");
+	}
+
 
 	/// <summary>The name of a level with the changes that are not saved.</summary>
 	private string GetName(LevelCatalogEntry level)
@@ -154,7 +200,7 @@ internal sealed class LevelsTool : EditorTool
 				Editor.ShowMessage("The name is empty.");
 				return false;
 			}
-			_modChanges[level.Mnemonic] = (name, GetMusic(level), GetBoss(level));
+			_modChanges[level.Mnemonic] = (name, GetMusic(level), GetBoss(level), GetZoom(level));
 			Editor.ShowMessage("Save, then play, to see the new name in the title card.");
 			return true;
 		}
@@ -180,7 +226,7 @@ internal sealed class LevelsTool : EditorTool
 		}
 		int index = _music.ToList().IndexOf(GetMusic(level));
 		index = index < 0 ? (direction > 0 ? 0 : _music.Count - 1) : ((index + direction) % _music.Count + _music.Count) % _music.Count;
-		_modChanges[level.Mnemonic] = (GetName(level), _music[index], GetBoss(level));
+		_modChanges[level.Mnemonic] = (GetName(level), _music[index], GetBoss(level), GetZoom(level));
 	}
 
 	/// <summary>The key of the boss of a mod level with the changes that are not saved, or null.</summary>
@@ -209,7 +255,7 @@ internal sealed class LevelsTool : EditorTool
 		List<string> keys = _bosses.Select(boss => boss.ObjectKey).Prepend(null).ToList();
 		int index = keys.FindIndex(key => string.Equals(key, GetBoss(level), System.StringComparison.OrdinalIgnoreCase));
 		index = index < 0 ? 0 : ((index + direction) % keys.Count + keys.Count) % keys.Count;
-		_modChanges[level.Mnemonic] = (GetName(level), GetMusic(level), keys[index]);
+		_modChanges[level.Mnemonic] = (GetName(level), GetMusic(level), keys[index], GetZoom(level));
 		Editor.ShowMessage(keys[index] == null
 			? "The level ends at a signpost. Save, then open the level again, to play it without the boss."
 			: "Put the marker \"boss\" where the boss starts, and an egg prison to the right of the arena. Save, then open the level again, to play the boss.");
@@ -351,6 +397,13 @@ internal sealed class LevelsTool : EditorTool
 				Label = "Ending",
 				Value = level.IsMod ? ShowBoss(level) : "set by the zone",
 				Step = level.IsMod ? direction => StepBoss(level, direction) : null
+			},
+			new EditorPropertyRow
+			{
+				Label = "Zoom",
+				Value = GetZoom(level).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture),
+				Tooltip = $"The zoom at the start of the level, from {LevelZoom.Min} to {LevelZoom.Max}. A left click adds 0.05, and a right click subtracts 0.05. A script can change the zoom while the level plays.",
+				Step = direction => SetZoom(level, GetZoom(level) + direction * ZoomStep)
 			},
 			new EditorPropertyRow { Label = "Short name", Value = level.Mnemonic },
 			new EditorPropertyRow { Label = "Acts", Value = level.Acts.ToString() },

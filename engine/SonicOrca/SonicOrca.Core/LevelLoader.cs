@@ -177,6 +177,8 @@ public class LevelLoader
 		{
 			_level.Name = name;
 		}
+		// The zoom at the start of the level, from the INFO file of a mod level or from the order of the levels
+		_level.DefaultZoom = _gameContext.LevelCatalog?.GetDefaultZoom(_level.PrepareSettings.AreaResourceKey) ?? 1.0;
 		await _level.LoadAsync(_area, ct);
 		_levelLoaded = true;
 	}

@@ -216,10 +216,17 @@ seamless change from act 1 to act 2 keeps the object of the script, so `start` d
 `examples/mods/ehz-flood` fills Emerald Hill act 1 with water, in steps. It uses a routine: a function that can call
 `wait(ticks)` to stop for a number of ticks (API 10).
 
+A script can change the zoom of the level (API 11). `self:set_zoom(0.75, 90)` zooms out in 90 ticks, so that the
+player sees more of the level. The zoom starts slowly and stops slowly, on a sine curve. `self:reset_zoom(90)` goes
+back to the default zoom of the level. The HUD keeps its size. A star post keeps the zoom: a restart at the star post,
+or a return from a special stage, starts at that zoom at once. A new act starts at its default zoom. The example mod
+`examples/mods/ehz-zoom` zooms out in a part of Emerald Hill act 1.
+
 A mod can also add a level in `SONICORCA/LEVELS/NAME`, with a tile set, a map, a binding and an `INFO.xml` file,
 and a level script. `--level NAME` starts it, and the level select shows it after the zones of the game. With the attribute `tileset`
 in `INFO.xml`, for example `tileset="SONICORCA/LEVELS/EHZ/TILESET"`, the level uses the tile set of another level
-and needs no tile set of its own.
+and needs no tile set of its own. The attribute `zoom`, for example `zoom="0.8"`, gives the zoom at the start of
+the level.
 
 A mod level can end with a boss of Sonic 2. Put the key of the boss object in the attribute `boss`, for example
 `boss="SONICORCA/OBJECTS/DRILLEGGMAN"`. Put the marker `boss` in the map where the boss starts. The arena, the lock of
@@ -749,8 +756,12 @@ To change the object, open `_.object.lua` in a text editor. When you select the 
 in the properties to show the file. Save the file, and the game loads the script again. To add frames, change
 `ANIGROUP.anigroup.xml` and `TEXTURE.png`, and start the game again.
 
-Save writes the order of the story and the new names of the Sonic 2 levels to `mods/editor/LEVELS.dat`. The name,
-the music and the boss of a mod level go into its `INFO` file in `mods/editor/<SHORT NAME>.dat`. The title card shows the new
+The "Zoom" row sets the zoom at the start of a level, from 0.5 to 2. A left click adds 0.05, and a right click
+subtracts 0.05. A zoom of 2 shows the level two times larger, and a zoom of 0.5 shows two times more of the level.
+The HUD keeps its size.
+
+Save writes the order of the story, the new names and the zooms of the Sonic 2 levels to `mods/editor/LEVELS.dat`.
+The name, the music, the boss and the zoom of a mod level go into its `INFO` file in `mods/editor/<SHORT NAME>.dat`. The title card shows the new
 name of a Sonic 2 level, and adds "ZONE" to it. The story, the level select and the next level
 after `--level` use this order. The level select shows the levels that are not in the story after the other levels,
 with a star. To go back to the order and the names of Sonic 2, delete the file.

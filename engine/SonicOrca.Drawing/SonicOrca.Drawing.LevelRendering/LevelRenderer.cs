@@ -157,6 +157,9 @@ public class LevelRenderer : ILevelRenderer, IDisposable
 		}
 		_level.WaterManager.Draw(renderer, _canvasViewport);
 		renderer.DeativateRenderer();
+		// The objects leave the scale of the view in the object renderer. The HUD and the fonts draw with the same
+		// renderer after the level, so a view that is zoomed in would make them larger.
+		renderer.GetObjectRenderer().Scale = new Vector2(1.0, 1.0);
 		RenderingHelpers.RenderToFramebuffer(renderer, _canvasFramebuffer.Textures[0], currentFramebuffer, _screenBounds, BlendMode.Opaque);
 		renderer.DeativateRenderer();
 	}
@@ -443,8 +446,9 @@ public class LevelRenderer : ILevelRenderer, IDisposable
 			region = Rectanglei.Intersect(region, bounds);
 			if (region.Width > 0 && region.Height > 0)
 			{
+				// The region goes to the pixels of the canvas: a view that is zoomed in draws the level larger
 				region = region.OffsetBy(amount);
-				_waterfallRegions.Add(region);
+				_waterfallRegions.Add(RenderingTiler.GetDestination(region.X, region.Y, region.Width, region.Height, viewport.Scale));
 			}
 		}
 	}

@@ -18,7 +18,8 @@ namespace SONICORCA.MODAREA;
 /// <c>&lt;level name="Sunny Meadow" music="SONICORCA/MUSIC/LEVELS/EHZ/COOPERATIVE/ACT1" start="startpos" /&gt;</c>.</item>
 /// </list>
 /// With the attribute <c>tileset</c>, for example <c>tileset="SONICORCA/LEVELS/EHZ/TILESET"</c>, the level uses the
-/// tile set of another level and needs no TILESET of its own.
+/// tile set of another level and needs no TILESET of its own. The attribute <c>zoom</c>, for example
+/// <c>zoom="0.8"</c>, gives the zoom at the start of the level (see <see cref="LevelZoom"/>).
 /// The game starts the level with --level NAME. The bounds of the level are the bounds of the map, or the rectangle
 /// between the markers "bounds_lt" and "bounds_rb" when the map has them.
 /// <para>

@@ -69,6 +69,12 @@ public class Player
 	/// <summary>The layer index (the priority) of the protagonist at the last star post, or -1 if it is not known.</summary>
 	public int StarpostLayerIndex { get; set; } = -1;
 
+	/// <summary>
+	/// The zoom of the level at the last star post, or null. While the zoom changes, it is the zoom at the end of the
+	/// change. A restart at the star post, also after a special stage, starts with this zoom.
+	/// </summary>
+	public double? StarpostZoom { get; set; }
+
 	public ICharacter Protagonist { get; set; }
 
 	public CharacterType ProtagonistCharacterType { get; set; }
@@ -294,5 +300,7 @@ public class Player
 		StarpostTime = _level.Time;
 		StarpostPath = Protagonist.Path;
 		StarpostLayerIndex = _level.Map.Layers.IndexOf(Protagonist.Layer);
+		StarpostZoom = _level.Zoom.Target;
+		System.Diagnostics.Trace.WriteLine($"Star post {index} at {position.X}, {position.Y}, zoom {_level.Zoom.Target:0.###}, tick {_level.Ticks}");
 	}
 }

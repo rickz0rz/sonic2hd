@@ -65,6 +65,16 @@ public static class TestHooks
 	public static readonly int? DefeatBossAtTick =
 		int.TryParse(Environment.GetEnvironmentVariable("S2HD_TEST_DEFEAT_BOSS_AT_TICK"), out int bossTick) ? bossTick : null;
 
+	/// <summary>
+	/// The level tick when the protagonist of player 1 dies, to test a restart at a star post, or null. It happens
+	/// once, because the ticks start again after the restart.
+	/// </summary>
+	public static readonly int? KillPlayerAtTick =
+		int.TryParse(Environment.GetEnvironmentVariable("S2HD_TEST_KILL_PLAYER_AT_TICK"), out int killPlayerTick) ? killPlayerTick : null;
+
+	/// <summary>True after <see cref="KillPlayerAtTick"/> killed the protagonist.</summary>
+	public static bool KillPlayerTestDone { get; set; }
+
 	/// <summary>The level tick when the character of player 2 dies in versus mode, to test the respawn, or null.</summary>
 	public static readonly int? KillPlayer2AtTick =
 		int.TryParse(Environment.GetEnvironmentVariable("S2HD_TEST_KILL_PLAYER2_AT_TICK"), out int killTick) ? killTick : null;

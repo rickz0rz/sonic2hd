@@ -184,7 +184,7 @@ internal class RenderingTiler
 			if (tileSet.TryGetValue(tileValue & TileIndexMask, out _))
 			{
 				Rectangle source = new Rectangle(0.0, sourceY % TileSize, TileSize, height);
-				Rectanglei destination = new Rectangle((destinationX + offsetInTileX) * viewport.Scale.X, destinationY * viewport.Scale.Y, TileSize * viewport.Scale.X, height * viewport.Scale.Y);
+				Rectanglei destination = GetDestination(destinationX + offsetInTileX, destinationY, TileSize, height, viewport.Scale);
 				TileRenderInfo tileRenderInfo = new TileRenderInfo
 				{
 					Layer = layer,
@@ -210,6 +210,21 @@ internal class RenderingTiler
 				break;
 			}
 		}
+	}
+
+	/// <summary>
+	/// The pixels of a tile on the canvas at the scale of the view. Each edge rounds to the nearest pixel, and the size
+	/// is the distance between the edges. So the right edge of a tile is the left edge of the next tile, and no gap
+	/// shows between the tiles at a scale that is not a whole number. A size that rounds on its own adds the error of
+	/// each tile, and leaves a gap of one pixel after some tiles.
+	/// </summary>
+	internal static Rectanglei GetDestination(int x, int y, int width, int height, Vector2 scale)
+	{
+		int left = (int)Math.Round(x * scale.X);
+		int top = (int)Math.Round(y * scale.Y);
+		int right = (int)Math.Round((x + width) * scale.X);
+		int bottom = (int)Math.Round((y + height) * scale.Y);
+		return new Rectanglei(left, top, right - left, bottom - top);
 	}
 
 	/// <summary>
