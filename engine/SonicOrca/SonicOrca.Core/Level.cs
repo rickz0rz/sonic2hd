@@ -229,7 +229,17 @@ public class Level : IDisposable
 	/// <summary>The level editor. It loads only when the game starts with the editor turned on.</summary>
 	public LevelEditor Editor => _editor;
 
-	public LevelStateFlags StateFlags { get; set; }
+	private LevelStateFlags _stateFlags;
+
+	/// <summary>
+	/// The flags of the state of the level. The flag <see cref="LevelStateFlags.Editing"/> follows <see cref="State"/>:
+	/// it is set while the state is <see cref="LevelState.Editing"/>. A change of the flag itself has no effect.
+	/// </summary>
+	public LevelStateFlags StateFlags
+	{
+		get => State == LevelState.Editing ? _stateFlags | LevelStateFlags.Editing : _stateFlags;
+		set => _stateFlags = value & ~LevelStateFlags.Editing;
+	}
 
 	public int Ticks { get; set; }
 
