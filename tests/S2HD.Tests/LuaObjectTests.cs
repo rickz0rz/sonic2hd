@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Lua;
 using SonicOrca.Core;
 using SonicOrca.Core.Editor;
 using SonicOrca.Core.Objects;
@@ -219,6 +220,77 @@ public sealed class LuaObjectTests
 		Assert.ThrowsAny<Exception>(() => type.CallGlobal("hidden"));
 		// Each call has a new budget
 		Assert.Equal(500500.0, type.CallGlobal("quick")[0].Read<double>());
+	}
+
+	/// <summary>
+	/// A script that records the ticks of its routine. tick() runs the routine for one tick, as the object does after
+	/// update. The routine gets self, here a plain table.
+	/// </summary>
+	private const string RoutineScript = """
+		object { api = 10, name = "Routine" }
+
+		local s = { log = {} }
+		local now = 0
+
+		function routine(self)
+		  table.insert(self.log, "start " .. now)
+		  wait(3)
+		  table.insert(self.log, "after 3 at " .. now)
+		  wait()
+		  table.insert(self.log, "after 1 at " .. now)
+		  for i = 1, 2 do
+		    wait(2)
+		    table.insert(self.log, "loop " .. i .. " at " .. now)
+		  end
+		end
+
+		function tick()
+		  now = now + 1
+		  __step_routine(s, routine)
+		end
+
+		function log() return table.concat(s.log, ", ") end
+		""";
+
+	[Fact]
+	public async Task Routine_Waits_TheGivenTicks_AndStopsAtItsEnd()
+	{
+		LuaObjectType type = await Load(RoutineScript);
+
+		for (int i = 0; i < 20; i++)
+		{
+			type.CallGlobal("tick");
+		}
+
+		// The routine starts on tick 1. wait(3) at tick 1 continues on tick 4, wait() on the next tick.
+		Assert.Equal("start 1, after 3 at 4, after 1 at 5, loop 1 at 7, loop 2 at 9", type.CallGlobal("log")[0].Read<string>());
+	}
+
+	[Theory]
+	[InlineData("function update(self) wait(10) end", "call wait only in the routine function")]
+	[InlineData("function update(self) wait(0) end", "wait needs a whole number of ticks")]
+	[InlineData("function update(self) wait(1.5) end", "wait needs a whole number of ticks")]
+	public async Task Wait_OutsideTheRoutine_OrWithABadNumber_IsAnError(string function, string message)
+	{
+		LuaObjectType type = await Load("object { api = 10, name = \"Bad wait\" }\n" + function);
+
+		Exception error = Assert.ThrowsAny<Exception>(() => type.CallGlobal("update", LuaValue.Nil));
+		Assert.Contains(message, error.Message);
+	}
+
+	[Fact]
+	public async Task Routine_WithAnError_IsAnErrorOfTheScript()
+	{
+		LuaObjectType type = await Load("""
+			object { api = 10, name = "Broken routine" }
+			local s = {}
+			function routine(self) wait(1) error("broken") end
+			function tick() __step_routine(s, routine) end
+			""");
+
+		type.CallGlobal("tick");
+		Exception error = Assert.ThrowsAny<Exception>(() => type.CallGlobal("tick"));
+		Assert.Contains("broken", error.Message);
 	}
 
 	[Fact]

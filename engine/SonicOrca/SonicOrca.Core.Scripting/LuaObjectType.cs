@@ -15,7 +15,8 @@ namespace SonicOrca.Core.Scripting;
 /// <summary>
 /// An object type that a Lua script defines. The script calls <c>object { ... }</c> with the name, the
 /// classification, the dependencies and the state variables of the type, and defines the functions <c>start</c>,
-/// <c>update</c>, <c>animate</c>, <c>draw</c>, <c>collision</c> and <c>stop</c>. Each type has its own Lua state, so
+/// <c>update</c>, <c>animate</c>, <c>draw</c>, <c>collision</c> and <c>stop</c>. The function <c>routine</c> runs as a
+/// coroutine and can call <c>wait(ticks)</c>. Each type has its own Lua state, so
 /// the globals of one script do not change another script.
 /// </summary>
 public sealed class LuaObjectType : ObjectType, IStateTableType
@@ -42,7 +43,7 @@ public sealed class LuaObjectType : ObjectType, IStateTableType
 	}
 
 	/// <summary>The API version that this engine gives to scripts.</summary>
-	public const int ApiVersion = 9;
+	public const int ApiVersion = 10;
 
 	private readonly Dictionary<string, string> _dependencyKeys = new Dictionary<string, string>(StringComparer.Ordinal);
 
@@ -129,6 +130,15 @@ public sealed class LuaObjectType : ObjectType, IStateTableType
 	internal LuaValue TickFunction { get; private set; }
 
 	internal LuaValue LostFunction { get; private set; }
+
+	/// <summary>
+	/// The <c>routine</c> function: it runs as a coroutine, one step on each tick after <c>update</c>, and can call
+	/// <c>wait(ticks)</c>. Nil when the script has no routine.
+	/// </summary>
+	internal LuaValue RoutineFunction { get; private set; }
+
+	/// <summary>The function of the prelude that runs one step of the routine of an object.</summary>
+	internal LuaValue StepRoutine { get; private set; }
 
 	/// <summary>The explosion and the hit sound of a boss, as <see cref="Objects.Base.BossObject"/> has them.</summary>
 	internal const string BossExplosionKey = "SONICORCA/OBJECTS/EXPLOSION/BOSS";
@@ -288,6 +298,8 @@ public sealed class LuaObjectType : ObjectType, IStateTableType
 			LandFunction = reloaded.LandFunction;
 			TickFunction = reloaded.TickFunction;
 			LostFunction = reloaded.LostFunction;
+			RoutineFunction = reloaded.RoutineFunction;
+			StepRoutine = reloaded.StepRoutine;
 			Generation++;
 			_loggedMessages.Clear();
 			Trace.WriteLine($"Reloaded the script {ResourceKey}");
@@ -399,6 +411,8 @@ public sealed class LuaObjectType : ObjectType, IStateTableType
 		LandFunction = environment["land"];
 		TickFunction = environment["tick"];
 		LostFunction = environment["lost"];
+		RoutineFunction = environment["routine"];
+		StepRoutine = environment["__step_routine"];
 	}
 
 	/// <summary>Converts a default value to the type of a state variable: a whole number is an int.</summary>

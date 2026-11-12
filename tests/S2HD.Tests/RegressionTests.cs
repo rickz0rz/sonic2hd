@@ -483,8 +483,10 @@ public sealed partial class RegressionTests
 	}
 
 	/// <summary>
-	/// Plays Emerald Hill Zone with the example mod ehz-flood: a level script for a zone of Sonic 2. In act 1, the
-	/// water comes up over Sonic. In act 2, the script removes the water, so the capture has no water.
+	/// Plays Emerald Hill Zone with the example mod ehz-flood: a level script for a zone of Sonic 2. In act 1, a
+	/// routine with wait (API 10) moves the water up over Sonic in three steps. At tick 300 the water moves in the
+	/// second step, at tick 480 it stops between the second and the third step, and at tick 700 it is at its top. In
+	/// act 2, the script removes the water, so the capture has no water.
 	/// </summary>
 	[Fact]
 	[Trait("Category", "Regression")]
@@ -494,7 +496,7 @@ public sealed partial class RegressionTests
 			CopyDirectory(Path.Combine(TestPaths.RepoRoot, "examples", "mods", "ehz-flood", "SONICORCA"), Path.Combine(userData, "mods", "ehz-flood", "SONICORCA"));
 		void CheckNoScriptError(string userData) =>
 			Assert.DoesNotContain("Script error", File.ReadAllText(Path.Combine(userData, "sonicorca.log")));
-		RunAndCompare("--level ehz --act 1 --protagonist sonic --sidekick none", new[] { 300, 700 },
+		RunAndCompare("--level ehz --act 1 --protagonist sonic --sidekick none", new[] { 300, 480, 700 },
 			Path.Combine(TestPaths.GoldenDirectory, "lua-zone-script"), "lua-zone-script",
 			checkUserData: CheckNoScriptError, prepareUserData: CopyFloodMod);
 		RunAndCompare("--level ehz --act 2 --protagonist sonic --sidekick none", new[] { 300 },

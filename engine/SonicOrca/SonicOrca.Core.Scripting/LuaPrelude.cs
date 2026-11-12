@@ -48,6 +48,46 @@ internal static class LuaPrelude
 		  end,
 		}
 
+		-- True while a routine runs. Lua-CSharp has no coroutine.isyieldable.
+		local in_routine = false
+
+		-- wait(ticks) stops the routine of the object for a number of ticks (1 when there is no number). Only the
+		-- routine function can wait, because the game calls the other functions once on each tick.
+		function wait(ticks)
+		  ticks = ticks or 1
+		  if type(ticks) ~= "number" or ticks < 1 or ticks ~= math.floor(ticks) then
+		    error("wait needs a whole number of ticks, 1 or more", 2)
+		  end
+		  if not in_routine then
+		    error("call wait only in the routine function", 2)
+		  end
+		  coroutine.yield(ticks)
+		end
+
+		-- Runs one step of the routine of an object: the code up to the next wait. The routine starts on the first tick,
+		-- and stops at its end. An error in the routine is an error of the script.
+		function __step_routine(self, routine)
+		  local state = rawget(self, "__routine")
+		  if state == nil then
+		    state = { thread = coroutine.create(routine), wait = 0 }
+		    rawset(self, "__routine", state)
+		  end
+		  if coroutine.status(state.thread) == "dead" then
+		    return
+		  end
+		  if state.wait > 1 then
+		    state.wait = state.wait - 1
+		    return
+		  end
+		  in_routine = true
+		  local ok, result = coroutine.resume(state.thread, self)
+		  in_routine = false
+		  if not ok then
+		    error(result, 0)
+		  end
+		  state.wait = result or 0
+		end
+
 		-- self.state: the values of the placement. self.saved: the values that stay when the object goes out of view.
 		function __make_self(native, state)
 		  local saved = setmetatable({}, {

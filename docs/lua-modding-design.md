@@ -348,7 +348,7 @@ A level designer who wants a used block places a separate "used block" object. T
 ## Open questions
 
 1. Does the web build load mods? It reads one game data zip now.
-2. Do scripts get coroutines, for example `wait(30)` for 30 ticks? This makes timed behavior simple, and it stays deterministic.
+2. Do scripts get coroutines, for example `wait(30)` for 30 ticks? Answered by API 10: the optional function `routine` runs as a coroutine, one step on each tick after `update`. Only the routine can call `wait`. `start`, `update` and the other functions still must not wait.
 3. Does a Lua object get a C# base class by name, or does each base get a Lua version?
 4. Which Lua version does the API use? The engine choice sets this.
 

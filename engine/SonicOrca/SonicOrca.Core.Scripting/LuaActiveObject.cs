@@ -152,6 +152,11 @@ public sealed class LuaActiveObject : ActiveObject, IStateTable, SonicOrca.Core.
 		}
 		CheckScript();
 		Call(LuaType.UpdateFunction, true, _self);
+		// The routine continues after update, when its wait has ended
+		if (LuaType.RoutineFunction.Type != LuaValueType.Nil)
+		{
+			Call(LuaType.StepRoutine, true, _self, LuaType.RoutineFunction);
+		}
 	}
 
 	protected override void OnUpdateEditor() => CheckScript();
