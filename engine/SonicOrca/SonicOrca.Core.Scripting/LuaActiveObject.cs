@@ -436,6 +436,9 @@ public sealed class LuaActiveObject : ActiveObject, IStateTable, SonicOrca.Core.
 
 	public void OnTick(ICharacter character) => Call(LuaType.TickFunction, true, _self, new LuaCharacter(this, character));
 
+	/// <summary>The act ends: the script hears it in act_complete (API 12).</summary>
+	public override void OnActComplete() => Call(LuaType.ActCompleteFunction, true, _self);
+
 	/// <summary>The character lost the ability: the script hears it, and the object goes.</summary>
 	public void OnLost(ICharacter character)
 	{

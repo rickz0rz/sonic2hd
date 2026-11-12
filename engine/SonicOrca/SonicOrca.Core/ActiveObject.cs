@@ -361,4 +361,12 @@ public abstract class ActiveObject : IActiveObject
 	protected virtual void OnStop()
 	{
 	}
+
+	/// <summary>
+	/// The act ends, for example at a signpost: the score count starts. The level calls it once on each object that is
+	/// active then.
+	/// </summary>
+	public virtual void OnActComplete()
+	{
+	}
 }

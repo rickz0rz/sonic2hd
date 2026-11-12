@@ -43,7 +43,7 @@ public sealed class LuaObjectType : ObjectType, IStateTableType
 	}
 
 	/// <summary>The API version that this engine gives to scripts.</summary>
-	public const int ApiVersion = 11;
+	public const int ApiVersion = 12;
 
 	private readonly Dictionary<string, string> _dependencyKeys = new Dictionary<string, string>(StringComparer.Ordinal);
 
@@ -136,6 +136,9 @@ public sealed class LuaObjectType : ObjectType, IStateTableType
 	/// <c>wait(ticks)</c>. Nil when the script has no routine.
 	/// </summary>
 	internal LuaValue RoutineFunction { get; private set; }
+
+	/// <summary>The function act_complete(self): the act ends (API 12).</summary>
+	internal LuaValue ActCompleteFunction { get; private set; }
 
 	/// <summary>The function of the prelude that runs one step of the routine of an object.</summary>
 	internal LuaValue StepRoutine { get; private set; }
@@ -299,6 +302,7 @@ public sealed class LuaObjectType : ObjectType, IStateTableType
 			TickFunction = reloaded.TickFunction;
 			LostFunction = reloaded.LostFunction;
 			RoutineFunction = reloaded.RoutineFunction;
+			ActCompleteFunction = reloaded.ActCompleteFunction;
 			StepRoutine = reloaded.StepRoutine;
 			Generation++;
 			_loggedMessages.Clear();
@@ -412,6 +416,7 @@ public sealed class LuaObjectType : ObjectType, IStateTableType
 		TickFunction = environment["tick"];
 		LostFunction = environment["lost"];
 		RoutineFunction = environment["routine"];
+		ActCompleteFunction = environment["act_complete"];
 		StepRoutine = environment["__step_routine"];
 	}
 

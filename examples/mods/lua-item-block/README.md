@@ -13,7 +13,7 @@ This mod adds ten objects with Lua scripts:
 - `LUAFEATHER`: a feather. A character that touches it gets the double jump, and the feather goes away.
 - `LUADOUBLEJUMP`: the double jump, an ability (API 8). In the air, after a jump, a jump press gives a second jump, one time until the character lands. The character loses the ability when it gets hurt. It is not for a place in a level: the feather gives it.
 
-The API of the scripts is version 11. API 2 adds the velocity of an object and `set_solid_top`. API 3 adds `standing_characters`. API 4 adds `characters`, and lets an object hold a character and read its buttons. API 5 adds the water, the earthquake and the end of the act. API 6 adds the options of `draw`, `fill_rectangle` and `draw_line`. API 7 adds the boss base, music and the limits of the camera. API 8 adds abilities. API 9 adds `act`. API 10 adds the `routine` function and `wait`. API 11 adds the zoom of the level. A script for an older API works without a change. The API can change. Set `api` to the version that the script needs: a game with an older API does not load the script. See `docs/lua-modding-design.md` for the design.
+The API of the scripts is version 12. API 2 adds the velocity of an object and `set_solid_top`. API 3 adds `standing_characters`. API 4 adds `characters`, and lets an object hold a character and read its buttons. API 5 adds the water, the earthquake and the end of the act. API 6 adds the options of `draw`, `fill_rectangle` and `draw_line`. API 7 adds the boss base, music and the limits of the camera. API 8 adds abilities. API 9 adds `act`. API 10 adds the `routine` function and `wait`. API 11 adds the zoom of the level. API 12 adds `act_complete` and `act_completed`. A script for an older API works without a change. The API can change. Set `api` to the version that the script needs: a game with an older API does not load the script. See `docs/lua-modding-design.md` for the design.
 
 ## Install the mod
 
@@ -47,7 +47,7 @@ A script calls `object { ... }` one time, with these fields:
 
 | Field | Content |
 | --- | --- |
-| `api` | The API version that the script needs: 1 to 10 |
+| `api` | The API version that the script needs: 1 to 12 |
 | `base` | Optional. `"boss"` gives the object the rules of a boss (API 7). See "Bosses" below. `"ability"` makes the object an ability (API 8). See "Abilities" below. |
 | `name`, `description` | The text of the level editor |
 | `classification` | `general`, `badnik`, `obstacle`, `platform`, `ring`, `scenery` and so on |
@@ -66,6 +66,7 @@ The game calls these functions of the script. Each function is optional.
 | `collision(self, event)` | Another object touches a solid side or a hit box of this object. |
 | `stop(self)` | The object goes out of view. |
 | `routine(self)` | Each tick, after `update`, up to the next `wait` (API 10). See "Routines" below. |
+| `act_complete(self)` | The act ends, one time: a signpost, an egg prison, a boss or `complete_level` starts the score count. In versus mode, the act of the match ends (API 12). Only the objects that are active at that time hear it. |
 | `hit(self, character)` | A character hit a boss, and the boss has more health (API 7, base `"boss"`). |
 | `defeat(self)` | A boss has no more health (API 7, base `"boss"`). |
 
@@ -116,6 +117,7 @@ result.
 | `self:set_zoom(zoom, ticks, easing)` | Changes the zoom of the level in `ticks` ticks, or at once without `ticks` (API 11). The zoom is from 0.5 to 2. `easing` is `"sine"` (the default: the zoom starts slowly and stops slowly) or `"linear"`. The HUD keeps its size. |
 | `self:reset_zoom(ticks)` | Changes the zoom back to the default zoom of the level, in `ticks` ticks or at once (API 11) |
 | `self:set_earthquake(on)` | Starts or stops the earthquake: the screen shakes and the rumble plays. Stop it in `stop`, so that it does not continue after the object goes out of view. |
+| `self:act_completed()` | True after the act ended, until the next act starts, also after a seamless change of act (API 12) |
 | `self:complete_level()` | Ends the act, as a signpost does. The timer stops and the score count shows, then the next act or level starts. When the player is in the air, the count waits until the player lands. A second call does nothing. |
 | `self:play_music(name)` | Plays music from a dependency (API 7) |
 | `self:play_level_music()` | Plays the music of the level again (API 7) |

@@ -569,6 +569,50 @@ public sealed partial class RegressionTests
 	}
 
 	/// <summary>
+	/// The callback act_complete of a level script (API 12). The script of Emerald Hill ends the act at tick 120 with
+	/// complete_level. The level calls act_complete once, and act_completed is then true. The callback gives the level
+	/// water and zooms out to 0.6 at once. At the end of an act the camera limits are the width of the screen, so the
+	/// zoom out stops at the limits, and the capture shows no area outside the level. The log names the end of the act
+	/// and the zoom.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void LuaActComplete_MatchesGoldenScreenshots()
+	{
+		RunAndCompare("--level ehz --act 1 --protagonist sonic --sidekick none", new[] { 300 }, Path.Combine(TestPaths.GoldenDirectory, "lua-act-complete"),
+			"lua-act-complete",
+			checkUserData: userData =>
+			{
+				string log = File.ReadAllText(Path.Combine(userData, "sonicorca.log"));
+				Assert.DoesNotContain("Script error", log);
+				int end = log.IndexOf("Act 1 complete", StringComparison.Ordinal);
+				Assert.True(end >= 0, "The act did not end");
+				Assert.Contains("Zoom to 0.6 in 0 ticks", log.Substring(end));
+				Assert.Single(System.Text.RegularExpressions.Regex.Matches(log, "Zoom to 0.6"));
+			},
+			prepareUserData: userData =>
+			{
+				string folder = Path.Combine(userData, "mods", "act-complete", "SONICORCA", "LEVELS", "EHZ");
+				Directory.CreateDirectory(folder);
+				File.WriteAllText(Path.Combine(folder, "SCRIPT.object.lua"), """
+					object { api = 12, name = "Act complete test", description = "Ends the act", classification = "general" }
+
+					function routine(self)
+					  wait(120)
+					  self:complete_level()
+					end
+
+					function act_complete(self)
+					  if self:act_completed() then
+					    self:set_water_top(self.y - 64)
+					    self:set_zoom(0.6)
+					  end
+					end
+					""");
+			});
+	}
+
+	/// <summary>
 	/// The HUD at 150% and at 75% (hud_scale in sonicorca.cfg). The score, the time and the rings grow about the top
 	/// left corner, and the lives about the bottom left corner. Then the ring counters of a special stage for Sonic and
 	/// Tails at 150%: each group grows about its place at the top of the screen.

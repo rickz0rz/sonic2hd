@@ -222,6 +222,10 @@ back to the default zoom of the level. The HUD keeps its size. A star post keeps
 or a return from a special stage, starts at that zoom at once. A new act starts at its default zoom. The example mod
 `examples/mods/ehz-zoom` zooms out in a part of Emerald Hill act 1.
 
+A script can do something when the act ends (API 12). The function `act_complete(self)` runs one time when a
+signpost, an egg prison, a boss or `self:complete_level()` starts the score count. `self:act_completed()` is true
+from then until the next act starts. A routine can use it, for example `while not self:act_completed() do wait() end`.
+
 A mod can also add a level in `SONICORCA/LEVELS/NAME`, with a tile set, a map, a binding and an `INFO.xml` file,
 and a level script. `--level NAME` starts it, and the level select shows it after the zones of the game. With the attribute `tileset`
 in `INFO.xml`, for example `tileset="SONICORCA/LEVELS/EHZ/TILESET"`, the level uses the tile set of another level
