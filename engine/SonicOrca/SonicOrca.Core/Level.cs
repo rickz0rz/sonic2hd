@@ -92,6 +92,9 @@ public class Level : IDisposable
 
 	private readonly Camera _camera;
 
+	/// <summary>The ticks in which the zoom goes to the default zoom of the next act after a seamless change.</summary>
+	private const int SeamlessZoomTicks = 60;
+
 	private readonly LayerViewOptions _layerViewOptions = new LayerViewOptions();
 
 	private readonly List<Tuple<int, Action>> _intervals = new List<Tuple<int, Action>>();
@@ -233,6 +236,15 @@ public class Level : IDisposable
 	public int Time { get; set; }
 
 	public Camera Camera => _camera;
+
+	/// <summary>The zoom of the level. Each camera shows the level at this zoom, and the HUD keeps its size.</summary>
+	public LevelZoom Zoom { get; } = new LevelZoom();
+
+	/// <summary>
+	/// The zoom at the start of the level, from the attribute <c>zoom</c> of the level. A restart at a star post uses the
+	/// zoom of the star post.
+	/// </summary>
+	public double DefaultZoom { get; set; } = 1.0;
 
 	public bool IsScrollingBounds => _boundsScrollSpeed != 0;
 
@@ -479,6 +491,7 @@ public class Level : IDisposable
 			_player.Emeralds = testEmeralds;
 		}
 		_player.RemovePowerups();
+		StartZoom();
 		if (PrepareSettings.Seamless)
 		{
 			_player.StarpostIndex = -1;
@@ -565,6 +578,34 @@ public class Level : IDisposable
 		StopEarthquake();
 		_soundManager.StopAll();
 		_objectManager.Stop();
+	}
+
+	/// <summary>
+	/// Sets the zoom at the start of the level: the zoom of the star post at a restart there, or else the default
+	/// zoom of the level. The next act of a seamless change goes to its default zoom in one second.
+	/// </summary>
+	private void StartZoom()
+	{
+		if (PrepareSettings.Seamless)
+		{
+			Zoom.ZoomTo(DefaultZoom, SeamlessZoomTicks);
+		}
+		else
+		{
+			Zoom.Set(_player.StarpostIndex != -1 && _player.StarpostZoom is double zoom ? zoom : DefaultZoom);
+			Trace.WriteLine($"Start zoom {Zoom.Current:0.###}");
+		}
+		ApplyZoom();
+	}
+
+	/// <summary>Gives each camera the zoom of this tick.</summary>
+	private void ApplyZoom()
+	{
+		_camera.Zoom = Zoom.Current;
+		if (_camera2 != null)
+		{
+			_camera2.Zoom = Zoom.Current;
+		}
 	}
 
 	private void SetupCharacters()
@@ -665,7 +706,8 @@ public class Level : IDisposable
 		_camera2 = new Camera(this)
 		{
 			ScreenBounds = new Rectangle(0.0, 0.0, ScreenWidth, ScreenHeight / 2.0),
-			ObjectToTrack = (ActiveObject)_player2.Protagonist
+			ObjectToTrack = (ActiveObject)_player2.Protagonist,
+			Zoom = Zoom.Current
 		};
 	}
 
@@ -859,6 +901,8 @@ public class Level : IDisposable
 			_particleManager.Update();
 			_waterManager.Update();
 			UpdateScrollBounds();
+			Zoom.Update();
+			ApplyZoom();
 			_camera.Update();
 			_camera2?.Update();
 			VersusRules?.UpdateZoom();
@@ -943,6 +987,11 @@ public class Level : IDisposable
 			});
 		}
 		Ticks++;
+		if (TestHooks.KillPlayerAtTick == Ticks && !TestHooks.KillPlayerTestDone && _player.Protagonist != null)
+		{
+			TestHooks.KillPlayerTestDone = true;
+			_player.Protagonist.Kill(PlayerDeathCause.Hurt);
+		}
 		if (TestHooks.SpecialStageAtTick == Ticks && !TestHooks.SpecialStageTestDone)
 		{
 			TestHooks.SpecialStageTestDone = true;

@@ -28,6 +28,13 @@ public class Camera
 
 	private Vector2 _velocity;
 
+	private double _baseScale = 1.0;
+
+	private double _zoom = 1.0;
+
+	/// <summary>False until the constructor set the first scale. The level is not ready for the limits before that.</summary>
+	private bool _scaleApplied;
+
 	public Rectangle ScreenBounds { get; set; }
 
 	public ActiveObject ObjectToTrack { get; set; }
@@ -85,12 +92,58 @@ public class Camera
 		}
 	}
 
+	/// <summary>The scale of the camera without the zoom of the level, for example 2/3 for a zoomed out camera of versus mode.</summary>
+	public double BaseScale => _baseScale;
+
+	/// <summary>
+	/// The zoom of the level (see <see cref="LevelZoom"/>). The camera shows the level at <see cref="BaseScale"/> times
+	/// the zoom. A change keeps the centre of the view.
+	/// </summary>
+	public double Zoom
+	{
+		get
+		{
+			return _zoom;
+		}
+		set
+		{
+			if (_zoom != value)
+			{
+				_zoom = value;
+				ApplyScale();
+			}
+		}
+	}
+
+	/// <summary>Sets the scale of the camera without the zoom of the level. The centre of the view stays.</summary>
 	public void SetScale(double value)
 	{
-		_bounds.Width = ScreenBounds.Width / value;
-		_bounds.Height = ScreenBounds.Height / value;
-		_trackBounds.Width = Bounds.Width;
-		_trackBounds.Height = Bounds.Height;
+		_baseScale = value;
+		ApplyScale();
+	}
+
+	/// <summary>
+	/// Gives the view the size of the screen bounds at the scale of the camera and the zoom. The centre of the view
+	/// and of the track bounds stays, so that a zoom that changes on each tick keeps the character in the same place.
+	/// </summary>
+	private void ApplyScale()
+	{
+		double scale = _baseScale * _zoom;
+		double width = ScreenBounds.Width / scale;
+		double height = ScreenBounds.Height / scale;
+		_bounds.X += (_bounds.Width - width) / 2.0;
+		_bounds.Y += (_bounds.Height - height) / 2.0;
+		_trackBounds.X += (_trackBounds.Width - width) / 2.0;
+		_trackBounds.Y += (_trackBounds.Height - height) / 2.0;
+		_bounds.Width = width;
+		_bounds.Height = height;
+		_trackBounds.Width = width;
+		_trackBounds.Height = height;
+		if (_scaleApplied)
+		{
+			ApplyBounds();
+		}
+		_scaleApplied = true;
 	}
 
 	public void CentreObjectToTrack()

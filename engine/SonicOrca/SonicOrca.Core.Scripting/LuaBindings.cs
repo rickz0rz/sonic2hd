@@ -353,6 +353,47 @@ public sealed partial class LuaNativeObject
 	[LuaMember("act")]
 	public int Act() => _owner.Level.CurrentAct;
 
+	/// <summary>The zoom of the level on this tick (API 11). 1 is the normal size, 2 is two times larger.</summary>
+	[LuaMember("zoom")]
+	public double Zoom() => _owner.Level.Zoom.Current;
+
+	/// <summary>
+	/// Changes the zoom of the level (API 11). The zoom goes to <paramref name="scale"/> in a number of ticks, or at
+	/// once without ticks. The easing is "sine" (the default: slow at the start and at the end) or "linear". The zoom
+	/// has the limits 0.5 and 2. The HUD keeps its size.
+	/// </summary>
+	[LuaMember("set_zoom")]
+	public void SetZoom(double scale, ReadOnlySpan<LuaValue> options)
+	{
+		int ticks = options.Length > 0 && options[0].TryRead(out double value) ? (int)Math.Round(value) : 0;
+		ZoomEasing easing = ZoomEasing.Sine;
+		if (options.Length > 1 && options[1].TryRead(out string name))
+		{
+			easing = name switch
+			{
+				"sine" => ZoomEasing.Sine,
+				"linear" => ZoomEasing.Linear,
+				_ => throw new ArgumentException($"\"{name}\" is not an easing. Use \"sine\" or \"linear\".")
+			};
+		}
+		_owner.Level.Zoom.ZoomTo(scale, ticks, easing);
+		LogZoom(ticks);
+	}
+
+	private void LogZoom(int ticks)
+	{
+		System.Diagnostics.Trace.WriteLine($"Zoom to {_owner.Level.Zoom.Target:0.###} in {Math.Max(ticks, 0)} ticks, tick {_owner.Level.Ticks}");
+	}
+
+	/// <summary>Changes the zoom back to the default zoom of the level (API 11), in a number of ticks or at once.</summary>
+	[LuaMember("reset_zoom")]
+	public void ResetZoom(ReadOnlySpan<LuaValue> ticks)
+	{
+		int count = ticks.Length > 0 && ticks[0].TryRead(out double value) ? (int)Math.Round(value) : 0;
+		_owner.Level.Zoom.ZoomTo(_owner.Level.DefaultZoom, count);
+		LogZoom(count);
+	}
+
 	/// <summary>The y of the top of the water of the level, or nil when the level has no water.</summary>
 	[LuaMember("water_top")]
 	public LuaValue WaterTop() => _owner.GetWaterTop() is double top ? top : LuaValue.Nil;

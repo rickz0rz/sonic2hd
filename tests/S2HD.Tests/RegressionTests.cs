@@ -525,6 +525,82 @@ public sealed partial class RegressionTests
 	}
 
 	/// <summary>
+	/// The zoom of a level: a level with a default zoom of 0.8 and a level script that zooms to 1.25 in 240 ticks.
+	/// Sonic starts at a star post, so the star post saves the zoom at the end of the change. The first capture shows
+	/// the zoom during the change, at a scale that is not a whole number. A test hook kills Sonic, and the restart at
+	/// the star post starts at once with a zoom of 1.25. A second run goes into a special stage after the star post,
+	/// and the return to the level also starts with a zoom of 1.25. The HUD keeps its size in all the captures.
+	/// </summary>
+	[Fact]
+	[Trait("Category", "Regression")]
+	public void LevelZoom_MatchesGoldenScreenshots()
+	{
+		void WriteLevel(string userData)
+		{
+			// Sunny Meadow has item blocks of the example mod lua-item-block
+			CopyDirectory(Path.Combine(TestPaths.RepoRoot, "examples", "mods", "lua-item-block", "SONICORCA"), Path.Combine(userData, "mods", "lua-item-block", "SONICORCA"));
+			WriteZoomLevel(Path.Combine(userData, "mods", "zoomtest", "SONICORCA", "LEVELS", "ZOOMTEST"));
+		}
+		RunAndCompare("--level zoomtest --protagonist sonic --sidekick none", new[] { 180, 700 }, Path.Combine(TestPaths.GoldenDirectory, "level-zoom"),
+			"level-zoom", new Dictionary<string, string> { ["S2HD_TEST_KILL_PLAYER_AT_TICK"] = "300" },
+			checkUserData: userData =>
+			{
+				string log = File.ReadAllText(Path.Combine(userData, "sonicorca.log"));
+				Assert.DoesNotContain("Script error", log);
+				Assert.Contains("Star post 1 at 256, 992, zoom 1.25", log);
+				// The first start uses the default zoom of the level. The restart at the star post uses its zoom.
+				int first = log.IndexOf("Start zoom 0.8", StringComparison.Ordinal);
+				Assert.True(first >= 0, "No start with the default zoom");
+				Assert.Contains("Start zoom 1.25", log.Substring(first));
+			},
+			prepareUserData: WriteLevel);
+		RunAndCompare("--level zoomtest --protagonist sonic --sidekick none", new[] { 700 }, Path.Combine(TestPaths.GoldenDirectory, "level-zoom-special-stage"),
+			"level-zoom-special-stage",
+			new Dictionary<string, string> { ["S2HD_TEST_SPECIAL_STAGE_AT_TICK"] = "300", ["S2HD_TEST_SPECIAL_STAGE_RESULTS"] = "0,0,0" },
+			withImportedMods: true,
+			checkUserData: userData =>
+			{
+				string log = File.ReadAllText(Path.Combine(userData, "sonicorca.log"));
+				int first = log.IndexOf("Start zoom 0.8", StringComparison.Ordinal);
+				Assert.True(first >= 0, "No start with the default zoom");
+				Assert.Contains("Start zoom 1.25", log.Substring(first));
+			},
+			prepareUserData: WriteLevel);
+	}
+
+	/// <summary>
+	/// Writes a copy of the example level Sunny Meadow with the attribute zoom="0.8", a star post at the start position,
+	/// and a level script that zooms to 1.25 in 240 ticks on the first tick.
+	/// </summary>
+	private static void WriteZoomLevel(string folder)
+	{
+		CopyDirectory(Path.Combine(TestPaths.RepoRoot, "examples", "mods", "sunny-meadow", "SONICORCA", "LEVELS", "MEADOW"), folder);
+		XElement info = XDocument.Load(Path.Combine(folder, "INFO.xml")).Root;
+		info.SetAttributeValue("name", "Zoom Test");
+		info.SetAttributeValue("zoom", "0.8");
+		info.Save(Path.Combine(folder, "INFO.xml"));
+		XElement start = XDocument.Load(Path.Combine(folder, "MAP.map.xml")).Root.Descendants("marker").Single(m => (string)m.Attribute("name") == "startpos");
+		XElement binding = XDocument.Load(Path.Combine(folder, "BINDING.binding.xml")).Root;
+		// The burr beetles are objects of the mod sunny-meadow, and a beetle would hurt Sonic at the star post
+		binding.Descendants("Definition").Where(d => d.Element("Common")?.Element("Key")?.Value == "SONICORCA/OBJECTS/BURRBEETLE").Remove();
+		binding.Element("Definitions").Add(new XElement("Definition",
+			new XElement("Common",
+				new XElement("Key", "SONICORCA/OBJECTS/STARPOST"),
+				new XElement("Uid", "5d0c3c2e-7c55-4a8e-9f0e-2b6f3d1c9a01"),
+				new XElement("Name", "Starpost 0"),
+				new XElement("Position", new XAttribute("X", (int)start.Attribute("x")), new XAttribute("Y", (int)start.Attribute("y") - 144))),
+			new XElement("Behaviour", new XElement("Index", 1))));
+		binding.Save(Path.Combine(folder, "BINDING.binding.xml"));
+		File.WriteAllText(Path.Combine(folder, "SCRIPT.object.lua"), """
+			object { api = 11, name = "Zoom test", description = "Zooms to 1.25", classification = "general" }
+
+			function start(self)
+			  self:set_zoom(1.25, 240)
+			end
+			""");
+	}
+
+	/// <summary>
 	/// Writes a new level, as the level editor makes it, that ends with a boss. The marker "boss" is on the floor line
 	/// of the new level, at the floor of the arena of the boss, and the egg prison is to the right of the arena.
 	/// </summary>

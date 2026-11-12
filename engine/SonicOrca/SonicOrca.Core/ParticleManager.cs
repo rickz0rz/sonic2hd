@@ -128,6 +128,8 @@ public class ParticleManager : IDisposable
 		// The particles draw into the canvas of the level view, which can be larger or smaller than the screen: a half of
 		// versus mode, or a zoomed-out view
 		Rectangle frameBounds = new Rectangle(0.0, 0.0, currentFramebuffer.Width, currentFramebuffer.Height);
+		// A view that is zoomed in draws the level larger than the canvas units
+		Vector2 scale = viewport.Scale;
 		foreach (Particle particle in _particles)
 		{
 			if (particle.Layer != layer)
@@ -145,7 +147,10 @@ public class ParticleManager : IDisposable
 						// Copy the screen area behind the particle to the work canvas.
 						// Then draw the copy back with a distortion.
 						renderer.DeativateRenderer();
-						Rectanglei destination = ((Rectanglei)new Rectangle(particle.Position.X - _heatParticleTexture.Width / 2, particle.Position.Y - _heatParticleTexture.Height / 2, _heatParticleTexture.Width, _heatParticleTexture.Height)).OffsetBy(viewport.Bounds.TopLeft * -1);
+						Rectanglei destination = new Rectangle(
+							(particle.Position.X - _heatParticleTexture.Width / 2 - viewport.Bounds.X) * scale.X,
+							(particle.Position.Y - _heatParticleTexture.Height / 2 - viewport.Bounds.Y) * scale.Y,
+							_heatParticleTexture.Width * scale.X, _heatParticleTexture.Height * scale.Y);
 						if (destination.IntersectsWith(new Rectanglei(0, 0, currentFramebuffer.Width, currentFramebuffer.Height)))
 						{
 							heatRenderer.DistortionAmount = 1.0 / _heatParticleTexture.Width * 8.0;
@@ -169,14 +174,15 @@ public class ParticleManager : IDisposable
 				case ParticleType.Smoke:
 					{
 						Vector2 screenPosition = particle.Position - viewport.Bounds.TopLeft;
-						if (((Rectanglei)new Rectangle(screenPosition.X - _smokeParticleTexture.Width / 2, screenPosition.Y - _smokeParticleTexture.Height / 2, _smokeParticleTexture.Width, _smokeParticleTexture.Height)).IntersectsWith(new Rectanglei(0, 0, currentFramebuffer.Width, currentFramebuffer.Height)))
+						screenPosition = new Vector2(screenPosition.X * scale.X, screenPosition.Y * scale.Y);
+						if (((Rectanglei)new Rectangle(screenPosition.X - _smokeParticleTexture.Width * scale.X / 2, screenPosition.Y - _smokeParticleTexture.Height * scale.Y / 2, _smokeParticleTexture.Width * scale.X, _smokeParticleTexture.Height * scale.Y)).IntersectsWith(new Rectanglei(0, 0, currentFramebuffer.Width, currentFramebuffer.Height)))
 						{
 							double opacity = ((particle.Time < SmokeFadeOutTime) ? (particle.Time / (double)SmokeFadeOutTime) : 1.0) * SmokeOpacity;
 							currentFramebuffer.Activate();
 							renderer2d.BlendMode = BlendMode.Alpha;
 							renderer2d.Colour = new Colour(opacity, 1.0, 1.0, 1.0);
 							renderer2d.ClipRectangle = frameBounds;
-							renderer2d.ModelMatrix = Matrix4.CreateTranslation(screenPosition.X, screenPosition.Y) * Matrix4.CreateRotationZ(particle.Angle);
+							renderer2d.ModelMatrix = Matrix4.CreateTranslation(screenPosition.X, screenPosition.Y) * Matrix4.CreateRotationZ(particle.Angle) * Matrix4.CreateScale(scale.X, scale.Y);
 							renderer2d.RenderTexture(_smokeParticleTexture, default(Vector2), false, false);
 						}
 						break;
@@ -187,13 +193,16 @@ public class ParticleManager : IDisposable
 						if (customTexture != null)
 						{
 							Vector2 screenPosition = particle.Position - viewport.Bounds.TopLeft;
-							if (((Rectanglei)new Rectangle(screenPosition.X - customTexture.Width / 2, screenPosition.Y - customTexture.Height / 2, customTexture.Width, customTexture.Height)).IntersectsWith(new Rectanglei(0, 0, currentFramebuffer.Width, currentFramebuffer.Height)))
+							screenPosition = new Vector2(screenPosition.X * scale.X, screenPosition.Y * scale.Y);
+							double width = customTexture.Width * particle.Size * scale.X;
+							double height = customTexture.Height * particle.Size * scale.Y;
+							if (((Rectanglei)new Rectangle(screenPosition.X - width / 2, screenPosition.Y - height / 2, width, height)).IntersectsWith(new Rectanglei(0, 0, currentFramebuffer.Width, currentFramebuffer.Height)))
 							{
 								currentFramebuffer.Activate();
 								renderer2d.BlendMode = BlendMode.Alpha;
 								renderer2d.Colour = new Colour(1.0, 1.0, 1.0, 1.0);
 								renderer2d.ClipRectangle = frameBounds;
-								renderer2d.ModelMatrix = Matrix4.CreateTranslation(screenPosition.X, screenPosition.Y) * Matrix4.CreateRotationZ(particle.Angle) * Matrix4.CreateScale(particle.Size, particle.Size);
+								renderer2d.ModelMatrix = Matrix4.CreateTranslation(screenPosition.X, screenPosition.Y) * Matrix4.CreateRotationZ(particle.Angle) * Matrix4.CreateScale(particle.Size * scale.X, particle.Size * scale.Y);
 								renderer2d.RenderTexture(customTexture, default(Vector2), false, false);
 							}
 						}

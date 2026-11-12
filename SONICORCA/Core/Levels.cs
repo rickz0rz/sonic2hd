@@ -116,6 +116,44 @@ internal static class Levels
 		return titles;
 	}
 
+	/// <summary>
+	/// Reads the zooms of the Sonic 2 levels from the order resource, for example
+	/// <c>&lt;zoom level="ehz" value="0.8" /&gt;</c>, by short name.
+	/// </summary>
+	public static IReadOnlyDictionary<string, double> ReadZooms(ResourceTree resourceTree)
+	{
+		Dictionary<string, double> zooms = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+		System.Xml.XmlDocument document = ReadOrderDocument(resourceTree);
+		if (document == null)
+			return zooms;
+		foreach (System.Xml.XmlElement zoom in document.SelectNodes("levels/zoom").OfType<System.Xml.XmlElement>())
+		{
+			string level = zoom.GetAttribute("level");
+			if (level.Length > 0 && ParseZoom(zoom.GetAttribute("value")) is double value)
+				zooms[level.ToLowerInvariant()] = value;
+		}
+		return zooms;
+	}
+
+	/// <summary>A zoom from the text of an attribute, inside the limits of <see cref="LevelZoom"/>, or null for no number.</summary>
+	public static double? ParseZoom(string text)
+	{
+		return double.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double value) && double.IsFinite(value)
+			? LevelZoom.Clamp(value)
+			: null;
+	}
+
+	/// <summary>The text of a zoom for an attribute.</summary>
+	public static string FormatZoom(double zoom) => zoom.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+
+	/// <summary>The zoom of a level from its INFO file (a mod level) or from the order resource (a Sonic 2 level), or 1.</summary>
+	public static double GetZoom(string mnemonic, ResourceTree resourceTree)
+	{
+		if (GetAreaResourceKey(mnemonic) == null)
+			return ParseZoom(ReadInfoAttribute(resourceTree, mnemonic, "zoom")) ?? 1.0;
+		return ReadZooms(resourceTree).TryGetValue(mnemonic, out double zoom) ? zoom : 1.0;
+	}
+
 	private static System.Xml.XmlDocument ReadOrderDocument(ResourceTree resourceTree)
 	{
 		Resource resource = resourceTree[OrderResourceKey]?.Resource;
@@ -141,7 +179,7 @@ internal static class Levels
 	}
 
 	/// <summary>Gives the order resource for the levels of the story, and the new names of Sonic 2 levels.</summary>
-	public static byte[] WriteOrder(IEnumerable<string> mnemonics, IReadOnlyDictionary<string, string> titles = null)
+	public static byte[] WriteOrder(IEnumerable<string> mnemonics, IReadOnlyDictionary<string, string> titles = null, IReadOnlyDictionary<string, double> zooms = null)
 	{
 		using System.IO.MemoryStream stream = new System.IO.MemoryStream();
 		using (System.Xml.XmlWriter writer = System.Xml.XmlWriter.Create(stream, new System.Xml.XmlWriterSettings { Indent = true }))
@@ -158,6 +196,13 @@ internal static class Levels
 				writer.WriteStartElement("title");
 				writer.WriteAttributeString("level", title.Key.ToLowerInvariant());
 				writer.WriteAttributeString("text", title.Value);
+				writer.WriteEndElement();
+			}
+			foreach (KeyValuePair<string, double> zoom in zooms ?? new Dictionary<string, double>())
+			{
+				writer.WriteStartElement("zoom");
+				writer.WriteAttributeString("level", zoom.Key.ToLowerInvariant());
+				writer.WriteAttributeString("value", FormatZoom(zoom.Value));
 				writer.WriteEndElement();
 			}
 			writer.WriteEndElement();
@@ -222,10 +267,10 @@ internal static class Levels
 	public static string GetModLevelBoss(string mnemonic, ResourceTree resourceTree) => ReadInfoAttribute(resourceTree, mnemonic, "boss");
 
 	/// <summary>
-	/// Gives the INFO file of a mod level with a new name, new music and a new boss. The other attributes of the file stay.
+	/// Gives the INFO file of a mod level with a new name, new music, a new boss and a new zoom. The other attributes of the file stay.
 	/// </summary>
 	/// <param name="boss">The key of the boss object, or null for no boss.</param>
-	public static byte[] WriteModLevelInfo(System.IO.Stream info, string name, string music, string boss)
+	public static byte[] WriteModLevelInfo(System.IO.Stream info, string name, string music, string boss, double zoom = 1.0)
 	{
 		System.Xml.XmlDocument document = new System.Xml.XmlDocument();
 		document.Load(info);
@@ -238,6 +283,10 @@ internal static class Levels
 			document.DocumentElement.RemoveAttribute("boss");
 		else
 			document.DocumentElement.SetAttribute("boss", boss);
+		if (zoom == 1.0)
+			document.DocumentElement.RemoveAttribute("zoom");
+		else
+			document.DocumentElement.SetAttribute("zoom", FormatZoom(zoom));
 		using System.IO.MemoryStream stream = new System.IO.MemoryStream();
 		using (System.Xml.XmlWriter writer = System.Xml.XmlWriter.Create(stream, new System.Xml.XmlWriterSettings { Indent = true }))
 			document.Save(writer);

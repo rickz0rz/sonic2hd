@@ -28,10 +28,11 @@ internal sealed class LevelCatalog : ILevelCatalog
 		return story.Concat(others).ToArray();
 	}
 
-	public string SaveStoryOrder(IReadOnlyList<string> mnemonics, IReadOnlyDictionary<string, string> titles)
+	public string SaveStoryOrder(IReadOnlyList<string> mnemonics, IReadOnlyDictionary<string, string> titles, IReadOnlyDictionary<string, double> zooms = null)
 	{
 		ResourceTree tree = _gameContext.ResourceTree;
-		byte[] data = Levels.WriteOrder(mnemonics, titles);
+		// Without new zooms, the zooms of the order resource stay
+		byte[] data = Levels.WriteOrder(mnemonics, titles, zooms ?? Levels.ReadZooms(tree));
 		Resource resource = tree[Levels.OrderResourceKey]?.Resource;
 		if (resource == null)
 		{
@@ -43,14 +44,14 @@ internal sealed class LevelCatalog : ILevelCatalog
 		return EditorModFile.Save(new[] { change }, EditorModFile.GetPath(_gameContext.UserDataDirectory, Levels.OrderResourceKey));
 	}
 
-	public string SaveModLevelInfo(string mnemonic, string name, string music, string boss)
+	public string SaveModLevelInfo(string mnemonic, string name, string music, string boss, double zoom = 1.0)
 	{
 		Resource resource = _gameContext.ResourceTree[$"SONICORCA/LEVELS/{mnemonic.ToUpperInvariant()}/INFO"]?.Resource
 			?? throw new InvalidOperationException($"The level {mnemonic} has no INFO file.");
 		byte[] data;
 		using (Stream stream = resource.Source.ReadUncompressed())
-			data = Levels.WriteModLevelInfo(stream, name, music, boss);
-		// The resource then reads the new data, so the next load of the level uses the new name, music and boss
+			data = Levels.WriteModLevelInfo(stream, name, music, boss, zoom);
+		// The resource then reads the new data, so the next load of the level uses the new name, music, boss and zoom
 		return EditorModFile.Save(new[] { new EditorModFile.Change(resource, data) }, EditorModFile.GetPath(_gameContext.UserDataDirectory, resource.FullKeyPath));
 	}
 
@@ -62,6 +63,15 @@ internal sealed class LevelCatalog : ILevelCatalog
 			.Where(boss => _gameContext.ResourceTree[boss.ObjectKey]?.Resource != null)
 			.Select(boss => new LevelBoss(boss.Name, boss.ObjectKey, BossArena.GetArenaBounds(boss.Arena, boss.Arena.BossPosition * -4, 1920, 1080), boss.FloorY))
 			.ToArray();
+	}
+
+	public double GetDefaultZoom(string areaResourceKey)
+	{
+		// The key of the area is SONICORCA/LEVELS/NAME/AREA for the Sonic 2 levels and for the mod levels
+		string[] parts = areaResourceKey?.Split('/') ?? new string[0];
+		if (parts.Length != 4 || parts[0] != "SONICORCA" || parts[1] != "LEVELS" || parts[3] != "AREA")
+			return 1.0;
+		return Levels.GetZoom(parts[2].ToLowerInvariant(), _gameContext.ResourceTree);
 	}
 
 	public string GetTitleCardName(string areaResourceKey)
@@ -130,6 +140,7 @@ internal sealed class LevelCatalog : ILevelCatalog
 			Levels.GetAreaResourceKey(level.Mnemonic, _gameContext.ResourceTree), storyNumber,
 			isMod ? null : Levels.GetOriginalName(level.Mnemonic),
 			isMod ? Levels.GetModLevelMusic(level.Mnemonic, _gameContext.ResourceTree) : null,
-			isMod ? Levels.GetModLevelBoss(level.Mnemonic, _gameContext.ResourceTree) : null);
+			isMod ? Levels.GetModLevelBoss(level.Mnemonic, _gameContext.ResourceTree) : null,
+			Levels.GetZoom(level.Mnemonic, _gameContext.ResourceTree));
 	}
 }

@@ -15,20 +15,28 @@ public interface ILevelCatalog
 	/// <summary>Saves a new order of the story and new names of the Sonic 2 levels, and uses them at once. Returns the path of the file.</summary>
 	/// <param name="mnemonics">The short names of the levels of the story, in their order.</param>
 	/// <param name="titles">The new names of Sonic 2 levels, by short name. A level without a new name has its name of the game.</param>
-	string SaveStoryOrder(IReadOnlyList<string> mnemonics, IReadOnlyDictionary<string, string> titles);
+	/// <param name="zooms">The zooms of Sonic 2 levels that are not 1, by short name.</param>
+	string SaveStoryOrder(IReadOnlyList<string> mnemonics, IReadOnlyDictionary<string, string> titles, IReadOnlyDictionary<string, double> zooms = null);
 
 	/// <summary>
-	/// Saves the name, the music and the boss of a mod level into its INFO file, and uses them at once. Returns the
+	/// Saves the name, the music, the boss and the zoom of a mod level into its INFO file, and uses them at once. Returns the
 	/// path of the file.
 	/// </summary>
 	/// <param name="boss">The key of the boss object, or null for no boss.</param>
-	string SaveModLevelInfo(string mnemonic, string name, string music, string boss);
+	/// <param name="zoom">The zoom at the start of the level. A zoom of 1 removes the attribute.</param>
+	string SaveModLevelInfo(string mnemonic, string name, string music, string boss, double zoom = 1.0);
 
 	/// <summary>The bosses that can end a mod level. A boss of an imported zone is in the list only when the zone is imported.</summary>
 	IReadOnlyList<LevelBoss> GetBosses();
 
 	/// <summary>The keys of the music that a level can play.</summary>
 	IReadOnlyList<string> GetMusic();
+
+	/// <summary>
+	/// The zoom at the start of a level: the attribute <c>zoom</c> of the INFO file of a mod level, or of the order of
+	/// the levels for a Sonic 2 level. It is 1 when the level has no zoom.
+	/// </summary>
+	double GetDefaultZoom(string areaResourceKey);
 
 	/// <summary>The name for the title card of a level with a new name, or null to keep the name of the area.</summary>
 	string GetTitleCardName(string areaResourceKey);
@@ -58,8 +66,9 @@ public interface ILevelCatalog
 /// <param name="OriginalName">The name of a Sonic 2 level in the game, or null for a mod level.</param>
 /// <param name="Music">The key of the music of a mod level, or null. The area of a Sonic 2 level sets its music.</param>
 /// <param name="Boss">The key of the boss object at the end of a mod level, or null. The area of a Sonic 2 level sets its boss.</param>
+/// <param name="Zoom">The zoom at the start of the level.</param>
 public sealed record LevelCatalogEntry(string Mnemonic, string Name, int Acts, bool IsMod, string AreaResourceKey, int StoryNumber,
-	string OriginalName = null, string Music = null, string Boss = null)
+	string OriginalName = null, string Music = null, string Boss = null, double Zoom = 1.0)
 {
 	public bool InStory => StoryNumber > 0;
 }

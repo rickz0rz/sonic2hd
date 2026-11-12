@@ -113,6 +113,37 @@ public sealed class LevelOrderTests
 	}
 
 	[Fact]
+	public void Zooms_OfSonic2Levels_AreInTheOrder_AndOfModLevelsInTheirInfo()
+	{
+		ResourceTree tree = new ResourceTree();
+		AddModLevel(tree, "MEADOW", "Sunny Meadow");
+		Add(tree, "SONICORCA/LEVELS/MEADOW/INFO", "<level name=\"Sunny Meadow\" zoom=\"0.75\" />");
+		Dictionary<string, double> zooms = new Dictionary<string, double> { ["ehz"] = 1.25, ["htz"] = 9.0 };
+		Add(tree, Levels.OrderResourceKey, Encoding.UTF8.GetString(Levels.WriteOrder(new[] { "ehz", "htz" }, null, zooms)));
+
+		Assert.Equal(1.25, Levels.GetZoom("ehz", tree));
+		// A zoom outside the limits gets the nearest limit
+		Assert.Equal(LevelZoom.Max, Levels.GetZoom("htz", tree));
+		Assert.Equal(1.0, Levels.GetZoom("cpz", tree));
+		Assert.Equal(0.75, Levels.GetZoom("meadow", tree));
+		Assert.Null(Levels.ParseZoom("big"));
+	}
+
+	[Fact]
+	public void WriteModLevelInfo_WithAZoom_SetsTheZoom_AndAZoomOf1RemovesIt()
+	{
+		byte[] info = Encoding.UTF8.GetBytes("<level name=\"Old\" zoom=\"0.8\" />");
+
+		System.Xml.Linq.XElement zoomed = System.Xml.Linq.XElement.Parse(Encoding.UTF8.GetString(
+			Levels.WriteModLevelInfo(new System.IO.MemoryStream(info), "Old", null, null, 1.5)).TrimStart('\uFEFF'));
+		System.Xml.Linq.XElement normal = System.Xml.Linq.XElement.Parse(Encoding.UTF8.GetString(
+			Levels.WriteModLevelInfo(new System.IO.MemoryStream(info), "Old", null, null)).TrimStart('\uFEFF'));
+
+		Assert.Equal("1.5", (string)zoomed.Attribute("zoom"));
+		Assert.Null(normal.Attribute("zoom"));
+	}
+
+	[Fact]
 	public void MusicKeys_AreTheMusicInfoResources_InKeyOrder()
 	{
 		ResourceTree tree = new ResourceTree();
