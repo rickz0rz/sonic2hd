@@ -545,13 +545,13 @@ internal class UserInterface
 			{
 				case -3:
 					offset = 2;
-					menuItemWidget.MenuItemIndex = NegMod(menuItemWidget.MenuItemIndex - 1, _menuItems.Length);
 					break;
 				case 3:
 					offset = -2;
-					menuItemWidget.MenuItemIndex = NegMod(menuItemWidget.MenuItemIndex + 1, _menuItems.Length);
 					break;
 			}
+			// Show the item at this offset from the selection. This is correct for all counts of menu items.
+			menuItemWidget.MenuItemIndex = NegMod(_selectionIndex + offset, _menuItems.Length);
 			menuItemWidget.X = 960 + MenuItemSpacing * offset;
 			menuItemWidget.Opacity = (float)MenuItemOpacityEaseTimeline.GetValueAt((int)menuItemWidget.X);
 			menuItemWidget.OriginOffset = offset;
