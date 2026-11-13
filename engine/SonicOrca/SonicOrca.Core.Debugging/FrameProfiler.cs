@@ -133,6 +133,9 @@ public static class FrameProfiler
 	/// </summary>
 	public static bool IsCaptureFrame(int drawCount) => CaptureFrames.Count > 0 && CaptureFrames.Contains(drawCount);
 
+	/// <summary>True when the draw has the number of the last screenshot of S2HD_CAPTURE_FRAMES or a higher number, or when there are no such screenshots.</summary>
+	public static bool AllCaptureFramesTaken(int drawCount) => CaptureFrames.Count == 0 || drawCount >= CaptureFrames.Max();
+
 	public static long Timestamp() => Enabled ? Stopwatch.GetTimestamp() : 0;
 
 	/// <summary>

@@ -11,7 +11,8 @@ namespace SonicOrca.Core.Debugging;
 /// <item>S2HD_PHYSICS=hd or original: plays the levels in this physics mode, whatever the settings say.</item>
 /// <item>S2HD_CAPTURE_LEVEL_TICKS=60,600: saves a screenshot when the level draws these ticks, counted from the
 /// level start. Unlike frame numbers, ticks do not depend on how long the level took to load.</item>
-/// <item>S2HD_EXIT_AFTER_CAPTURES=1: quits after the last screenshot.</item>
+/// <item>S2HD_EXIT_AFTER_CAPTURES=1: quits after the last screenshot of S2HD_CAPTURE_LEVEL_TICKS and of
+/// S2HD_CAPTURE_FRAMES.</item>
 /// <item>S2HD_TEST_START_RINGS=60: gives the player this number of rings when a level starts.</item>
 /// <item>S2HD_TEST_PLAYER2_PLAYBACK=file: plays an input recording as the input of player 2: the sidekick, or Tails in versus mode.</item>
 /// <item>S2HD_TEST_VERSUS_ZOOM=in,out: the zoom of player 1 and player 2 when a versus match starts.</item>
@@ -43,7 +44,6 @@ public static class TestHooks
 		(Environment.GetEnvironmentVariable("S2HD_CAPTURE_LEVEL_TICKS") ?? "")
 			.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(int.Parse));
 
-	private static readonly bool HasLevelTickCaptures = PendingLevelTickCaptures.Count > 0;
 
 	public static readonly PhysicsMode? Physics =
 		Enum.TryParse(Environment.GetEnvironmentVariable("S2HD_PHYSICS"), ignoreCase: true, out PhysicsMode mode) ? mode : null;
@@ -191,7 +191,8 @@ public static class TestHooks
 		return true;
 	}
 
-	public static bool AllCapturesTaken => HasLevelTickCaptures && PendingLevelTickCaptures.Count == 0;
+	/// <summary>True when the game took all the screenshots of S2HD_CAPTURE_LEVEL_TICKS, or when there are no such screenshots.</summary>
+	public static bool AllLevelTickCapturesTaken => PendingLevelTickCaptures.Count == 0;
 
 	private static IReadOnlyDictionary<int, string[]> ParseEditorInput(string script)
 	{
