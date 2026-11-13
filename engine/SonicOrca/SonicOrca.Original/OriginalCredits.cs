@@ -328,6 +328,31 @@ public static class OriginalCredits
 		return images;
 	}
 
+	/// <summary>The prefix of the names of the HD glyphs in the resources of the assembly (see SonicOrca.csproj).</summary>
+	private const string HdGlyphPrefix = "CreditsFont/";
+
+	/// <summary>
+	/// Gives the names of the HD glyphs of this repository, for example "A" or "FULLSTOP". The import writes an HD
+	/// glyph in place of the glyph of the ROM. The ROM gives the glyphs that do not have an HD glyph.
+	/// </summary>
+	public static IEnumerable<string> GetHdGlyphNames() =>
+		typeof(OriginalCredits).Assembly.GetManifestResourceNames()
+			.Where(name => name.StartsWith(HdGlyphPrefix, StringComparison.Ordinal) && name.EndsWith(".png", StringComparison.Ordinal))
+			.Select(name => name.Substring(HdGlyphPrefix.Length, name.Length - HdGlyphPrefix.Length - ".png".Length));
+
+	/// <summary>Gives the PNG file of the HD glyph with a name of <see cref="GetCharacterName"/>, or null.</summary>
+	public static byte[] GetHdGlyph(string name)
+	{
+		using Stream stream = typeof(OriginalCredits).Assembly.GetManifestResourceStream(HdGlyphPrefix + name + ".png");
+		if (stream == null)
+		{
+			return null;
+		}
+		using MemoryStream memory = new MemoryStream();
+		stream.CopyTo(memory);
+		return memory.ToArray();
+	}
+
 	/// <summary>Writes the slides and the logo into a folder, in the layout of "s2hd-data unpack". Returns the number of slides.</summary>
 	public static int Import(string disassembly, string folder)
 	{
@@ -345,7 +370,8 @@ public static class OriginalCredits
 			.Distinct();
 		foreach (char c in characters)
 		{
-			File.WriteAllBytes(Path.Combine(fontFolder, GetCharacterName(c) + ".png"), RenderCharacter(c, font));
+			string name = GetCharacterName(c);
+			File.WriteAllBytes(Path.Combine(fontFolder, name + ".png"), GetHdGlyph(name) ?? RenderCharacter(c, font));
 		}
 		string logoFolder = Path.Combine(output, "LOGO");
 		Directory.CreateDirectory(logoFolder);

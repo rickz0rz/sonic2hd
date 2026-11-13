@@ -350,6 +350,11 @@ writes each character of the credits font of the disassembly as a white image in
 The game makes each line of text from these images and gives the line its colour. The credits music
 (`9E - Credits`) comes with the music import.
 
+The repository has HD images of most characters in `engine/SonicOrca/SonicOrca.Original/CreditsFont`. The import
+writes these images in place of the characters of the disassembly. The disassembly gives the other characters. To
+change an HD character, replace its image in that folder, then run the import again. Each image must be higher than
+8 pixels, and its name must follow the rules for `FONT` below.
+
 To change the credits, unpack the `ending` mod and edit the files:
 
 - In `SLIDES.xml`, each `slide` element is one slide. Each `text` element is one line of text. `x` and `y` give the

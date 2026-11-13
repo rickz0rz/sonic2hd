@@ -158,4 +158,36 @@ public sealed class OriginalCreditsTests
 		Assert.Equal(600, read[0].Frames);
 		Assert.Null(read[1].Frames);
 	}
+
+	[Fact]
+	public void HdGlyphs_HaveTheNameOfACharacterOfTheCredits()
+	{
+		IEnumerable<char> characters = Enumerable.Range('A', 26).Concat(Enumerable.Range('0', 10)).Select(c => (char)c)
+			.Concat(new[] { '.', '\'', '(', ')', OriginalCredits.CopyrightSign });
+		HashSet<string> names = characters.Select(OriginalCredits.GetCharacterName).ToHashSet();
+
+		List<string> glyphs = OriginalCredits.GetHdGlyphNames().ToList();
+
+		Assert.NotEmpty(glyphs);
+		Assert.All(glyphs, glyph => Assert.Contains(glyph, names));
+	}
+
+	[Fact]
+	public void HdGlyphs_ArePngImages_HigherThanTheOriginal()
+	{
+		foreach (string name in OriginalCredits.GetHdGlyphNames())
+		{
+			byte[] png = OriginalCredits.GetHdGlyph(name);
+			// The PNG signature, then the IHDR chunk: the width at byte 16 and the height at byte 20, big endian
+			Assert.Equal(new byte[] { 0x89, (byte)'P', (byte)'N', (byte)'G' }, png.Take(4).ToArray());
+			int height = (png[20] << 24) | (png[21] << 16) | (png[22] << 8) | png[23];
+			Assert.True(height > OriginalCredits.CharacterHeight, $"{name}.png is {height} pixels high");
+		}
+	}
+
+	[Fact]
+	public void GetHdGlyph_GivesNull_ForACharacterWithoutAnHdGlyph()
+	{
+		Assert.Null(OriginalCredits.GetHdGlyph("NOTACHARACTER"));
+	}
 }

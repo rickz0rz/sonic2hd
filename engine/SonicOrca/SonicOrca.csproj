@@ -13,4 +13,9 @@
     <PackageReference Include="LuaCSharp" Version="0.5.8" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The HD glyphs of the original credits. The credits import writes them in place of the glyphs of the ROM. -->
+    <EmbeddedResource Include="SonicOrca.Original/CreditsFont/*.png" LogicalName="CreditsFont/%(Filename)%(Extension)" />
+  </ItemGroup>
+
 </Project>
