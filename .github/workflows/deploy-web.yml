@@ -13,6 +13,7 @@ on:
       - "assets/**"
       - "web/**"
       - ".github/workflows/deploy-web.yml"
+      - "global.json"
   pull_request:
     paths:
       - "S2HD/**"
@@ -21,6 +22,7 @@ on:
       - "assets/**"
       - "web/**"
       - ".github/workflows/deploy-web.yml"
+      - "global.json"
   workflow_dispatch:
 
 permissions:
