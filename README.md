@@ -355,6 +355,12 @@ To change the credits, unpack the `ending` mod and edit the files:
 - In `SLIDES.xml`, each `slide` element is one slide. Each `text` element is one line of text. `x` and `y` give the
   top left corner of the line in pixels of the original screen (320 x 224). `line="0"` is white and `line="1"` is
   yellow.
+- You can add or remove slides. The slides share the time of the song, so the logo still comes at the end of the
+  song. With the 21 slides of the original, each slide shows for 399 frames at full colour, as in the original.
+  `frames="600"` on a `slide` element gives that slide 600 frames (10 seconds) at full colour. The slides without
+  `frames` share the rest of the time equally, with at least 60 frames each. Each fade in and each fade out takes 22
+  more frames. When the slides need more time than the song, the logo comes after the end of the song, and the log
+  tells you.
 - In `FONT`, the name of an image is its character: `A.png`, `9.png`, `FULLSTOP.png`, `APOSTROPHE.png`,
   `LEFTBRACKET.png`, `RIGHTBRACKET.png` and `COPYRIGHT.png` (the © sign). For another character, the name is `U` and
   the hexadecimal code of the character, for example `U00C9.png` for É. Draw the character in white on a transparent
@@ -362,6 +368,7 @@ To change the credits, unpack the `ending` mod and edit the files:
 - A character is 8 pixels of the original high. The width of its image, relative to its height, gives the width of
   the character. Thus a 16 x 8 image (or 64 x 32 for a larger image) is 16 pixels of the original wide. A space is
   8 pixels wide. A character without an image is not drawn, and it is 16 pixels wide.
+- To make a glyph sharper, draw it larger: the game uses linear filtering for an image that is higher than 8 pixels.
 
 ```sh
 dotnet run --project tools/s2hd-data -- import-ending ../s2disasm ending
