@@ -37,11 +37,7 @@ internal sealed class OriginalCreditsGameState : IGameState, IDisposable
 	/// <summary>The palette lines of the text, and the colour of each line (Mega Drive 0BGR): white and yellow.</summary>
 	private static readonly ushort[] TextColours = { 0x0EEE, 0x00EE };
 
-	/// <summary>A fade of the original (Pal_FadeFromBlack or Pal_FadeToBlack) takes 22 frames.</summary>
-	private const int FadeFrames = 22;
-
-	/// <summary>The frames that a slide shows at full colour: $18E + 1 at 60 frames per second.</summary>
-	private const int SlideFrames = 0x18E + 1;
+	private const int FadeFrames = OriginalCredits.FadeFrames;
 
 	/// <summary>The frames before the logo starts to flash.</summary>
 	private const int LogoWaitFrames = 0x3B + 1;
@@ -158,6 +154,13 @@ internal sealed class OriginalCreditsGameState : IGameState, IDisposable
 			_music.Play();
 		}
 
+		int[] holdFrames = OriginalCredits.GetHoldFrames(_slides);
+		int total = holdFrames.Sum() + _slides.Count * 2 * FadeFrames;
+		System.Diagnostics.Trace.WriteLine($"Credits: {_slides.Count} slides, {total} frames");
+		if (total > OriginalCredits.SlideBudgetFrames)
+		{
+			System.Diagnostics.Trace.WriteLine($"Credits: the slides take {total - OriginalCredits.SlideBudgetFrames} frames more than the song. The logo comes after the end of the song.");
+		}
 		bool skip = false;
 		for (int i = 0; i < _slides.Count && !skip; i++)
 		{
@@ -172,7 +175,7 @@ internal sealed class OriginalCreditsGameState : IGameState, IDisposable
 				}
 				yield return UpdateResult.Next();
 			}
-			for (int frame = 0; frame < SlideFrames && !skip; frame++)
+			for (int frame = 0; frame < holdFrames[i] && !skip; frame++)
 			{
 				skip = IsSkipPressed();
 				yield return UpdateResult.Next();

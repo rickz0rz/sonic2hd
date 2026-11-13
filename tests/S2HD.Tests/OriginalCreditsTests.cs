@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Xml;
 using S2HD;
 using SonicOrca.Original;
@@ -97,5 +98,64 @@ public sealed class OriginalCreditsTests
 		Assert.Equal(0x0EC0, MegaDriveFade.FadeOut(0x0EE0));
 		Assert.Equal(0x0C00, MegaDriveFade.FadeOut(0x0E00));
 		Assert.Equal(0, MegaDriveFade.FadeOut(0));
+	}
+
+	private static List<OriginalCredits.Slide> Slides(params int?[] frames) =>
+		frames.Select(f => new OriginalCredits.Slide(new[] { new OriginalCredits.TextItem(0, "A", 0, 0) }, f)).ToList();
+
+	private static int Total(IReadOnlyList<OriginalCredits.Slide> slides, int[] holdFrames) =>
+		holdFrames.Sum() + slides.Count * 2 * OriginalCredits.FadeFrames;
+
+	[Fact]
+	public void GetHoldFrames_GivesTheOriginalTiming_ToTheOriginalSlides()
+	{
+		List<OriginalCredits.Slide> slides = Slides(new int?[OriginalCredits.OriginalSlideCount]);
+
+		int[] frames = OriginalCredits.GetHoldFrames(slides);
+
+		Assert.All(frames, f => Assert.Equal(OriginalCredits.OriginalHoldFrames, f));
+		Assert.Equal(9303, Total(slides, frames));
+	}
+
+	[Fact]
+	public void GetHoldFrames_SharesTheTimeOfTheSong_WhenAModAddsSlides()
+	{
+		List<OriginalCredits.Slide> slides = Slides(new int?[23]);
+
+		int[] frames = OriginalCredits.GetHoldFrames(slides);
+
+		Assert.All(frames, f => Assert.InRange(f, 360, 361));
+		Assert.Equal(OriginalCredits.SlideBudgetFrames, Total(slides, frames));
+	}
+
+	[Fact]
+	public void GetHoldFrames_KeepsTheFramesOfASlide_AndSharesTheRest()
+	{
+		List<OriginalCredits.Slide> slides = Slides(600, null, null, null);
+
+		int[] frames = OriginalCredits.GetHoldFrames(slides);
+
+		Assert.Equal(600, frames[0]);
+		Assert.Equal(OriginalCredits.SlideBudgetFrames, Total(slides, frames));
+		Assert.True(frames.Skip(1).Max() - frames.Skip(1).Min() <= 1);
+	}
+
+	[Fact]
+	public void GetHoldFrames_GivesOneSecondAtLeast_WhenTheFixedSlidesTakeTheTime()
+	{
+		Assert.Equal(new[] { 9100, 60, 60 }, OriginalCredits.GetHoldFrames(Slides(9100, null, null)));
+	}
+
+	[Fact]
+	public void ParseSlides_ReadsTheFramesOfASlide()
+	{
+		List<OriginalCredits.Slide> slides = Slides(600, null);
+		XmlDocument document = new XmlDocument();
+		document.LoadXml(OriginalCredits.WriteSlides(slides));
+
+		List<OriginalCredits.Slide> read = OriginalCredits.ParseSlides(document);
+
+		Assert.Equal(600, read[0].Frames);
+		Assert.Null(read[1].Frames);
 	}
 }

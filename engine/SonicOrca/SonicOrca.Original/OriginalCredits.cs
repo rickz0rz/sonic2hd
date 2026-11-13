@@ -85,8 +85,71 @@ public static class OriginalCredits
 	/// <summary>A line of text of a slide: its palette line, its text, and the position of its top left corner in pixels of the original.</summary>
 	public sealed record TextItem(int Line, string Text, int X, int Y);
 
-	/// <summary>A slide: its lines of text.</summary>
-	public sealed record Slide(IReadOnlyList<TextItem> Items);
+	/// <summary>
+	/// A slide: its lines of text, and optionally the frames that it shows at full colour. Without frames, the slide
+	/// gets an equal part of the time that the other slides leave (see <see cref="GetHoldFrames"/>).
+	/// </summary>
+	public sealed record Slide(IReadOnlyList<TextItem> Items, int? Frames = null);
+
+	/// <summary>The number of slides of the original credits.</summary>
+	public const int OriginalSlideCount = 21;
+
+	/// <summary>A fade of the original (Pal_FadeFromBlack or Pal_FadeToBlack) takes 22 frames.</summary>
+	public const int FadeFrames = 22;
+
+	/// <summary>The frames that a slide of the original shows at full colour: $18E + 1 at 60 frames per second.</summary>
+	public const int OriginalHoldFrames = 0x18E + 1;
+
+	/// <summary>
+	/// The frames of all the slides of the original, with their fades: 9303. The logo then comes at the end of the
+	/// song, so the slides of a mod share this time.
+	/// </summary>
+	public const int SlideBudgetFrames = OriginalSlideCount * (FadeFrames + OriginalHoldFrames + FadeFrames);
+
+	/// <summary>The fewest frames at full colour of a slide without frames: one second.</summary>
+	public const int MinimumHoldFrames = 60;
+
+	/// <summary>
+	/// Gives the frames at full colour of each slide. A slide with frames keeps them. The other slides share the rest
+	/// of <see cref="SlideBudgetFrames"/> equally, after the fades. Thus with the 21 slides of the original, each slide
+	/// gets 399 frames, as in the original. A slide without frames gets at least <see cref="MinimumHoldFrames"/>. Then
+	/// the slides can take more than the budget, and the logo comes after the end of the song.
+	/// </summary>
+	public static int[] GetHoldFrames(IReadOnlyList<Slide> slides)
+	{
+		int[] frames = new int[slides.Count];
+		int rest = SlideBudgetFrames - slides.Count * 2 * FadeFrames;
+		List<int> shared = new List<int>();
+		for (int i = 0; i < slides.Count; i++)
+		{
+			if (slides[i].Frames is int fixedFrames)
+			{
+				frames[i] = Math.Max(fixedFrames, 0);
+				rest -= frames[i];
+			}
+			else
+			{
+				shared.Add(i);
+			}
+		}
+		if (shared.Count == 0)
+		{
+			return frames;
+		}
+		int part = rest / shared.Count;
+		int extra = rest % shared.Count;
+		if (part < MinimumHoldFrames)
+		{
+			part = MinimumHoldFrames;
+			extra = 0;
+		}
+		// The frames that do not divide equally go to the first slides, one frame each
+		for (int j = 0; j < shared.Count; j++)
+		{
+			frames[shared[j]] = part + (j < extra ? 1 : 0);
+		}
+		return frames;
+	}
 
 	/// <summary>
 	/// Reads the slides of the credits from s2.asm, in their order. The text has <see cref="CopyrightSign"/> in place
@@ -201,7 +264,9 @@ public static class OriginalCredits
 	{
 		XElement root = new XElement("credits",
 			new XComment(" x and y are in pixels of the original screen (320 x 224). line 0 is white, line 1 is yellow. "),
+			new XComment(" frames on a slide sets the frames at full colour (60 a second). The slides without frames share the rest of the time of the song. "),
 			slides.Select(slide => new XElement("slide",
+				slide.Frames is int frames ? new XAttribute("frames", frames) : null,
 				slide.Items.Select(item => new XElement("text",
 					new XAttribute("line", item.Line),
 					new XAttribute("x", item.X),
@@ -222,7 +287,8 @@ public static class OriginalCredits
 					text.InnerText,
 					int.Parse(text.GetAttribute("x"), CultureInfo.InvariantCulture),
 					int.Parse(text.GetAttribute("y"), CultureInfo.InvariantCulture)))
-				.ToList()));
+				.ToList(),
+				int.TryParse(slide.GetAttribute("frames"), NumberStyles.Integer, CultureInfo.InvariantCulture, out int frames) ? frames : null));
 		}
 		return slides;
 	}
