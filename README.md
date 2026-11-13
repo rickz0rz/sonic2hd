@@ -166,7 +166,8 @@ dotnet run --project tools/s2hd-data -- pack   my-mod my-mod.dat --base data/son
    - `mods/` in the user data folder (see "Logs and settings"). This folder is outside the macOS app bundle, so
      the app signature stays valid and an update does not remove the mod.
 
-The game loads `data/`, then each `mods/` folder, and each folder in file name order. A resource in a later file
+The game loads `data/`, then each `mods/` folder. In each folder, it loads the `.dat` files in file name order, then
+the mod folders (see "Mod folders"). A resource in a later file
 replaces the resource with the same key. A mod cannot remove a resource. To turn mods off, add `use_mods=false` to
 the `[general]` section of `sonicorca.cfg`.
 
@@ -176,9 +177,10 @@ Without `--base`, `pack` writes all resources of the folder. That file can repla
 
 A folder in a `mods` folder is also a mod. It has the same files as an unpacked folder, for example
 `mods/my-mod/SONICORCA/OBJECTS/RING/TEXTURE.png`. The game reads the files from the disk when it starts, so you can
-change a file and start the game again, with no pack step. The game loads the folders and the `.dat` files of a
-`mods` folder together, in name order. The `editor` folder and the folders whose names start with a dot are not
-mods.
+change a file and start the game again, with no pack step. In a `mods` folder, the game loads all the `.dat` files
+first, in name order. Then it loads the folders, in name order. Thus a folder replaces the `.dat` files. For example,
+`mods/ending` with a changed font replaces the font of `mods/ending.dat`. The `editor` folder and the folders whose
+names start with a dot are not mods.
 
 To change images, unpack all the images into a mod folder, change the images that you want, and then delete the
 images that you did not change:
