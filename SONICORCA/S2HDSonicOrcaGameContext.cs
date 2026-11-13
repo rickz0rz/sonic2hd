@@ -267,14 +267,16 @@ internal class S2HDSonicOrcaGameContext(IPlatform platform) : SonicOrcaGameConte
 		Console.Draw(Renderer);
 		Renderer.DeativateRenderer();
 		// F10 takes a screenshot.
-		if (Singleton.Input.Pressed.Keyboard[F10Scancode] || SonicOrca.Core.Debugging.FrameProfiler.IsCaptureFrame(DrawCount))
+		bool frameCapture = SonicOrca.Core.Debugging.FrameProfiler.IsCaptureFrame(DrawCount);
+		if (Singleton.Input.Pressed.Keyboard[F10Scancode] || frameCapture)
 			ScreenshotRenderer.GrabScreenshot(UserDataDirectory);
-		if (TestHooks.TakeLevelTickCapture(out string captureFilename))
-		{
+		bool levelTickCapture = TestHooks.TakeLevelTickCapture(out string captureFilename);
+		if (levelTickCapture)
 			ScreenshotRenderer.GrabScreenshot(UserDataDirectory, captureFilename);
-			if (TestHooks.ExitAfterCaptures && TestHooks.AllCapturesTaken)
-				Finish = true;
-		}
+		// Quit after the last screenshot of the two kinds: the level ticks and the draw numbers
+		if (TestHooks.ExitAfterCaptures && (frameCapture || levelTickCapture) && TestHooks.AllLevelTickCapturesTaken &&
+			SonicOrca.Core.Debugging.FrameProfiler.AllCaptureFramesTaken(DrawCount))
+			Finish = true;
 		if (!ForceHD)
 			return;
 		Window.GraphicsContext.RenderToBackBuffer();
