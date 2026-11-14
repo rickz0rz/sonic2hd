@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
     <AssemblyName>S2HD</AssemblyName>
     <RootNamespace>S2HD</RootNamespace>
     <LangVersion>latest</LangVersion>

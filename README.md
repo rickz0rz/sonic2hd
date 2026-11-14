@@ -1,7 +1,7 @@
-# Sonic 2 HD (S2HD) — enhanced .NET 10 port
+# Sonic 2 HD (S2HD) — enhanced .NET 11 port
 
 An enhanced port of the abandoned **Sonic 2 HD 2.0.1012-rc2** demo (originally .NET Framework 4.5, Windows only) to
-cross-platform **.NET 10**. The game and its SonicOrca engine were decompiled from the released binaries. All credit
+cross-platform **.NET 11**. The game and its SonicOrca engine were decompiled from the released binaries. All credit
 for the game goes to the original S2HD team. This is a non-profit fan project, not affiliated with SEGA or Sonic Team.
 
 The port adds these parts to the demo:
@@ -47,17 +47,17 @@ Then build with `-p:GameDir="$PWD/"` on macOS or `-p:GameDir="$PWD\"` in PowerSh
 
 ## Windows
 
-Requires the .NET 10 SDK.
+Requires the .NET 11 SDK.
 
 ```powershell
 .\tools\get-ffmpeg.ps1          # once: FFmpeg 7.1 DLLs for the credits film
-dotnet build                    # development build in bin\Debug\net10.0\win-x64
+dotnet build                    # development build in bin\Debug\net11.0\win-x64
 .\tools\publish.ps1 -Zip        # self-contained release in publish\S2HD-win-x64
 ```
 
 ## macOS (Apple Silicon)
 
-Requires the .NET 10 SDK (`brew install --cask dotnet-sdk` or the installer from https://dot.net) and the Xcode
+Requires the .NET 11 SDK (`brew install --cask dotnet-sdk` or the installer from https://dot.net) and the Xcode
 Command Line Tools (`xcode-select --install`).
 
 ```sh
