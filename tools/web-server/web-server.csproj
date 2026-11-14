@@ -3,7 +3,7 @@
   <!-- Local static file server for testing the web build (see Program.cs) -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
     <Nullable>disable</Nullable>
   </PropertyGroup>
 

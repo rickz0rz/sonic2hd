@@ -2,7 +2,7 @@
 
   <!-- Tests for the resource file format, and a screenshot regression test that plays the attract demo -->
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
     <OutputType>Exe</OutputType>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>

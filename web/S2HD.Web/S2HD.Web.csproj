@@ -2,7 +2,7 @@
 
   <!-- Browser build: the game and engine compiled to WebAssembly, rendering through WebGL2 -->
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
     <AssemblyName>S2HD.Web</AssemblyName>
     <RootNamespace>S2HD</RootNamespace>
     <!-- Same version as the desktop game (shown on the title screen) -->
